@@ -38,7 +38,6 @@ html[data-theme="dark"] {
   --brick-soft: #3A2420;
 }
 
-[hidden] { display: none !important; }
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 html, body { margin: 0; padding: 0; overscroll-behavior-y: contain; }
 body {
@@ -442,22 +441,3 @@ input[type="number"]::-webkit-inner-spin-button {
 .ingredient-row__grams { color: var(--ink-soft); flex-shrink: 0; }
 .ingredient-row button { background: none; border: none; color: var(--ink-soft); cursor: pointer; padding: 3px; flex-shrink: 0; }
 .ingredient-row button svg { width: 14px; height: 14px; display: block; }
-
-/* Clear All button (full-width, appears once a meal is being built) */
-.btn--ghost-full {
-  display: flex; align-items: center; justify-content: center; gap: 8px;
-  background: var(--surface); border: 1.5px solid var(--line); color: var(--ink-soft);
-  margin-top: 10px;
-}
-.btn--ghost-full svg { width: 16px; height: 16px; }
-
-/* Live "now" marker on the 24h ratio timeline */
-.timeline { position: relative; }
-.timeline__now {
-  position: absolute; top: -3px; bottom: -3px; width: 2px; background: var(--ink);
-  pointer-events: none; z-index: 2;
-}
-.timeline__now::before {
-  content: ""; position: absolute; top: -5px; left: 50%; transform: translateX(-50%);
-  width: 7px; height: 7px; border-radius: 50%; background: var(--ink);
-}

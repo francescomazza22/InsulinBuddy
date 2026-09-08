@@ -155,7 +155,6 @@
   const foodListBox = el("cc-food-list");
   const logBtn = el("cc-log-btn");
   const resetBtn = el("cc-reset-btn");
-  const clearAllBtn = el("cc-clear-all-btn");
 
   let selectedPickId = null; // id of highlighted item in the pick list (format "food:ID" or "recipe:ID")
 
@@ -167,15 +166,10 @@
   function recipeTotals(recipe) {
     let carbs = 0, kcal = 0;
     recipe.items.forEach(it => {
-      let cp100 = it.carbsPer100g, kp100 = it.kcalPer100g;
-      if (cp100 == null) {
-        // older recipes saved before ingredients snapshotted their rates — fall back to a live lookup
-        const food = state.library.find(f => f.id === it.foodId);
-        cp100 = food ? food.carbs : 0;
-        kp100 = food ? food.kcal : null;
-      }
-      carbs += (cp100 || 0) * it.grams / 100;
-      kcal += (kp100 || 0) * it.grams / 100;
+      const food = state.library.find(f => f.id === it.foodId);
+      if (!food) return;
+      carbs += (food.carbs || 0) * it.grams / 100;
+      kcal += (food.kcal || 0) * it.grams / 100;
     });
     const totalCarbs = Math.round(carbs * 10) / 10;
     const totalKcal = Math.round(kcal);
@@ -254,7 +248,6 @@
     if (!grams || grams <= 0) { gramsInput.focus(); return; }
     draft.items.push({
       refType: type, refId: id, name: item.name, grams,
-      carbsPer100g: item.carbsPer100g, kcalPer100g: item.kcalPer100g,
       carbs: Math.round(item.carbsPer100g * grams) / 100,
       kcal: item.kcalPer100g ? Math.round(item.kcalPer100g * grams) / 100 : null
     });
@@ -271,7 +264,6 @@
   gramsInput.addEventListener("keydown", e => { if (e.key === "Enter") addSelectedToMeal(); });
 
   function renderMealItems() {
-    el("cc-current-meal-header").hidden = draft.items.length === 0;
     mealItemsBox.innerHTML = "";
     draft.items.forEach((item, idx) => {
       const row = document.createElement("div");
@@ -325,7 +317,6 @@
     doseNumber.textContent = finalDose.toFixed(1);
 
     logBtn.disabled = carbs <= 0;
-    clearAllBtn.hidden = carbs <= 0;
 
     draft._computed = { carbs, mealDose: roundDose(mealPart), correctionDose: roundDose(correctionPart), finalDose, ratioEntry };
   }
@@ -358,23 +349,19 @@
     `;
   }
 
-  ratioPill.addEventListener("click", e => {
-    e.stopPropagation();
+  ratioPill.addEventListener("click", () => {
     if (ratioPicker.hidden) { renderRatioPicker(); ratioPicker.hidden = false; }
     else ratioPicker.hidden = true;
   });
   ratioPicker.addEventListener("click", e => {
-    e.stopPropagation();
     const btn = e.target.closest(".ratio-picker__item");
     if (!btn) return;
     draft.manualRatioId = btn.dataset.id === "__auto__" ? null : btn.dataset.id;
     ratioPicker.hidden = true;
     recompute();
   });
-  document.addEventListener("click", () => { ratioPicker.hidden = true; });
-  document.addEventListener("keydown", e => { if (e.key === "Escape") ratioPicker.hidden = true; });
 
-  function resetDraft() {
+  resetBtn.addEventListener("click", () => {
     draft = { items: [], correctionOn: false, glucose: "", manualRatioId: null };
     searchInput.value = ""; gramsInput.value = ""; gramsInput.disabled = false;
     glucoseInput.value = "";
@@ -385,23 +372,12 @@
     renderFoodPickList();
     renderMealItems();
     recompute();
-  }
-  resetBtn.addEventListener("click", resetDraft);
-  clearAllBtn.addEventListener("click", resetDraft);
+  });
 
-  // Meal type is detected automatically from time of day — no prompt needed
-  function autoMealType(date) {
-    const h = date.getHours() + date.getMinutes() / 60;
-    if (h >= 5 && h < 10.5) return "breakfast";
-    if (h >= 10.5 && h < 14.5) return "lunch";
-    if (h >= 14.5 && h < 18) return "snack";
-    if (h >= 18 && h < 22.5) return "dinner";
-    return "snack";
-  }
-
+  // ---- Log meal (choose meal type, then save) ----
   logBtn.addEventListener("click", () => {
     if (totalCarbs() <= 0) return;
-    logMeal(autoMealType(new Date()));
+    openMealTypeSheet();
   });
 
   // ---- Bottom-sheet helpers: lock background scroll on mobile while a sheet is open ----
@@ -417,26 +393,44 @@
     if (openSheetCount === 0) document.body.classList.remove("sheet-open");
   }
 
+  function openMealTypeSheet() {
+    const backdrop = document.createElement("div");
+    backdrop.className = "sheet-backdrop";
+    backdrop.innerHTML = `
+      <div class="sheet">
+        <h2>Log as&hellip;</h2>
+        <div class="field-grid" style="margin-bottom:16px;">
+          ${Object.entries(MEAL_TYPES).map(([key, m]) => `
+            <button class="btn btn--secondary" data-meal="${key}" type="button" style="display:flex;align-items:center;gap:8px;justify-content:center;">
+              <span style="color:${m.color};width:18px;height:18px;">${m.icon}</span>${m.label}
+            </button>
+          `).join("")}
+        </div>
+        <button class="btn" id="sheet-cancel" type="button" style="background:none;color:var(--ink-soft);">Cancel</button>
+      </div>
+    `;
+    openSheet(backdrop);
+    backdrop.addEventListener("click", e => {
+      if (e.target === backdrop || e.target.id === "sheet-cancel") { closeSheet(backdrop); return; }
+      const btn = e.target.closest("[data-meal]");
+      if (btn) { logMeal(btn.dataset.meal); closeSheet(backdrop); }
+    });
+  }
+
   function logMeal(mealType) {
     const ratioEntry = draft._computed.ratioEntry;
     const now = new Date();
     const periodEntry = currentTimeRatio(now);
-    const glucoseVal = draft.correctionOn ? (parseFloat(glucoseInput.value) || null) : null;
     const entry = {
       id: "h-" + Date.now(),
       ts: now.getTime(),
       mealType,
       periodName: periodEntry ? periodEntry.name.toLowerCase() : "",
-      items: draft.items.map(i => ({
-        refType: i.refType, refId: i.refId, name: i.name, grams: i.grams,
-        carbsPer100g: i.carbsPer100g, kcalPer100g: i.kcalPer100g,
-        carbs: i.carbs, kcal: i.kcal
-      })),
+      items: draft.items.map(i => ({ name: i.name, grams: i.grams, carbs: i.carbs, kcal: i.kcal })),
       totalCarbs: round1(totalCarbs()),
       totalKcal: Math.round(draft.items.reduce((s, i) => s + (i.kcal || 0), 0)),
       mealDose: draft._computed.mealDose,
       correctionDose: draft._computed.correctionDose,
-      glucose: glucoseVal,
       ratioLabel: ratioEntry ? ratioEntry.name : "",
       ratioValue: ratioEntry ? ratioEntry.ratio : null
     };
@@ -451,7 +445,7 @@
       }
     });
     saveState();
-    resetDraft();
+    resetBtn.click();
   }
 
   function escapeHtml(s) {
@@ -681,8 +675,8 @@
           </div>
           <p class="lib-item__meta">${perG}</p>
           <p class="lib-item__note">${r.items.map(it => {
-            const name = it.name || (state.library.find(x => x.id === it.foodId) || {}).name;
-            return name ? `${name} (${it.grams}g)` : "";
+            const f = state.library.find(x => x.id === it.foodId);
+            return f ? `${f.name} (${it.grams}g)` : "";
           }).filter(Boolean).join(", ")}${r.finalWeight ? ` — final weight ${r.finalWeight}g` : ""}</p>
           <p class="lib-item__usage">Used ${r.usageCount || 0}× times</p>
         </div>
@@ -783,10 +777,10 @@
       const box = backdrop.querySelector("#rs-ing-list");
       if (items.length === 0) { box.innerHTML = ""; return; }
       box.innerHTML = items.map((it, idx) => {
-        const name = it.name || (state.library.find(x => x.id === it.foodId) || {}).name || "(missing food)";
+        const f = state.library.find(x => x.id === it.foodId);
         return `
           <div class="ingredient-row">
-            <span class="ingredient-row__name">${escapeHtml(name)}</span>
+            <span class="ingredient-row__name">${f ? escapeHtml(f.name) : "(missing food)"}</span>
             <span class="ingredient-row__grams">${it.grams}g</span>
             <button type="button" data-idx="${idx}" aria-label="Remove ingredient">
               <svg viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
@@ -823,11 +817,7 @@
       const weight = parseFloat(backdrop.querySelector("#rs-ing-weight").value);
       if (!ingredientSelection) { backdrop.querySelector("#rs-ing-search").focus(); return; }
       if (!weight || weight <= 0) { backdrop.querySelector("#rs-ing-weight").focus(); return; }
-      const food = state.library.find(f => f.id === ingredientSelection.foodId);
-      items.push({
-        foodId: ingredientSelection.foodId, name: ingredientSelection.name, grams: weight,
-        carbsPer100g: food ? food.carbs : 0, kcalPer100g: food ? food.kcal : null
-      });
+      items.push({ foodId: ingredientSelection.foodId, grams: weight });
       ingredientSelection = null;
       backdrop.querySelector("#rs-ing-search").value = "";
       backdrop.querySelector("#rs-ing-weight").value = "";
@@ -929,8 +919,6 @@
             <div class="history-entry__detail" hidden>
               ${entry.items.map(i => `<div><span>${escapeHtml(i.name)}${i.grams ? " (" + i.grams + "g)" : ""}</span><span>${round1(i.carbs)}g carbs</span></div>`).join("")}
               <div class="history-entry__row-actions">
-                <button data-use="${entry.id}" type="button">Use Again</button>
-                <button data-edit="${entry.id}" type="button">Edit</button>
                 <button class="danger" data-del="${entry.id}" type="button">Delete</button>
               </div>
             </div>
@@ -957,162 +945,11 @@
       }
       return;
     }
-    const useBtn = e.target.closest("[data-use]");
-    if (useBtn) {
-      const entry = state.history.find(h => h.id === useBtn.dataset.use);
-      if (entry) useMealAgain(entry);
-      return;
-    }
-    const editBtn = e.target.closest("[data-edit]");
-    if (editBtn) {
-      const entry = state.history.find(h => h.id === editBtn.dataset.edit);
-      if (entry) openEditMealSheet(entry);
-      return;
-    }
     const row = e.target.closest(".history-entry");
     if (!row) return;
     const detail = row.querySelector(".history-entry__detail");
     detail.hidden = !detail.hidden;
   });
-
-  function useMealAgain(entry) {
-    if (draft.items.length > 0 && !confirm("This replaces what's currently in the Calculator. Continue?")) return;
-    draft = {
-      items: entry.items.map(i => ({
-        refType: i.refType, refId: i.refId, name: i.name, grams: i.grams,
-        carbsPer100g: i.carbsPer100g, kcalPer100g: i.kcalPer100g, carbs: i.carbs, kcal: i.kcal
-      })),
-      correctionOn: false, glucose: "", manualRatioId: null
-    };
-    searchInput.value = ""; gramsInput.value = ""; gramsInput.disabled = false;
-    glucoseInput.value = ""; correctionToggle.classList.remove("is-active"); correctionRow.hidden = true;
-    ratioPicker.hidden = true; selectedPickId = null;
-    renderFoodPickList(); renderMealItems(); recompute();
-    showView("calculator");
-  }
-
-  function openEditMealSheet(entry) {
-    let items = entry.items.map(i => ({ ...i }));
-    let mealType = entry.mealType;
-    let glucose = entry.glucose;
-
-    const backdrop = document.createElement("div");
-    backdrop.className = "sheet-backdrop";
-    backdrop.innerHTML = `
-      <div class="sheet">
-        <div class="sheet-head">
-          <h2>Edit Meal</h2>
-          <button class="sheet-close" id="em-close" type="button" aria-label="Close">
-            <svg viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
-          </button>
-        </div>
-        <label class="block-label">Meal type</label>
-        <div class="field-grid" id="em-meal-types" style="margin-bottom:18px;">
-          ${Object.entries(MEAL_TYPES).map(([key, m]) => `
-            <button class="btn btn--secondary" data-meal="${key}" type="button" style="display:flex;align-items:center;gap:8px;justify-content:center;${key === mealType ? `border-color:${m.color};color:${m.color};` : ""}">
-              <span style="color:${m.color};width:18px;height:18px;">${m.icon}</span>${m.label}
-            </button>
-          `).join("")}
-        </div>
-        <label class="block-label">Items</label>
-        <div id="em-items" class="ingredient-list" style="margin-bottom:16px;"></div>
-        ${entry.glucose != null ? `
-          <div class="field">
-            <label>Current glucose at the time</label>
-            <div class="field__row"><input type="number" id="em-glucose" value="${entry.glucose}" step="0.1"><span>${unitLabel()}</span></div>
-          </div>
-        ` : ""}
-        <p class="disclaimer" id="em-preview" style="margin-bottom:16px;"></p>
-        <div class="sheet-actions">
-          <button class="btn btn--secondary" id="em-cancel" type="button">Cancel</button>
-          <button class="btn btn--primary" id="em-save" type="button">Save Changes</button>
-        </div>
-      </div>
-    `;
-    openSheet(backdrop);
-
-    function renderItems() {
-      backdrop.querySelector("#em-items").innerHTML = items.map((it, idx) => `
-        <div class="ingredient-row">
-          <span class="ingredient-row__name">${escapeHtml(it.name)}</span>
-          <input type="number" min="0" value="${it.grams}" data-idx="${idx}" class="em-grams-input" style="width:70px;padding:6px 8px;text-align:right;">
-          <span style="width:14px;"></span>
-          <button type="button" data-idx="${idx}" class="em-remove" aria-label="Remove item">
-            <svg viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
-          </button>
-        </div>
-      `).join("");
-      updatePreview();
-    }
-
-    function updatePreview() {
-      const totalCarbs = round1(items.reduce((s, i) => s + i.carbs, 0));
-      let correctionDose = 0;
-      const glucoseInputEl = backdrop.querySelector("#em-glucose");
-      if (glucoseInputEl) {
-        const g = parseFloat(glucoseInputEl.value);
-        if (!isNaN(g) && g > 0) correctionDose = Math.max(0, (g - state.settings.target) / state.settings.isf);
-      }
-      const mealDose = entry.ratioValue ? totalCarbs / entry.ratioValue : 0;
-      let total = mealDose + correctionDose;
-      if (state.settings.maxDose > 0 && total > state.settings.maxDose) total = state.settings.maxDose;
-      backdrop.querySelector("#em-preview").textContent =
-        `New total: ${round1(totalCarbs)}g carbs → ${roundDose(total).toFixed(1)} units` +
-        (entry.ratioValue ? ` (using the original 1:${entry.ratioValue} ratio)` : "");
-    }
-
-    backdrop.querySelector("#em-meal-types").addEventListener("click", e => {
-      const btn = e.target.closest("[data-meal]");
-      if (!btn) return;
-      mealType = btn.dataset.meal;
-      backdrop.querySelectorAll("#em-meal-types button").forEach(b => { b.style.borderColor = ""; b.style.color = ""; });
-      const m = MEAL_TYPES[mealType];
-      btn.style.borderColor = m.color; btn.style.color = m.color;
-    });
-    backdrop.querySelector("#em-items").addEventListener("input", e => {
-      if (!e.target.classList.contains("em-grams-input")) return;
-      const idx = parseInt(e.target.dataset.idx, 10);
-      const grams = parseFloat(e.target.value) || 0;
-      items[idx].grams = grams;
-      items[idx].carbs = items[idx].carbsPer100g != null ? Math.round(items[idx].carbsPer100g * grams) / 100 : items[idx].carbs;
-      items[idx].kcal = items[idx].kcalPer100g ? Math.round(items[idx].kcalPer100g * grams) / 100 : items[idx].kcal;
-      updatePreview();
-    });
-    backdrop.querySelector("#em-items").addEventListener("click", e => {
-      const btn = e.target.closest(".em-remove");
-      if (!btn) return;
-      items.splice(parseInt(btn.dataset.idx, 10), 1);
-      renderItems();
-    });
-    const glucoseEl = backdrop.querySelector("#em-glucose");
-    if (glucoseEl) glucoseEl.addEventListener("input", updatePreview);
-
-    renderItems();
-    backdrop.addEventListener("click", e => { if (e.target === backdrop || e.target.id === "em-cancel" || e.target.closest("#em-close")) closeSheet(backdrop); });
-    backdrop.querySelector("#em-save").addEventListener("click", () => {
-      if (items.length === 0) { alert("A meal needs at least one item — delete it instead if you want it gone."); return; }
-      const totalCarbs = round1(items.reduce((s, i) => s + i.carbs, 0));
-      const totalKcal = Math.round(items.reduce((s, i) => s + (i.kcal || 0), 0));
-      const mealDose = entry.ratioValue ? roundDose(totalCarbs / entry.ratioValue) : entry.mealDose;
-      let correctionDose = 0;
-      const glucoseInputEl2 = backdrop.querySelector("#em-glucose");
-      let newGlucose = entry.glucose;
-      if (glucoseInputEl2) {
-        newGlucose = parseFloat(glucoseInputEl2.value) || null;
-        if (newGlucose) correctionDose = roundDose(Math.max(0, (newGlucose - state.settings.target) / state.settings.isf));
-      }
-      entry.mealType = mealType;
-      entry.items = items;
-      entry.totalCarbs = totalCarbs;
-      entry.totalKcal = totalKcal;
-      entry.mealDose = mealDose;
-      entry.correctionDose = correctionDose;
-      entry.glucose = newGlucose;
-      saveState();
-      renderHistory();
-      closeSheet(backdrop);
-    });
-  }
 
   // ================= Settings =================
   let settingsSeg = "ratios";
@@ -1165,14 +1002,6 @@
       div.textContent = width > 10 ? `${seg.r.name} · 1:${seg.r.ratio}` : "";
       bar.appendChild(div);
     });
-
-    const now = new Date();
-    const nowMinutes = now.getHours() * 60 + now.getMinutes();
-    const marker = document.createElement("div");
-    marker.className = "timeline__now";
-    marker.style.left = ((nowMinutes / 1440) * 100) + "%";
-    marker.title = "Now";
-    bar.appendChild(marker);
   }
 
   function renderTimeRatioList() {
@@ -1327,12 +1156,12 @@
       const recipeRows = state.recipes.map(r => {
         const t = recipeTotals(r);
         const ingredients = r.items.map(it => {
-          const cp100 = it.carbsPer100g ?? 0, kp100 = it.kcalPer100g ?? null;
+          const f = state.library.find(x => x.id === it.foodId);
           return {
-            food_name: it.name || "", weight_grams: it.grams,
-            carbs: Math.round(cp100 * it.grams) / 100,
-            calories_per_100g: kp100, carbs_per_100g: cp100,
-            calories: kp100 ? Math.round(kp100 * it.grams) / 100 : null,
+            food_name: f ? f.name : "", weight_grams: it.grams,
+            carbs: f ? Math.round(f.carbs * it.grams) / 100 : 0,
+            calories_per_100g: f ? f.kcal : null, carbs_per_100g: f ? f.carbs : null,
+            calories: f && f.kcal ? Math.round(f.kcal * it.grams) / 100 : null,
             food_id: it.foodId
           };
         });
@@ -1424,45 +1253,6 @@
     downloadText(`insulin-buddy-backup-${new Date().toISOString().slice(0, 10)}.json`, JSON.stringify(state, null, 2), "application/json");
   });
 
-  el("btn-import-all").addEventListener("click", () => el("import-all-file-input").click());
-  el("import-all-file-input").addEventListener("change", e => {
-    const file = e.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      try {
-        const data = JSON.parse(reader.result);
-        let foodsAdded = 0, foodsUpdated = 0, recipesAdded = 0, recipesUpdated = 0, historyAdded = 0;
-
-        (data.library || []).forEach(item => {
-          if (!item.name) return;
-          const existing = state.library.find(f => f.name.toLowerCase() === item.name.toLowerCase());
-          if (existing) { Object.assign(existing, item, { id: existing.id }); foodsUpdated++; }
-          else { state.library.push({ ...item, id: item.id || ("food-" + Date.now() + "-" + Math.random().toString(36).slice(2, 6)) }); foodsAdded++; }
-        });
-        (data.recipes || []).forEach(item => {
-          if (!item.name) return;
-          const existing = state.recipes.find(r => r.name.toLowerCase() === item.name.toLowerCase());
-          if (existing) { Object.assign(existing, item, { id: existing.id }); recipesUpdated++; }
-          else { state.recipes.push({ ...item, id: item.id || ("recipe-" + Date.now() + "-" + Math.random().toString(36).slice(2, 6)) }); recipesAdded++; }
-        });
-        (data.history || []).forEach(entry => {
-          if (!state.history.find(h => h.id === entry.id)) { state.history.push(entry); historyAdded++; }
-        });
-        state.history.sort((a, b) => b.ts - a.ts);
-
-        saveState();
-        renderLibrary(); renderHistory(); renderSettings();
-        alert(`Import complete.\nFoods: ${foodsAdded} added, ${foodsUpdated} updated.\nRecipes: ${recipesAdded} added, ${recipesUpdated} updated.\nHistory: ${historyAdded} added.\n\nSettings were left untouched.`);
-      } catch (err) {
-        console.error(err);
-        alert("Could not read that file. Make sure it's a JSON backup exported from this app.");
-      }
-      e.target.value = "";
-    };
-    reader.readAsText(file);
-  });
-
   // ---- General tab ----
   function renderPaletteGrid() {
     const grid = el("palette-grid");
@@ -1510,11 +1300,4 @@
   renderMealItems();
   recompute();
   showView("calculator");
-
-  // Keep the auto-selected ratio (and the settings timeline's "now" marker) accurate
-  // as real time passes, not just at page load.
-  setInterval(() => {
-    if (!draft.manualRatioId) recompute();
-    if (!el("view-settings").hidden && !panelRatios.hidden) renderTimeline();
-  }, 30000);
 })();

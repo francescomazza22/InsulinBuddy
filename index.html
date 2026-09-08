@@ -9,11 +9,6 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Insulin Buddy">
 <meta name="theme-color" content="#F5F3EE">
-<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
-<link rel="icon" type="image/png" sizes="16x16" href="favicon-16.png">
-<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
-<link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
-<link rel="manifest" href="manifest.json">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Public+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -59,7 +54,6 @@
 
       <div class="ratio-picker" id="cc-ratio-picker" hidden></div>
 
-      <div class="section-header" id="cc-current-meal-header" hidden>CURRENT MEAL</div>
       <div class="meal-items" id="cc-meal-items"></div>
 
       <div class="section-header">ADD FOOD ITEM</div>
@@ -74,11 +68,7 @@
 
       <div class="food-pick-list" id="cc-food-list"></div>
 
-      <button class="btn btn--primary" id="cc-log-btn" type="button" disabled>Log Meal to History</button>
-      <button class="btn btn--ghost-full" id="cc-clear-all-btn" type="button" hidden>
-        <svg viewBox="0 0 24 24" fill="none"><path d="M5 7h14M9 7V5a1 1 0 011-1h4a1 1 0 011 1v2m-9 0l1 12a2 2 0 002 2h6a2 2 0 002-2l1-12" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        Clear All
-      </button>
+      <button class="btn btn--primary" id="cc-log-btn" type="button" disabled>Log this meal</button>
       <p class="disclaimer">Uses the ratios you've set in Settings. Always use your own judgment and your care team's guidance — this isn't medical advice.</p>
     </section>
 
@@ -269,16 +259,6 @@
               <span class="data-row__sub">Settings, library, recipes and history as one file</span>
             </span>
           </button>
-          <button class="data-row" id="btn-import-all" type="button">
-            <span class="data-row__icon data-row__icon--up">
-              <svg viewBox="0 0 24 24" fill="none"><path d="M12 21V8m0 0l-4 4m4-4l4 4M4 4h16" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
-            </span>
-            <span class="data-row__text">
-              <span class="data-row__title">Import full backup</span>
-              <span class="data-row__sub">Adds library, recipes and history from a backup file — never replaces what's already here</span>
-            </span>
-          </button>
-          <input type="file" id="import-all-file-input" accept=".json" hidden>
         </div>
       </div>
 
