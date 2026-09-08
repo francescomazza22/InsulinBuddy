@@ -1,0 +1,3751 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light" data-palette="blueViolet">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Insulin Buddy</title>
+<meta name="description" content="Calculate insulin doses from your meals and insulin-to-carb ratios.">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="Insulin Buddy">
+<meta name="theme-color" content="#F5F3EE">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Public+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --ink: #1B2A3A;
+  --ink-soft: #6B7A89;
+  --paper: #F5F3EE;
+  --surface: #FFFFFF;
+  --line: #E4E1D8;
+  --amber: #C8862E;
+  --brick: #A34A3B;
+  --brick-soft: #F1DCD6;
+  --green: #4C7A5E;
+  --radius-s: 10px;
+  --radius-m: 16px;
+  --radius-l: 22px;
+  --font-ui: "Public Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-display: "Fraunces", Georgia, serif;
+
+  /* palette accents — overridden per data-palette */
+  --acc-1: #3B82F6;
+  --acc-2: #8B5CF6;
+  --acc-3: #6366F1;
+}
+
+/* ---------- Palettes ---------- */
+html[data-palette="tealViolet"]   { --acc-1:#1F9E93; --acc-2:#8B5CF6; --acc-3:#38BDF8; }
+html[data-palette="blueViolet"]   { --acc-1:#3B82F6; --acc-2:#8B5CF6; --acc-3:#6366F1; }
+html[data-palette="emeraldRose"]  { --acc-1:#10B981; --acc-2:#F43F5E; --acc-3:#34D399; }
+html[data-palette="orangePink"]   { --acc-1:#F97316; --acc-2:#EC4899; --acc-3:#F59E0B; }
+html[data-palette="cyanIndigo"]   { --acc-1:#22B8CE; --acc-2:#6366F1; --acc-3:#3B82F6; }
+html[data-palette="greenAmber"]   { --acc-1:#22C55E; --acc-2:#F59E0B; --acc-3:#84CC16; }
+
+/* ---------- Dark mode ---------- */
+html[data-theme="dark"] {
+  --ink: #ECEAE3;
+  --ink-soft: #9AA6B2;
+  --paper: #14181D;
+  --surface: #1C2127;
+  --line: #2B3138;
+  --brick-soft: #3A2420;
+}
+
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { margin: 0; padding: 0; overscroll-behavior-y: contain; }
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-ui);
+  -webkit-font-smoothing: antialiased;
+  min-height: 100dvh;
+}
+body.sheet-open { overflow: hidden; }
+button, .tab, .segmented__btn { touch-action: manipulation; }
+@media (prefers-reduced-motion: reduce) {
+  * { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
+}
+
+.app {
+  max-width: 480px;
+  margin: 0 auto;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  padding-bottom: calc(76px + env(safe-area-inset-bottom));
+  position: relative;
+}
+@media (min-width: 481px) {
+  .app { border-left: 1px solid var(--line); border-right: 1px solid var(--line); box-shadow: 0 0 40px rgba(0,0,0,0.05); }
+}
+
+.views { flex: 1; padding: calc(18px + env(safe-area-inset-top)) 18px 28px; }
+
+/* ---------- Shared bits ---------- */
+.page-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+.page-head h1 { font-family: var(--font-display); font-size: 1.5rem; font-weight: 500; margin: 0; }
+.page-head__sub { color: var(--ink-soft); font-size: 0.88rem; margin: 2px 0 0; }
+
+.fab {
+  width: 42px; height: 42px; border-radius: 50%; border: none; flex-shrink: 0;
+  background: var(--acc-1); color: #fff; display: flex; align-items: center; justify-content: center; cursor: pointer;
+}
+.fab svg { width: 20px; height: 20px; }
+
+.section-header { font-size: 0.78rem; font-weight: 700; letter-spacing: 0.04em; color: var(--ink-soft); margin: 4px 0 12px; }
+
+.field { margin-bottom: 16px; }
+.field label { display: block; font-size: 0.86rem; font-weight: 600; margin-bottom: 6px; }
+.field__optional { font-weight: 400; color: var(--ink-soft); }
+.field__row { display: flex; align-items: center; background: var(--surface); border: 1.5px solid var(--line); border-radius: var(--radius-s); overflow: hidden; }
+.field__row:focus-within { border-color: var(--acc-1); }
+.field__row input { flex: 1; min-width: 0; border: none; background: transparent; padding: 12px; font-size: 1.02rem; color: var(--ink); font-family: var(--font-ui); font-variant-numeric: tabular-nums; }
+.field__row input:focus { outline: none; }
+.field__unit { padding: 0 12px; color: var(--ink-soft); font-size: 0.86rem; white-space: nowrap; }
+
+input[type="text"], input[type="number"], select {
+  font-family: var(--font-ui); color: var(--ink); background: var(--surface);
+  border: 1.5px solid var(--line); border-radius: var(--radius-s);
+}
+input:focus-visible, select:focus-visible, button:focus-visible { outline: 2px solid var(--acc-1); outline-offset: 2px; }
+
+.btn { display: block; width: 100%; padding: 14px 18px; border-radius: var(--radius-s); border: none; font-size: 1rem; font-weight: 600; font-family: var(--font-ui); cursor: pointer; text-align: center; }
+.btn--primary { background: var(--acc-1); color: #fff; }
+.btn--primary:disabled { background: var(--line); color: var(--ink-soft); cursor: not-allowed; }
+.btn--danger-solid { background: var(--brick); color: #fff; margin-top: 18px; }
+
+.empty-state { text-align: center; padding: 40px 16px; color: var(--ink-soft); }
+.empty-state p { margin: 0 0 4px; }
+.empty-state__sub { font-size: 0.86rem; }
+
+.disclaimer { font-size: 0.78rem; color: var(--ink-soft); line-height: 1.5; margin: 14px 2px 0; }
+
+/* ---------- Tab bar ---------- */
+.tabbar {
+  position: fixed; bottom: 0; left: 0; right: 0; max-width: 480px; margin: 0 auto;
+  display: flex; background: var(--surface); border-top: 1px solid var(--line);
+  padding: 8px 4px max(8px, env(safe-area-inset-bottom));
+}
+.tab { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; background: none; border: none; color: var(--ink-soft); font-size: 0.72rem; font-weight: 600; padding: 6px 2px; cursor: pointer; border-radius: 10px; font-family: var(--font-ui); }
+.tab svg { width: 22px; height: 22px; }
+.tab[aria-current="page"] { color: var(--acc-1); }
+
+/* ================= CALCULATOR ================= */
+.dose-card {
+  background: linear-gradient(155deg, var(--acc-1) 0%, var(--acc-2) 100%);
+  color: #fff; border-radius: var(--radius-l); padding: 20px 20px 16px; margin-bottom: 16px;
+}
+.dose-card__top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+.dose-card__label { font-size: 0.74rem; font-weight: 700; letter-spacing: 0.06em; color: rgba(255,255,255,0.85); }
+.carbs-pill { background: rgba(255,255,255,0.22); padding: 5px 12px; border-radius: 999px; font-size: 0.8rem; font-weight: 600; }
+.carbs-pill--muted { background: var(--surface); color: var(--ink-soft); border: 1px solid var(--line); }
+.dose-card__value { display: flex; align-items: baseline; gap: 8px; font-family: var(--font-display); font-size: 2.7rem; line-height: 1; font-weight: 500; font-variant-numeric: tabular-nums; margin-bottom: 14px; }
+.dose-card__unit { font-family: var(--font-ui); font-size: 0.95rem; font-weight: 500; color: rgba(255,255,255,0.82); }
+.dose-card__controls { display: flex; gap: 8px; flex-wrap: wrap; }
+.pill-btn {
+  display: inline-flex; align-items: center; gap: 6px; background: rgba(255,255,255,0.16);
+  border: 1px solid rgba(255,255,255,0.3); color: #fff; padding: 8px 14px; border-radius: 999px;
+  font-size: 0.84rem; font-weight: 600; cursor: pointer; font-family: var(--font-ui);
+}
+.pill-btn svg { width: 15px; height: 15px; }
+.pill-btn.is-active { background: #fff; color: var(--acc-1); border-color: #fff; }
+.pill-btn--icon { padding: 8px; }
+.correction-row { margin-top: 14px; padding-top: 14px; border-top: 1px solid rgba(255,255,255,0.25); }
+.correction-row label { display: block; font-size: 0.8rem; margin-bottom: 6px; color: rgba(255,255,255,0.9); }
+.correction-row__input { display: flex; align-items: center; background: rgba(255,255,255,0.16); border-radius: var(--radius-s); overflow: hidden; }
+.correction-row__input input { flex: 1; background: transparent; border: none; padding: 11px 12px; color: #fff; font-size: 1rem; font-family: var(--font-ui); }
+.correction-row__input input::placeholder { color: rgba(255,255,255,0.6); }
+.correction-row__input input:focus { outline: none; }
+.correction-row__input span { padding: 0 12px; font-size: 0.82rem; color: rgba(255,255,255,0.85); }
+
+.ratio-picker { background: var(--surface); border: 1.5px solid var(--line); border-radius: var(--radius-m); padding: 10px; margin-bottom: 16px; display: flex; flex-direction: column; gap: 4px; }
+.ratio-picker__item { display: flex; align-items: center; justify-content: space-between; padding: 10px 10px; border-radius: 10px; background: none; border: none; cursor: pointer; font-family: var(--font-ui); text-align: left; }
+.ratio-picker__item:hover { background: var(--paper); }
+.ratio-picker__name { display: flex; align-items: center; gap: 8px; font-size: 0.92rem; font-weight: 600; color: var(--ink); }
+.ratio-picker__dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+.ratio-picker__value { font-size: 0.86rem; color: var(--ink-soft); font-weight: 600; }
+
+.meal-items { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }
+.meal-item {
+  display: flex; align-items: center; gap: 10px; background: var(--surface);
+  border: 1.5px solid var(--line); border-radius: var(--radius-s); padding: 10px 12px;
+}
+.meal-item__main { flex: 1; min-width: 0; }
+.meal-item__name { font-weight: 600; font-size: 0.92rem; margin: 0; }
+.meal-item__meta { font-size: 0.78rem; color: var(--ink-soft); margin: 1px 0 0; }
+.meal-item__carbs { font-family: var(--font-display); font-size: 1.05rem; color: var(--amber); flex-shrink: 0; }
+.meal-item__remove { background: none; border: none; color: var(--ink-soft); cursor: pointer; padding: 4px; flex-shrink: 0; }
+.meal-item__remove svg { width: 15px; height: 15px; display: block; }
+
+.add-row { display: flex; gap: 8px; margin-bottom: 12px; }
+.add-row__search { flex: 1; min-width: 0; padding: 12px 14px; font-size: 0.96rem; }
+.add-row__grams { width: 84px; flex-shrink: 0; padding: 12px 10px; font-size: 0.96rem; text-align: center; }
+.add-row__btn { width: 44px; flex-shrink: 0; border: none; border-radius: var(--radius-s); background: var(--acc-1); color: #fff; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+.add-row__btn svg { width: 18px; height: 18px; }
+
+.food-pick-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 20px; max-height: 420px; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+.food-pick-item {
+  background: var(--surface); border: 1.5px solid var(--line); border-radius: var(--radius-m);
+  padding: 12px 14px; display: flex; align-items: center; gap: 10px; cursor: pointer;
+}
+.food-pick-item.is-selected { border-color: var(--acc-1); }
+.food-pick-item__main { flex: 1; min-width: 0; }
+.food-pick-item__name { font-weight: 600; font-size: 0.95rem; margin: 0; }
+.food-pick-item__meta { font-size: 0.8rem; margin: 2px 0 0; }
+.food-pick-item__meta .c-carbs { color: var(--green); font-weight: 600; }
+.food-pick-item__meta .c-kcal { color: var(--amber); }
+.food-pick-item__note { font-size: 0.78rem; font-style: italic; color: var(--ink-soft); margin: 3px 0 0; }
+.food-pick-item__badge { font-size: 0.72rem; color: var(--ink-soft); background: var(--paper); padding: 3px 8px; border-radius: 999px; flex-shrink: 0; }
+
+/* ================= LIBRARY ================= */
+.segmented { display: flex; background: var(--surface); border: 1.5px solid var(--line); border-radius: 999px; padding: 4px; margin-bottom: 16px; }
+.segmented__btn { flex: 1; border: none; background: none; padding: 9px 10px; border-radius: 999px; font-size: 0.88rem; font-weight: 600; color: var(--ink-soft); cursor: pointer; font-family: var(--font-ui); }
+.segmented__btn.is-active { background: var(--paper); color: var(--ink); box-shadow: 0 0 0 1.5px var(--line) inset; }
+
+.search-row { display: flex; gap: 8px; margin-bottom: 10px; }
+.search-row input { flex: 1; padding: 12px 14px; font-size: 0.96rem; }
+.icon-btn { width: 44px; flex-shrink: 0; border: 1.5px solid var(--line); background: var(--surface); border-radius: var(--radius-s); cursor: pointer; display: flex; align-items: center; justify-content: center; color: var(--ink-soft); }
+.icon-btn svg { width: 18px; height: 18px; }
+.icon-btn.is-active { color: var(--acc-1); border-color: var(--acc-1); }
+
+.filter-panel { background: var(--surface); border: 1.5px solid var(--line); border-radius: var(--radius-m); padding: 14px; margin-bottom: 14px; display: flex; flex-direction: column; gap: 12px; }
+.filter-panel__row { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 0.88rem; }
+.filter-panel__row select { padding: 8px 10px; font-size: 0.88rem; }
+.filter-panel__row label { display: flex; align-items: center; gap: 8px; font-weight: 600; }
+
+.lib-list { display: flex; flex-direction: column; gap: 10px; }
+.lib-item { background: var(--surface); border: 1.5px solid var(--line); border-radius: var(--radius-m); padding: 13px 14px; display: flex; align-items: flex-start; gap: 10px; }
+.lib-item__star { background: none; border: none; cursor: pointer; padding: 2px; color: var(--line); flex-shrink: 0; margin-top: 1px; }
+.lib-item__star svg { width: 19px; height: 19px; }
+.lib-item__star.is-fav { color: #E8A93D; }
+.lib-item__main { flex: 1; min-width: 0; }
+.lib-item__title-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.lib-item__name { font-weight: 600; font-size: 0.96rem; margin: 0; }
+.lib-item__badge { font-size: 0.66rem; font-weight: 700; letter-spacing: 0.03em; padding: 3px 8px; border-radius: 999px; text-transform: uppercase; }
+.lib-item__meta { font-size: 0.82rem; margin: 3px 0 0; }
+.lib-item__meta .c-carbs { color: var(--green); font-weight: 600; }
+.lib-item__meta .c-kcal { color: var(--amber); }
+.lib-item__note { font-size: 0.78rem; font-style: italic; color: var(--ink-soft); margin: 3px 0 0; }
+.lib-item__usage { font-size: 0.76rem; color: var(--ink-soft); margin: 3px 0 0; }
+.lib-item__actions { display: flex; gap: 2px; flex-shrink: 0; }
+.lib-item__actions button { background: none; border: none; color: var(--ink-soft); cursor: pointer; padding: 5px; border-radius: 8px; }
+.lib-item__actions button:hover { background: var(--paper); }
+.lib-item__actions button.danger:hover { color: var(--brick); background: var(--brick-soft); }
+.lib-item__actions svg { width: 16px; height: 16px; display: block; }
+
+/* category color chips */
+.cat-fruits { background: #FBE1EC; color: #B23A6B; }
+.cat-vegetables { background: #E1F0DA; color: #3E7A32; }
+.cat-grains { background: #F7E7C4; color: #97701C; }
+.cat-protein { background: #E4E9FB; color: #3C4FA8; }
+.cat-dairy { background: #E8F3F7; color: #29738D; }
+.cat-beverages { background: #DCF3F0; color: #157C6C; }
+.cat-snacks { background: #EFE1FB; color: #7132B2; }
+.cat-other { background: #ECEAE3; color: #6B7A89; }
+html[data-theme="dark"] .cat-fruits, html[data-theme="dark"] .cat-vegetables, html[data-theme="dark"] .cat-grains,
+html[data-theme="dark"] .cat-protein, html[data-theme="dark"] .cat-dairy, html[data-theme="dark"] .cat-beverages,
+html[data-theme="dark"] .cat-snacks, html[data-theme="dark"] .cat-other { filter: brightness(0.85) saturate(1.1); }
+
+/* Add/edit food form (used as inline sheet) */
+.sheet-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 40; display: flex; align-items: flex-end; justify-content: center; }
+.sheet { background: var(--surface); width: 100%; max-width: 480px; border-radius: 20px 20px 0 0; padding: 20px 20px calc(20px + env(safe-area-inset-bottom)); max-height: 85vh; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+.sheet h2 { font-family: var(--font-display); font-size: 1.2rem; font-weight: 500; margin: 0; }
+.sheet-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; }
+.sheet-close { background: none; border: none; color: var(--ink-soft); cursor: pointer; padding: 4px; }
+.sheet-close svg { width: 20px; height: 20px; display: block; }
+.field-inline-row { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 10px 0; border-bottom: 1px solid var(--line); }
+.field-inline-row:last-of-type { border-bottom: none; }
+.field-inline-row label { font-size: 0.88rem; font-weight: 600; color: var(--ink); flex: 1; }
+.field-inline-row input { width: 116px; flex-shrink: 0; padding: 10px 12px; font-size: 0.94rem; text-align: right; font-variant-numeric: tabular-nums; }
+.sheet textarea {
+  width: 100%; border: 1.5px solid var(--line); border-radius: var(--radius-s); background: var(--surface);
+  padding: 12px 14px; font-size: 0.96rem; color: var(--ink); font-family: var(--font-ui); resize: vertical;
+}
+.sheet textarea:focus { outline: none; border-color: var(--acc-1); }
+.sheet .field-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.sheet-actions { display: flex; gap: 10px; margin-top: 6px; }
+.sheet-actions .btn { flex: 1; }
+.sheet-actions .btn--secondary { background: var(--surface); border: 1.5px solid var(--line); color: var(--ink); }
+
+.checkbox-row { display: flex; align-items: center; gap: 8px; margin-bottom: 16px; font-size: 0.9rem; font-weight: 600; }
+.recipe-food-row { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
+.recipe-food-row select { flex: 1; padding: 10px; font-size: 0.9rem; }
+.recipe-food-row input { width: 74px; padding: 10px; font-size: 0.9rem; text-align: center; }
+.recipe-food-row button { background: none; border: none; color: var(--brick); cursor: pointer; padding: 4px; }
+
+/* ================= HISTORY ================= */
+.history-group { margin-bottom: 18px; }
+.history-group__date { font-size: 0.76rem; font-weight: 700; letter-spacing: 0.05em; color: var(--ink-soft); margin: 0 0 10px; text-transform: uppercase; }
+.history-entry {
+  background: var(--surface); border: 1.5px solid var(--line); border-left-width: 4px;
+  border-radius: var(--radius-m); padding: 12px 14px; margin-bottom: 10px; display: flex; gap: 10px; align-items: flex-start;
+  cursor: pointer;
+}
+.history-entry__icon { width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: #fff; }
+.history-entry__icon svg { width: 16px; height: 16px; }
+.history-entry__main { flex: 1; min-width: 0; }
+.history-entry__title { font-size: 0.92rem; font-weight: 600; margin: 0; display: flex; gap: 6px; flex-wrap: wrap; align-items: baseline; }
+.history-entry__title .muted { font-weight: 400; color: var(--ink-soft); font-size: 0.84rem; }
+.history-entry__foods { font-size: 0.84rem; color: var(--ink-soft); margin: 3px 0 0; }
+.history-entry__stats { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0; }
+.stat-kcal { font-size: 0.78rem; color: var(--amber); font-weight: 600; }
+.stat-grams { font-size: 0.78rem; color: var(--ink-soft); }
+.dose-pill { background: var(--acc-1); color: #fff; font-size: 0.78rem; font-weight: 700; padding: 4px 10px; border-radius: 999px; display: inline-flex; align-items: center; gap: 4px; }
+.dose-pill svg { width: 11px; height: 11px; }
+.history-entry__detail { margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--line); font-size: 0.82rem; color: var(--ink-soft); }
+.history-entry__detail div { display: flex; justify-content: space-between; margin-bottom: 3px; }
+.history-entry__row-actions { display: flex; gap: 10px; margin-top: 10px; }
+.history-entry__row-actions button { background: none; border: none; color: var(--ink-soft); font-size: 0.82rem; font-weight: 600; cursor: pointer; padding: 0; }
+.history-entry__row-actions button.danger { color: var(--brick); }
+
+/* ================= SETTINGS ================= */
+.panel-card { background: var(--surface); border: 1.5px solid var(--line); border-radius: var(--radius-m); padding: 16px; margin-bottom: 14px; }
+.panel-card__title { font-size: 0.98rem; font-weight: 700; margin: 0 0 14px; display: flex; align-items: center; gap: 8px; }
+.panel-card__hint { font-size: 0.8rem; color: var(--ink-soft); margin: -8px 0 12px; }
+.icon-inline { width: 17px; height: 17px; color: var(--acc-1); flex-shrink: 0; }
+
+.timeline { display: flex; height: 34px; border-radius: 8px; overflow: hidden; margin-bottom: 6px; }
+.timeline__seg { display: flex; align-items: center; justify-content: center; color: #fff; font-size: 0.66rem; font-weight: 700; white-space: nowrap; overflow: hidden; }
+.timeline-marks { display: flex; justify-content: space-between; font-size: 0.7rem; color: var(--ink-soft); margin-bottom: 16px; }
+
+.ratio-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+.ratio-row { background: var(--paper); border-radius: var(--radius-s); padding: 11px 12px; }
+.ratio-row__top { display: flex; align-items: center; gap: 10px; }
+.ratio-row__dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+.ratio-row__name { font-weight: 600; font-size: 0.9rem; flex: 1; }
+.ratio-row__time { font-size: 0.76rem; color: var(--ink-soft); display: block; margin-top: 1px; }
+.ratio-row__value { background: var(--surface); border: 1px solid var(--line); font-weight: 700; font-size: 0.82rem; padding: 4px 10px; border-radius: 999px; }
+.ratio-row__del { background: none; border: none; color: var(--ink-soft); cursor: pointer; padding: 4px; }
+.ratio-row__del svg { width: 15px; height: 15px; display: block; }
+.ratio-row__edit { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.ratio-row__edit input[type="time"] { padding: 8px; font-size: 0.85rem; }
+.ratio-row__edit .ratio-x { display: flex; align-items: center; gap: 6px; font-size: 0.85rem; }
+.ratio-row__edit .ratio-x input { width: 60px; padding: 8px; text-align: center; }
+
+.dashed-btn { width: 100%; padding: 12px; border: 1.5px dashed var(--line); background: none; border-radius: var(--radius-s); color: var(--ink-soft); font-weight: 600; font-size: 0.88rem; display: flex; align-items: center; justify-content: center; gap: 6px; cursor: pointer; font-family: var(--font-ui); }
+.dashed-btn svg { width: 15px; height: 15px; }
+
+.save-confirm { color: var(--green); font-size: 0.86rem; font-weight: 600; margin: 10px 0 0; }
+
+.data-row { width: 100%; display: flex; align-items: center; gap: 12px; background: var(--surface); border: 1.5px solid var(--line); border-radius: var(--radius-m); padding: 13px 14px; margin-bottom: 10px; cursor: pointer; text-align: left; font-family: var(--font-ui); }
+.data-row__icon { width: 34px; height: 34px; border-radius: 50%; background: var(--paper); display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: var(--ink-soft); }
+.data-row__icon svg { width: 17px; height: 17px; }
+.data-row__icon--down { color: var(--acc-1); }
+.data-row__icon--up { color: var(--amber); }
+.data-row__text { display: flex; flex-direction: column; gap: 2px; }
+.data-row__title { font-weight: 600; font-size: 0.92rem; }
+.data-row__sub { font-size: 0.78rem; color: var(--ink-soft); }
+
+.palette-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.palette-card { border: 1.5px solid var(--line); border-radius: var(--radius-s); padding: 12px; cursor: pointer; background: var(--surface); display: flex; flex-direction: column; gap: 8px; position: relative; }
+.palette-card.is-selected { border-color: var(--acc-1); }
+.palette-card__dots { display: flex; gap: 6px; }
+.palette-card__dots span { width: 18px; height: 18px; border-radius: 50%; display: block; }
+.palette-card__name { font-size: 0.82rem; font-weight: 600; }
+.palette-card__check { position: absolute; top: 10px; right: 10px; color: var(--acc-1); }
+.palette-card__check svg { width: 15px; height: 15px; display: block; }
+
+.toggle-row { display: flex; align-items: center; justify-content: space-between; }
+.toggle-row span { display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 0.92rem; }
+.switch { position: relative; display: inline-block; width: 44px; height: 26px; }
+.switch input { opacity: 0; width: 0; height: 0; }
+.switch__track { position: absolute; cursor: pointer; inset: 0; background: var(--line); border-radius: 999px; transition: background 0.15s; }
+.switch__track::before { content: ""; position: absolute; width: 20px; height: 20px; left: 3px; top: 3px; background: #fff; border-radius: 50%; transition: transform 0.15s; }
+.switch input:checked + .switch__track { background: var(--acc-1); }
+.switch input:checked + .switch__track::before { transform: translateX(18px); }
+
+.version-card { background: var(--surface); border: 1.5px solid var(--line); border-radius: var(--radius-m); padding: 14px; margin: 14px 0; }
+.version-card__row { display: flex; justify-content: space-between; align-items: center; font-weight: 600; font-size: 0.92rem; margin-bottom: 6px; }
+.version-card__badge { font-size: 0.78rem; color: var(--ink-soft); font-weight: 400; }
+.version-card p { font-size: 0.82rem; color: var(--ink-soft); margin: 0; line-height: 1.5; }
+
+.disclaimer-banner { display: flex; gap: 10px; align-items: flex-start; background: #FCEFCB; color: #7A5A0A; border: 1px solid #F0DC9A; border-radius: var(--radius-s); padding: 12px 14px; font-size: 0.82rem; line-height: 1.4; }
+.disclaimer-banner svg { width: 18px; height: 18px; flex-shrink: 0; margin-top: 1px; }
+html[data-theme="dark"] .disclaimer-banner { background: #3A310F; color: #E8CE85; border-color: #52441A; }
+
+/* ================= Mobile rendering fixes ================= */
+
+/* Prevent iOS Safari's auto-zoom-on-focus, which fires on any text input
+   under 16px. Higher specificity than the per-field rules above (class +
+   type beats a single class), so this wins without touching their other
+   properties like width or text-align. */
+.app input, .app select, .app textarea { font-size: 16px; }
+
+/* Clean, consistent number inputs across browsers (no spinner arrows) */
+input[type="number"] { -moz-appearance: textfield; }
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+/* Comfortable tap targets (~40px) for the small icon-only buttons, without
+   changing their visual icon size or layout */
+.lib-item__actions button,
+.meal-item__remove,
+.ratio-row__del,
+.entry__delete {
+  min-width: 34px;
+  min-height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.lib-item__star {
+  min-width: 34px;
+  min-height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.tab { min-height: 48px; }
+.fab, .icon-btn, .add-row__btn { min-width: 44px; min-height: 44px; }
+
+/* Quiet native tap highlight, replace with a deliberate pressed state */
+.btn:active, .pill-btn:active, .dashed-btn:active, .data-row:active,
+.food-pick-item:active, .lib-item:active, .history-entry:active,
+.palette-card:active, .segmented__btn:active {
+  opacity: 0.75;
+}
+
+
+/* ================= Recipe builder sheet ================= */
+.sheet-head--recipe { gap: 10px; }
+.sheet-head--recipe h2 { flex: 1; }
+.sheet-back {
+  width: 36px; height: 36px; border-radius: 10px; border: 1.5px solid var(--line);
+  background: var(--surface); color: var(--ink); display: flex; align-items: center; justify-content: center;
+  cursor: pointer; flex-shrink: 0;
+}
+.sheet-back svg { width: 18px; height: 18px; }
+.sheet-head__icon { color: var(--acc-1); width: 22px; height: 22px; flex-shrink: 0; display: flex; }
+.sheet-head__icon svg { width: 100%; height: 100%; }
+
+.block-label { font-size: 0.86rem; font-weight: 600; display: block; margin: 4px 0 8px; }
+
+.ingredient-box { border: 1.5px solid var(--line); border-radius: var(--radius-m); padding: 12px; background: var(--paper); margin-bottom: 4px; }
+.ingredient-search-wrap { position: relative; margin-bottom: 8px; }
+.ingredient-search-wrap input { width: 100%; padding: 12px 14px; font-size: 0.94rem; background: var(--surface); }
+.ingredient-dropdown {
+  position: absolute; left: 0; right: 0; top: calc(100% + 4px); background: var(--surface);
+  border: 1.5px solid var(--line); border-radius: var(--radius-s); max-height: 220px; overflow-y: auto;
+  -webkit-overflow-scrolling: touch; z-index: 5; box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+}
+.ingredient-dropdown__item {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%;
+  background: none; border: none; text-align: left; padding: 10px 12px; font-size: 0.88rem;
+  font-family: var(--font-ui); color: var(--ink); cursor: pointer;
+}
+.ingredient-dropdown__item:hover { background: var(--paper); }
+.ingredient-dropdown__item span { color: var(--ink-soft); font-size: 0.78rem; flex-shrink: 0; }
+.ingredient-add-row { display: flex; gap: 8px; }
+.ingredient-add-row input { flex: 1; padding: 12px 14px; font-size: 0.94rem; background: var(--surface); }
+.ingredient-add-row button {
+  width: 44px; flex-shrink: 0; border: none; border-radius: var(--radius-s); background: var(--acc-1);
+  color: #fff; cursor: pointer; display: flex; align-items: center; justify-content: center;
+}
+.ingredient-add-row button svg { width: 18px; height: 18px; }
+.ingredient-list { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; }
+.ingredient-row {
+  display: flex; align-items: center; gap: 10px; background: var(--surface); border: 1px solid var(--line);
+  border-radius: 8px; padding: 8px 10px; font-size: 0.86rem;
+}
+.ingredient-row__name { flex: 1; min-width: 0; font-weight: 600; }
+.ingredient-row__grams { color: var(--ink-soft); flex-shrink: 0; }
+.ingredient-row button { background: none; border: none; color: var(--ink-soft); cursor: pointer; padding: 3px; flex-shrink: 0; }
+.ingredient-row button svg { width: 14px; height: 14px; display: block; }
+
+</style>
+</head>
+<body>
+
+<div class="app">
+
+  <main class="views">
+
+    <!-- ======================= CALCULATOR ======================= -->
+    <section class="view" id="view-calculator" data-view>
+
+      <div class="dose-card">
+        <div class="dose-card__top">
+          <div class="dose-card__label">INSULIN DOSE</div>
+          <div class="carbs-pill" id="cc-carbs-pill">0.0g Carbs</div>
+        </div>
+        <div class="dose-card__value"><span id="cc-dose-number">0.0</span><span class="dose-card__unit">units</span></div>
+        <div class="dose-card__controls">
+          <button class="pill-btn" id="cc-correction-toggle" type="button">
+            <svg viewBox="0 0 24 24" fill="none"><path d="M3 12h4l2-7 4 14 2-7h6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Correction
+          </button>
+          <button class="pill-btn pill-btn--icon" id="cc-reset-btn" type="button" aria-label="Reset calculator">
+            <svg viewBox="0 0 24 24" fill="none"><path d="M4 4v5h5M20 20v-5h-5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M4.6 15A8 8 0 1019 8.5M19 8.5V4m0 4.5h-4.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+          <button class="pill-btn" id="cc-ratio-pill" type="button">
+            <svg viewBox="0 0 24 24" fill="none"><path d="M7 7h11l-3-3M17 17H6l3 3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Ratio <span id="cc-ratio-value">1:15</span>
+          </button>
+        </div>
+
+        <div class="correction-row" id="cc-correction-row" hidden>
+          <label for="cc-glucose">Current glucose</label>
+          <div class="correction-row__input">
+            <input type="number" id="cc-glucose" inputmode="decimal" min="0" step="0.1" placeholder="0">
+            <span id="cc-glucose-unit">mg/dL</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="ratio-picker" id="cc-ratio-picker" hidden></div>
+
+      <div class="meal-items" id="cc-meal-items"></div>
+
+      <div class="section-header">ADD FOOD ITEM</div>
+
+      <div class="add-row">
+        <input type="text" id="cc-search" class="add-row__search" placeholder="Search foods&hellip;" autocomplete="off">
+        <input type="number" id="cc-grams" class="add-row__grams" placeholder="Grams" min="0" step="1" inputmode="decimal" aria-label="Grams">
+        <button class="add-row__btn" id="cc-add-btn" type="button" aria-label="Add food">
+          <svg viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+
+      <div class="food-pick-list" id="cc-food-list"></div>
+
+      <button class="btn btn--primary" id="cc-log-btn" type="button" disabled>Log this meal</button>
+      <p class="disclaimer">Uses the ratios you've set in Settings. Always use your own judgment and your care team's guidance — this isn't medical advice.</p>
+    </section>
+
+    <!-- ======================= LIBRARY ======================= -->
+    <section class="view" id="view-library" data-view hidden>
+      <div class="page-head">
+        <div>
+          <h1>Food Library</h1>
+          <p class="page-head__sub">Manage your foods and recipes</p>
+        </div>
+        <button class="fab" id="lib-add-btn" type="button" aria-label="Add">
+          <svg viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+
+      <div class="segmented" id="lib-segmented">
+        <button class="segmented__btn is-active" data-seg="foods" type="button">Foods</button>
+        <button class="segmented__btn" data-seg="recipes" type="button">Recipes</button>
+      </div>
+
+      <div class="search-row">
+        <input type="text" id="lib-search" placeholder="Search foods&hellip;" autocomplete="off">
+        <button class="icon-btn" id="lib-filter-btn" type="button" aria-label="Filter">
+          <svg viewBox="0 0 24 24" fill="none"><path d="M4 6h16M7 12h10M10 18h4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+
+      <div class="filter-panel" id="lib-filter-panel" hidden>
+        <div class="filter-panel__row">
+          <label><input type="checkbox" id="lib-fav-only"> Favorites only</label>
+        </div>
+        <div class="filter-panel__row">
+          <label for="lib-cat-filter">Category</label>
+          <select id="lib-cat-filter">
+            <option value="">All categories</option>
+          </select>
+        </div>
+        <div class="filter-panel__row">
+          <label for="lib-sort">Sort by</label>
+          <select id="lib-sort">
+            <option value="name">Name</option>
+            <option value="usage">Most used</option>
+            <option value="carbs">Carbs per 100g</option>
+          </select>
+        </div>
+      </div>
+
+      <div id="lib-foods-list" class="lib-list"></div>
+      <div id="lib-recipes-list" class="lib-list" hidden></div>
+      <div class="empty-state" id="lib-empty" hidden>
+        <p>Nothing here yet.</p>
+        <p class="empty-state__sub">Tap the + button to add one.</p>
+      </div>
+    </section>
+
+    <!-- ======================= HISTORY ======================= -->
+    <section class="view" id="view-history" data-view hidden>
+      <div class="page-head">
+        <div>
+          <h1>Meal History</h1>
+          <p class="page-head__sub">Your logged meals</p>
+        </div>
+        <div class="carbs-pill carbs-pill--muted" id="hist-count-pill">0 meals</div>
+      </div>
+
+      <div id="history-groups"></div>
+      <div class="empty-state" id="history-empty">
+        <p>No meals logged yet.</p>
+        <p class="empty-state__sub">Log one from the Calculator tab and it'll show up here.</p>
+      </div>
+    </section>
+
+    <!-- ======================= SETTINGS ======================= -->
+    <section class="view" id="view-settings" data-view hidden>
+      <div class="page-head">
+        <div>
+          <h1>Settings</h1>
+          <p class="page-head__sub">Manage preferences</p>
+        </div>
+      </div>
+
+      <div class="segmented" id="settings-segmented">
+        <button class="segmented__btn is-active" data-seg="ratios" type="button">Insulin Ratios</button>
+        <button class="segmented__btn" data-seg="data" type="button">Data</button>
+        <button class="segmented__btn" data-seg="general" type="button">General</button>
+      </div>
+
+      <!-- Insulin Ratios -->
+      <div class="settings-panel" id="panel-ratios">
+        <div class="panel-card">
+          <h2 class="panel-card__title"><svg viewBox="0 0 24 24" fill="none" class="icon-inline"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.6"/><path d="M12 7v5l3 2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg> Time-Based Ratios</h2>
+          <div class="timeline" id="timeline-bar"></div>
+          <div class="timeline-marks">
+            <span>0h</span><span>6h</span><span>12h</span><span>18h</span><span>24h</span>
+          </div>
+          <div id="time-ratio-list" class="ratio-list"></div>
+          <button class="dashed-btn" id="add-time-range-btn" type="button">
+            <svg viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+            Add Time Range
+          </button>
+        </div>
+
+        <div class="panel-card">
+          <h2 class="panel-card__title"><svg viewBox="0 0 24 24" fill="none" class="icon-inline"><path d="M3 12h4l2-7 4 14 2-7h6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg> Activity Ratios</h2>
+          <div id="activity-ratio-list" class="ratio-list"></div>
+          <button class="dashed-btn" id="add-activity-btn" type="button">
+            <svg viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+            Add Activity
+          </button>
+        </div>
+
+        <div class="panel-card">
+          <h2 class="panel-card__title">Correction settings</h2>
+          <div class="field">
+            <label for="set-isf">Correction factor <span class="field__optional">(1 unit lowers glucose by)</span></label>
+            <div class="field__row">
+              <input type="number" id="set-isf" min="1" step="1" inputmode="decimal">
+              <span class="field__unit" id="isf-unit-label">mg/dL</span>
+            </div>
+          </div>
+          <div class="field">
+            <label for="set-target">Target glucose</label>
+            <div class="field__row">
+              <input type="number" id="set-target" min="0" step="1" inputmode="decimal">
+              <span class="field__unit" id="target-unit-label">mg/dL</span>
+            </div>
+          </div>
+          <div class="field">
+            <label for="set-units">Glucose units</label>
+            <select id="set-units">
+              <option value="mgdl">mg/dL</option>
+              <option value="mmol">mmol/L</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="set-rounding">Round doses to nearest</label>
+            <select id="set-rounding">
+              <option value="0.1">0.1 unit</option>
+              <option value="0.5">0.5 unit</option>
+              <option value="1">1 unit</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="set-max">Safety cap <span class="field__optional">(highest dose it will ever suggest)</span></label>
+            <div class="field__row">
+              <input type="number" id="set-max" min="0" step="1" inputmode="decimal">
+              <span class="field__unit">units</span>
+            </div>
+          </div>
+          <button class="btn btn--primary" id="btn-save-settings" type="button">Save settings</button>
+          <p class="save-confirm" id="save-confirm" hidden>Saved.</p>
+        </div>
+      </div>
+
+      <!-- Data -->
+      <div class="settings-panel" id="panel-data" hidden>
+        <div class="panel-card">
+          <h2 class="panel-card__title">Import / Export Library</h2>
+          <button class="data-row" id="btn-export-library" type="button">
+            <span class="data-row__icon data-row__icon--down">
+              <svg viewBox="0 0 24 24" fill="none"><path d="M12 3v13m0 0l-4-4m4 4l4-4M4 20h16" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </span>
+            <span class="data-row__text">
+              <span class="data-row__title">Export Library</span>
+              <span class="data-row__sub" id="export-count-label">0 foods · 0 recipes</span>
+            </span>
+          </button>
+          <button class="data-row" id="btn-import-library" type="button">
+            <span class="data-row__icon data-row__icon--up">
+              <svg viewBox="0 0 24 24" fill="none"><path d="M12 21V8m0 0l-4 4m4-4l4 4M4 4h16" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </span>
+            <span class="data-row__text">
+              <span class="data-row__title">Import Library</span>
+              <span class="data-row__sub">Creates new items &amp; updates existing ones by name</span>
+            </span>
+          </button>
+          <input type="file" id="import-file-input" accept=".csv,.json" hidden>
+        </div>
+
+        <div class="panel-card">
+          <h2 class="panel-card__title">Backup everything</h2>
+          <button class="data-row" id="btn-export-all" type="button">
+            <span class="data-row__icon data-row__icon--down">
+              <svg viewBox="0 0 24 24" fill="none"><path d="M12 3v13m0 0l-4-4m4 4l4-4M4 20h16" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </span>
+            <span class="data-row__text">
+              <span class="data-row__title">Export full backup</span>
+              <span class="data-row__sub">Settings, library, recipes and history as one file</span>
+            </span>
+          </button>
+        </div>
+      </div>
+
+      <!-- General -->
+      <div class="settings-panel" id="panel-general" hidden>
+        <div class="panel-card">
+          <h2 class="panel-card__title">Color Theme</h2>
+          <p class="panel-card__hint">Choose your palette</p>
+          <div class="palette-grid" id="palette-grid"></div>
+        </div>
+
+        <div class="panel-card">
+          <div class="toggle-row">
+            <span><svg viewBox="0 0 24 24" fill="none" class="icon-inline"><circle cx="12" cy="12" r="4.5" stroke="currentColor" stroke-width="1.6"/><path d="M12 2.5v2M12 19.5v2M4 12H2M22 12h-2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M18.4 5.6L17 7M7 17l-1.4 1.4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg> Dark Mode</span>
+            <label class="switch">
+              <input type="checkbox" id="dark-mode-toggle">
+              <span class="switch__track"></span>
+            </label>
+          </div>
+        </div>
+
+        <button class="data-row" id="btn-refresh-app" type="button">
+          <span class="data-row__icon">
+            <svg viewBox="0 0 24 24" fill="none"><path d="M4 4v5h5M20 20v-5h-5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><path d="M4.6 15A8 8 0 1019 8.5M19 8.5V4m0 4.5h-4.5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </span>
+          <span class="data-row__text"><span class="data-row__title">Refresh App</span></span>
+        </button>
+
+        <div class="version-card">
+          <div class="version-card__row">
+            <span>App Version</span>
+            <span class="version-card__badge">v1.0.0</span>
+          </div>
+          <p>A dependency-free rebuild of your original app. Runs entirely in this browser — nothing is sent anywhere.</p>
+        </div>
+
+        <div class="disclaimer-banner">
+          <svg viewBox="0 0 24 24" fill="none"><path d="M12 9v4M12 17h.01M10.3 3.9L2.6 17.5a1.5 1.5 0 001.3 2.3h16.2a1.5 1.5 0 001.3-2.3L13.7 3.9a1.5 1.5 0 00-2.6 0z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>
+          <span>For informational purposes only. Always consult your healthcare provider.</span>
+        </div>
+
+        <button class="btn btn--danger-solid" id="btn-delete-all" type="button">Delete Account &amp; All Data</button>
+      </div>
+    </section>
+
+  </main>
+
+  <nav class="tabbar" aria-label="Sections">
+    <button class="tab" data-target="calculator" type="button" aria-current="page">
+      <svg viewBox="0 0 24 24" fill="none"><rect x="4" y="3" width="16" height="18" rx="2.5" stroke="currentColor" stroke-width="1.6"/><path d="M8 8h8M8 12h2M12 12h2M16 12h0M8 16h2M12 16h2M16 16h0" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+      <span>Calculator</span>
+    </button>
+    <button class="tab" data-target="library" type="button">
+      <svg viewBox="0 0 24 24" fill="none"><path d="M4 4.5C4 4 5 3.5 7 3.5C9 3.5 10.5 4 11 4.5V19.5C10.5 19 9 18.5 7 18.5C5 18.5 4 19 4 19.5V4.5Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M20 4.5C20 4 19 3.5 17 3.5C15 3.5 13.5 4 13 4.5V19.5C13.5 19 15 18.5 17 18.5C19 18.5 20 19 20 19.5V4.5Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>
+      <span>Library</span>
+    </button>
+    <button class="tab" data-target="history" type="button">
+      <svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="13" r="7.5" stroke="currentColor" stroke-width="1.6"/><path d="M12 9v4l2.5 2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M9 2.5h6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+      <span>History</span>
+    </button>
+    <button class="tab" data-target="settings" type="button">
+      <svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.6"/><path d="M12 2.5v2.4M12 19.1v2.4M4.6 6.6l1.7 1.7M17.7 15.7l1.7 1.7M2.5 12h2.4M19.1 12h2.4M4.6 17.4l1.7-1.7M17.7 8.3l1.7-1.7" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+      <span>Settings</span>
+    </button>
+  </nav>
+
+</div>
+
+<script>
+// Preloaded from the original Base44 food library export.
+var SEED_FOODS = [
+  {
+    "id": "6a23270674ca8f17ec8fafef",
+    "name": "Bastoncini Findus (fish finger)",
+    "category": "protein",
+    "carbs": 20.6,
+    "kcal": 200,
+    "protein": 9.6,
+    "fat": 8.5,
+    "salt": null,
+    "notes": "Typically one weights 25gr",
+    "favorite": false,
+    "usageCount": 1
+  },
+  {
+    "id": "6a202f6fc1ddc2e2dbe2fbe5",
+    "name": "Dummy meal",
+    "category": "other",
+    "carbs": 100,
+    "kcal": 600,
+    "protein": null,
+    "fat": null,
+    "salt": null,
+    "notes": "",
+    "favorite": false,
+    "usageCount": 1
+  },
+  {
+    "id": "6a20055705506c8be3dc77f5",
+    "name": "Mela",
+    "category": "fruits",
+    "carbs": 25,
+    "kcal": 52,
+    "protein": null,
+    "fat": 0.5,
+    "salt": null,
+    "notes": "",
+    "favorite": false,
+    "usageCount": 0
+  },
+  {
+    "id": "6a1da317ae627720a46d8f74",
+    "name": "Succo di Limone",
+    "category": "other",
+    "carbs": 3,
+    "kcal": 22,
+    "protein": null,
+    "fat": null,
+    "salt": null,
+    "notes": "",
+    "favorite": false,
+    "usageCount": 0
+  },
+  {
+    "id": "6a1da317ae627720a46d8f73",
+    "name": "Avocado",
+    "category": "fruits",
+    "carbs": 8.5,
+    "kcal": 160,
+    "protein": null,
+    "fat": null,
+    "salt": null,
+    "notes": "",
+    "favorite": false,
+    "usageCount": 0
+  },
+  {
+    "id": "6a1da317ae627720a46d8f72",
+    "name": "Riso Integrale",
+    "category": "grains",
+    "carbs": 75,
+    "kcal": 360,
+    "protein": null,
+    "fat": null,
+    "salt": null,
+    "notes": "",
+    "favorite": false,
+    "usageCount": 0
+  },
+  {
+    "id": "6a1da317ae627720a46d8f71",
+    "name": "Pane Integrale",
+    "category": "grains",
+    "carbs": 44,
+    "kcal": 250,
+    "protein": null,
+    "fat": null,
+    "salt": null,
+    "notes": "",
+    "favorite": false,
+    "usageCount": 0
+  },
+  {
+    "id": "6a1da317ae627720a46d8f75",
+    "name": "Passata di Pomodoro",
+    "category": "grains",
+    "carbs": 5,
+    "kcal": 28,
+    "protein": null,
+    "fat": null,
+    "salt": null,
+    "notes": "Plain tomato base",
+    "favorite": false,
+    "usageCount": 0
+  },
+  {
+    "id": "6a1da317ae627720a46d8f6d",
+    "name": "Tonno in scatola (sott'olio)",
+    "category": "protein",
+    "carbs": 0,
+    "kcal": 200,
+    "protein": null,
+    "fat": null,
+    "salt": null,
+    "notes": "Drained weight",
+    "favorite": false,
+    "usageCount": 0
+  },
+  {
+    "id": "6a1da317ae627720a46d8f6e",
+    "name": "Mozzarella",
+    "category": "dairy",
+    "carbs": 0.7,
+    "kcal": 280,
+    "protein": null,
+    "fat": null,
+    "salt": null,
+    "notes": "",
+    "favorite": false,
+    "usageCount": 1
+  },
+  {
+    "id": "6a1da317ae627720a46d8f70",
+    "name": "Ricotta",
+    "category": "dairy",
+    "carbs": 3,
+    "kcal": 150,
+    "protein": null,
+    "fat": null,
+    "salt": null,
+    "notes": "",
+    "favorite": false,
+    "usageCount": 0
+  },
+  {
+    "id": "6a1da317ae627720a46d8f6c",
+    "name": "Salmone Fresco",
+    "category": "protein",
+    "carbs": 0,
+    "kcal": 208,
+    "protein": null,
+    "fat": null,
+    "salt": null,
+    "notes": "",
+    "favorite": false,
+    "usageCount": 0
+  },
+  {
+    "id": "6a1da317ae627720a46d8f6f",
+    "name": "Latte d'Avena",
+    "category": "beverages",
+    "carbs": 6.5,
+    "kcal": 45,
+    "protein": null,
+    "fat": null,
+    "salt": null,
+    "notes": "",
+    "favorite": false,
+    "usageCount": 0
+  },
+  {
+    "id": "6a1da317ae627720a46d8f6b",
+    "name": "Uova (per single piece)",
+    "category": "dairy",
+    "carbs": 0,
+    "kcal": 136,
+    "protein": null,
+    "fat": null,
+    "salt": null,
+    "notes": "Per single medium egg (~50g)",
+    "favorite": false,
+    "usageCount": 1
+  },
+  {
+    "id": "6a1d9f73d72893af4b909989",
+    "name": "Ceci secchi",
+    "category": "protein",
+    "carbs": 61,
+    "kcal": 340,
+    "protein": 20,
+    "fat": 2,
+    "salt": 0.02,
+    "notes": "",
+    "favorite": false,
+    "usageCount": 0
+  },
+  {
+    "id": "6a1d9f73d72893af4b909992",
+    "name": "Tenerina",
+    "category": "snacks",
+    "carbs": 48,
+    "kcal": 430,
+    "protein": 5,
+    "fat": 22,
+    "salt": 0.4,
+    "notes": "",
+    "favorite": false,
+    "usageCount": 0
+  },
+  {
+    "id": "6a1d9f73d72893af4b90999a",
+    "name": "Orange",
+    "category": "fruits",
+    "carbs": 12,
+    "kcal": 47,
+    "protein": 0.9,
+    "fat": 0.1,
+    "salt": 0,
+    "notes": "",
+    "favorite": false,
+    "usageCount": 0
+  },
+  {
+    "id": "6a1d9f73d72893af4b90998f",
+    "name": "Piselli (frozen)",
+    "category": "vegetables",
+    "carbs": 14,
+    "kcal": 90,
+    "protein": 5.4,
+    "fat": 0.4,
+    "salt": 0,
+    "notes": "",
+    "favorite": false,
+    "usageCount": 5
+  },
+  {
+    "id": "6a1d9f73d72893af4b90998d",
+    "name": "Barley (orzo) secco",
+    "category": "grains",
+    "carbs": 73,
+    "kcal": 350,
+    "protein": 10,
+    "fat": 1.5,
+    "salt": 0,
+    "notes": "",
+    "favorite": false,
+    "usageCount": 1
+  },
+  {
+    "id": "6a1d9f73d72893af4b909995",
+    "name": "Polenta",
+    "category": "grains",
+    "carbs": 80,
+    "kcal": 85,
+    "protein": 8,
+    "fat": 1,
+    "salt": 0,
+    "notes": "",
+    "favorite": false,
+    "usageCount": 0
+  },
+  {
+    "id": "6a1d9f73d72893af4b90999b",
+    "name": "Torta di mele",
+    "category": "snacks",
+    "carbs": 55,
+    "kcal": 265,
+    "protein": 3.8,
+    "fat": 10,
+    "salt": 0.3,
+    "notes": "",
+    "favorite": false,
+    "usageCount": 0
+  },
+  {
+    "id": "6a1d9f73d72893af4b90998a",
+    "name": "Fagioli",
+    "category": "protein",
+    "carbs": 15,
+    "kcal": 90,
+    "protein": 6,
+    "fat": 0.5,
+    "salt": 0.3,
+    "notes": "",
+    "favorite": false,
+    "usageCount": 0
+  },
+  {
+    "id": "6a1d9f73d72893af4b909988",
+    "name": "Riso Nero",
+    "category": "grains",
+    "carbs": 72,
+    "kcal": 355,
+    "protein": 8,
+    "fat": 3,
+    "salt": 0,
+    "notes": "",
+    "favorite": false,
+    "usageCount": 0
+  },
+  {
+    "id": "6a1d9f73d72893af4b9099a8",
+    "name": "Tortelloni tesco",
+    "category": "grains",
+    "carbs": 27,
+    "kcal": 200,
+    "protein": 7.5,
+    "fat": 6,
+    "salt": 1.1,
+    "notes": "La confezione intera pesa 300gr",
+    "favorite": false,
+    "usageCount": 2
+  },
+  {
+    "id": "6a1d9f73d72893af4b909993",
+    "name": "Pasta di semola",
+    "category": "grains",
+    "carbs": 70,
+    "kcal": 355,
+    "protein": 13,
+    "fat": 1.5,
+    "salt": 0,
+    "notes": "",
+    "favorite": true,
+    "usageCount": 9
+  },
+  {
+    "id": "6a1d9f73d72893af4b9099a0",
+    "name": "Ananas",
+    "category": "fruits",
+    "carbs": 13,
+    "kcal": 50,
+    "protein": 0.5,
+    "fat": 0.1,
+    "salt": 0,
+    "notes": "",
+    "favorite": false,
+    "usageCount": 0
+  },
+  {
+    "id": "6a1d9f73d72893af4b90999e",
+    "name": "Butternut squash",
+    "category": "vegetables",
+    "carbs": 10,
+    "kcal": 45,
+    "protein": 1,
+    "fat": 0.2,
+    "salt": 0,
+    "notes": "",
+    "favorite": false,
+    "usageCount": 0
+  },
+  {
+    "id": "6a1d9f73d72893af4b9099a4",
+    "name": "Mango",
+    "category": "fruits",
+    "carbs": 15,
+    "kcal": 60,
+    "protein": 0.8,
+    "fat": 0.3,
+    "salt": 0,
+    "notes": "",
+    "favorite": false,
+    "usageCount": 0
+  },
+  {
+    "id": "6a1d9f73d72893af4b9099aa",
+    "name": "Lemon",
+    "category": "fruits",
+    "carbs": 10,
+    "kcal": 29,
+    "protein": 1.1,
+    "fat": 0.3,
+    "salt": 0,
+    "notes": "",
+    "favorite": false,
+    "usageCount": 0
+  },
+  {
+    "id": "6a1d9f73d72893af4b909999",
+    "name": "Lenticchie bollite",
+    "category": "protein",
+    "carbs": 20,
+    "kcal": 116,
+    "protein": 9,
+    "fat": 0.4,
+    "salt": 0.3,
+    "notes": "",
+    "favorite": false,
+    "usageCount": 0
+  },
+  {
+    "id": "6a1d9f73d72893af4b9099ab",
+    "name": "Fragole",
+    "category": "fruits",
+    "carbs": 11,
+    "kcal": 33,
+    "protein": 0.7,
+    "fat": 0.3,
+    "salt": 0,
+    "notes": "",
+    "favorite": false,
+    "usageCount": 3
+  },
+  {
+    "id": "6a1d9f73d72893af4b909996",
+    "name": "Special K",
+    "category": "grains",
+    "carbs": 75,
+    "kcal": 375,
+    "protein": 9,
+    "fat": 1.5,
+    "salt": 1,
+    "notes": "",
+    "favorite": false,
+    "usageCount": 0
+  },
+  {
+    "id": "6a1d9f73d72893af4b9099a7",
+    "name": "Riso Cotto",
+    "category": "grains",
+    "carbs": 29,
+    "kcal": 150,
+    "protein": 3,
+    "fat": 0.4,
+    "salt": 0,
+    "notes": "",
+    "favorite": false,
+    "usageCount": 0
+  },
+  {
+    "id": "6a1d9f73d72893af4b90999d",
+    "name": "Pane da toast con semi piccolo",
+    "category": "grains",
+    "carbs": 11.6,
+    "kcal": 260,
+    "protein": 10,
+    "fat": 5,
+    "salt": 1.1,
+    "notes": "",
+    "favorite": false,
+    "usageCount": 0
+  },
+  {
+    "id": "6a1d9f73d72893af4b909994",
+    "name": "Nutella",
+    "category": "snacks",
+    "carbs": 60,
+    "kcal": 539,
+    "protein": 6.3,
+    "fat": 31,
+    "salt": 0,
+    "notes": "",
+    "favorite": false,
+    "usageCount": 0
+  },
+  {
+    "id": "6a1d9f73d72893af4b9099a1",
+    "name": "Crostata",
+    "category": "snacks",
+    "carbs": 60,
+    "kcal": 410,
+    "protein": 4.5,
+    "fat": 17,
+    "salt": 0.6,
+    "notes": "",
+    "favorite": false,
+    "usageCount": 0
+  },
+  {
+    "id": "6a1d9f73d72893af4b90999f",
+    "name": "Corn on Cobs",
+    "category": "vegetables",
+    "carbs": 15,
+    "kcal": 90,
+    "protein": 3.3,
+    "fat": 1.2,
+    "salt": 0,
+    "notes": "",
+    "favorite": false,
+    "usageCount": 0
+  },
+  {
+    "id": "6a1d9f73d72893af4b909998",
+    "name": "Ferrero Rocher (each)",
+    "category": "snacks",
+    "carbs": 5.3,
+    "kcal": 580,
+    "protein": 7.3,
+    "fat": 38,
+    "salt": 0.3,
+    "notes": "",
+    "favorite": false,
+    "usageCount": 0
+  },
+  {
+    "id": "6a1d9f73d72893af4b90998b",
+    "name": "Cornetto Algida",
+    "category": "snacks",
+    "carbs": 20,
+    "kcal": 300,
+    "protein": 3,
+    "fat": 12,
+    "salt": 0.2,
+    "notes": "",
+    "favorite": false,
+    "usageCount": 0
+  },
+  {
+    "id": "6a1d9f73d72893af4b9099a3",
+    "name": "Yogurt",
+    "category": "dairy",
+    "carbs": 13,
+    "kcal": 59,
+    "protein": 3.5,
+    "fat": 1.5,
+    "salt": 0.1,
+    "notes": "",
+    "favorite": false,
+    "usageCount": 0
+  },
+  {
+    "id": "6a1d9f73d72893af4b909987",
+    "name": "Colomba Bauli",
+    "category": "snacks",
+    "carbs": 52,
+    "kcal": 390,
+    "protein": 6.5,
+    "fat": 16,
+    "salt": 0.6,
+    "notes": "",
+    "favorite": false,
+    "usageCount": 0
+  },
+  {
+    "id": "6a1d9f73d72893af4b90999c",
+    "name": "Cacao",
+    "category": "snacks",
+    "carbs": 13,
+    "kcal": 228,
+    "protein": 20,
+    "fat": 14,
+    "salt": 0.1,
+    "notes": "",
+    "favorite": false,
+    "usageCount": 0
+  },
+  {
+    "id": "6a1d9f73d72893af4b9099a6",
+    "name": "Torta di riso",
+    "category": "snacks",
+    "carbs": 40,
+    "kcal": 200,
+    "protein": 3.5,
+    "fat": 3,
+    "salt": 0.4,
+    "notes": "",
+    "favorite": false,
+    "usageCount": 0
+  },
+  {
+    "id": "6a1d9f73d72893af4b9099a9",
+    "name": "Lenticchie secche",
+    "category": "protein",
+    "carbs": 60,
+    "kcal": 300,
+    "protein": 25,
+    "fat": 1,
+    "salt": 0.02,
+    "notes": "",
+    "favorite": false,
+    "usageCount": 0
+  },
+  {
+    "id": "6a1d9f73d72893af4b909997",
+    "name": "Uva",
+    "category": "fruits",
+    "carbs": 18,
+    "kcal": 67,
+    "protein": 0.7,
+    "fat": 0.4,
+    "salt": 0,
+    "notes": "",
+    "favorite": true,
+    "usageCount": 17
+  },
+  {
+    "id": "6a1d9f73d72893af4b909990",
+    "name": "Apple Juice",
+    "category": "beverages",
+    "carbs": 11,
+    "kcal": 50,
+    "protein": 0.1,
+    "fat": 0.1,
+    "salt": 0,
+    "notes": "Un brick e' tipicamente 200ml",
+    "favorite": false,
+    "usageCount": 1
+  },
+  {
+    "id": "6a1d9f73d72893af4b9099a2",
+    "name": "Ceci cotti",
+    "category": "protein",
+    "carbs": 20,
+    "kcal": 130,
+    "protein": 7,
+    "fat": 0.5,
+    "salt": 0.3,
+    "notes": "",
+    "favorite": false,
+    "usageCount": 0
+  },
+  {
+    "id": "6a1d9f73d72893af4b90998e",
+    "name": "Torta salata mamma",
+    "category": "other",
+    "carbs": 25,
+    "kcal": 280,
+    "protein": 6,
+    "fat": 14,
+    "salt": 1.1,
+    "notes": "",
+    "favorite": false,
+    "usageCount": 0
+  },
+  {
+    "id": "6a1d9f73d72893af4b909948",
+    "name": "Cheddar cheese",
+    "category": "snacks",
+    "carbs": 1.3,
+    "kcal": 403,
+    "protein": 25,
+    "fat": 33,
+    "salt": 1.8,
+    "notes": "",
+    "favorite": false,
+    "usageCount": 0
+  },
+  {
+    "id": "6a1d9f73d72893af4b909953",
+    "name": "Additional sugar",
+    "category": "other",
+    "carbs": 100,
+    "kcal": 100,
+    "protein": 0,
+    "fat": 0,
+    "salt": 0,
+    "notes": "Add the extra carbs there",
+    "favorite": true,
+    "usageCount": 28
+  },
+  {
+    "id": "6a1d9f73d72893af4b90996f",
+    "name": "Croutons",
+    "category": "snacks",
+    "carbs": 65,
+    "kcal": 400,
+    "protein": 10,
+    "fat": 12,
+    "salt": 1.5,
+    "notes": "",
+    "favorite": false,
+    "usageCount": 1
+  },
+  {
+    "id": "6a1d9f73d72893af4b90994b",
+    "name": "Flat white",
+    "category": "beverages",
+    "carbs": 4.5,
+    "kcal": 50,
+    "protein": 3.3,
+    "fat": 2,
+    "salt": 0.1,
+    "notes": "",
+    "favorite": false,
+    "usageCount": 0
+  },
+  {
+    "id": "6a1d9f73d72893af4b909984",
+    "name": "Riso",
+    "category": "grains",
+    "carbs": 76,
+    "kcal": 365,
+    "protein": 7,
+    "fat": 1,
+    "salt": 0,
+    "notes": "",
+    "favorite": false,
+    "usageCount": 1
+  },
+  {
+    "id": "6a1d9f73d72893af4b909967",
+    "name": "Tortellini",
+    "category": "grains",
+    "carbs": 50,
+    "kcal": 290,
+    "protein": 12,
+    "fat": 10,
+    "salt": 1.1,
+    "notes": "",
+    "favorite": false,
+    "usageCount": 0
+  },
+  {
+    "id": "6a1d9f73d72893af4b90994a",
+    "name": "Ham & Cheese croissant (Gails)",
+    "category": "other",
+    "carbs": 59,
+    "kcal": 768,
+    "protein": 21,
+    "fat": 43,
+    "salt": 1.4,
+    "notes": "",
+    "favorite": false,
+    "usageCount": 0
+  },
+  {
+    "id": "6a1d9f73d72893af4b90996b",
+    "name": "Patate gialle",
+    "category": "vegetables",
+    "carbs": 17,
+    "kcal": 100,
+    "protein": 2,
+    "fat": 0.1,
+    "salt": 0,
+    "notes": "",
+    "favorite": true,
+    "usageCount": 12
+  },
+  {
+    "id": "6a1d9f73d72893af4b909983",
+    "name": "Torta nonna BMB",
+    "category": "snacks",
+    "carbs": 48,
+    "kcal": 420,
+    "protein": 5,
+    "fat": 20,
+    "salt": 0.5,
+    "notes": "",
+    "favorite": false,
+    "usageCount": 0
+  },
+  {
+    "id": "6a1d9f73d72893af4b90994d",
+    "name": "Dry roasted peanuts",
+    "category": "snacks",
+    "carbs": 7.3,
+    "kcal": 595,
+    "protein": 28,
+    "fat": 49,
+    "salt": 1.1,
+    "notes": "",
+    "favorite": false,
+    "usageCount": 0
+  },
+  {
+    "id": "6a1d9f73d72893af4b909946",
+    "name": "Sugo al ragu",
+    "category": "grains",
+    "carbs": 4,
+    "kcal": 100,
+    "protein": 5,
+    "fat": 6,
+    "salt": 0.8,
+    "notes": "",
+    "favorite": false,
+    "usageCount": 0
+  },
+  {
+    "id": "6a1d9f73d72893af4b909975",
+    "name": "Pane comune",
+    "category": "grains",
+    "carbs": 65,
+    "kcal": 300,
+    "protein": 8.5,
+    "fat": 1.5,
+    "salt": 1.1,
+    "notes": "",
+    "favorite": true,
+    "usageCount": 65
+  },
+  {
+    "id": "6a1d9f73d72893af4b90995c",
+    "name": "Zuppa mista secca",
+    "category": "other",
+    "carbs": 20,
+    "kcal": 325,
+    "protein": 10,
+    "fat": 1.5,
+    "salt": 0.1,
+    "notes": "",
+    "favorite": false,
+    "usageCount": 0
+  },
+  {
+    "id": "6a1d9f73d72893af4b909957",
+    "name": "Pane in cassetta",
+    "category": "grains",
+    "carbs": 45,
+    "kcal": 250,
+    "protein": 8,
+    "fat": 1,
+    "salt": 1,
+    "notes": "",
+    "favorite": false,
+    "usageCount": 0
+  },
+  {
+    "id": "6a1d9f73d72893af4b909971",
+    "name": "Tartufone",
+    "category": "snacks",
+    "carbs": 60,
+    "kcal": 450,
+    "protein": 5.5,
+    "fat": 18,
+    "salt": 0.6,
+    "notes": "",
+    "favorite": false,
+    "usageCount": 0
+  },
+  {
+    "id": "6a1d9f73d72893af4b909943",
+    "name": "Vino Bianco",
+    "category": "beverages",
+    "carbs": 2.5,
+    "kcal": 83,
+    "protein": 0.1,
+    "fat": 0,
+    "salt": 0,
+    "notes": "",
+    "favorite": false,
+    "usageCount": 1
+  },
+  {
+    "id": "6a1d9f73d72893af4b909944",
+    "name": "Beer Lager",
+    "category": "beverages",
+    "carbs": 3.5,
+    "kcal": 41,
+    "protein": 0.5,
+    "fat": 0,
+    "salt": 0.01,
+    "notes": "",
+    "favorite": false,
+    "usageCount": 0
+  },
+  {
+    "id": "6a1d9f73d72893af4b90997b",
+    "name": "Ciliegie",
+    "category": "fruits",
+    "carbs": 12,
+    "kcal": 50,
+    "protein": 1,
+    "fat": 0.3,
+    "salt": 0,
+    "notes": "",
+    "favorite": false,
+    "usageCount": 0
+  },
+  {
+    "id": "6a1d9f73d72893af4b909970",
+    "name": "Torta salata UK",
+    "category": "other",
+    "carbs": 12,
+    "kcal": 256,
+    "protein": 7,
+    "fat": 15,
+    "salt": 1.2,
+    "notes": "",
+    "favorite": false,
+    "usageCount": 0
+  },
+  {
+    "id": "6a1d9f73d72893af4b909985",
+    "name": "Pasta all'uovo",
+    "category": "grains",
+    "carbs": 67,
+    "kcal": 350,
+    "protein": 13,
+    "fat": 3,
+    "salt": 0.1,
+    "notes": "",
+    "favorite": false,
+    "usageCount": 1
+  },
+  {
+    "id": "6a1d9f73d72893af4b909963",
+    "name": "Patate dolci",
+    "category": "vegetables",
+    "carbs": 20,
+    "kcal": 86,
+    "protein": 1.6,
+    "fat": 0.1,
+    "salt": 0.1,
+    "notes": "",
+    "favorite": false,
+    "usageCount": 0
+  },
+  {
+    "id": "6a1d9f73d72893af4b90995e",
+    "name": "Latte semiskimmed",
+    "category": "dairy",
+    "carbs": 5,
+    "kcal": 50,
+    "protein": 3.4,
+    "fat": 1.6,
+    "salt": 0.1,
+    "notes": "",
+    "favorite": false,
+    "usageCount": 0
+  },
+  {
+    "id": "6a1d9f73d72893af4b90997c",
+    "name": "Brutti ma buoni",
+    "category": "snacks",
+    "carbs": 13,
+    "kcal": 470,
+    "protein": 7,
+    "fat": 22,
+    "salt": 0.1,
+    "notes": "",
+    "favorite": false,
+    "usageCount": 0
+  },
+  {
+    "id": "6a1d9f73d72893af4b909979",
+    "name": "Parsnip",
+    "category": "vegetables",
+    "carbs": 18,
+    "kcal": 75,
+    "protein": 1.2,
+    "fat": 0.3,
+    "salt": 0.02,
+    "notes": "",
+    "favorite": false,
+    "usageCount": 0
+  },
+  {
+    "id": "6a1d9f73d72893af4b909962",
+    "name": "Pappadomos",
+    "category": "snacks",
+    "carbs": 37,
+    "kcal": 400,
+    "protein": 13,
+    "fat": 14,
+    "salt": 2.3,
+    "notes": "",
+    "favorite": false,
+    "usageCount": 0
+  },
+  {
+    "id": "6a1d9f73d72893af4b90994c",
+    "name": "Proper Chips",
+    "category": "snacks",
+    "carbs": 63.6,
+    "kcal": 482,
+    "protein": 6.5,
+    "fat": 22,
+    "salt": 1.2,
+    "notes": "",
+    "favorite": false,
+    "usageCount": 0
+  },
+  {
+    "id": "6a1d9f73d72893af4b909980",
+    "name": "Salsa di soya",
+    "category": "other",
+    "carbs": 33,
+    "kcal": 70,
+    "protein": 10,
+    "fat": 0.6,
+    "salt": 16.5,
+    "notes": "",
+    "favorite": false,
+    "usageCount": 0
+  },
+  {
+    "id": "6a1d9f73d72893af4b909977",
+    "name": "Zucchero",
+    "category": "other",
+    "carbs": 100,
+    "kcal": 400,
+    "protein": 0,
+    "fat": 0,
+    "salt": 0,
+    "notes": "",
+    "favorite": false,
+    "usageCount": 0
+  },
+  {
+    "id": "6a1d9f73d72893af4b909986",
+    "name": "Gnocchi di patate",
+    "category": "grains",
+    "carbs": 32,
+    "kcal": 150,
+    "protein": 3.5,
+    "fat": 0.5,
+    "salt": 0.9,
+    "notes": "",
+    "favorite": false,
+    "usageCount": 0
+  },
+  {
+    "id": "6a1d9f73d72893af4b909974",
+    "name": "Lindor",
+    "category": "snacks",
+    "carbs": 44,
+    "kcal": 620,
+    "protein": 4.7,
+    "fat": 47,
+    "salt": 0.2,
+    "notes": "One Lindor typically weights 12.5gram",
+    "favorite": true,
+    "usageCount": 12
+  },
+  {
+    "id": "6a1d9f73d72893af4b90996d",
+    "name": "Torta soffice",
+    "category": "snacks",
+    "carbs": 25,
+    "kcal": 340,
+    "protein": 5,
+    "fat": 12,
+    "salt": 0.5,
+    "notes": "",
+    "favorite": false,
+    "usageCount": 0
+  },
+  {
+    "id": "6a1d9f73d72893af4b909972",
+    "name": "Miele",
+    "category": "other",
+    "carbs": 81,
+    "kcal": 304,
+    "protein": 0.3,
+    "fat": 0,
+    "salt": 0,
+    "notes": "",
+    "favorite": false,
+    "usageCount": 0
+  },
+  {
+    "id": "6a1d9f73d72893af4b909966",
+    "name": "Farina",
+    "category": "grains",
+    "carbs": 90,
+    "kcal": 369,
+    "protein": 10,
+    "fat": 1,
+    "salt": 0,
+    "notes": "",
+    "favorite": false,
+    "usageCount": 3
+  },
+  {
+    "id": "6a1d9f73d72893af4b909959",
+    "name": "Banana",
+    "category": "fruits",
+    "carbs": 23,
+    "kcal": 89,
+    "protein": 1.1,
+    "fat": 0.3,
+    "salt": 0,
+    "notes": "",
+    "favorite": true,
+    "usageCount": 35
+  },
+  {
+    "id": "6a1d9f73d72893af4b90995b",
+    "name": "Cracker misura",
+    "category": "snacks",
+    "carbs": 60,
+    "kcal": 402,
+    "protein": 11,
+    "fat": 10,
+    "salt": 1.8,
+    "notes": "",
+    "favorite": false,
+    "usageCount": 0
+  },
+  {
+    "id": "6a1d9f73d72893af4b909958",
+    "name": "Tortilla",
+    "category": "grains",
+    "carbs": 50,
+    "kcal": 300,
+    "protein": 8,
+    "fat": 7,
+    "salt": 1.2,
+    "notes": "",
+    "favorite": false,
+    "usageCount": 0
+  },
+  {
+    "id": "6a1d9f73d72893af4b909965",
+    "name": "Muffin Banana",
+    "category": "snacks",
+    "carbs": 36.38,
+    "kcal": 320,
+    "protein": 4.5,
+    "fat": 16,
+    "salt": 0.4,
+    "notes": "",
+    "favorite": false,
+    "usageCount": 0
+  },
+  {
+    "id": "6a1d9f73d72893af4b90997a",
+    "name": "Pesca",
+    "category": "fruits",
+    "carbs": 14,
+    "kcal": 40,
+    "protein": 0.9,
+    "fat": 0.3,
+    "salt": 0,
+    "notes": "",
+    "favorite": false,
+    "usageCount": 11
+  },
+  {
+    "id": "6a1d9f73d72893af4b90994e",
+    "name": "Barrette Glucidiche Decathlon",
+    "category": "snacks",
+    "carbs": 84,
+    "kcal": 20,
+    "protein": 4.5,
+    "fat": 1.5,
+    "salt": 0.1,
+    "notes": "",
+    "favorite": true,
+    "usageCount": 1
+  },
+  {
+    "id": "6a1d9f73d72893af4b90995d",
+    "name": "Oat",
+    "category": "grains",
+    "carbs": 60,
+    "kcal": 389,
+    "protein": 16.9,
+    "fat": 7,
+    "salt": 0,
+    "notes": "",
+    "favorite": false,
+    "usageCount": 0
+  },
+  {
+    "id": "6a1d9f73d72893af4b909964",
+    "name": "Burro",
+    "category": "other",
+    "carbs": 0.5,
+    "kcal": 753,
+    "protein": 0.8,
+    "fat": 81,
+    "salt": 1.5,
+    "notes": "",
+    "favorite": false,
+    "usageCount": 0
+  },
+  {
+    "id": "6a1d9f73d72893af4b909976",
+    "name": "Pane da toast con semi",
+    "category": "grains",
+    "carbs": 45,
+    "kcal": 260,
+    "protein": 10,
+    "fat": 4,
+    "salt": 1,
+    "notes": "",
+    "favorite": false,
+    "usageCount": 0
+  },
+  {
+    "id": "6a1d9f73d72893af4b90997d",
+    "name": "Lenticchie cotte",
+    "category": "protein",
+    "carbs": 20,
+    "kcal": 110,
+    "protein": 9,
+    "fat": 0.5,
+    "salt": 0.3,
+    "notes": "",
+    "favorite": false,
+    "usageCount": 0
+  },
+  {
+    "id": "6a1d9f73d72893af4b909956",
+    "name": "Macedonia",
+    "category": "fruits",
+    "carbs": 20,
+    "kcal": 80,
+    "protein": 1,
+    "fat": 0.4,
+    "salt": 0,
+    "notes": "",
+    "favorite": false,
+    "usageCount": 0
+  },
+  {
+    "id": "6a1d9f73d72893af4b909982",
+    "name": "Cioccolata",
+    "category": "snacks",
+    "carbs": 60,
+    "kcal": 555,
+    "protein": 5,
+    "fat": 32,
+    "salt": 0.1,
+    "notes": "",
+    "favorite": false,
+    "usageCount": 2
+  },
+  {
+    "id": "6a1d9f73d72893af4b90996e",
+    "name": "Piadina",
+    "category": "grains",
+    "carbs": 60,
+    "kcal": 350,
+    "protein": 8,
+    "fat": 6,
+    "salt": 1.5,
+    "notes": "",
+    "favorite": false,
+    "usageCount": 0
+  },
+  {
+    "id": "6a1d9f73d72893af4b90995f",
+    "name": "Pear",
+    "category": "fruits",
+    "carbs": 15,
+    "kcal": 58,
+    "protein": 0.4,
+    "fat": 0.1,
+    "salt": 0,
+    "notes": "",
+    "favorite": true,
+    "usageCount": 12
+  },
+  {
+    "id": "6a1d9f73d72893af4b90996c",
+    "name": "Berries",
+    "category": "fruits",
+    "carbs": 11,
+    "kcal": 60,
+    "protein": 0.7,
+    "fat": 0.3,
+    "salt": 0,
+    "notes": "",
+    "favorite": false,
+    "usageCount": 0
+  },
+  {
+    "id": "6a1d9f73d72893af4b909961",
+    "name": "Pangrattato",
+    "category": "grains",
+    "carbs": 85,
+    "kcal": 395,
+    "protein": 13,
+    "fat": 1.5,
+    "salt": 1.2,
+    "notes": "",
+    "favorite": false,
+    "usageCount": 0
+  },
+  {
+    "id": "6a1d9f73d72893af4b909955",
+    "name": "Hummus",
+    "category": "other",
+    "carbs": 15,
+    "kcal": 170,
+    "protein": 8,
+    "fat": 14,
+    "salt": 1.1,
+    "notes": "",
+    "favorite": false,
+    "usageCount": 0
+  },
+  {
+    "id": "6a1d9f73d72893af4b909947",
+    "name": "Sugo al pomodoro",
+    "category": "grains",
+    "carbs": 6,
+    "kcal": 72,
+    "protein": 1.5,
+    "fat": 3,
+    "salt": 0.6,
+    "notes": "",
+    "favorite": false,
+    "usageCount": 0
+  },
+  {
+    "id": "6a1d9f73d72893af4b909973",
+    "name": "Plum cake",
+    "category": "snacks",
+    "carbs": 44,
+    "kcal": 360,
+    "protein": 5,
+    "fat": 14,
+    "salt": 0.6,
+    "notes": "",
+    "favorite": false,
+    "usageCount": 0
+  },
+  {
+    "id": "6a1d9f73d72893af4b909952",
+    "name": "Olio d’oliva (1 table spoon is 14 grams)",
+    "category": "other",
+    "carbs": 0.5,
+    "kcal": 900,
+    "protein": 0,
+    "fat": 100,
+    "salt": 0,
+    "notes": "",
+    "favorite": false,
+    "usageCount": 4
+  },
+  {
+    "id": "6a1d9f73d72893af4b909949",
+    "name": "Peanut Butter",
+    "category": "snacks",
+    "carbs": 20,
+    "kcal": 590,
+    "protein": 24,
+    "fat": 50,
+    "salt": 0.5,
+    "notes": "",
+    "favorite": false,
+    "usageCount": 0
+  },
+  {
+    "id": "6a1d9f73d72893af4b90994f",
+    "name": "Meatballs Polpette",
+    "category": "protein",
+    "carbs": 0,
+    "kcal": 250,
+    "protein": 18,
+    "fat": 13,
+    "salt": 0.9,
+    "notes": "",
+    "favorite": false,
+    "usageCount": 0
+  },
+  {
+    "id": "6a1d9f73d72893af4b909978",
+    "name": "Fagioli secchi",
+    "category": "protein",
+    "carbs": 63,
+    "kcal": 300,
+    "protein": 22,
+    "fat": 1.5,
+    "salt": 0.02,
+    "notes": "",
+    "favorite": false,
+    "usageCount": 0
+  },
+  {
+    "id": "6a1d9f73d72893af4b909950",
+    "name": "Sea bass",
+    "category": "protein",
+    "carbs": 0,
+    "kcal": 125,
+    "protein": 22,
+    "fat": 4,
+    "salt": 0.2,
+    "notes": "",
+    "favorite": false,
+    "usageCount": 3
+  },
+  {
+    "id": "6a1d9f73d72893af4b909951",
+    "name": "Petto di pollo",
+    "category": "protein",
+    "carbs": 0,
+    "kcal": 165,
+    "protein": 31,
+    "fat": 3.6,
+    "salt": 0.1,
+    "notes": "",
+    "favorite": false,
+    "usageCount": 3
+  },
+  {
+    "id": "6a1d9f73d72893af4b90997e",
+    "name": "Wrap",
+    "category": "grains",
+    "carbs": 31,
+    "kcal": 310,
+    "protein": 9,
+    "fat": 8,
+    "salt": 1.3,
+    "notes": "",
+    "favorite": false,
+    "usageCount": 0
+  },
+  {
+    "id": "6a1d9f73d72893af4b909954",
+    "name": "Quinoa",
+    "category": "grains",
+    "carbs": 64,
+    "kcal": 120,
+    "protein": 14,
+    "fat": 6,
+    "salt": 0,
+    "notes": "",
+    "favorite": false,
+    "usageCount": 0
+  },
+  {
+    "id": "6a1d9f73d72893af4b909969",
+    "name": "Croissant (Gails)",
+    "category": "snacks",
+    "carbs": 48.5,
+    "kcal": 375,
+    "protein": 7,
+    "fat": 16,
+    "salt": 0.6,
+    "notes": "",
+    "favorite": false,
+    "usageCount": 2
+  },
+  {
+    "id": "6a1d9f73d72893af4b90997f",
+    "name": "Sanape",
+    "category": "other",
+    "carbs": 20,
+    "kcal": 100,
+    "protein": 4.5,
+    "fat": 4,
+    "salt": 2.5,
+    "notes": "",
+    "favorite": false,
+    "usageCount": 0
+  },
+  {
+    "id": "6a1d9f73d72893af4b909981",
+    "name": "Gelato",
+    "category": "snacks",
+    "carbs": 30,
+    "kcal": 210,
+    "protein": 3.5,
+    "fat": 11,
+    "salt": 0.1,
+    "notes": "",
+    "favorite": false,
+    "usageCount": 0
+  },
+  {
+    "id": "6a1d9f73d72893af4b90995a",
+    "name": "Barrette",
+    "category": "snacks",
+    "carbs": 35,
+    "kcal": 380,
+    "protein": 6,
+    "fat": 12,
+    "salt": 0.5,
+    "notes": "",
+    "favorite": false,
+    "usageCount": 0
+  },
+  {
+    "id": "6a1d9f73d72893af4b909960",
+    "name": "Sfrappole",
+    "category": "snacks",
+    "carbs": 40,
+    "kcal": 450,
+    "protein": 6,
+    "fat": 21,
+    "salt": 0.6,
+    "notes": "",
+    "favorite": false,
+    "usageCount": 0
+  },
+  {
+    "id": "6a1d97f8ad7287b9dffe8147",
+    "name": "Cuscus crudo",
+    "category": "grains",
+    "carbs": 30,
+    "kcal": 360,
+    "protein": null,
+    "fat": null,
+    "salt": null,
+    "notes": "",
+    "favorite": false,
+    "usageCount": 0
+  },
+  {
+    "id": "6a1d97f8ad7287b9dffe8103",
+    "name": "Fette Biscottate (each)",
+    "category": "snacks",
+    "carbs": 7,
+    "kcal": 40,
+    "protein": 0,
+    "fat": 0,
+    "salt": 0,
+    "notes": "",
+    "favorite": false,
+    "usageCount": 0
+  },
+  {
+    "id": "6a1d97f8ad7287b9dffe8105",
+    "name": "Marmellata",
+    "category": "snacks",
+    "carbs": 61,
+    "kcal": 250,
+    "protein": 0,
+    "fat": 0,
+    "salt": 0,
+    "notes": "",
+    "favorite": false,
+    "usageCount": 0
+  },
+  {
+    "id": "6a1d97f8ad7287b9dffe8127",
+    "name": "Polpette di ceci",
+    "category": "protein",
+    "carbs": 9.74,
+    "kcal": 180,
+    "protein": 0,
+    "fat": 0,
+    "salt": 0,
+    "notes": "",
+    "favorite": false,
+    "usageCount": 0
+  },
+  {
+    "id": "6a1d97f8ad7287b9dffe8140",
+    "name": "Dried apricot",
+    "category": "fruits",
+    "carbs": 36,
+    "kcal": 241,
+    "protein": 0,
+    "fat": 0,
+    "salt": 0,
+    "notes": "",
+    "favorite": false,
+    "usageCount": 0
+  },
+  {
+    "id": "6a1d97f8ad7287b9dffe80e0",
+    "name": "Parmiggiano Reggiano",
+    "category": "snacks",
+    "carbs": 0.5,
+    "kcal": 400,
+    "protein": 0,
+    "fat": 0,
+    "salt": 0,
+    "notes": "",
+    "favorite": false,
+    "usageCount": 1
+  }
+];
+
+// Preloaded from the original Base44 recipe library export.
+var SEED_RECIPES = [
+  {
+    "id": "6a2004ee3be20dae9efe74e1",
+    "name": "Banana and Apple Bread",
+    "category": "snacks",
+    "notes": "Una fetta pesa circa 30/40gr",
+    "favorite": false,
+    "usageCount": 1,
+    "items": [
+      {
+        "foodId": "6a1d9f73d72893af4b909966",
+        "grams": 130
+      },
+      {
+        "foodId": "6a1d9f73d72893af4b909977",
+        "grams": 80
+      },
+      {
+        "foodId": "6a1d9f73d72893af4b909959",
+        "grams": 200
+      },
+      {
+        "foodId": "6a20055705506c8be3dc77f5",
+        "grams": 200
+      },
+      {
+        "foodId": "6a1d9f73d72893af4b909994",
+        "grams": 30
+      },
+      {
+        "foodId": "6a1d9f73d72893af4b909949",
+        "grams": 80
+      }
+    ],
+    "rawWeight": null,
+    "finalWeight": 720
+  },
+  {
+    "id": "6a1d8d1f1d546f634d79c3ab",
+    "name": "Pasta al pomodoro",
+    "category": "grains",
+    "notes": "",
+    "favorite": false,
+    "usageCount": 0,
+    "items": [
+      {
+        "foodId": "6a1d9f73d72893af4b909993",
+        "grams": 70
+      },
+      {
+        "foodId": "6a1d9f73d72893af4b909947",
+        "grams": 20
+      },
+      {
+        "foodId": "6a1d97f8ad7287b9dffe80e0",
+        "grams": 10
+      }
+    ],
+    "rawWeight": null,
+    "finalWeight": 70
+  },
+  {
+    "id": "69c3bcf7dd47dd5ea3e90091",
+    "name": "Banana Bread",
+    "category": "snacks",
+    "notes": "Una fetta pesa circa 30/40gr",
+    "favorite": false,
+    "usageCount": 1,
+    "items": [
+      {
+        "foodId": "6a1d9f73d72893af4b909966",
+        "grams": 130
+      },
+      {
+        "foodId": "6a1d9f73d72893af4b909959",
+        "grams": 400
+      },
+      {
+        "foodId": "6a1d9f73d72893af4b909977",
+        "grams": 80
+      },
+      {
+        "foodId": "6a1d9f73d72893af4b909964",
+        "grams": 140
+      },
+      {
+        "foodId": "6a1d9f73d72893af4b909982",
+        "grams": 30
+      }
+    ],
+    "rawWeight": null,
+    "finalWeight": 738
+  },
+  {
+    "id": "6994dc0ca5759c1c91f60b8e",
+    "name": "Sfrappole",
+    "category": "snacks",
+    "notes": "Una sfrappole pesa 5gr",
+    "favorite": false,
+    "usageCount": 0,
+    "items": [
+      {
+        "foodId": "6a1d9f73d72893af4b909966",
+        "grams": 200
+      },
+      {
+        "foodId": "6a1d9f73d72893af4b909977",
+        "grams": 30
+      }
+    ],
+    "rawWeight": null,
+    "finalWeight": 250
+  }
+];
+
+</script>
+<script>
+(() => {
+  "use strict";
+
+  const STORAGE_KEY = "insulinBuddy.v2";
+
+  const CATEGORIES = [
+    { id: "fruits", label: "Fruits" },
+    { id: "vegetables", label: "Vegetables" },
+    { id: "grains", label: "Grains" },
+    { id: "protein", label: "Protein" },
+    { id: "dairy", label: "Dairy" },
+    { id: "beverages", label: "Beverages" },
+    { id: "snacks", label: "Snacks" },
+    { id: "other", label: "Other" }
+  ];
+
+  const PALETTES = [
+    { id: "tealViolet", name: "Teal & Violet", dots: ["#1F9E93", "#8B5CF6", "#38BDF8"] },
+    { id: "blueViolet", name: "Blue & Purple", dots: ["#3B82F6", "#8B5CF6", "#6366F1"] },
+    { id: "emeraldRose", name: "Emerald & Rose", dots: ["#10B981", "#F43F5E", "#34D399"] },
+    { id: "orangePink", name: "Orange & Pink", dots: ["#F97316", "#EC4899", "#F59E0B"] },
+    { id: "cyanIndigo", name: "Cyan & Indigo", dots: ["#22B8CE", "#6366F1", "#3B82F6"] },
+    { id: "greenAmber", name: "Green & Amber", dots: ["#22C55E", "#F59E0B", "#84CC16"] }
+  ];
+
+  const MEAL_TYPES = {
+    breakfast: { label: "Breakfast", color: "#E8935D", icon: iconSun() },
+    lunch:     { label: "Lunch",     color: "#D6A419", icon: iconSun() },
+    dinner:    { label: "Dinner",    color: "#6B5FD0", icon: iconMoon() },
+    snack:     { label: "Snack",     color: "#4C9A6A", icon: iconApple() }
+  };
+
+  function iconSun() { return '<svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="4" stroke="currentColor" stroke-width="1.8"/><path d="M12 3v2M12 19v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M3 12h2M19 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>'; }
+  function iconMoon() { return '<svg viewBox="0 0 24 24" fill="none"><path d="M20 14.5A8 8 0 1110 3.2 6.5 6.5 0 0020 14.5z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>'; }
+  function iconApple() { return '<svg viewBox="0 0 24 24" fill="none"><path d="M12 8.5c-3.5-2.5-8 0-8 5S7.5 21 10 20c1-.4 1-.4 2 0 2.5 1 6-2.5 6-6.5s-4.5-7.5-6-5z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M12 8.5c0-1.5.5-3 2-4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>'; }
+
+  const DEFAULT_TIME_RATIOS = [
+    { id: "tr-morning", name: "Morning", start: "05:30", end: "11:00", ratio: 10, color: "#1F9E93" },
+    { id: "tr-lunch",   name: "Lunch",   start: "11:00", end: "15:00", ratio: 8,  color: "#D6A419" },
+    { id: "tr-evening", name: "Evening", start: "15:00", end: "23:30", ratio: 15, color: "#6366F1" },
+    { id: "tr-night",   name: "Night",   start: "23:30", end: "05:30", ratio: 12, color: "#D9534F" }
+  ];
+  const DEFAULT_ACTIVITY_RATIOS = [
+    { id: "ar-sport", name: "Sport", ratio: 18, color: "#8B5CF6" }
+  ];
+
+  function defaultState() {
+    return {
+      settings: {
+        isf: 50,
+        target: 100,
+        units: "mgdl",
+        rounding: "0.5",
+        maxDose: 15,
+        timeRatios: structuredClone(DEFAULT_TIME_RATIOS),
+        activityRatios: structuredClone(DEFAULT_ACTIVITY_RATIOS),
+        palette: "blueViolet",
+        darkMode: false
+      },
+      library: structuredClone(typeof SEED_FOODS !== "undefined" ? SEED_FOODS : []),
+      recipes: structuredClone(typeof SEED_RECIPES !== "undefined" ? SEED_RECIPES : []),
+      history: []
+    };
+  }
+
+  function loadState() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return defaultState();
+      const parsed = JSON.parse(raw);
+      const d = defaultState();
+      return {
+        settings: { ...d.settings, ...(parsed.settings || {}) },
+        library: Array.isArray(parsed.library) ? parsed.library : d.library,
+        recipes: Array.isArray(parsed.recipes) ? parsed.recipes : [],
+        history: Array.isArray(parsed.history) ? parsed.history : []
+      };
+    } catch (e) {
+      console.error("Could not read saved data, starting fresh.", e);
+      return defaultState();
+    }
+  }
+
+  let state = loadState();
+  function saveState() { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
+
+  // ---------- draft (in-progress calculator entry, not persisted) ----------
+  let draft = {
+    items: [],          // { refType, refId, name, grams, carbs, kcal }
+    correctionOn: false,
+    glucose: "",
+    manualRatioId: null // overrides time-of-day auto ratio; can be a timeRatio or activityRatio id
+  };
+
+  // ================= Navigation =================
+  const tabs = document.querySelectorAll(".tab");
+  const views = document.querySelectorAll("[data-view]");
+
+  function showView(name) {
+    views.forEach(v => { v.hidden = v.id !== `view-${name}`; });
+    tabs.forEach(t => {
+      if (t.dataset.target === name) t.setAttribute("aria-current", "page");
+      else t.removeAttribute("aria-current");
+    });
+    if (name === "library") renderLibrary();
+    if (name === "history") renderHistory();
+    if (name === "settings") renderSettings();
+  }
+  tabs.forEach(t => t.addEventListener("click", () => showView(t.dataset.target)));
+
+  // ================= Time helpers =================
+  function toMinutes(hhmm) {
+    const [h, m] = hhmm.split(":").map(Number);
+    return h * 60 + m;
+  }
+  function inRange(minutes, start, end) {
+    const s = toMinutes(start), e = toMinutes(end);
+    if (s === e) return true;
+    if (s < e) return minutes >= s && minutes < e;
+    return minutes >= s || minutes < e; // wraps past midnight
+  }
+  function currentTimeRatio(atDate) {
+    const d = atDate || new Date();
+    const minutes = d.getHours() * 60 + d.getMinutes();
+    const list = state.settings.timeRatios;
+    return list.find(r => inRange(minutes, r.start, r.end)) || list[0] || null;
+  }
+  function unitLabel() { return state.settings.units === "mmol" ? "mmol/L" : "mg/dL"; }
+
+  function activeRatioEntry() {
+    if (draft.manualRatioId) {
+      const t = state.settings.timeRatios.find(r => r.id === draft.manualRatioId);
+      if (t) return t;
+      const a = state.settings.activityRatios.find(r => r.id === draft.manualRatioId);
+      if (a) return a;
+    }
+    return currentTimeRatio();
+  }
+
+  // ================= Calculator =================
+  const el = id => document.getElementById(id);
+  const carbsPill = el("cc-carbs-pill");
+  const doseNumber = el("cc-dose-number");
+  const correctionToggle = el("cc-correction-toggle");
+  const correctionRow = el("cc-correction-row");
+  const glucoseInput = el("cc-glucose");
+  const glucoseUnitLabel = el("cc-glucose-unit");
+  const ratioPill = el("cc-ratio-pill");
+  const ratioValueLabel = el("cc-ratio-value");
+  const ratioPicker = el("cc-ratio-picker");
+  const mealItemsBox = el("cc-meal-items");
+  const searchInput = el("cc-search");
+  const gramsInput = el("cc-grams");
+  const addBtn = el("cc-add-btn");
+  const foodListBox = el("cc-food-list");
+  const logBtn = el("cc-log-btn");
+  const resetBtn = el("cc-reset-btn");
+
+  let selectedPickId = null; // id of highlighted item in the pick list (format "food:ID" or "recipe:ID")
+
+  function roundDose(value) {
+    const step = parseFloat(state.settings.rounding);
+    return Math.round((Math.round(value / step) * step) * 100) / 100;
+  }
+
+  function recipeTotals(recipe) {
+    let carbs = 0, kcal = 0;
+    recipe.items.forEach(it => {
+      const food = state.library.find(f => f.id === it.foodId);
+      if (!food) return;
+      carbs += (food.carbs || 0) * it.grams / 100;
+      kcal += (food.kcal || 0) * it.grams / 100;
+    });
+    const totalCarbs = Math.round(carbs * 10) / 10;
+    const totalKcal = Math.round(kcal);
+    const fw = recipe.finalWeight;
+    return {
+      totalCarbs, totalKcal,
+      carbsPer100g: fw ? Math.round((totalCarbs / fw) * 1000) / 10 : null,
+      kcalPer100g: fw ? Math.round((totalKcal / fw) * 1000) / 10 : null
+    };
+  }
+
+  function pickableItems() {
+    const foods = state.library.map(f => ({
+      id: "food:" + f.id, refType: "food", refId: f.id, name: f.name,
+      carbsPer100g: f.carbs, kcalPer100g: f.kcal, notes: f.notes,
+      usageCount: f.usageCount || 0, favorite: f.favorite
+    }));
+    const recipes = state.recipes.filter(r => r.finalWeight > 0).map(r => {
+      const t = recipeTotals(r);
+      return {
+        id: "recipe:" + r.id, refType: "recipe", refId: r.id, name: r.name,
+        carbsPer100g: t.carbsPer100g, kcalPer100g: t.kcalPer100g, notes: r.notes,
+        usageCount: r.usageCount || 0, favorite: r.favorite
+      };
+    });
+    return [...recipes, ...foods];
+  }
+
+  function renderFoodPickList() {
+    const q = searchInput.value.trim().toLowerCase();
+    let items = pickableItems();
+    if (q) items = items.filter(i => i.name.toLowerCase().includes(q));
+    items.sort((a, b) => (b.usageCount || 0) - (a.usageCount || 0) || a.name.localeCompare(b.name));
+    items = items.slice(0, 40);
+
+    foodListBox.innerHTML = "";
+    items.forEach(item => {
+      const row = document.createElement("div");
+      row.className = "food-pick-item" + (selectedPickId === item.id ? " is-selected" : "");
+      row.dataset.id = item.id;
+      const meta = `<span class="c-carbs">${item.carbsPer100g ?? "?"}g carbs</span>${item.kcalPer100g ? ` · <span class="c-kcal">~${item.kcalPer100g} kcal</span> / 100g` : " / 100g"}`;
+      row.innerHTML = `
+        <div class="food-pick-item__main">
+          <p class="food-pick-item__name">${escapeHtml(item.name)}</p>
+          <p class="food-pick-item__meta">${meta}</p>
+          ${item.notes ? `<p class="food-pick-item__note">${escapeHtml(item.notes)}</p>` : ""}
+        </div>
+        ${item.refType === "recipe" ? '<span class="food-pick-item__badge">Recipe</span>' : (item.usageCount ? `<span class="food-pick-item__badge">${item.usageCount}×</span>` : "")}
+      `;
+      foodListBox.appendChild(row);
+    });
+  }
+
+  foodListBox.addEventListener("click", e => {
+    const row = e.target.closest(".food-pick-item");
+    if (!row) return;
+    selectedPickId = row.dataset.id;
+    const items = pickableItems();
+    const item = items.find(i => i.id === selectedPickId);
+    if (!item) return;
+    searchInput.value = item.name;
+    renderFoodPickList();
+    gramsInput.disabled = false;
+    gramsInput.focus();
+  });
+
+  searchInput.addEventListener("input", () => { selectedPickId = null; renderFoodPickList(); });
+
+  function addSelectedToMeal() {
+    if (!selectedPickId) return;
+    const [type, id] = selectedPickId.split(":");
+    const items = pickableItems();
+    const item = items.find(i => i.id === selectedPickId);
+    if (!item || item.carbsPer100g == null) return;
+    const grams = parseFloat(gramsInput.value);
+    if (!grams || grams <= 0) { gramsInput.focus(); return; }
+    draft.items.push({
+      refType: type, refId: id, name: item.name, grams,
+      carbs: Math.round(item.carbsPer100g * grams) / 100,
+      kcal: item.kcalPer100g ? Math.round(item.kcalPer100g * grams) / 100 : null
+    });
+    selectedPickId = null;
+    searchInput.value = "";
+    gramsInput.value = "";
+    gramsInput.disabled = false;
+    renderFoodPickList();
+    renderMealItems();
+    recompute();
+  }
+
+  addBtn.addEventListener("click", addSelectedToMeal);
+  gramsInput.addEventListener("keydown", e => { if (e.key === "Enter") addSelectedToMeal(); });
+
+  function renderMealItems() {
+    mealItemsBox.innerHTML = "";
+    draft.items.forEach((item, idx) => {
+      const row = document.createElement("div");
+      row.className = "meal-item";
+      row.innerHTML = `
+        <div class="meal-item__main">
+          <p class="meal-item__name">${escapeHtml(item.name)}</p>
+          <p class="meal-item__meta">${item.grams}g${item.kcal ? " · ~" + Math.round(item.kcal) + " kcal" : ""}</p>
+        </div>
+        <div class="meal-item__carbs">${round1(item.carbs)}g</div>
+        <button class="meal-item__remove" data-idx="${idx}" aria-label="Remove">
+          <svg viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        </button>
+      `;
+      mealItemsBox.appendChild(row);
+    });
+  }
+
+  mealItemsBox.addEventListener("click", e => {
+    const btn = e.target.closest(".meal-item__remove");
+    if (!btn) return;
+    draft.items.splice(parseInt(btn.dataset.idx, 10), 1);
+    renderMealItems();
+    recompute();
+  });
+
+  function round1(n) { return Math.round(n * 10) / 10; }
+
+  function totalCarbs() { return draft.items.reduce((s, i) => s + i.carbs, 0); }
+
+  function recompute() {
+    const carbs = totalCarbs();
+    carbsPill.textContent = `${round1(carbs)}g Carbs`;
+
+    const ratioEntry = activeRatioEntry();
+    ratioValueLabel.textContent = ratioEntry ? `1:${ratioEntry.ratio}` : "—";
+
+    const mealPart = ratioEntry && ratioEntry.ratio > 0 ? carbs / ratioEntry.ratio : 0;
+
+    let correctionPart = 0;
+    if (draft.correctionOn) {
+      const bg = parseFloat(glucoseInput.value);
+      if (!isNaN(bg) && bg > 0 && state.settings.isf > 0) {
+        correctionPart = Math.max(0, (bg - state.settings.target) / state.settings.isf);
+      }
+    }
+
+    let total = mealPart + correctionPart;
+    if (state.settings.maxDose > 0 && total > state.settings.maxDose) total = state.settings.maxDose;
+    const finalDose = Math.max(0, roundDose(total));
+    doseNumber.textContent = finalDose.toFixed(1);
+
+    logBtn.disabled = carbs <= 0;
+
+    draft._computed = { carbs, mealDose: roundDose(mealPart), correctionDose: roundDose(correctionPart), finalDose, ratioEntry };
+  }
+
+  correctionToggle.addEventListener("click", () => {
+    draft.correctionOn = !draft.correctionOn;
+    correctionToggle.classList.toggle("is-active", draft.correctionOn);
+    correctionRow.hidden = !draft.correctionOn;
+    glucoseUnitLabel.textContent = unitLabel();
+    if (draft.correctionOn) glucoseInput.focus();
+    recompute();
+  });
+  glucoseInput.addEventListener("input", recompute);
+
+  function renderRatioPicker() {
+    const rows = [
+      ...state.settings.timeRatios.map(r => ({ ...r, kind: "time" })),
+      ...state.settings.activityRatios.map(r => ({ ...r, kind: "activity" }))
+    ];
+    ratioPicker.innerHTML = rows.map(r => `
+      <button class="ratio-picker__item" data-id="${r.id}" type="button">
+        <span class="ratio-picker__name"><span class="ratio-picker__dot" style="background:${r.color}"></span>${escapeHtml(r.name)}${r.kind === "time" ? ` <span style="color:var(--ink-soft);font-weight:400;">${r.start}–${r.end}</span>` : ""}</span>
+        <span class="ratio-picker__value">1:${r.ratio}</span>
+      </button>
+    `).join("") + `
+      <button class="ratio-picker__item" data-id="__auto__" type="button">
+        <span class="ratio-picker__name">Use automatic (time-of-day)</span>
+        <span class="ratio-picker__value"></span>
+      </button>
+    `;
+  }
+
+  ratioPill.addEventListener("click", () => {
+    if (ratioPicker.hidden) { renderRatioPicker(); ratioPicker.hidden = false; }
+    else ratioPicker.hidden = true;
+  });
+  ratioPicker.addEventListener("click", e => {
+    const btn = e.target.closest(".ratio-picker__item");
+    if (!btn) return;
+    draft.manualRatioId = btn.dataset.id === "__auto__" ? null : btn.dataset.id;
+    ratioPicker.hidden = true;
+    recompute();
+  });
+
+  resetBtn.addEventListener("click", () => {
+    draft = { items: [], correctionOn: false, glucose: "", manualRatioId: null };
+    searchInput.value = ""; gramsInput.value = ""; gramsInput.disabled = false;
+    glucoseInput.value = "";
+    correctionToggle.classList.remove("is-active");
+    correctionRow.hidden = true;
+    ratioPicker.hidden = true;
+    selectedPickId = null;
+    renderFoodPickList();
+    renderMealItems();
+    recompute();
+  });
+
+  // ---- Log meal (choose meal type, then save) ----
+  logBtn.addEventListener("click", () => {
+    if (totalCarbs() <= 0) return;
+    openMealTypeSheet();
+  });
+
+  // ---- Bottom-sheet helpers: lock background scroll on mobile while a sheet is open ----
+  let openSheetCount = 0;
+  function openSheet(backdrop) {
+    document.body.appendChild(backdrop);
+    openSheetCount++;
+    document.body.classList.add("sheet-open");
+  }
+  function closeSheet(backdrop) {
+    backdrop.remove();
+    openSheetCount = Math.max(0, openSheetCount - 1);
+    if (openSheetCount === 0) document.body.classList.remove("sheet-open");
+  }
+
+  function openMealTypeSheet() {
+    const backdrop = document.createElement("div");
+    backdrop.className = "sheet-backdrop";
+    backdrop.innerHTML = `
+      <div class="sheet">
+        <h2>Log as&hellip;</h2>
+        <div class="field-grid" style="margin-bottom:16px;">
+          ${Object.entries(MEAL_TYPES).map(([key, m]) => `
+            <button class="btn btn--secondary" data-meal="${key}" type="button" style="display:flex;align-items:center;gap:8px;justify-content:center;">
+              <span style="color:${m.color};width:18px;height:18px;">${m.icon}</span>${m.label}
+            </button>
+          `).join("")}
+        </div>
+        <button class="btn" id="sheet-cancel" type="button" style="background:none;color:var(--ink-soft);">Cancel</button>
+      </div>
+    `;
+    openSheet(backdrop);
+    backdrop.addEventListener("click", e => {
+      if (e.target === backdrop || e.target.id === "sheet-cancel") { closeSheet(backdrop); return; }
+      const btn = e.target.closest("[data-meal]");
+      if (btn) { logMeal(btn.dataset.meal); closeSheet(backdrop); }
+    });
+  }
+
+  function logMeal(mealType) {
+    const ratioEntry = draft._computed.ratioEntry;
+    const now = new Date();
+    const periodEntry = currentTimeRatio(now);
+    const entry = {
+      id: "h-" + Date.now(),
+      ts: now.getTime(),
+      mealType,
+      periodName: periodEntry ? periodEntry.name.toLowerCase() : "",
+      items: draft.items.map(i => ({ name: i.name, grams: i.grams, carbs: i.carbs, kcal: i.kcal })),
+      totalCarbs: round1(totalCarbs()),
+      totalKcal: Math.round(draft.items.reduce((s, i) => s + (i.kcal || 0), 0)),
+      mealDose: draft._computed.mealDose,
+      correctionDose: draft._computed.correctionDose,
+      ratioLabel: ratioEntry ? ratioEntry.name : "",
+      ratioValue: ratioEntry ? ratioEntry.ratio : null
+    };
+    state.history.unshift(entry);
+    draft.items.forEach(i => {
+      if (i.refType === "food") {
+        const f = state.library.find(x => x.id === i.refId);
+        if (f) f.usageCount = (f.usageCount || 0) + 1;
+      } else {
+        const r = state.recipes.find(x => x.id === i.refId);
+        if (r) r.usageCount = (r.usageCount || 0) + 1;
+      }
+    });
+    saveState();
+    resetBtn.click();
+  }
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  }
+
+  // ================= Library =================
+  let libSeg = "foods"; // 'foods' | 'recipes'
+  const libSegmented = el("lib-segmented");
+  const libFoodsList = el("lib-foods-list");
+  const libRecipesList = el("lib-recipes-list");
+  const libEmpty = el("lib-empty");
+  const libSearch = el("lib-search");
+  const libFilterBtn = el("lib-filter-btn");
+  const libFilterPanel = el("lib-filter-panel");
+  const libFavOnly = el("lib-fav-only");
+  const libCatFilter = el("lib-cat-filter");
+  const libSort = el("lib-sort");
+  const libAddBtn = el("lib-add-btn");
+
+  CATEGORIES.forEach(c => {
+    const opt = document.createElement("option");
+    opt.value = c.id; opt.textContent = c.label;
+    libCatFilter.appendChild(opt);
+  });
+
+  libSegmented.addEventListener("click", e => {
+    const btn = e.target.closest(".segmented__btn");
+    if (!btn) return;
+    libSeg = btn.dataset.seg;
+    libSegmented.querySelectorAll(".segmented__btn").forEach(b => b.classList.toggle("is-active", b === btn));
+    libSearch.placeholder = libSeg === "foods" ? "Search foods…" : "Search recipes…";
+    renderLibrary();
+  });
+
+  libFilterBtn.addEventListener("click", () => {
+    libFilterPanel.hidden = !libFilterPanel.hidden;
+    libFilterBtn.classList.toggle("is-active", !libFilterPanel.hidden);
+  });
+  [libSearch, libFavOnly, libCatFilter, libSort].forEach(elx => elx.addEventListener("input", renderLibrary));
+
+  function categoryBadge(cat) {
+    const c = CATEGORIES.find(x => x.id === cat) || CATEGORIES[CATEGORIES.length - 1];
+    return `<span class="lib-item__badge cat-${c.id}">${c.label}</span>`;
+  }
+
+  function renderLibrary() {
+    libFoodsList.hidden = libSeg !== "foods";
+    libRecipesList.hidden = libSeg !== "recipes";
+    libAddBtn.setAttribute("aria-label", libSeg === "foods" ? "Add food" : "Add recipe");
+
+    if (libSeg === "foods") renderFoodsLibrary(); else renderRecipesLibrary();
+  }
+
+  function renderFoodsLibrary() {
+    const q = libSearch.value.trim().toLowerCase();
+    let items = state.library.slice();
+    if (q) items = items.filter(f => f.name.toLowerCase().includes(q));
+    if (libFavOnly.checked) items = items.filter(f => f.favorite);
+    if (libCatFilter.value) items = items.filter(f => f.category === libCatFilter.value);
+    const sort = libSort.value;
+    items.sort((a, b) => {
+      if (sort === "usage") return (b.usageCount || 0) - (a.usageCount || 0);
+      if (sort === "carbs") return (b.carbs || 0) - (a.carbs || 0);
+      return a.name.localeCompare(b.name);
+    });
+
+    libFoodsList.innerHTML = "";
+    libEmpty.hidden = items.length > 0;
+    items.forEach(f => {
+      const row = document.createElement("div");
+      row.className = "lib-item";
+      row.innerHTML = `
+        <button class="lib-item__star${f.favorite ? " is-fav" : ""}" data-id="${f.id}" aria-label="Toggle favorite">
+          <svg viewBox="0 0 24 24" fill="${f.favorite ? "currentColor" : "none"}"><path d="M12 3.5l2.6 5.6 6 .7-4.4 4.2 1.1 6-5.3-3-5.3 3 1.1-6-4.4-4.2 6-.7z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>
+        </button>
+        <div class="lib-item__main">
+          <div class="lib-item__title-row">
+            <p class="lib-item__name">${escapeHtml(f.name)}</p>
+            ${categoryBadge(f.category)}
+          </div>
+          <p class="lib-item__meta"><span class="c-carbs">${f.carbs}g carbs/100g</span>${f.kcal ? ` · <span class="c-kcal">~${f.kcal} kcal/100g</span>` : ""}</p>
+          ${f.notes ? `<p class="lib-item__note">${escapeHtml(f.notes)}</p>` : ""}
+          <p class="lib-item__usage">Used ${f.usageCount || 0}× times</p>
+        </div>
+        <div class="lib-item__actions">
+          <button data-act="edit" data-id="${f.id}" aria-label="Edit"><svg viewBox="0 0 24 24" fill="none"><path d="M4 20l4-1 11-11-3-3L5 16z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg></button>
+          <button data-act="copy" data-id="${f.id}" aria-label="Duplicate"><svg viewBox="0 0 24 24" fill="none"><rect x="9" y="9" width="11" height="11" rx="2" stroke="currentColor" stroke-width="1.6"/><path d="M5 15V6a2 2 0 012-2h9" stroke="currentColor" stroke-width="1.6"/></svg></button>
+          <button class="danger" data-act="delete" data-id="${f.id}" aria-label="Delete"><svg viewBox="0 0 24 24" fill="none"><path d="M5 7h14M9 7V5a1 1 0 011-1h4a1 1 0 011 1v2m-9 0l1 12a2 2 0 002 2h6a2 2 0 002-2l1-12" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+        </div>
+      `;
+      libFoodsList.appendChild(row);
+    });
+  }
+
+  libFoodsList.addEventListener("click", e => {
+    const starBtn = e.target.closest(".lib-item__star");
+    if (starBtn) {
+      const f = state.library.find(x => x.id === starBtn.dataset.id);
+      if (f) { f.favorite = !f.favorite; saveState(); renderFoodsLibrary(); }
+      return;
+    }
+    const actBtn = e.target.closest("[data-act]");
+    if (!actBtn) return;
+    const id = actBtn.dataset.id;
+    const f = state.library.find(x => x.id === id);
+    if (!f) return;
+    if (actBtn.dataset.act === "edit") openFoodSheet(f);
+    if (actBtn.dataset.act === "copy") {
+      const copy = { ...f, id: "food-" + Date.now(), name: f.name + " (copy)", usageCount: 0 };
+      state.library.unshift(copy);
+      saveState(); renderFoodsLibrary();
+    }
+    if (actBtn.dataset.act === "delete") {
+      if (confirm(`Delete "${f.name}"?`)) {
+        state.library = state.library.filter(x => x.id !== id);
+        saveState(); renderFoodsLibrary();
+      }
+    }
+  });
+
+  function openFoodSheet(food) {
+    const isEdit = !!food;
+    const f = food || { name: "", category: "other", carbs: "", kcal: "", fat: "", protein: "", salt: "", notes: "", favorite: false };
+    const backdrop = document.createElement("div");
+    backdrop.className = "sheet-backdrop";
+    backdrop.innerHTML = `
+      <div class="sheet">
+        <div class="sheet-head">
+          <h2>${isEdit ? "Edit Food" : "Add New Food"}</h2>
+          <button class="sheet-close" id="fs-close" type="button" aria-label="Close">
+            <svg viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+          </button>
+        </div>
+        <div class="field">
+          <label>Food Name</label>
+          <input type="text" id="fs-name" value="${escapeAttr(f.name)}" placeholder="e.g., Brown Rice">
+        </div>
+
+        <div class="field-inline-row">
+          <label>Carbs per 100g</label>
+          <input type="number" id="fs-carbs" value="${f.carbs ?? ""}" step="0.1" placeholder="e.g., 28">
+        </div>
+        <div class="field-inline-row">
+          <label>Calories per 100g <span class="field__optional">(optional)</span></label>
+          <input type="number" id="fs-kcal" value="${f.kcal ?? ""}" step="1" placeholder="e.g., 150">
+        </div>
+        <div class="field-inline-row">
+          <label>Fat per 100g <span class="field__optional">(optional)</span></label>
+          <input type="number" id="fs-fat" value="${f.fat ?? ""}" step="0.1" placeholder="e.g., 5">
+        </div>
+        <div class="field-inline-row">
+          <label>Protein per 100g <span class="field__optional">(optional)</span></label>
+          <input type="number" id="fs-protein" value="${f.protein ?? ""}" step="0.1" placeholder="e.g., 8">
+        </div>
+        <div class="field-inline-row">
+          <label>Salt per 100g <span class="field__optional">(optional)</span></label>
+          <input type="number" id="fs-salt" value="${f.salt ?? ""}" step="0.1" placeholder="e.g., 0.5">
+        </div>
+
+        <div class="field" style="margin-top:18px;">
+          <label>Category</label>
+          <select id="fs-cat">
+            ${CATEGORIES.map(c => `<option value="${c.id}" ${c.id === f.category ? "selected" : ""}>${c.label}</option>`).join("")}
+          </select>
+        </div>
+        <div class="field">
+          <label>Notes <span class="field__optional">(optional)</span></label>
+          <textarea id="fs-notes" rows="2" placeholder="e.g., High fiber, good for breakfast&hellip;">${escapeHtml(f.notes || "")}</textarea>
+        </div>
+        <div class="checkbox-row"><label><input type="checkbox" id="fs-fav" ${f.favorite ? "checked" : ""}> Favorite</label></div>
+        <div class="sheet-actions">
+          <button class="btn btn--secondary" id="fs-cancel" type="button">Cancel</button>
+          <button class="btn btn--primary" id="fs-save" type="button">${isEdit ? "Save Changes" : "Add Food"}</button>
+        </div>
+      </div>
+    `;
+    openSheet(backdrop);
+    backdrop.addEventListener("click", e => { if (e.target === backdrop || e.target.id === "fs-cancel" || e.target.closest("#fs-close")) closeSheet(backdrop); });
+    backdrop.querySelector("#fs-save").addEventListener("click", () => {
+      const name = backdrop.querySelector("#fs-name").value.trim();
+      const carbs = parseFloat(backdrop.querySelector("#fs-carbs").value);
+      if (!name || isNaN(carbs)) { alert("Please enter at least a name and carbs per 100g."); return; }
+      const payload = {
+        name,
+        category: backdrop.querySelector("#fs-cat").value,
+        carbs,
+        kcal: parseFloat(backdrop.querySelector("#fs-kcal").value) || null,
+        fat: parseFloat(backdrop.querySelector("#fs-fat").value) || null,
+        protein: parseFloat(backdrop.querySelector("#fs-protein").value) || null,
+        salt: parseFloat(backdrop.querySelector("#fs-salt").value) || null,
+        notes: backdrop.querySelector("#fs-notes").value.trim(),
+        favorite: backdrop.querySelector("#fs-fav").checked
+      };
+      if (isEdit) Object.assign(f, payload);
+      else state.library.unshift({ id: "food-" + Date.now(), usageCount: 0, ...payload });
+      saveState();
+      renderFoodsLibrary();
+      closeSheet(backdrop);
+    });
+  }
+
+  function escapeAttr(s) { return escapeHtml(s).replace(/"/g, "&quot;"); }
+
+  function renderRecipesLibrary() {
+    const q = libSearch.value.trim().toLowerCase();
+    let items = state.recipes.slice();
+    if (q) items = items.filter(r => r.name.toLowerCase().includes(q));
+    if (libFavOnly.checked) items = items.filter(r => r.favorite);
+    libRecipesList.innerHTML = "";
+    libEmpty.hidden = items.length > 0;
+    items.forEach(r => {
+      const t = recipeTotals(r);
+      const row = document.createElement("div");
+      row.className = "lib-item";
+      const perG = t.carbsPer100g != null
+        ? `<span class="c-carbs">${t.carbsPer100g}g carbs/100g</span>${t.kcalPer100g ? ` · <span class="c-kcal">~${t.kcalPer100g} kcal/100g</span>` : ""}`
+        : `<span style="color:var(--brick);">Set a final weight to use this in the Calculator</span>`;
+      row.innerHTML = `
+        <button class="lib-item__star${r.favorite ? " is-fav" : ""}" data-id="${r.id}" aria-label="Toggle favorite">
+          <svg viewBox="0 0 24 24" fill="${r.favorite ? "currentColor" : "none"}"><path d="M12 3.5l2.6 5.6 6 .7-4.4 4.2 1.1 6-5.3-3-5.3 3 1.1-6-4.4-4.2 6-.7z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>
+        </button>
+        <div class="lib-item__main">
+          <div class="lib-item__title-row">
+            <p class="lib-item__name">${escapeHtml(r.name)}</p>
+            ${categoryBadge(r.category || "other")}
+          </div>
+          <p class="lib-item__meta">${perG}</p>
+          <p class="lib-item__note">${r.items.map(it => {
+            const f = state.library.find(x => x.id === it.foodId);
+            return f ? `${f.name} (${it.grams}g)` : "";
+          }).filter(Boolean).join(", ")}${r.finalWeight ? ` — final weight ${r.finalWeight}g` : ""}</p>
+          <p class="lib-item__usage">Used ${r.usageCount || 0}× times</p>
+        </div>
+        <div class="lib-item__actions">
+          <button data-act="edit" data-id="${r.id}" aria-label="Edit"><svg viewBox="0 0 24 24" fill="none"><path d="M4 20l4-1 11-11-3-3L5 16z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg></button>
+          <button class="danger" data-act="delete" data-id="${r.id}" aria-label="Delete"><svg viewBox="0 0 24 24" fill="none"><path d="M5 7h14M9 7V5a1 1 0 011-1h4a1 1 0 011 1v2m-9 0l1 12a2 2 0 002 2h6a2 2 0 002-2l1-12" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+        </div>
+      `;
+      libRecipesList.appendChild(row);
+    });
+  }
+
+  libRecipesList.addEventListener("click", e => {
+    const starBtn = e.target.closest(".lib-item__star");
+    if (starBtn) {
+      const r = state.recipes.find(x => x.id === starBtn.dataset.id);
+      if (r) { r.favorite = !r.favorite; saveState(); renderRecipesLibrary(); }
+      return;
+    }
+    const actBtn = e.target.closest("[data-act]");
+    if (!actBtn) return;
+    const r = state.recipes.find(x => x.id === actBtn.dataset.id);
+    if (!r) return;
+    if (actBtn.dataset.act === "edit") openRecipeSheet(r);
+    if (actBtn.dataset.act === "delete") {
+      if (confirm(`Delete recipe "${r.name}"?`)) {
+        state.recipes = state.recipes.filter(x => x.id !== r.id);
+        saveState(); renderRecipesLibrary();
+      }
+    }
+  });
+
+  function openRecipeSheet(recipe) {
+    const isEdit = !!recipe;
+    const r = recipe || { name: "", category: "other", notes: "", favorite: false, items: [], rawWeight: null, finalWeight: "" };
+    let items = r.items.length ? r.items.map(it => ({ ...it })) : [];
+    let ingredientSelection = null; // { foodId, name }
+
+    const backdrop = document.createElement("div");
+    backdrop.className = "sheet-backdrop";
+    backdrop.innerHTML = `
+      <div class="sheet">
+        <div class="sheet-head sheet-head--recipe">
+          <button class="sheet-back" id="rs-back" type="button" aria-label="Back">
+            <svg viewBox="0 0 24 24" fill="none"><path d="M15 5l-7 7 7 7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+          <span class="sheet-head__icon">
+            <svg viewBox="0 0 24 24" fill="none"><path d="M6 10.5c0-2.5 2.5-5 6-5s6 2.5 6 5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M4.5 10.5h15L18 20a1.5 1.5 0 01-1.5 1.3h-9A1.5 1.5 0 016 20l-1.5-9.5z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>
+          </span>
+          <h2>${isEdit ? "Edit Recipe" : "Create Recipe"}</h2>
+          <button class="sheet-close" id="rs-close" type="button" aria-label="Close">
+            <svg viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+          </button>
+        </div>
+
+        <div class="field-grid">
+          <div class="field"><label>Recipe Name</label><input type="text" id="rs-name" value="${escapeAttr(r.name)}" placeholder="e.g., Chocolate Cake"></div>
+          <div class="field"><label>Category</label>
+            <select id="rs-cat">${CATEGORIES.map(c => `<option value="${c.id}" ${c.id === r.category ? "selected" : ""}>${c.label}</option>`).join("")}</select>
+          </div>
+        </div>
+
+        <label class="block-label">Ingredients</label>
+        <div class="ingredient-box">
+          <div class="ingredient-search-wrap">
+            <input type="text" id="rs-ing-search" placeholder="Search ingredients&hellip;" autocomplete="off">
+            <div class="ingredient-dropdown" id="rs-ing-dropdown" hidden></div>
+          </div>
+          <div class="ingredient-add-row">
+            <input type="number" id="rs-ing-weight" placeholder="Weight (g)" min="0">
+            <button type="button" id="rs-ing-add" aria-label="Add ingredient">
+              <svg viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+            </button>
+          </div>
+          <div id="rs-ing-list" class="ingredient-list"></div>
+        </div>
+
+        <div class="field-grid" style="margin-top:16px;">
+          <div class="field"><label>Raw Weight (g)</label><input type="number" id="rs-raw-weight" min="0" value="${r.rawWeight ?? ""}" placeholder="Optional"></div>
+          <div class="field"><label>Final Weight (g) *</label><input type="number" id="rs-final-weight" min="0" value="${r.finalWeight ?? ""}" placeholder="e.g., 800"></div>
+        </div>
+
+        <div class="field">
+          <label>Notes <span class="field__optional">(Optional)</span></label>
+          <textarea id="rs-notes" rows="2" placeholder="Cooking instructions, tips, etc&hellip;">${escapeHtml(r.notes || "")}</textarea>
+        </div>
+        <div class="checkbox-row"><label><input type="checkbox" id="rs-fav" ${r.favorite ? "checked" : ""}> Favorite</label></div>
+
+        <div class="sheet-actions">
+          <button class="btn btn--secondary" id="rs-cancel" type="button">Cancel</button>
+          <button class="btn btn--primary" id="rs-save" type="button">${isEdit ? "Save Changes" : "Save Recipe"}</button>
+        </div>
+      </div>
+    `;
+    openSheet(backdrop);
+
+    function renderIngredientList() {
+      const box = backdrop.querySelector("#rs-ing-list");
+      if (items.length === 0) { box.innerHTML = ""; return; }
+      box.innerHTML = items.map((it, idx) => {
+        const f = state.library.find(x => x.id === it.foodId);
+        return `
+          <div class="ingredient-row">
+            <span class="ingredient-row__name">${f ? escapeHtml(f.name) : "(missing food)"}</span>
+            <span class="ingredient-row__grams">${it.grams}g</span>
+            <button type="button" data-idx="${idx}" aria-label="Remove ingredient">
+              <svg viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+            </button>
+          </div>
+        `;
+      }).join("");
+    }
+    renderIngredientList();
+
+    function renderDropdown() {
+      const dd = backdrop.querySelector("#rs-ing-dropdown");
+      const q = backdrop.querySelector("#rs-ing-search").value.trim().toLowerCase();
+      if (!q) { dd.hidden = true; dd.innerHTML = ""; return; }
+      const matches = state.library.filter(f => f.name.toLowerCase().includes(q)).slice(0, 8);
+      if (matches.length === 0) { dd.hidden = true; dd.innerHTML = ""; return; }
+      dd.innerHTML = matches.map(f => `<button type="button" class="ingredient-dropdown__item" data-id="${f.id}">${escapeHtml(f.name)} <span>${f.carbs}g carbs/100g</span></button>`).join("");
+      dd.hidden = false;
+    }
+
+    backdrop.querySelector("#rs-ing-search").addEventListener("input", () => { ingredientSelection = null; renderDropdown(); });
+    backdrop.querySelector("#rs-ing-dropdown").addEventListener("click", e => {
+      const btn = e.target.closest(".ingredient-dropdown__item");
+      if (!btn) return;
+      const f = state.library.find(x => x.id === btn.dataset.id);
+      if (!f) return;
+      ingredientSelection = { foodId: f.id, name: f.name };
+      backdrop.querySelector("#rs-ing-search").value = f.name;
+      backdrop.querySelector("#rs-ing-dropdown").hidden = true;
+      backdrop.querySelector("#rs-ing-weight").focus();
+    });
+
+    function addIngredient() {
+      const weight = parseFloat(backdrop.querySelector("#rs-ing-weight").value);
+      if (!ingredientSelection) { backdrop.querySelector("#rs-ing-search").focus(); return; }
+      if (!weight || weight <= 0) { backdrop.querySelector("#rs-ing-weight").focus(); return; }
+      items.push({ foodId: ingredientSelection.foodId, grams: weight });
+      ingredientSelection = null;
+      backdrop.querySelector("#rs-ing-search").value = "";
+      backdrop.querySelector("#rs-ing-weight").value = "";
+      renderIngredientList();
+    }
+    backdrop.querySelector("#rs-ing-add").addEventListener("click", addIngredient);
+    backdrop.querySelector("#rs-ing-weight").addEventListener("keydown", e => { if (e.key === "Enter") addIngredient(); });
+    backdrop.querySelector("#rs-ing-list").addEventListener("click", e => {
+      const btn = e.target.closest("button[data-idx]");
+      if (!btn) return;
+      items.splice(parseInt(btn.dataset.idx, 10), 1);
+      renderIngredientList();
+    });
+
+    backdrop.addEventListener("click", e => {
+      if (e.target === backdrop || e.target.id === "rs-cancel" || e.target.closest("#rs-close") || e.target.closest("#rs-back")) closeSheet(backdrop);
+    });
+    backdrop.querySelector("#rs-save").addEventListener("click", () => {
+      const name = backdrop.querySelector("#rs-name").value.trim();
+      const finalWeight = parseFloat(backdrop.querySelector("#rs-final-weight").value);
+      if (!name) { alert("Give the recipe a name."); return; }
+      if (items.length === 0) { alert("Add at least one ingredient."); return; }
+      if (!finalWeight || finalWeight <= 0) { alert("Final Weight is required — it's the total weight of the finished dish, used to work out carbs per 100g."); return; }
+      const payload = {
+        name,
+        category: backdrop.querySelector("#rs-cat").value,
+        notes: backdrop.querySelector("#rs-notes").value.trim(),
+        favorite: backdrop.querySelector("#rs-fav").checked,
+        items,
+        rawWeight: parseFloat(backdrop.querySelector("#rs-raw-weight").value) || null,
+        finalWeight
+      };
+      if (isEdit) Object.assign(r, payload);
+      else state.recipes.unshift({ id: "recipe-" + Date.now(), usageCount: 0, ...payload });
+      saveState();
+      renderRecipesLibrary();
+      closeSheet(backdrop);
+    });
+  }
+
+  libAddBtn.addEventListener("click", () => { if (libSeg === "foods") openFoodSheet(null); else openRecipeSheet(null); });
+
+  // ================= History =================
+  const historyGroups = el("history-groups");
+  const historyEmpty = el("history-empty");
+  const histCountPill = el("hist-count-pill");
+
+  function formatDateHeader(ts) {
+    return new Date(ts).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" }).toUpperCase();
+  }
+  function formatTime(ts) {
+    return new Date(ts).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+  }
+  function dateKey(ts) {
+    const d = new Date(ts);
+    return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+  }
+
+  let expandedHistoryId = null;
+
+  function renderHistory() {
+    histCountPill.textContent = `${state.history.length} meal${state.history.length === 1 ? "" : "s"}`;
+    historyEmpty.hidden = state.history.length > 0;
+    historyGroups.innerHTML = "";
+    if (state.history.length === 0) return;
+
+    const groups = [];
+    let currentKey = null, currentGroup = null;
+    state.history.forEach(entry => {
+      const k = dateKey(entry.ts);
+      if (k !== currentKey) {
+        currentGroup = { key: k, ts: entry.ts, entries: [] };
+        groups.push(currentGroup);
+        currentKey = k;
+      }
+      currentGroup.entries.push(entry);
+    });
+
+    groups.forEach(group => {
+      const groupEl = document.createElement("div");
+      groupEl.className = "history-group";
+      const header = document.createElement("p");
+      header.className = "history-group__date";
+      header.textContent = formatDateHeader(group.ts);
+      groupEl.appendChild(header);
+
+      group.entries.forEach(entry => {
+        const meal = MEAL_TYPES[entry.mealType] || MEAL_TYPES.snack;
+        const row = document.createElement("div");
+        row.className = "history-entry";
+        row.style.borderLeftColor = meal.color;
+        row.dataset.id = entry.id;
+        const doseText = entry.correctionDose > 0 ? `${entry.mealDose}+${entry.correctionDose}u` : `${entry.mealDose}u`;
+        row.innerHTML = `
+          <div class="history-entry__icon" style="background:${meal.color}">${meal.icon}</div>
+          <div class="history-entry__main">
+            <p class="history-entry__title">${meal.label} <span class="muted">· ${formatTime(entry.ts)} · ${escapeHtml(entry.periodName || "")}</span></p>
+            <p class="history-entry__foods">${entry.items.map(i => escapeHtml(i.name)).join(", ")}</p>
+            <div class="history-entry__detail" hidden>
+              ${entry.items.map(i => `<div><span>${escapeHtml(i.name)}${i.grams ? " (" + i.grams + "g)" : ""}</span><span>${round1(i.carbs)}g carbs</span></div>`).join("")}
+              <div class="history-entry__row-actions">
+                <button class="danger" data-del="${entry.id}" type="button">Delete</button>
+              </div>
+            </div>
+          </div>
+          <div class="history-entry__stats">
+            <span class="stat-kcal">${entry.totalKcal || 0} kcal</span>
+            <span class="stat-grams">${entry.totalCarbs}g</span>
+            <span class="dose-pill"><svg viewBox="0 0 24 24" fill="none"><path d="M12 2C12 2 5 10.5 5 15.5C5 19.6 8.13 22 12 22C15.87 22 19 19.6 19 15.5C19 10.5 12 2 12 2Z" stroke="currentColor" stroke-width="2"/></svg>${doseText}</span>
+          </div>
+        `;
+        groupEl.appendChild(row);
+      });
+      historyGroups.appendChild(groupEl);
+    });
+  }
+
+  historyGroups.addEventListener("click", e => {
+    const delBtn = e.target.closest("[data-del]");
+    if (delBtn) {
+      if (confirm("Delete this logged meal?")) {
+        state.history = state.history.filter(h => h.id !== delBtn.dataset.del);
+        saveState();
+        renderHistory();
+      }
+      return;
+    }
+    const row = e.target.closest(".history-entry");
+    if (!row) return;
+    const detail = row.querySelector(".history-entry__detail");
+    detail.hidden = !detail.hidden;
+  });
+
+  // ================= Settings =================
+  let settingsSeg = "ratios";
+  const settingsSegmented = el("settings-segmented");
+  const panelRatios = el("panel-ratios");
+  const panelData = el("panel-data");
+  const panelGeneral = el("panel-general");
+
+  settingsSegmented.addEventListener("click", e => {
+    const btn = e.target.closest(".segmented__btn");
+    if (!btn) return;
+    settingsSeg = btn.dataset.seg;
+    settingsSegmented.querySelectorAll(".segmented__btn").forEach(b => b.classList.toggle("is-active", b === btn));
+    panelRatios.hidden = settingsSeg !== "ratios";
+    panelData.hidden = settingsSeg !== "data";
+    panelGeneral.hidden = settingsSeg !== "general";
+  });
+
+  function renderSettings() {
+    panelRatios.hidden = settingsSeg !== "ratios";
+    panelData.hidden = settingsSeg !== "data";
+    panelGeneral.hidden = settingsSeg !== "general";
+    renderTimeline();
+    renderTimeRatioList();
+    renderActivityRatioList();
+    fillCorrectionForm();
+    el("export-count-label").textContent = `${state.library.length} foods · ${state.recipes.length} recipes`;
+    renderPaletteGrid();
+    el("dark-mode-toggle").checked = state.settings.darkMode;
+  }
+
+  function renderTimeline() {
+    const bar = el("timeline-bar");
+    bar.innerHTML = "";
+    // build 24h segments, splitting any range that wraps midnight into two
+    const segs = [];
+    state.settings.timeRatios.forEach(r => {
+      const s = toMinutes(r.start), e = toMinutes(r.end);
+      if (s < e) segs.push({ start: s, end: e, r });
+      else { segs.push({ start: s, end: 1440, r }); segs.push({ start: 0, end: e, r }); }
+    });
+    segs.sort((a, b) => a.start - b.start);
+    segs.forEach(seg => {
+      const width = ((seg.end - seg.start) / 1440) * 100;
+      if (width <= 0) return;
+      const div = document.createElement("div");
+      div.className = "timeline__seg";
+      div.style.width = width + "%";
+      div.style.background = seg.r.color;
+      div.textContent = width > 10 ? `${seg.r.name} · 1:${seg.r.ratio}` : "";
+      bar.appendChild(div);
+    });
+  }
+
+  function renderTimeRatioList() {
+    const box = el("time-ratio-list");
+    box.innerHTML = "";
+    state.settings.timeRatios.forEach(r => {
+      const row = document.createElement("div");
+      row.className = "ratio-row";
+      row.innerHTML = `
+        <div class="ratio-row__top" data-toggle="${r.id}" style="cursor:pointer;">
+          <span class="ratio-row__dot" style="background:${r.color}"></span>
+          <span>
+            <span class="ratio-row__name">${escapeHtml(r.name)}</span>
+            <span class="ratio-row__time">${r.start} – ${r.end}</span>
+          </span>
+          <span class="ratio-row__value">1:${r.ratio}</span>
+          <button class="ratio-row__del" data-del="${r.id}" aria-label="Delete" style="margin-left:4px;">
+            <svg viewBox="0 0 24 24" fill="none"><path d="M5 7h14M9 7V5a1 1 0 011-1h4a1 1 0 011 1v2m-9 0l1 12a2 2 0 002 2h6a2 2 0 002-2l1-12" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+        </div>
+        <div class="ratio-row__edit" id="edit-${r.id}" hidden>
+          <input type="time" value="${r.start}" data-field="start" data-id="${r.id}">
+          <span>to</span>
+          <input type="time" value="${r.end}" data-field="end" data-id="${r.id}">
+          <span class="ratio-x">1 unit per <input type="number" min="1" value="${r.ratio}" data-field="ratio" data-id="${r.id}"> g</span>
+        </div>
+      `;
+      box.appendChild(row);
+    });
+  }
+
+  el("time-ratio-list").addEventListener("click", e => {
+    const del = e.target.closest("[data-del]");
+    if (del) {
+      if (state.settings.timeRatios.length <= 1) { alert("You need at least one time range."); return; }
+      state.settings.timeRatios = state.settings.timeRatios.filter(r => r.id !== del.dataset.del);
+      saveState(); renderTimeline(); renderTimeRatioList();
+      return;
+    }
+    const toggle = e.target.closest("[data-toggle]");
+    if (toggle) {
+      const box = el("edit-" + toggle.dataset.toggle);
+      box.hidden = !box.hidden;
+    }
+  });
+  el("time-ratio-list").addEventListener("change", e => {
+    const field = e.target.dataset.field;
+    if (!field) return;
+    const r = state.settings.timeRatios.find(x => x.id === e.target.dataset.id);
+    if (!r) return;
+    if (field === "ratio") r.ratio = parseFloat(e.target.value) || r.ratio;
+    else r[field] = e.target.value;
+    saveState();
+    renderTimeline();
+    renderTimeRatioList();
+  });
+
+  const RANGE_COLORS = ["#1F9E93", "#D6A419", "#6366F1", "#D9534F", "#EC4899", "#22B8CE"];
+  el("add-time-range-btn").addEventListener("click", () => {
+    const id = "tr-" + Date.now();
+    state.settings.timeRatios.push({ id, name: "New range", start: "12:00", end: "14:00", ratio: 10, color: RANGE_COLORS[state.settings.timeRatios.length % RANGE_COLORS.length] });
+    saveState(); renderTimeline(); renderTimeRatioList();
+  });
+
+  function renderActivityRatioList() {
+    const box = el("activity-ratio-list");
+    box.innerHTML = "";
+    state.settings.activityRatios.forEach(r => {
+      const row = document.createElement("div");
+      row.className = "ratio-row";
+      row.innerHTML = `
+        <div class="ratio-row__top">
+          <span class="ratio-row__dot" style="background:${r.color}"></span>
+          <span class="ratio-row__name" style="flex:1;">${escapeHtml(r.name)}</span>
+          <span class="ratio-x">1 unit per <input type="number" min="1" value="${r.ratio}" data-field="ratio" data-id="${r.id}" style="width:52px;padding:6px;text-align:center;"> g</span>
+          <button class="ratio-row__del" data-del="${r.id}" aria-label="Delete">
+            <svg viewBox="0 0 24 24" fill="none"><path d="M5 7h14M9 7V5a1 1 0 011-1h4a1 1 0 011 1v2m-9 0l1 12a2 2 0 002 2h6a2 2 0 002-2l1-12" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+        </div>
+      `;
+      box.appendChild(row);
+    });
+  }
+  el("activity-ratio-list").addEventListener("click", e => {
+    const del = e.target.closest("[data-del]");
+    if (!del) return;
+    state.settings.activityRatios = state.settings.activityRatios.filter(r => r.id !== del.dataset.del);
+    saveState(); renderActivityRatioList();
+  });
+  el("activity-ratio-list").addEventListener("change", e => {
+    if (e.target.dataset.field !== "ratio") return;
+    const r = state.settings.activityRatios.find(x => x.id === e.target.dataset.id);
+    if (r) { r.ratio = parseFloat(e.target.value) || r.ratio; saveState(); }
+  });
+  el("add-activity-btn").addEventListener("click", () => {
+    const name = prompt("Activity name (e.g. Sport, Stress):");
+    if (!name) return;
+    state.settings.activityRatios.push({ id: "ar-" + Date.now(), name, ratio: 15, color: RANGE_COLORS[state.settings.activityRatios.length % RANGE_COLORS.length] });
+    saveState(); renderActivityRatioList();
+  });
+
+  function fillCorrectionForm() {
+    el("set-isf").value = state.settings.isf;
+    el("set-target").value = state.settings.target;
+    el("set-units").value = state.settings.units;
+    el("set-rounding").value = state.settings.rounding;
+    el("set-max").value = state.settings.maxDose;
+    const u = unitLabel();
+    el("isf-unit-label").textContent = u;
+    el("target-unit-label").textContent = u;
+  }
+  el("btn-save-settings").addEventListener("click", () => {
+    state.settings.isf = parseFloat(el("set-isf").value) || state.settings.isf;
+    state.settings.target = parseFloat(el("set-target").value) || 0;
+    state.settings.units = el("set-units").value;
+    state.settings.rounding = el("set-rounding").value;
+    state.settings.maxDose = parseFloat(el("set-max").value) || 0;
+    saveState();
+    fillCorrectionForm();
+    const conf = el("save-confirm");
+    conf.hidden = false;
+    setTimeout(() => { conf.hidden = true; }, 1500);
+    recompute();
+  });
+
+  // ---- Data tab: export/import ----
+  function toCsv(rows, headers) {
+    const esc = v => `"${String(v ?? "").replace(/"/g, '""')}"`;
+    const lines = [headers.map(esc).join(",")];
+    rows.forEach(r => lines.push(headers.map(h => esc(r[h])).join(",")));
+    return lines.join("\n");
+  }
+  function downloadText(filename, text, mime) {
+    const blob = new Blob([text], { type: mime || "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = filename; a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  el("btn-export-library").addEventListener("click", () => {
+    const foodHeaders = ["fat_per_100g", "usage_count", "is_favorite", "notes", "calories_per_100g", "salt_per_100g", "name", "carbs_per_100g", "category", "protein_per_100g", "id"];
+    const foodRows = state.library.map(f => ({
+      fat_per_100g: f.fat, usage_count: f.usageCount || 0, is_favorite: !!f.favorite,
+      notes: f.notes, calories_per_100g: f.kcal, salt_per_100g: f.salt, name: f.name,
+      carbs_per_100g: f.carbs, category: f.category, protein_per_100g: f.protein, id: f.id
+    }));
+    downloadText("Food_export.csv", toCsv(foodRows, foodHeaders), "text/csv");
+
+    if (state.recipes.length) {
+      const recipeHeaders = ["raw_weight", "total_carbs", "usage_count", "final_weight", "notes", "total_calories", "calories_per_100g", "name", "ingredients", "carbs_per_100g", "category", "id"];
+      const recipeRows = state.recipes.map(r => {
+        const t = recipeTotals(r);
+        const ingredients = r.items.map(it => {
+          const f = state.library.find(x => x.id === it.foodId);
+          return {
+            food_name: f ? f.name : "", weight_grams: it.grams,
+            carbs: f ? Math.round(f.carbs * it.grams) / 100 : 0,
+            calories_per_100g: f ? f.kcal : null, carbs_per_100g: f ? f.carbs : null,
+            calories: f && f.kcal ? Math.round(f.kcal * it.grams) / 100 : null,
+            food_id: it.foodId
+          };
+        });
+        return {
+          raw_weight: r.rawWeight ?? "", total_carbs: t.totalCarbs, usage_count: r.usageCount || 0,
+          final_weight: r.finalWeight ?? "", notes: r.notes, total_calories: t.totalKcal,
+          calories_per_100g: t.kcalPer100g ?? "",
+          name: r.name, ingredients: JSON.stringify(ingredients),
+          carbs_per_100g: t.carbsPer100g ?? "",
+          category: r.category || "other",
+          id: r.id
+        };
+      });
+      setTimeout(() => downloadText("Recipe_export.csv", toCsv(recipeRows, recipeHeaders), "text/csv"), 300);
+    }
+  });
+
+  el("btn-import-library").addEventListener("click", () => el("import-file-input").click());
+  el("import-file-input").addEventListener("change", e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        let imported = [];
+        if (file.name.endsWith(".json")) {
+          const data = JSON.parse(reader.result);
+          imported = Array.isArray(data) ? data : (data.foods || []);
+        } else {
+          imported = parseCsv(reader.result).map(r => ({
+            name: r.name, category: r.category || "other",
+            carbs: parseFloat(r.carbs_per_100g) || 0, kcal: parseFloat(r.calories_per_100g) || null,
+            protein: parseFloat(r.protein_per_100g) || null, fat: parseFloat(r.fat_per_100g) || null,
+            salt: parseFloat(r.salt_per_100g) || null, notes: r.notes || "",
+            favorite: r.is_favorite === "true", usageCount: parseInt(r.usage_count, 10) || 0
+          }));
+        }
+        let added = 0, updated = 0;
+        imported.forEach(item => {
+          if (!item.name) return;
+          const existing = state.library.find(f => f.name.toLowerCase() === item.name.toLowerCase());
+          if (existing) { Object.assign(existing, item, { id: existing.id }); updated++; }
+          else { state.library.push({ id: "food-" + Date.now() + "-" + Math.random().toString(36).slice(2, 6), usageCount: 0, ...item }); added++; }
+        });
+        saveState();
+        renderLibrary();
+        renderSettings();
+        alert(`Import complete: ${added} added, ${updated} updated.`);
+      } catch (err) {
+        console.error(err);
+        alert("Could not read that file. Make sure it's a CSV or JSON export.");
+      }
+      e.target.value = "";
+    };
+    reader.readAsText(file);
+  });
+
+  function parseCsv(text) {
+    const lines = text.split(/\r?\n/).filter(l => l.trim().length);
+    if (lines.length < 2) return [];
+    const headers = splitCsvLine(lines[0]);
+    return lines.slice(1).map(line => {
+      const cells = splitCsvLine(line);
+      const obj = {};
+      headers.forEach((h, i) => { obj[h] = cells[i]; });
+      return obj;
+    });
+  }
+  function splitCsvLine(line) {
+    const out = [];
+    let cur = "", inQuotes = false;
+    for (let i = 0; i < line.length; i++) {
+      const c = line[i];
+      if (inQuotes) {
+        if (c === '"' && line[i + 1] === '"') { cur += '"'; i++; }
+        else if (c === '"') { inQuotes = false; }
+        else cur += c;
+      } else {
+        if (c === '"') inQuotes = true;
+        else if (c === ",") { out.push(cur); cur = ""; }
+        else cur += c;
+      }
+    }
+    out.push(cur);
+    return out;
+  }
+
+  el("btn-export-all").addEventListener("click", () => {
+    downloadText(`insulin-buddy-backup-${new Date().toISOString().slice(0, 10)}.json`, JSON.stringify(state, null, 2), "application/json");
+  });
+
+  // ---- General tab ----
+  function renderPaletteGrid() {
+    const grid = el("palette-grid");
+    grid.innerHTML = PALETTES.map(p => `
+      <button class="palette-card${state.settings.palette === p.id ? " is-selected" : ""}" data-id="${p.id}" type="button">
+        ${state.settings.palette === p.id ? `<span class="palette-card__check"><svg viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>` : ""}
+        <span class="palette-card__dots">${p.dots.map(c => `<span style="background:${c}"></span>`).join("")}</span>
+        <span class="palette-card__name">${p.name}</span>
+      </button>
+    `).join("");
+  }
+  el("palette-grid").addEventListener("click", e => {
+    const card = e.target.closest(".palette-card");
+    if (!card) return;
+    state.settings.palette = card.dataset.id;
+    document.documentElement.setAttribute("data-palette", card.dataset.id);
+    saveState();
+    renderPaletteGrid();
+  });
+
+  el("dark-mode-toggle").addEventListener("change", e => {
+    state.settings.darkMode = e.target.checked;
+    document.documentElement.setAttribute("data-theme", state.settings.darkMode ? "dark" : "light");
+    saveState();
+  });
+
+  el("btn-refresh-app").addEventListener("click", () => location.reload());
+
+  el("btn-delete-all").addEventListener("click", () => {
+    if (!confirm("This deletes ALL data — settings, library, recipes and history — from this browser. This can't be undone. Continue?")) return;
+    localStorage.removeItem(STORAGE_KEY);
+    state = defaultState();
+    document.documentElement.setAttribute("data-palette", state.settings.palette);
+    document.documentElement.setAttribute("data-theme", "light");
+    draft = { items: [], correctionOn: false, glucose: "", manualRatioId: null };
+    renderFoodPickList(); renderMealItems(); recompute();
+    renderLibrary(); renderHistory(); renderSettings();
+    alert("All data has been deleted.");
+  });
+
+  // ================= Init =================
+  document.documentElement.setAttribute("data-palette", state.settings.palette);
+  document.documentElement.setAttribute("data-theme", state.settings.darkMode ? "dark" : "light");
+  renderFoodPickList();
+  renderMealItems();
+  recompute();
+  showView("calculator");
+})();
+
+</script>
+</body>
+</html>

@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light" data-palette="blueViolet">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Insulin Buddy</title>
+<meta name="description" content="Calculate insulin doses from your meals and insulin-to-carb ratios.">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="Insulin Buddy">
+<meta name="theme-color" content="#F5F3EE">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Public+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="app">
+
+  <main class="views">
+
+    <!-- ======================= CALCULATOR ======================= -->
+    <section class="view" id="view-calculator" data-view>
+
+      <div class="dose-card">
+        <div class="dose-card__top">
+          <div class="dose-card__label">INSULIN DOSE</div>
+          <div class="carbs-pill" id="cc-carbs-pill">0.0g Carbs</div>
+        </div>
+        <div class="dose-card__value"><span id="cc-dose-number">0.0</span><span class="dose-card__unit">units</span></div>
+        <div class="dose-card__controls">
+          <button class="pill-btn" id="cc-correction-toggle" type="button">
+            <svg viewBox="0 0 24 24" fill="none"><path d="M3 12h4l2-7 4 14 2-7h6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Correction
+          </button>
+          <button class="pill-btn pill-btn--icon" id="cc-reset-btn" type="button" aria-label="Reset calculator">
+            <svg viewBox="0 0 24 24" fill="none"><path d="M4 4v5h5M20 20v-5h-5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M4.6 15A8 8 0 1019 8.5M19 8.5V4m0 4.5h-4.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+          <button class="pill-btn" id="cc-ratio-pill" type="button">
+            <svg viewBox="0 0 24 24" fill="none"><path d="M7 7h11l-3-3M17 17H6l3 3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Ratio <span id="cc-ratio-value">1:15</span>
+          </button>
+        </div>
+
+        <div class="correction-row" id="cc-correction-row" hidden>
+          <label for="cc-glucose">Current glucose</label>
+          <div class="correction-row__input">
+            <input type="number" id="cc-glucose" inputmode="decimal" min="0" step="0.1" placeholder="0">
+            <span id="cc-glucose-unit">mg/dL</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="ratio-picker" id="cc-ratio-picker" hidden></div>
+
+      <div class="meal-items" id="cc-meal-items"></div>
+
+      <div class="section-header">ADD FOOD ITEM</div>
+
+      <div class="add-row">
+        <input type="text" id="cc-search" class="add-row__search" placeholder="Search foods&hellip;" autocomplete="off">
+        <input type="number" id="cc-grams" class="add-row__grams" placeholder="Grams" min="0" step="1" inputmode="decimal" aria-label="Grams">
+        <button class="add-row__btn" id="cc-add-btn" type="button" aria-label="Add food">
+          <svg viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+
+      <div class="food-pick-list" id="cc-food-list"></div>
+
+      <button class="btn btn--primary" id="cc-log-btn" type="button" disabled>Log this meal</button>
+      <p class="disclaimer">Uses the ratios you've set in Settings. Always use your own judgment and your care team's guidance — this isn't medical advice.</p>
+    </section>
+
+    <!-- ======================= LIBRARY ======================= -->
+    <section class="view" id="view-library" data-view hidden>
+      <div class="page-head">
+        <div>
+          <h1>Food Library</h1>
+          <p class="page-head__sub">Manage your foods and recipes</p>
+        </div>
+        <button class="fab" id="lib-add-btn" type="button" aria-label="Add">
+          <svg viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+
+      <div class="segmented" id="lib-segmented">
+        <button class="segmented__btn is-active" data-seg="foods" type="button">Foods</button>
+        <button class="segmented__btn" data-seg="recipes" type="button">Recipes</button>
+      </div>
+
+      <div class="search-row">
+        <input type="text" id="lib-search" placeholder="Search foods&hellip;" autocomplete="off">
+        <button class="icon-btn" id="lib-filter-btn" type="button" aria-label="Filter">
+          <svg viewBox="0 0 24 24" fill="none"><path d="M4 6h16M7 12h10M10 18h4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+
+      <div class="filter-panel" id="lib-filter-panel" hidden>
+        <div class="filter-panel__row">
+          <label><input type="checkbox" id="lib-fav-only"> Favorites only</label>
+        </div>
+        <div class="filter-panel__row">
+          <label for="lib-cat-filter">Category</label>
+          <select id="lib-cat-filter">
+            <option value="">All categories</option>
+          </select>
+        </div>
+        <div class="filter-panel__row">
+          <label for="lib-sort">Sort by</label>
+          <select id="lib-sort">
+            <option value="name">Name</option>
+            <option value="usage">Most used</option>
+            <option value="carbs">Carbs per 100g</option>
+          </select>
+        </div>
+      </div>
+
+      <div id="lib-foods-list" class="lib-list"></div>
+      <div id="lib-recipes-list" class="lib-list" hidden></div>
+      <div class="empty-state" id="lib-empty" hidden>
+        <p>Nothing here yet.</p>
+        <p class="empty-state__sub">Tap the + button to add one.</p>
+      </div>
+    </section>
+
+    <!-- ======================= HISTORY ======================= -->
+    <section class="view" id="view-history" data-view hidden>
+      <div class="page-head">
+        <div>
+          <h1>Meal History</h1>
+          <p class="page-head__sub">Your logged meals</p>
+        </div>
+        <div class="carbs-pill carbs-pill--muted" id="hist-count-pill">0 meals</div>
+      </div>
+
+      <div id="history-groups"></div>
+      <div class="empty-state" id="history-empty">
+        <p>No meals logged yet.</p>
+        <p class="empty-state__sub">Log one from the Calculator tab and it'll show up here.</p>
+      </div>
+    </section>
+
+    <!-- ======================= SETTINGS ======================= -->
+    <section class="view" id="view-settings" data-view hidden>
+      <div class="page-head">
+        <div>
+          <h1>Settings</h1>
+          <p class="page-head__sub">Manage preferences</p>
+        </div>
+      </div>
+
+      <div class="segmented" id="settings-segmented">
+        <button class="segmented__btn is-active" data-seg="ratios" type="button">Insulin Ratios</button>
+        <button class="segmented__btn" data-seg="data" type="button">Data</button>
+        <button class="segmented__btn" data-seg="general" type="button">General</button>
+      </div>
+
+      <!-- Insulin Ratios -->
+      <div class="settings-panel" id="panel-ratios">
+        <div class="panel-card">
+          <h2 class="panel-card__title"><svg viewBox="0 0 24 24" fill="none" class="icon-inline"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.6"/><path d="M12 7v5l3 2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg> Time-Based Ratios</h2>
+          <div class="timeline" id="timeline-bar"></div>
+          <div class="timeline-marks">
+            <span>0h</span><span>6h</span><span>12h</span><span>18h</span><span>24h</span>
+          </div>
+          <div id="time-ratio-list" class="ratio-list"></div>
+          <button class="dashed-btn" id="add-time-range-btn" type="button">
+            <svg viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+            Add Time Range
+          </button>
+        </div>
+
+        <div class="panel-card">
+          <h2 class="panel-card__title"><svg viewBox="0 0 24 24" fill="none" class="icon-inline"><path d="M3 12h4l2-7 4 14 2-7h6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg> Activity Ratios</h2>
+          <div id="activity-ratio-list" class="ratio-list"></div>
+          <button class="dashed-btn" id="add-activity-btn" type="button">
+            <svg viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+            Add Activity
+          </button>
+        </div>
+
+        <div class="panel-card">
+          <h2 class="panel-card__title">Correction settings</h2>
+          <div class="field">
+            <label for="set-isf">Correction factor <span class="field__optional">(1 unit lowers glucose by)</span></label>
+            <div class="field__row">
+              <input type="number" id="set-isf" min="1" step="1" inputmode="decimal">
+              <span class="field__unit" id="isf-unit-label">mg/dL</span>
+            </div>
+          </div>
+          <div class="field">
+            <label for="set-target">Target glucose</label>
+            <div class="field__row">
+              <input type="number" id="set-target" min="0" step="1" inputmode="decimal">
+              <span class="field__unit" id="target-unit-label">mg/dL</span>
+            </div>
+          </div>
+          <div class="field">
+            <label for="set-units">Glucose units</label>
+            <select id="set-units">
+              <option value="mgdl">mg/dL</option>
+              <option value="mmol">mmol/L</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="set-rounding">Round doses to nearest</label>
+            <select id="set-rounding">
+              <option value="0.1">0.1 unit</option>
+              <option value="0.5">0.5 unit</option>
+              <option value="1">1 unit</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="set-max">Safety cap <span class="field__optional">(highest dose it will ever suggest)</span></label>
+            <div class="field__row">
+              <input type="number" id="set-max" min="0" step="1" inputmode="decimal">
+              <span class="field__unit">units</span>
+            </div>
+          </div>
+          <button class="btn btn--primary" id="btn-save-settings" type="button">Save settings</button>
+          <p class="save-confirm" id="save-confirm" hidden>Saved.</p>
+        </div>
+      </div>
+
+      <!-- Data -->
+      <div class="settings-panel" id="panel-data" hidden>
+        <div class="panel-card">
+          <h2 class="panel-card__title">Import / Export Library</h2>
+          <button class="data-row" id="btn-export-library" type="button">
+            <span class="data-row__icon data-row__icon--down">
+              <svg viewBox="0 0 24 24" fill="none"><path d="M12 3v13m0 0l-4-4m4 4l4-4M4 20h16" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </span>
+            <span class="data-row__text">
+              <span class="data-row__title">Export Library</span>
+              <span class="data-row__sub" id="export-count-label">0 foods · 0 recipes</span>
+            </span>
+          </button>
+          <button class="data-row" id="btn-import-library" type="button">
+            <span class="data-row__icon data-row__icon--up">
+              <svg viewBox="0 0 24 24" fill="none"><path d="M12 21V8m0 0l-4 4m4-4l4 4M4 4h16" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </span>
+            <span class="data-row__text">
+              <span class="data-row__title">Import Library</span>
+              <span class="data-row__sub">Creates new items &amp; updates existing ones by name</span>
+            </span>
+          </button>
+          <input type="file" id="import-file-input" accept=".csv,.json" hidden>
+        </div>
+
+        <div class="panel-card">
+          <h2 class="panel-card__title">Backup everything</h2>
+          <button class="data-row" id="btn-export-all" type="button">
+            <span class="data-row__icon data-row__icon--down">
+              <svg viewBox="0 0 24 24" fill="none"><path d="M12 3v13m0 0l-4-4m4 4l4-4M4 20h16" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </span>
+            <span class="data-row__text">
+              <span class="data-row__title">Export full backup</span>
+              <span class="data-row__sub">Settings, library, recipes and history as one file</span>
+            </span>
+          </button>
+        </div>
+      </div>
+
+      <!-- General -->
+      <div class="settings-panel" id="panel-general" hidden>
+        <div class="panel-card">
+          <h2 class="panel-card__title">Color Theme</h2>
+          <p class="panel-card__hint">Choose your palette</p>
+          <div class="palette-grid" id="palette-grid"></div>
+        </div>
+
+        <div class="panel-card">
+          <div class="toggle-row">
+            <span><svg viewBox="0 0 24 24" fill="none" class="icon-inline"><circle cx="12" cy="12" r="4.5" stroke="currentColor" stroke-width="1.6"/><path d="M12 2.5v2M12 19.5v2M4 12H2M22 12h-2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M18.4 5.6L17 7M7 17l-1.4 1.4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg> Dark Mode</span>
+            <label class="switch">
+              <input type="checkbox" id="dark-mode-toggle">
+              <span class="switch__track"></span>
+            </label>
+          </div>
+        </div>
+
+        <button class="data-row" id="btn-refresh-app" type="button">
+          <span class="data-row__icon">
+            <svg viewBox="0 0 24 24" fill="none"><path d="M4 4v5h5M20 20v-5h-5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><path d="M4.6 15A8 8 0 1019 8.5M19 8.5V4m0 4.5h-4.5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </span>
+          <span class="data-row__text"><span class="data-row__title">Refresh App</span></span>
+        </button>
+
+        <div class="version-card">
+          <div class="version-card__row">
+            <span>App Version</span>
+            <span class="version-card__badge">v1.0.0</span>
+          </div>
+          <p>A dependency-free rebuild of your original app. Runs entirely in this browser — nothing is sent anywhere.</p>
+        </div>
+
+        <div class="disclaimer-banner">
+          <svg viewBox="0 0 24 24" fill="none"><path d="M12 9v4M12 17h.01M10.3 3.9L2.6 17.5a1.5 1.5 0 001.3 2.3h16.2a1.5 1.5 0 001.3-2.3L13.7 3.9a1.5 1.5 0 00-2.6 0z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>
+          <span>For informational purposes only. Always consult your healthcare provider.</span>
+        </div>
+
+        <button class="btn btn--danger-solid" id="btn-delete-all" type="button">Delete Account &amp; All Data</button>
+      </div>
+    </section>
+
+  </main>
+
+  <nav class="tabbar" aria-label="Sections">
+    <button class="tab" data-target="calculator" type="button" aria-current="page">
+      <svg viewBox="0 0 24 24" fill="none"><rect x="4" y="3" width="16" height="18" rx="2.5" stroke="currentColor" stroke-width="1.6"/><path d="M8 8h8M8 12h2M12 12h2M16 12h0M8 16h2M12 16h2M16 16h0" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+      <span>Calculator</span>
+    </button>
+    <button class="tab" data-target="library" type="button">
+      <svg viewBox="0 0 24 24" fill="none"><path d="M4 4.5C4 4 5 3.5 7 3.5C9 3.5 10.5 4 11 4.5V19.5C10.5 19 9 18.5 7 18.5C5 18.5 4 19 4 19.5V4.5Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M20 4.5C20 4 19 3.5 17 3.5C15 3.5 13.5 4 13 4.5V19.5C13.5 19 15 18.5 17 18.5C19 18.5 20 19 20 19.5V4.5Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>
+      <span>Library</span>
+    </button>
+    <button class="tab" data-target="history" type="button">
+      <svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="13" r="7.5" stroke="currentColor" stroke-width="1.6"/><path d="M12 9v4l2.5 2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M9 2.5h6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+      <span>History</span>
+    </button>
+    <button class="tab" data-target="settings" type="button">
+      <svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.6"/><path d="M12 2.5v2.4M12 19.1v2.4M4.6 6.6l1.7 1.7M17.7 15.7l1.7 1.7M2.5 12h2.4M19.1 12h2.4M4.6 17.4l1.7-1.7M17.7 8.3l1.7-1.7" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+      <span>Settings</span>
+    </button>
+  </nav>
+
+</div>
+
+<script src="foods_data.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
