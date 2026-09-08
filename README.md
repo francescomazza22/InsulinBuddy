@@ -4,18 +4,28 @@ A dependency-free rebuild of your Base44 app: Calculator, Library, History, and 
 
 ## What's in each tab
 
-**Calculator** — search your library, add items with grams to build up a meal, and the dose updates live. The ratio pill shows whichever time-based ratio is active right now (tap it to override with another time range or an activity ratio like "Sport"). Toggle "Correction" to add a glucose reading into the dose. "Log this meal" asks which meal type it is, then saves it to History.
+**Calculator** — search your library, add items with grams to build up the current meal. The dose updates live. The ratio pill shows whichever time-based ratio is automatically active right now (tap it to override with another time range or an activity ratio like "Sport"). Toggle "Correction" to add a glucose reading into the dose. **Meal type (Breakfast/Lunch/Dinner/Snack) is detected automatically from the time of day** — there's no prompt. "Log Meal to History" saves and clears the current meal; "Clear All" (which appears once you've added something) discards it instead.
 
-**Library** — your preloaded foods, searchable and filterable by category or favorites. Star, edit, duplicate, or delete any item. The "Recipes" segment lets you build a dish from ingredients — add each one by weight, then set the dish's **Final Weight** (the total finished weight after cooking, since baking loses water — this is required and is what makes the recipe usable per-100g, exactly like a food). The recipe then behaves just like any other library item: search for it in the Calculator and enter however many grams you're eating.
+**Library** — your preloaded foods, searchable and filterable by category or favorites. Star, edit, duplicate, or delete any item. The "Recipes" segment lets you build a dish from ingredients — add each one by weight, then set the dish's **Final Weight** (the total finished weight after cooking, since baking loses water — this is required and is what makes the recipe usable per-100g, exactly like a food). Each ingredient's carb/calorie rate is captured at the moment you add it, so editing or deleting that food later won't silently change an existing recipe's numbers.
 
-**History** — every logged meal, grouped by day, color-coded by meal type, showing the food list, kcal, carbs, and the dose given (split as `meal+correction` when a correction was included). Tap a row to see the itemized breakdown or delete it.
+**History** — every logged meal, grouped by day, color-coded by meal type, showing the food list, kcal, carbs, and the dose given (split as `meal+correction` when a correction was included). Tap a row to see the itemized breakdown. Each entry also has:
+- **Use Again** — loads that meal's items back into the Calculator so you can log it again (with today's date) or tweak it first
+- **Edit** — adjust the meal type, change or remove items (grams rescale the carbs live), and edit the glucose reading if one was used; the dose recalculates using the ratio that was active when you originally logged it
+- **Delete**
+
+Like the original app, each logged item stores its own carb/calorie rate at logging time — so if you later edit a food in your library, your history stays accurate to what you actually ate.
 
 **Settings**
-- *Insulin Ratios* — the same time-based ratio model as the original: a 24-hour timeline, editable time ranges each with their own ratio, plus custom "activity ratios" (Sport, etc.) you can pick manually in the Calculator. Correction factor, target, units, rounding, and safety cap live here too.
-- *Data* — export/import your food library as CSV (compatible with the same columns as your Base44 export), or download a full JSON backup of everything.
+- *Insulin Ratios* — a 24-hour timeline with a live marker showing where you are right now, editable time ranges each with their own ratio, plus custom "activity ratios" (Sport, etc.) you can pick manually in the Calculator. Correction factor, target, units, rounding, and safety cap live here too.
+- *Data* — export/import your food library as CSV (compatible with the same columns as your Base44 export), plus export/import a full JSON backup covering settings, library, recipes, and history. **Import never wipes anything** — foods and recipes are matched and updated by name (or added if new), history entries are added if not already present, and your settings are always left untouched.
 - *General* — six color palettes, dark mode, app info, and a "Delete Account & All Data" button that clears everything from this browser.
 
 Everything lives in `localStorage`. There's no account and nothing is sent anywhere — which also means clearing your browser data wipes it, so use the backup export periodically.
+
+## A couple of intentional differences from the original
+
+- **iOS zoom prevention**: the original kept inputs at 14px and disabled pinch-zoom (`user-scalable=no`) to stop Safari's auto-zoom-on-focus. This rebuild instead keeps every input at 16px+ (the actual threshold that triggers the zoom) and leaves pinch-zoom enabled — same effect, without taking away a low-vision user's ability to zoom in on the page if they need to.
+- **No `backdrop-blur` anywhere** in this build, consistent with the GPU-freeze issue noted from the original.
 
 ## Running it locally
 
@@ -27,7 +37,7 @@ python3 -m http.server 8000
 
 ## Deploying to GitHub Pages
 
-1. Push `index.html`, `style.css`, `app.js`, and `foods_data.js` to a new GitHub repo (keep them all in the same folder).
+1. Push `index.html`, `style.css`, `app.js`, `foods_data.js`, `manifest.json`, and the icon PNGs (`favicon-16.png`, `favicon-32.png`, `icon-192.png`, `icon-512.png`, `apple-touch-icon.png`) to a new GitHub repo — keep them all in the same folder.
 2. In the repo, go to **Settings → Pages**.
 3. Set **Source** to "Deploy from a branch", pick `main` and `/ (root)`, save.
 4. Your app is live at `https://<your-username>.github.io/<repo-name>/` within a couple of minutes.

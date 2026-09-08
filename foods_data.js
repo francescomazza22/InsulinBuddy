@@ -1561,27 +1561,45 @@ var SEED_RECIPES = [
     "items": [
       {
         "foodId": "6a1d9f73d72893af4b909966",
-        "grams": 130
+        "name": "Farina",
+        "grams": 130,
+        "carbsPer100g": 90,
+        "kcalPer100g": 369
       },
       {
         "foodId": "6a1d9f73d72893af4b909977",
-        "grams": 80
+        "name": "Zucchero",
+        "grams": 80,
+        "carbsPer100g": 100,
+        "kcalPer100g": 400
       },
       {
         "foodId": "6a1d9f73d72893af4b909959",
-        "grams": 200
+        "name": "Banana",
+        "grams": 200,
+        "carbsPer100g": 23,
+        "kcalPer100g": 89
       },
       {
         "foodId": "6a20055705506c8be3dc77f5",
-        "grams": 200
+        "name": "Mela",
+        "grams": 200,
+        "carbsPer100g": 25,
+        "kcalPer100g": 52
       },
       {
         "foodId": "6a1d9f73d72893af4b909994",
-        "grams": 30
+        "name": "Nutella",
+        "grams": 30,
+        "carbsPer100g": 60,
+        "kcalPer100g": 539
       },
       {
         "foodId": "6a1d9f73d72893af4b909949",
-        "grams": 80
+        "name": "Peanut Butter",
+        "grams": 80,
+        "carbsPer100g": 20,
+        "kcalPer100g": 590
       }
     ],
     "rawWeight": null,
@@ -1597,15 +1615,24 @@ var SEED_RECIPES = [
     "items": [
       {
         "foodId": "6a1d9f73d72893af4b909993",
-        "grams": 70
+        "name": "Pasta di semola",
+        "grams": 70,
+        "carbsPer100g": 70,
+        "kcalPer100g": 355
       },
       {
         "foodId": "6a1d9f73d72893af4b909947",
-        "grams": 20
+        "name": "Sugo al pomodoro",
+        "grams": 20,
+        "carbsPer100g": 6,
+        "kcalPer100g": 72
       },
       {
         "foodId": "6a1d97f8ad7287b9dffe80e0",
-        "grams": 10
+        "name": "Parmiggiano Reggiano",
+        "grams": 10,
+        "carbsPer100g": 0.5,
+        "kcalPer100g": 400
       }
     ],
     "rawWeight": null,
@@ -1621,23 +1648,38 @@ var SEED_RECIPES = [
     "items": [
       {
         "foodId": "6a1d9f73d72893af4b909966",
-        "grams": 130
+        "name": "Farina",
+        "grams": 130,
+        "carbsPer100g": 90,
+        "kcalPer100g": 369
       },
       {
         "foodId": "6a1d9f73d72893af4b909959",
-        "grams": 400
+        "name": "Banana",
+        "grams": 400,
+        "carbsPer100g": 23,
+        "kcalPer100g": 89
       },
       {
         "foodId": "6a1d9f73d72893af4b909977",
-        "grams": 80
+        "name": "Zucchero",
+        "grams": 80,
+        "carbsPer100g": 100,
+        "kcalPer100g": 400
       },
       {
         "foodId": "6a1d9f73d72893af4b909964",
-        "grams": 140
+        "name": "Burro",
+        "grams": 140,
+        "carbsPer100g": 0.5,
+        "kcalPer100g": 753
       },
       {
         "foodId": "6a1d9f73d72893af4b909982",
-        "grams": 30
+        "name": "Cioccolata",
+        "grams": 30,
+        "carbsPer100g": 60,
+        "kcalPer100g": 555
       }
     ],
     "rawWeight": null,
@@ -1653,11 +1695,17 @@ var SEED_RECIPES = [
     "items": [
       {
         "foodId": "6a1d9f73d72893af4b909966",
-        "grams": 200
+        "name": "Farina",
+        "grams": 200,
+        "carbsPer100g": 90,
+        "kcalPer100g": 369
       },
       {
         "foodId": "6a1d9f73d72893af4b909977",
-        "grams": 30
+        "name": "Zucchero",
+        "grams": 30,
+        "carbsPer100g": 100,
+        "kcalPer100g": 400
       }
     ],
     "rawWeight": null,

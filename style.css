@@ -11,8 +11,8 @@
   --radius-s: 10px;
   --radius-m: 16px;
   --radius-l: 22px;
-  --font-ui: "Public Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  --font-display: "Fraunces", Georgia, serif;
+  --font-ui: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-display: var(--font-ui);
 
   /* palette accents — overridden per data-palette */
   --acc-1: #3B82F6;
@@ -38,6 +38,7 @@ html[data-theme="dark"] {
   --brick-soft: #3A2420;
 }
 
+[hidden] { display: none !important; }
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 html, body { margin: 0; padding: 0; overscroll-behavior-y: contain; }
 body {
@@ -70,7 +71,7 @@ button, .tab, .segmented__btn { touch-action: manipulation; }
 
 /* ---------- Shared bits ---------- */
 .page-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
-.page-head h1 { font-family: var(--font-display); font-size: 1.5rem; font-weight: 500; margin: 0; }
+.page-head h1 { font-family: var(--font-display); font-size: 1.4rem; font-weight: 700; margin: 0; letter-spacing: -0.01em; }
 .page-head__sub { color: var(--ink-soft); font-size: 0.88rem; margin: 2px 0 0; }
 
 .fab {
@@ -126,7 +127,7 @@ input:focus-visible, select:focus-visible, button:focus-visible { outline: 2px s
 .dose-card__label { font-size: 0.74rem; font-weight: 700; letter-spacing: 0.06em; color: rgba(255,255,255,0.85); }
 .carbs-pill { background: rgba(255,255,255,0.22); padding: 5px 12px; border-radius: 999px; font-size: 0.8rem; font-weight: 600; }
 .carbs-pill--muted { background: var(--surface); color: var(--ink-soft); border: 1px solid var(--line); }
-.dose-card__value { display: flex; align-items: baseline; gap: 8px; font-family: var(--font-display); font-size: 2.7rem; line-height: 1; font-weight: 500; font-variant-numeric: tabular-nums; margin-bottom: 14px; }
+.dose-card__value { display: flex; align-items: baseline; gap: 8px; font-family: var(--font-display); font-size: 2.1rem; line-height: 1; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; margin-bottom: 14px; }
 .dose-card__unit { font-family: var(--font-ui); font-size: 0.95rem; font-weight: 500; color: rgba(255,255,255,0.82); }
 .dose-card__controls { display: flex; gap: 8px; flex-wrap: wrap; }
 .pill-btn {
@@ -160,7 +161,7 @@ input:focus-visible, select:focus-visible, button:focus-visible { outline: 2px s
 .meal-item__main { flex: 1; min-width: 0; }
 .meal-item__name { font-weight: 600; font-size: 0.92rem; margin: 0; }
 .meal-item__meta { font-size: 0.78rem; color: var(--ink-soft); margin: 1px 0 0; }
-.meal-item__carbs { font-family: var(--font-display); font-size: 1.05rem; color: var(--amber); flex-shrink: 0; }
+.meal-item__carbs { font-family: var(--font-display); font-size: 1rem; font-weight: 700; color: var(--amber); flex-shrink: 0; }
 .meal-item__remove { background: none; border: none; color: var(--ink-soft); cursor: pointer; padding: 4px; flex-shrink: 0; }
 .meal-item__remove svg { width: 15px; height: 15px; display: block; }
 
@@ -236,7 +237,7 @@ html[data-theme="dark"] .cat-snacks, html[data-theme="dark"] .cat-other { filter
 /* Add/edit food form (used as inline sheet) */
 .sheet-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 40; display: flex; align-items: flex-end; justify-content: center; }
 .sheet { background: var(--surface); width: 100%; max-width: 480px; border-radius: 20px 20px 0 0; padding: 20px 20px calc(20px + env(safe-area-inset-bottom)); max-height: 85vh; overflow-y: auto; -webkit-overflow-scrolling: touch; }
-.sheet h2 { font-family: var(--font-display); font-size: 1.2rem; font-weight: 500; margin: 0; }
+.sheet h2 { font-family: var(--font-display); font-size: 1.15rem; font-weight: 700; margin: 0; }
 .sheet-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; }
 .sheet-close { background: none; border: none; color: var(--ink-soft); cursor: pointer; padding: 4px; }
 .sheet-close svg { width: 20px; height: 20px; display: block; }
@@ -441,3 +442,22 @@ input[type="number"]::-webkit-inner-spin-button {
 .ingredient-row__grams { color: var(--ink-soft); flex-shrink: 0; }
 .ingredient-row button { background: none; border: none; color: var(--ink-soft); cursor: pointer; padding: 3px; flex-shrink: 0; }
 .ingredient-row button svg { width: 14px; height: 14px; display: block; }
+
+/* Clear All button (full-width, appears once a meal is being built) */
+.btn--ghost-full {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  background: var(--surface); border: 1.5px solid var(--line); color: var(--ink-soft);
+  margin-top: 10px;
+}
+.btn--ghost-full svg { width: 16px; height: 16px; }
+
+/* Live "now" marker on the 24h ratio timeline */
+.timeline { position: relative; }
+.timeline__now {
+  position: absolute; top: -3px; bottom: -3px; width: 2px; background: var(--ink);
+  pointer-events: none; z-index: 2;
+}
+.timeline__now::before {
+  content: ""; position: absolute; top: -5px; left: 50%; transform: translateX(-50%);
+  width: 7px; height: 7px; border-radius: 50%; background: var(--ink);
+}
