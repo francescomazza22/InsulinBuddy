@@ -358,17 +358,21 @@
     `;
   }
 
-  ratioPill.addEventListener("click", () => {
+  ratioPill.addEventListener("click", e => {
+    e.stopPropagation();
     if (ratioPicker.hidden) { renderRatioPicker(); ratioPicker.hidden = false; }
     else ratioPicker.hidden = true;
   });
   ratioPicker.addEventListener("click", e => {
+    e.stopPropagation();
     const btn = e.target.closest(".ratio-picker__item");
     if (!btn) return;
     draft.manualRatioId = btn.dataset.id === "__auto__" ? null : btn.dataset.id;
     ratioPicker.hidden = true;
     recompute();
   });
+  document.addEventListener("click", () => { ratioPicker.hidden = true; });
+  document.addEventListener("keydown", e => { if (e.key === "Escape") ratioPicker.hidden = true; });
 
   function resetDraft() {
     draft = { items: [], correctionOn: false, glucose: "", manualRatioId: null };
