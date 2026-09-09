@@ -3,6 +3,21 @@
 
   const STORAGE_KEY = "insulinBuddy.v2";
 
+  // ================= Cloud sync (optional) =================
+  // Fill these in after creating a free Supabase project (see README.md).
+  // Left as placeholders, the app works exactly as before: local-only,
+  // stored in this browser. The anon key is meant to be public — it's
+  // useless without the Row Level Security policies set up in the SQL
+  // script, which restrict every row to its owning user.
+  const SUPABASE_URL = "https://igfunxofpkenyrzlcyyv.supabase.co";
+  const SUPABASE_ANON_KEY = "sb_publishable_bi30N-e36pzW0qhEl_AXtA_SRARSbY4";
+
+  const cloudConfigured = SUPABASE_URL !== "https://igfunxofpkenyrzlcyyv.supabase.co" && SUPABASE_ANON_KEY !== "sb_publishable_bi30N-e36pzW0qhEl_AXtA_SRARSbY4";
+  const supabaseClient = (cloudConfigured && window.supabase)
+    ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+    : null;
+  let currentUser = null; // { id, email } once signed in; null in local-only mode
+
   const CATEGORIES = [
     { id: "fruits", label: "Fruits" },
     { id: "vegetables", label: "Vegetables" },
@@ -175,6 +190,54 @@
 
   let state; // populated by boot() below, once (and if) the lock screen is cleared
 
+  // ================= Cloud sync functions =================
+  function normalizeState(parsed) {
+    const d = defaultState();
+    return {
+      settings: { ...d.settings, ...(parsed.settings || {}) },
+      library: Array.isArray(parsed.library) ? parsed.library : d.library,
+      recipes: Array.isArray(parsed.recipes) ? parsed.recipes : [],
+      history: Array.isArray(parsed.history) ? parsed.history : []
+    };
+  }
+
+  async function signUp(email, password) {
+    if (!supabaseClient) throw new Error("Cloud sync isn't set up yet.");
+    const { error } = await supabaseClient.auth.signUp({ email, password });
+    if (error) throw error;
+  }
+  async function signIn(email, password) {
+    if (!supabaseClient) throw new Error("Cloud sync isn't set up yet.");
+    const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
+    if (error) throw error;
+  }
+  async function signOut() {
+    if (!supabaseClient) return;
+    await supabaseClient.auth.signOut();
+  }
+
+  async function loadStateCloud() {
+    const { data, error } = await supabaseClient
+      .from("app_state").select("data").eq("user_id", currentUser.id).maybeSingle();
+    if (error) { console.error("Cloud load failed:", error); return null; }
+    if (!data) return null; // first sign-in, no row yet
+    return normalizeState(data.data);
+  }
+  let cloudSaveTimer = null;
+  async function saveStateCloud() {
+    if (!supabaseClient || !currentUser) return;
+    clearTimeout(cloudSaveTimer);
+    await new Promise(resolve => {
+      cloudSaveTimer = setTimeout(async () => {
+        const { error } = await supabaseClient.from("app_state").upsert({
+          user_id: currentUser.id, data: state, updated_at: new Date().toISOString()
+        });
+        if (error) console.error("Cloud save failed:", error);
+        resolve();
+      }, 500);
+    });
+  }
+
   async function saveStateRaw(s, key) {
     if (key) {
       const payload = await encryptString(key, JSON.stringify(s));
@@ -183,7 +246,10 @@
       localStorage.setItem(STORAGE_KEY, JSON.stringify(s));
     }
   }
-  async function saveState() { await saveStateRaw(state, encryptionKey); }
+  async function saveState() {
+    await saveStateRaw(state, encryptionKey);
+    if (currentUser) await saveStateCloud();
+  }
 
   // ---------- draft (in-progress calculator entry, not persisted) ----------
   let draft = {
@@ -198,6 +264,7 @@
   const views = document.querySelectorAll("[data-view]");
 
   function showView(name) {
+    if (!state) return; // still waiting on the cloud auth check (see boot()); nothing to show yet
     views.forEach(v => { v.hidden = v.id !== `view-${name}`; });
     tabs.forEach(t => {
       if (t.dataset.target === name) t.setAttribute("aria-current", "page");
@@ -1243,7 +1310,49 @@
     el("export-count-label").textContent = `${state.library.length} foods · ${state.recipes.length} recipes`;
     renderPaletteGrid();
     el("dark-mode-toggle").checked = state.settings.darkMode;
-    renderPrivacySection();
+    renderAccountSection();
+    el("privacy-panel-card").hidden = !!currentUser;
+    if (!currentUser) renderPrivacySection();
+  }
+
+  function renderAccountSection() {
+    const box = el("account-section");
+    if (!supabaseClient) {
+      box.innerHTML = `<p class="panel-card__hint" style="margin-top:-4px;">Cloud sync isn't set up yet. See the README for a step-by-step Supabase guide — until then, everything stays in this browser.</p>`;
+      return;
+    }
+    if (currentUser) {
+      box.innerHTML = `
+        <p class="panel-card__hint" style="margin-top:-4px;">Signed in as <strong>${escapeHtml(currentUser.email)}</strong>. Your data syncs to your account.</p>
+        <button class="dashed-btn" id="btn-sign-out" type="button" style="color:var(--brick); border-color:var(--brick-soft);">Sign out</button>
+      `;
+      el("btn-sign-out").addEventListener("click", async () => { await signOut(); });
+    } else {
+      box.innerHTML = `
+        <p class="panel-card__hint" style="margin-top:-4px;">Sign in to sync your library, ratios, and history to your account instead of just this device.</p>
+        <div class="field"><label>Email</label><input type="email" id="acct-email" autocomplete="email"></div>
+        <div class="field"><label>Password</label><input type="password" id="acct-password" autocomplete="current-password"></div>
+        <p class="lock-screen__error" id="acct-error" hidden></p>
+        <div class="sheet-actions">
+          <button class="btn btn--secondary" id="btn-sign-up" type="button">Create account</button>
+          <button class="btn btn--primary" id="btn-sign-in" type="button">Sign in</button>
+        </div>
+      `;
+      const emailEl = el("acct-email"), passEl = el("acct-password"), errEl = el("acct-error");
+      const showErr = msg => { errEl.textContent = msg; errEl.hidden = false; };
+      el("btn-sign-in").addEventListener("click", async () => {
+        errEl.hidden = true;
+        try { await signIn(emailEl.value.trim(), passEl.value); }
+        catch (e) { showErr(e.message || "Couldn't sign in."); }
+      });
+      el("btn-sign-up").addEventListener("click", async () => {
+        errEl.hidden = true;
+        try {
+          await signUp(emailEl.value.trim(), passEl.value);
+          alert("Account created. Check your email to confirm it, then sign in.");
+        } catch (e) { showErr(e.message || "Couldn't create an account."); }
+      });
+    }
   }
 
   function renderPrivacySection() {
@@ -1643,17 +1752,17 @@
 
   el("btn-refresh-app").addEventListener("click", () => location.reload());
 
-  el("btn-delete-all").addEventListener("click", () => {
-    if (!confirm("This deletes ALL data — settings, library, recipes and history — from this browser. This can't be undone. Continue?")) return;
+  el("btn-delete-all").addEventListener("click", async () => {
+    if (!confirm("This deletes ALL data — settings, library, recipes and history — permanently. This can't be undone. Continue?")) return;
     localStorage.removeItem(STORAGE_KEY);
     localStorage.removeItem(LOCK_KEY);
     encryptionKey = null;
+    if (supabaseClient && currentUser) {
+      await supabaseClient.from("app_state").delete().eq("user_id", currentUser.id);
+      await signOut();
+    }
     state = defaultState();
-    document.documentElement.setAttribute("data-palette", state.settings.palette);
-    document.documentElement.setAttribute("data-theme", "light");
-    draft = { items: [], correctionOn: false, glucose: "", manualRatioId: null };
-    renderFoodPickList(); renderMealItems(); recompute();
-    renderLibrary(); renderHistory(); renderSettings();
+    renderEverything();
     alert("All data has been deleted.");
   });
 
@@ -1674,7 +1783,44 @@
     }, 30000);
   }
 
+  function renderEverything() {
+    document.documentElement.setAttribute("data-palette", state.settings.palette);
+    document.documentElement.setAttribute("data-theme", state.settings.darkMode ? "dark" : "light");
+    draft = { items: [], correctionOn: false, glucose: "", manualRatioId: null };
+    renderFoodPickList(); renderMealItems(); recompute();
+    renderLibrary(); renderHistory(); renderSettings();
+  }
+
   async function boot() {
+    if (supabaseClient) {
+      const loading = el("loading-screen");
+      loading.hidden = false;
+      let resolved = false;
+      supabaseClient.auth.onAuthStateChange(async (_event, session) => {
+        if (session && session.user) {
+          currentUser = session.user;
+          const cloud = await loadStateCloud();
+          state = cloud || defaultState();
+          if (!cloud) await saveStateCloud();
+        } else {
+          currentUser = null;
+          state = loadStatePlain();
+        }
+        if (!resolved) { resolved = true; loading.hidden = true; await finishInit(); }
+        else renderEverything();
+      });
+      // Safety net: if Supabase never responds (e.g. offline, or misconfigured),
+      // fall back to local-only rather than leaving the app stuck loading.
+      setTimeout(async () => {
+        if (resolved) return;
+        resolved = true;
+        loading.hidden = true;
+        state = loadStatePlain();
+        await finishInit();
+      }, 4000);
+      return;
+    }
+
     if (!isLockEnabled()) {
       state = loadStatePlain();
       await finishInit();
