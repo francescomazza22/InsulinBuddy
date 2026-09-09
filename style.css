@@ -510,3 +510,35 @@ input[type="number"]::-webkit-inner-spin-button {
 
 #loading-screen .lock-screen__icon svg { animation: spin 0.9s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
+
+/* ================= Undo toast ================= */
+.undo-toast {
+  position: fixed; left: 50%; transform: translateX(-50%);
+  bottom: calc(76px + env(safe-area-inset-bottom));
+  background: var(--ink); color: #fff; padding: 12px 12px 12px 18px;
+  border-radius: 999px; display: flex; align-items: center; gap: 14px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.25); z-index: 60; max-width: calc(100% - 40px);
+  font-size: 0.88rem; animation: toast-in 0.2s ease;
+}
+html[data-theme="dark"] .undo-toast { background: var(--surface); border: 1px solid var(--line); }
+.undo-toast span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#undo-toast-btn {
+  background: none; border: none; color: var(--acc-3); font-weight: 700; font-size: 0.88rem;
+  cursor: pointer; padding: 6px 10px; flex-shrink: 0; font-family: var(--font-ui);
+}
+@keyframes toast-in { from { opacity: 0; transform: translateX(-50%) translateY(8px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }
+
+/* ================= Trends ================= */
+.trend-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 14px; }
+.trend-stat-card {
+  background: var(--surface); border: 1.5px solid var(--line); border-radius: var(--radius-m);
+  padding: 12px 10px; text-align: center;
+}
+.trend-stat-card__value { font-family: var(--font-display); font-size: 1.3rem; font-weight: 700; color: var(--acc-1); line-height: 1.1; }
+.trend-stat-card__label { font-size: 0.7rem; color: var(--ink-soft); margin-top: 4px; }
+
+.trend-chart { width: 100%; overflow: visible; }
+.trend-chart__bar { fill: var(--acc-1); }
+.trend-chart__bar--empty { fill: var(--line); }
+.trend-chart__axis-label { font-size: 9px; fill: var(--ink-soft); font-family: var(--font-ui); }
+.trend-chart__value-label { font-size: 9px; fill: var(--ink-soft); font-family: var(--font-ui); text-anchor: middle; }

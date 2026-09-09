@@ -1,0 +1,11 @@
+{
+  "name": "insulin-buddy-tests",
+  "private": true,
+  "description": "Dev-only test tooling for Insulin Buddy. The app itself is a plain static site with no dependencies or build step -- this package.json exists solely to run the test suite locally.",
+  "scripts": {
+    "test": "node tests/run.js"
+  },
+  "devDependencies": {
+    "jsdom": "^24.0.0"
+  }
+}

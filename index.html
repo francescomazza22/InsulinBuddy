@@ -167,10 +167,40 @@
         <div class="carbs-pill carbs-pill--muted" id="hist-count-pill">0 meals</div>
       </div>
 
-      <div id="history-groups"></div>
-      <div class="empty-state" id="history-empty">
-        <p>No meals logged yet.</p>
-        <p class="empty-state__sub">Log one from the Calculator tab and it'll show up here.</p>
+      <div class="segmented" id="history-segmented">
+        <button class="segmented__btn is-active" data-seg="log" type="button">Log</button>
+        <button class="segmented__btn" data-seg="trends" type="button">Trends</button>
+      </div>
+
+      <div id="history-log-panel">
+        <div id="history-groups"></div>
+        <div class="empty-state" id="history-empty">
+          <p>No meals logged yet.</p>
+          <p class="empty-state__sub">Log one from the Calculator tab and it'll show up here.</p>
+        </div>
+      </div>
+
+      <div id="history-trends-panel" hidden>
+        <div class="segmented" id="trends-range-segmented">
+          <button class="segmented__btn" data-range="7" type="button">7 days</button>
+          <button class="segmented__btn is-active" data-range="14" type="button">14 days</button>
+          <button class="segmented__btn" data-range="30" type="button">30 days</button>
+        </div>
+
+        <div class="trend-stats" id="trend-stats"></div>
+
+        <div class="panel-card">
+          <h2 class="panel-card__title">Daily carbs</h2>
+          <div id="trend-chart-carbs"></div>
+        </div>
+        <div class="panel-card">
+          <h2 class="panel-card__title">Daily insulin dose</h2>
+          <div id="trend-chart-dose"></div>
+        </div>
+        <div class="empty-state" id="trends-empty" hidden>
+          <p>Not enough history yet.</p>
+          <p class="empty-state__sub">Log a few meals and trends will show up here.</p>
+        </div>
       </div>
     </section>
 
@@ -359,6 +389,11 @@
 
   </main>
 
+  <div class="undo-toast" id="undo-toast" hidden>
+    <span id="undo-toast-message"></span>
+    <button id="undo-toast-btn" type="button">Undo</button>
+  </div>
+
   <nav class="tabbar" aria-label="Sections">
     <button class="tab" data-target="calculator" type="button" aria-current="page">
       <svg viewBox="0 0 24 24" fill="none"><rect x="4" y="3" width="16" height="18" rx="2.5" stroke="currentColor" stroke-width="1.6"/><path d="M8 8h8M8 12h2M12 12h2M16 12h0M8 16h2M12 16h2M16 16h0" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
@@ -382,5 +417,12 @@
 
 <script src="foods_data.js"></script>
 <script src="app.js"></script>
+<script>
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", () => {
+      navigator.serviceWorker.register("sw.js").catch(err => console.error("Service worker registration failed:", err));
+    });
+  }
+</script>
 </body>
 </html>
