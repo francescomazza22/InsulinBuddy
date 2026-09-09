@@ -77,13 +77,18 @@ button, .tab, .segmented__btn { touch-action: manipulation; }
 
 /* Content that should stay a comfortable single-column width even inside
    a wide iPad/desktop container — the calculator's hero card, add-food
-   row, and current-meal list all read worse stretched full-width. */
+   row, and current-meal list all read worse stretched full-width.
+   Centering the whole view as a flex column (rather than margin:auto on
+   each child individually) is the more robust technique here. */
 @media (min-width: 700px) {
-  .dose-card, .ratio-picker, .section-header, .meal-items, .add-row, .food-pick-list,
-  .btn--primary, #cc-clear-all-btn, .disclaimer {
+  #view-calculator {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  #view-calculator > * {
+    width: 100%;
     max-width: 600px;
-    margin-left: auto;
-    margin-right: auto;
   }
 }
 
