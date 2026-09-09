@@ -14,11 +14,21 @@
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
 <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
 <link rel="manifest" href="manifest.json">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
 <div class="app">
+
+  <div class="lock-screen" id="loading-screen" hidden>
+    <div class="lock-screen__card">
+      <div class="lock-screen__icon">
+        <svg viewBox="0 0 24 24" fill="none"><path d="M12 3a9 9 0 019 9" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      </div>
+      <h1>Loading your data&hellip;</h1>
+    </div>
+  </div>
 
   <div class="lock-screen" id="lock-screen" hidden>
     <div class="lock-screen__card">
@@ -314,6 +324,11 @@
         </div>
 
         <div class="panel-card">
+          <h2 class="panel-card__title"><svg viewBox="0 0 24 24" fill="none" class="icon-inline"><circle cx="12" cy="8" r="3.2" stroke="currentColor" stroke-width="1.6"/><path d="M5 20c0-3.5 3-6 7-6s7 2.5 7 6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg> Account &amp; Sync</h2>
+          <div id="account-section"></div>
+        </div>
+
+        <div class="panel-card" id="privacy-panel-card">
           <h2 class="panel-card__title"><svg viewBox="0 0 24 24" fill="none" class="icon-inline"><rect x="5" y="11" width="14" height="9" rx="2" stroke="currentColor" stroke-width="1.6"/><path d="M8 11V7a4 4 0 018 0v4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg> Privacy</h2>
           <div id="privacy-lock-section"></div>
         </div>
