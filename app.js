@@ -63,7 +63,85 @@
     };
   }
 
-  function loadState() {
+  // ================= Optional passphrase lock (client-side encryption) =================
+  // This is genuinely real encryption (PBKDF2 + AES-GCM via the Web Crypto API), not a
+  // cosmetic login screen — it's meant to protect what's sitting in this browser's
+  // localStorage, e.g. on a shared device. It is NOT server-side auth: there's no
+  // account, nothing syncs, and forgetting the passphrase means the data is
+  // unrecoverable by design (there's no backdoor to build on a static site).
+  const LOCK_KEY = "insulinBuddy.lock";
+  let encryptionKey = null; // the derived CryptoKey, kept in memory only while unlocked this session
+
+  function randomBytes(n) {
+    const arr = new Uint8Array(n);
+    crypto.getRandomValues(arr);
+    return arr;
+  }
+  function toB64(bytes) {
+    let binary = "";
+    bytes.forEach(b => { binary += String.fromCharCode(b); });
+    return btoa(binary);
+  }
+  function fromB64(b64) {
+    const binary = atob(b64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    return bytes;
+  }
+  async function deriveKey(passphrase, saltBytes) {
+    const enc = new TextEncoder();
+    const keyMaterial = await crypto.subtle.importKey("raw", enc.encode(passphrase), "PBKDF2", false, ["deriveKey"]);
+    return crypto.subtle.deriveKey(
+      { name: "PBKDF2", salt: saltBytes, iterations: 150000, hash: "SHA-256" },
+      keyMaterial, { name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"]
+    );
+  }
+  async function encryptString(key, plaintext) {
+    const iv = randomBytes(12);
+    const enc = new TextEncoder();
+    const ciphertext = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, enc.encode(plaintext));
+    return { iv: toB64(iv), data: toB64(new Uint8Array(ciphertext)) };
+  }
+  async function decryptString(key, payload) {
+    const iv = fromB64(payload.iv);
+    const data = fromB64(payload.data);
+    const buf = await crypto.subtle.decrypt({ name: "AES-GCM", iv }, key, data);
+    return new TextDecoder().decode(buf);
+  }
+  function getLockConfig() {
+    try { return JSON.parse(localStorage.getItem(LOCK_KEY) || "null"); } catch { return null; }
+  }
+  function isLockEnabled() { return !!getLockConfig(); }
+
+  async function setPassphrase(passphrase) {
+    const salt = randomBytes(16);
+    const key = await deriveKey(passphrase, salt);
+    const verifier = await encryptString(key, "insulin-buddy-unlock-check");
+    localStorage.setItem(LOCK_KEY, JSON.stringify({ salt: toB64(salt), verifier }));
+    encryptionKey = key;
+    await saveState(); // re-save current data encrypted immediately
+  }
+  async function tryUnlock(passphrase) {
+    const cfg = getLockConfig();
+    if (!cfg) return true;
+    try {
+      const salt = fromB64(cfg.salt);
+      const key = await deriveKey(passphrase, salt);
+      const check = await decryptString(key, cfg.verifier);
+      if (check !== "insulin-buddy-unlock-check") return false;
+      encryptionKey = key;
+      return true;
+    } catch {
+      return false;
+    }
+  }
+  async function removePassphrase() {
+    await saveStateRaw(state, null); // force a plaintext write while we still have the key
+    localStorage.removeItem(LOCK_KEY);
+    encryptionKey = null;
+  }
+
+  function loadStatePlain() {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
       if (!raw) return defaultState();
@@ -80,9 +158,32 @@
       return defaultState();
     }
   }
+  async function loadStateEncrypted(key) {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return defaultState();
+    const payload = JSON.parse(raw);
+    const json = await decryptString(key, payload);
+    const parsed = JSON.parse(json);
+    const d = defaultState();
+    return {
+      settings: { ...d.settings, ...(parsed.settings || {}) },
+      library: Array.isArray(parsed.library) ? parsed.library : d.library,
+      recipes: Array.isArray(parsed.recipes) ? parsed.recipes : [],
+      history: Array.isArray(parsed.history) ? parsed.history : []
+    };
+  }
 
-  let state = loadState();
-  function saveState() { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
+  let state; // populated by boot() below, once (and if) the lock screen is cleared
+
+  async function saveStateRaw(s, key) {
+    if (key) {
+      const payload = await encryptString(key, JSON.stringify(s));
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+    } else {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(s));
+    }
+  }
+  async function saveState() { await saveStateRaw(state, encryptionKey); }
 
   // ---------- draft (in-progress calculator entry, not persisted) ----------
   let draft = {
@@ -1142,6 +1243,57 @@
     el("export-count-label").textContent = `${state.library.length} foods · ${state.recipes.length} recipes`;
     renderPaletteGrid();
     el("dark-mode-toggle").checked = state.settings.darkMode;
+    renderPrivacySection();
+  }
+
+  function renderPrivacySection() {
+    const box = el("privacy-lock-section");
+    if (isLockEnabled()) {
+      box.innerHTML = `
+        <p class="panel-card__hint" style="margin-top:-4px;">This device is locked with a passphrase. Your data is encrypted at rest — forgetting it means your data can't be recovered.</p>
+        <button class="dashed-btn" id="btn-change-pass" type="button" style="margin-bottom:8px;">Change passphrase</button>
+        <button class="dashed-btn" id="btn-remove-pass" type="button" style="color:var(--brick); border-color:var(--brick-soft);">Remove passphrase</button>
+      `;
+      el("btn-change-pass").addEventListener("click", onChangePassphrase);
+      el("btn-remove-pass").addEventListener("click", onRemovePassphrase);
+    } else {
+      box.innerHTML = `
+        <p class="panel-card__hint" style="margin-top:-4px;">Encrypt your library, ratios, and history on this device with a passphrase. This never leaves your browser — there's no account and no way to recover a forgotten passphrase.</p>
+        <button class="dashed-btn" id="btn-set-pass" type="button">Set a passphrase</button>
+      `;
+      el("btn-set-pass").addEventListener("click", onSetPassphrase);
+    }
+  }
+
+  async function onSetPassphrase() {
+    const p1 = prompt("Choose a passphrase:");
+    if (!p1) return;
+    const p2 = prompt("Enter it again to confirm:");
+    if (p1 !== p2) { alert("Those didn't match — nothing was changed."); return; }
+    await setPassphrase(p1);
+    renderPrivacySection();
+    alert("Your data is now encrypted on this device.");
+  }
+  async function onChangePassphrase() {
+    const current = prompt("Enter your current passphrase:");
+    if (!current) return;
+    const ok = await tryUnlock(current);
+    if (!ok) { alert("That passphrase doesn't match."); return; }
+    const p1 = prompt("Choose a new passphrase:");
+    if (!p1) return;
+    const p2 = prompt("Enter it again to confirm:");
+    if (p1 !== p2) { alert("Those didn't match — nothing was changed."); return; }
+    await setPassphrase(p1);
+    alert("Passphrase updated.");
+  }
+  async function onRemovePassphrase() {
+    const current = prompt("Enter your current passphrase to remove it:");
+    if (!current) return;
+    const ok = await tryUnlock(current);
+    if (!ok) { alert("That passphrase doesn't match."); return; }
+    await removePassphrase();
+    renderPrivacySection();
+    alert("Passphrase removed. Your data is stored unencrypted on this device again.");
   }
 
   function renderTimeline() {
@@ -1494,6 +1646,8 @@
   el("btn-delete-all").addEventListener("click", () => {
     if (!confirm("This deletes ALL data — settings, library, recipes and history — from this browser. This can't be undone. Continue?")) return;
     localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(LOCK_KEY);
+    encryptionKey = null;
     state = defaultState();
     document.documentElement.setAttribute("data-palette", state.settings.palette);
     document.documentElement.setAttribute("data-theme", "light");
@@ -1504,17 +1658,51 @@
   });
 
   // ================= Init =================
-  document.documentElement.setAttribute("data-palette", state.settings.palette);
-  document.documentElement.setAttribute("data-theme", state.settings.darkMode ? "dark" : "light");
-  renderFoodPickList();
-  renderMealItems();
-  recompute();
-  showView("calculator");
+  async function finishInit() {
+    document.documentElement.setAttribute("data-palette", state.settings.palette);
+    document.documentElement.setAttribute("data-theme", state.settings.darkMode ? "dark" : "light");
+    renderFoodPickList();
+    renderMealItems();
+    recompute();
+    showView("calculator");
 
-  // Keep the auto-selected ratio (and the settings timeline's "now" marker) accurate
-  // as real time passes, not just at page load.
-  setInterval(() => {
-    if (!draft.manualRatioId) recompute();
-    if (!el("view-settings").hidden && !panelRatios.hidden) renderTimeline();
-  }, 30000);
+    // Keep the auto-selected ratio (and the settings timeline's "now" marker) accurate
+    // as real time passes, not just at page load.
+    setInterval(() => {
+      if (!draft.manualRatioId) recompute();
+      if (!el("view-settings").hidden && !panelRatios.hidden) renderTimeline();
+    }, 30000);
+  }
+
+  async function boot() {
+    if (!isLockEnabled()) {
+      state = loadStatePlain();
+      await finishInit();
+      return;
+    }
+    const overlay = el("lock-screen");
+    const input = el("lock-passphrase");
+    const errorEl = el("lock-error");
+    const form = el("lock-form");
+    overlay.hidden = false;
+    input.focus();
+
+    form.addEventListener("submit", async e => {
+      e.preventDefault();
+      errorEl.hidden = true;
+      const ok = await tryUnlock(input.value);
+      if (!ok) {
+        errorEl.hidden = false;
+        input.value = "";
+        input.focus();
+        return;
+      }
+      state = await loadStateEncrypted(encryptionKey);
+      overlay.hidden = true;
+      input.value = "";
+      await finishInit();
+    });
+  }
+
+  boot();
 })();
