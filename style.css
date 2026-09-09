@@ -486,3 +486,24 @@ input[type="number"]::-webkit-inner-spin-button {
   content: ""; position: absolute; top: -5px; left: 50%; transform: translateX(-50%);
   width: 7px; height: 7px; border-radius: 50%; background: var(--ink);
 }
+
+/* ================= Passphrase lock screen ================= */
+.lock-screen {
+  position: fixed; inset: 0; z-index: 100; background: var(--paper);
+  display: flex; align-items: center; justify-content: center; padding: 24px;
+}
+.lock-screen__card { max-width: 360px; width: 100%; text-align: center; }
+.lock-screen__icon {
+  width: 56px; height: 56px; border-radius: 50%; background: var(--acc-1); color: #fff;
+  display: flex; align-items: center; justify-content: center; margin: 0 auto 18px;
+}
+.lock-screen__icon svg { width: 26px; height: 26px; }
+.lock-screen__card h1 { font-family: var(--font-display); font-size: 1.3rem; font-weight: 700; margin: 0 0 8px; }
+.lock-screen__card > p { color: var(--ink-soft); font-size: 0.88rem; line-height: 1.5; margin: 0 0 22px; }
+#lock-form input[type="password"] {
+  width: 100%; padding: 13px 14px; font-size: 16px; text-align: center;
+  border: 1.5px solid var(--line); border-radius: var(--radius-s); background: var(--surface);
+  color: var(--ink); margin-bottom: 12px;
+}
+#lock-form input[type="password"]:focus { outline: none; border-color: var(--acc-1); }
+.lock-screen__error { color: var(--brick); font-size: 0.84rem; margin: -4px 0 12px; }
