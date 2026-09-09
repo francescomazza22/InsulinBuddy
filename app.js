@@ -17,6 +17,8 @@
     ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
     : null;
   let currentUser = null; // { id, email } once signed in; null in local-only mode
+  const PENDING_SYNC_KEY = "insulinBuddy.pendingSync";
+  let cloudSyncPending = localStorage.getItem(PENDING_SYNC_KEY) === "1";
 
   const CATEGORIES = [
     { id: "fruits", label: "Fruits" },
@@ -229,14 +231,64 @@
     clearTimeout(cloudSaveTimer);
     await new Promise(resolve => {
       cloudSaveTimer = setTimeout(async () => {
-        const { error } = await supabaseClient.from("app_state").upsert({
-          user_id: currentUser.id, data: state, updated_at: new Date().toISOString()
-        });
-        if (error) console.error("Cloud save failed:", error);
+        try {
+          const { error } = await supabaseClient.from("app_state").upsert({
+            user_id: currentUser.id, data: state, updated_at: new Date().toISOString()
+          });
+          if (error) throw error;
+          markSynced();
+        } catch (e) {
+          console.error("Cloud save failed (offline?) — will retry once back online:", e);
+          markPending();
+        }
         resolve();
       }, 500);
     });
   }
+  function markPending() {
+    cloudSyncPending = true;
+    localStorage.setItem(PENDING_SYNC_KEY, "1");
+    renderSyncStatus();
+  }
+  function markSynced() {
+    cloudSyncPending = false;
+    localStorage.removeItem(PENDING_SYNC_KEY);
+    renderSyncStatus();
+  }
+  function renderSyncStatus() {
+    const el2 = document.getElementById("sync-status");
+    if (!el2) return;
+    el2.textContent = cloudSyncPending
+      ? "Offline — changes are saved on this device and will sync once you're back online."
+      : "All changes saved to your account.";
+    el2.style.color = cloudSyncPending ? "var(--amber)" : "var(--ink-soft)";
+  }
+
+  // Retry a failed sync as soon as connectivity returns, or when the app
+  // becomes visible again (covers phones where the 'online' event can be
+  // unreliable, e.g. coming back from a lift or a tunnel).
+  async function attemptReconnectSync() {
+    if (!supabaseClient) return;
+    if (currentUser) {
+      if (cloudSyncPending) await saveStateCloud();
+      return;
+    }
+    // We're in local-fallback mode (e.g. the app booted while fully offline).
+    // See if a session is reachable now, and if so, treat our local copy —
+    // the freshest thing we actually know about — as what should be pushed up.
+    try {
+      const { data: { session } } = await supabaseClient.auth.getSession();
+      if (session && session.user) {
+        currentUser = session.user;
+        await saveStateCloud();
+        renderEverything();
+      }
+    } catch (e) {
+      // still offline — nothing to do, we'll try again on the next trigger
+    }
+  }
+  window.addEventListener("online", attemptReconnectSync);
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) attemptReconnectSync(); });
 
   async function saveStateRaw(s, key) {
     if (key) {
@@ -1323,10 +1375,12 @@
     }
     if (currentUser) {
       box.innerHTML = `
-        <p class="panel-card__hint" style="margin-top:-4px;">Signed in as <strong>${escapeHtml(currentUser.email)}</strong>. Your data syncs to your account.</p>
+        <p class="panel-card__hint" style="margin-top:-4px;">Signed in as <strong>${escapeHtml(currentUser.email)}</strong>.</p>
+        <p class="panel-card__hint" id="sync-status" style="margin-top:-8px;"></p>
         <button class="dashed-btn" id="btn-sign-out" type="button" style="color:var(--brick); border-color:var(--brick-soft);">Sign out</button>
       `;
       el("btn-sign-out").addEventListener("click", async () => { await signOut(); });
+      renderSyncStatus();
     } else {
       box.innerHTML = `
         <p class="panel-card__hint" style="margin-top:-4px;">Sign in to sync your library, ratios, and history to your account instead of just this device.</p>
@@ -1799,9 +1853,17 @@
       supabaseClient.auth.onAuthStateChange(async (_event, session) => {
         if (session && session.user) {
           currentUser = session.user;
-          const cloud = await loadStateCloud();
-          state = cloud || defaultState();
-          if (!cloud) await saveStateCloud();
+          if (cloudSyncPending) {
+            // We have unsynced local edits from a previous offline session —
+            // those are the freshest thing we know about. Push them up rather
+            // than pulling the (now-stale) cloud copy and silently losing them.
+            state = loadStatePlain();
+            await saveStateCloud();
+          } else {
+            const cloud = await loadStateCloud();
+            state = cloud || defaultState();
+            if (!cloud) await saveStateCloud();
+          }
         } else {
           currentUser = null;
           state = loadStatePlain();
