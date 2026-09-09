@@ -12,7 +12,7 @@
   const SUPABASE_URL = "https://igfunxofpkenyrzlcyyv.supabase.co";
   const SUPABASE_ANON_KEY = "sb_publishable_bi30N-e36pzW0qhEl_AXtA_SRARSbY4";
 
-  const cloudConfigured = SUPABASE_URL !== "https://igfunxofpkenyrzlcyyv.supabase.co" && SUPABASE_ANON_KEY !== "sb_publishable_bi30N-e36pzW0qhEl_AXtA_SRARSbY4";
+  const cloudConfigured = SUPABASE_URL !== "YOUR_SUPABASE_URL" && SUPABASE_ANON_KEY !== "YOUR_SUPABASE_ANON_KEY";
   const supabaseClient = (cloudConfigured && window.supabase)
     ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
     : null;
