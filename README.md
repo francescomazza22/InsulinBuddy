@@ -42,6 +42,10 @@ python3 -m http.server 8000
 3. Set **Source** to "Deploy from a branch", pick `main` and `/ (root)`, save.
 4. Your app is live at `https://<your-username>.github.io/<repo-name>/` within a couple of minutes.
 
+## Optional: cloud sync and accounts
+
+By default everything stays in this browser. If you'd rather have real accounts and cross-device sync (still free, still hosted on GitHub Pages), see **`SUPABASE_SETUP.md`** for a step-by-step guide using Supabase.
+
 ## The dose math
 
 ```

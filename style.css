@@ -507,3 +507,6 @@ input[type="number"]::-webkit-inner-spin-button {
 }
 #lock-form input[type="password"]:focus { outline: none; border-color: var(--acc-1); }
 .lock-screen__error { color: var(--brick); font-size: 0.84rem; margin: -4px 0 12px; }
+
+#loading-screen .lock-screen__icon svg { animation: spin 0.9s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
