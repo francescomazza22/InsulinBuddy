@@ -66,8 +66,26 @@ button, .tab, .segmented__btn { touch-action: manipulation; }
 @media (min-width: 481px) {
   .app { border-left: 1px solid var(--line); border-right: 1px solid var(--line); box-shadow: 0 0 40px rgba(0,0,0,0.05); }
 }
+@media (min-width: 700px) {
+  .app { max-width: 760px; }
+}
+@media (min-width: 1000px) {
+  .app { max-width: 1040px; }
+}
 
 .views { flex: 1; padding: calc(18px + env(safe-area-inset-top)) 18px 28px; }
+
+/* Content that should stay a comfortable single-column width even inside
+   a wide iPad/desktop container — the calculator's hero card, add-food
+   row, and current-meal list all read worse stretched full-width. */
+@media (min-width: 700px) {
+  .dose-card, .ratio-picker, .section-header, .meal-items, .add-row, .food-pick-list,
+  .btn--primary, #cc-clear-all-btn, .disclaimer {
+    max-width: 600px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+}
 
 /* ---------- Shared bits ---------- */
 .page-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
@@ -111,10 +129,12 @@ input:focus-visible, select:focus-visible, button:focus-visible { outline: 2px s
 /* ---------- Tab bar ---------- */
 .tabbar {
   position: fixed; bottom: 0; left: 0; right: 0; max-width: 480px; margin: 0 auto;
-  display: flex; background: var(--surface); border-top: 1px solid var(--line);
+  display: flex; justify-content: center; background: var(--surface); border-top: 1px solid var(--line);
   padding: 8px 4px max(8px, env(safe-area-inset-bottom));
 }
-.tab { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; background: none; border: none; color: var(--ink-soft); font-size: 0.72rem; font-weight: 600; padding: 6px 2px; cursor: pointer; border-radius: 10px; font-family: var(--font-ui); }
+@media (min-width: 700px) { .tabbar { max-width: 760px; } }
+@media (min-width: 1000px) { .tabbar { max-width: 1040px; } }
+.tab { flex: 0 1 120px; display: flex; flex-direction: column; align-items: center; gap: 4px; background: none; border: none; color: var(--ink-soft); font-size: 0.72rem; font-weight: 600; padding: 6px 2px; cursor: pointer; border-radius: 10px; font-family: var(--font-ui); }
 .tab svg { width: 22px; height: 22px; }
 .tab[aria-current="page"] { color: var(--acc-1); }
 
@@ -201,7 +221,7 @@ input:focus-visible, select:focus-visible, button:focus-visible { outline: 2px s
 .filter-panel__row select { padding: 8px 10px; font-size: 16px; }
 .filter-panel__row label { display: flex; align-items: center; gap: 8px; font-weight: 600; }
 
-.lib-list { display: flex; flex-direction: column; gap: 10px; }
+.lib-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 10px; align-items: start; }
 .lib-item { background: var(--surface); border: 1.5px solid var(--line); border-radius: var(--radius-m); padding: 13px 14px; display: flex; align-items: flex-start; gap: 10px; }
 .lib-item__star { background: none; border: none; cursor: pointer; padding: 2px; color: var(--line); flex-shrink: 0; margin-top: 1px; }
 .lib-item__star svg { width: 19px; height: 19px; }
@@ -258,11 +278,15 @@ html[data-theme="dark"] .cat-snacks, html[data-theme="dark"] .cat-other { filter
 .checkbox-row { display: flex; align-items: center; gap: 8px; margin-bottom: 16px; font-size: 0.9rem; font-weight: 600; }
 
 /* ================= HISTORY ================= */
-.history-group { margin-bottom: 18px; }
-.history-group__date { font-size: 0.76rem; font-weight: 700; letter-spacing: 0.05em; color: var(--ink-soft); margin: 0 0 10px; text-transform: uppercase; }
+.history-group {
+  margin-bottom: 18px; display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 10px; align-items: start;
+}
+.history-group__date { grid-column: 1 / -1; font-size: 0.76rem; font-weight: 700; letter-spacing: 0.05em; color: var(--ink-soft); margin: 0; text-transform: uppercase; }
 .history-entry {
   background: var(--surface); border: 1.5px solid var(--line); border-left-width: 4px;
-  border-radius: var(--radius-m); padding: 12px 14px; margin-bottom: 10px; display: flex; gap: 10px; align-items: flex-start;
+  border-radius: var(--radius-m); padding: 12px 14px; display: flex; gap: 10px; align-items: flex-start;
   cursor: pointer;
 }
 .history-entry__icon { width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: #fff; }
