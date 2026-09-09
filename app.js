@@ -678,6 +678,24 @@
     return String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   }
 
+  // ================= Undo toast =================
+  let undoTimer = null;
+  let undoAction = null;
+  function showUndoToast(message, onUndo) {
+    clearTimeout(undoTimer);
+    undoAction = onUndo;
+    const toast = el("undo-toast");
+    el("undo-toast-message").textContent = message;
+    toast.hidden = false;
+    undoTimer = setTimeout(() => { toast.hidden = true; undoAction = null; }, 5000);
+  }
+  el("undo-toast-btn").addEventListener("click", () => {
+    if (undoAction) undoAction();
+    el("undo-toast").hidden = true;
+    clearTimeout(undoTimer);
+    undoAction = null;
+  });
+
   // ================= Library =================
   let libSeg = "foods"; // 'foods' | 'recipes'
   const libSegmented = el("lib-segmented");
@@ -786,10 +804,13 @@
       saveState(); renderFoodsLibrary();
     }
     if (actBtn.dataset.act === "delete") {
-      if (confirm(`Delete "${f.name}"?`)) {
-        state.library = state.library.filter(x => x.id !== id);
+      const idx = state.library.findIndex(x => x.id === id);
+      const [removed] = state.library.splice(idx, 1);
+      saveState(); renderFoodsLibrary();
+      showUndoToast(`Deleted "${removed.name}"`, () => {
+        state.library.splice(idx, 0, removed);
         saveState(); renderFoodsLibrary();
-      }
+      });
     }
   });
 
@@ -928,10 +949,13 @@
     if (!r) return;
     if (actBtn.dataset.act === "edit") openRecipeSheet(r);
     if (actBtn.dataset.act === "delete") {
-      if (confirm(`Delete recipe "${r.name}"?`)) {
-        state.recipes = state.recipes.filter(x => x.id !== r.id);
+      const idx = state.recipes.findIndex(x => x.id === r.id);
+      const [removed] = state.recipes.splice(idx, 1);
+      saveState(); renderRecipesLibrary();
+      showUndoToast(`Deleted "${removed.name}"`, () => {
+        state.recipes.splice(idx, 0, removed);
         saveState(); renderRecipesLibrary();
-      }
+      });
     }
   });
 
@@ -1112,7 +1136,7 @@
     histCountPill.textContent = `${state.history.length} meal${state.history.length === 1 ? "" : "s"}`;
     historyEmpty.hidden = state.history.length > 0;
     historyGroups.innerHTML = "";
-    if (state.history.length === 0) return;
+    if (state.history.length === 0) { renderTrends(trendsRange); return; }
 
     const groups = [];
     let currentKey = null, currentGroup = null;
@@ -1165,16 +1189,127 @@
       });
       historyGroups.appendChild(groupEl);
     });
+    renderTrends(trendsRange);
+  }
+
+  // ---- Trends ----
+  let historySeg = "log"; // 'log' | 'trends'
+  let trendsRange = 14;
+  const historySegmented = el("history-segmented");
+  const historyLogPanel = el("history-log-panel");
+  const historyTrendsPanel = el("history-trends-panel");
+  const trendsRangeSegmented = el("trends-range-segmented");
+
+  historySegmented.addEventListener("click", e => {
+    const btn = e.target.closest(".segmented__btn");
+    if (!btn) return;
+    historySeg = btn.dataset.seg;
+    historySegmented.querySelectorAll(".segmented__btn").forEach(b => b.classList.toggle("is-active", b === btn));
+    historyLogPanel.hidden = historySeg !== "log";
+    historyTrendsPanel.hidden = historySeg !== "trends";
+    if (historySeg === "trends") renderTrends(trendsRange);
+  });
+  trendsRangeSegmented.addEventListener("click", e => {
+    const btn = e.target.closest(".segmented__btn");
+    if (!btn) return;
+    trendsRange = parseInt(btn.dataset.range, 10);
+    trendsRangeSegmented.querySelectorAll(".segmented__btn").forEach(b => b.classList.toggle("is-active", b === btn));
+    renderTrends(trendsRange);
+  });
+
+  function dayKeyFromTs(ts) {
+    const d = new Date(ts);
+    d.setHours(0, 0, 0, 0);
+    return d.getTime();
+  }
+
+  function renderTrends(days) {
+    const chartCarbsBox = el("trend-chart-carbs");
+    const chartDoseBox = el("trend-chart-dose");
+    const statsBox = el("trend-stats");
+    const emptyBox = el("trends-empty");
+    if (!chartCarbsBox) return; // view not in the DOM yet on first boot
+
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+    const dayMs = 24 * 60 * 60 * 1000;
+    const buckets = []; // oldest first
+    for (let i = days - 1; i >= 0; i--) {
+      buckets.push({ key: now.getTime() - i * dayMs, carbs: 0, dose: 0, meals: 0 });
+    }
+    const byKey = new Map(buckets.map(b => [b.key, b]));
+    const rangeStart = now.getTime() - (days - 1) * dayMs;
+
+    state.history.forEach(entry => {
+      const key = dayKeyFromTs(entry.ts);
+      if (key < rangeStart) return;
+      const bucket = byKey.get(key);
+      if (!bucket) return;
+      bucket.carbs += entry.totalCarbs || 0;
+      bucket.dose += (entry.mealDose || 0) + (entry.correctionDose || 0);
+      bucket.meals += 1;
+    });
+
+    const totalMeals = buckets.reduce((s, b) => s + b.meals, 0);
+    if (totalMeals === 0) {
+      emptyBox.hidden = false;
+      statsBox.innerHTML = "";
+      chartCarbsBox.innerHTML = "";
+      chartDoseBox.innerHTML = "";
+      return;
+    }
+    emptyBox.hidden = true;
+
+    const daysWithData = buckets.filter(b => b.meals > 0).length || 1;
+    const avgCarbs = round1(buckets.reduce((s, b) => s + b.carbs, 0) / daysWithData);
+    const avgDose = round1(buckets.reduce((s, b) => s + b.dose, 0) / daysWithData);
+
+    statsBox.innerHTML = `
+      <div class="trend-stat-card"><div class="trend-stat-card__value">${totalMeals}</div><div class="trend-stat-card__label">Meals logged</div></div>
+      <div class="trend-stat-card"><div class="trend-stat-card__value">${avgCarbs}g</div><div class="trend-stat-card__label">Avg carbs / day</div></div>
+      <div class="trend-stat-card"><div class="trend-stat-card__value">${avgDose}u</div><div class="trend-stat-card__label">Avg dose / day</div></div>
+    `;
+
+    chartCarbsBox.innerHTML = buildBarChartSvg(buckets, "carbs", "g");
+    chartDoseBox.innerHTML = buildBarChartSvg(buckets, "dose", "u");
+  }
+
+  function buildBarChartSvg(buckets, field, unit) {
+    const W = 320, H = 140, padBottom = 18, padTop = 10;
+    const maxVal = Math.max(1, ...buckets.map(b => b[field]));
+    const barGap = 3;
+    const barWidth = (W - barGap * (buckets.length - 1)) / buckets.length;
+    const chartH = H - padBottom - padTop;
+
+    const bars = buckets.map((b, i) => {
+      const x = i * (barWidth + barGap);
+      const h = b.meals > 0 ? Math.max(2, (b[field] / maxVal) * chartH) : 1;
+      const y = padTop + (chartH - h);
+      const showLabel = buckets.length <= 14 || i % Math.ceil(buckets.length / 10) === 0;
+      const d = new Date(b.key);
+      const dayLabel = d.toLocaleDateString(undefined, { day: "numeric" });
+      const cls = b.meals > 0 ? "trend-chart__bar" : "trend-chart__bar trend-chart__bar--empty";
+      return `
+        <rect class="${cls}" x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barWidth.toFixed(1)}" height="${h.toFixed(1)}" rx="2"></rect>
+        ${showLabel ? `<text class="trend-chart__axis-label" x="${(x + barWidth / 2).toFixed(1)}" y="${H - 4}" text-anchor="middle">${dayLabel}</text>` : ""}
+      `;
+    }).join("");
+
+    return `<svg class="trend-chart" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" style="width:100%;height:140px;">${bars}</svg>`;
   }
 
   historyGroups.addEventListener("click", e => {
     const delBtn = e.target.closest("[data-del]");
     if (delBtn) {
-      if (confirm("Delete this logged meal?")) {
-        state.history = state.history.filter(h => h.id !== delBtn.dataset.del);
+      const idx = state.history.findIndex(h => h.id === delBtn.dataset.del);
+      const [removed] = state.history.splice(idx, 1);
+      saveState();
+      renderHistory();
+      showUndoToast("Meal deleted", () => {
+        state.history.splice(idx, 0, removed);
         saveState();
         renderHistory();
-      }
+      });
       return;
     }
     const useBtn = e.target.closest("[data-use]");
