@@ -114,9 +114,15 @@ button, .tab, .segmented__btn { touch-action: manipulation; }
 .field__row input:focus { outline: none; }
 .field__unit { padding: 0 12px; color: var(--ink-soft); font-size: 0.86rem; white-space: nowrap; }
 
-input[type="text"], input[type="number"], select {
+input[type="text"], input[type="number"], input[type="password"], input[type="time"], input[type="date"], select, textarea {
+  appearance: none; -webkit-appearance: none; -moz-appearance: none;
   font-family: var(--font-ui); color: var(--ink); background: var(--surface);
   border: 1.5px solid var(--line); border-radius: var(--radius-s);
+}
+select {
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none'><path d='M6 9l6 6 6-6' stroke='%236B7A89' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/></svg>");
+  background-repeat: no-repeat; background-position: right 12px center; background-size: 16px;
+  padding-right: 36px !important;
 }
 input:focus-visible, select:focus-visible, button:focus-visible { outline: 2px solid var(--acc-1); outline-offset: 2px; }
 
