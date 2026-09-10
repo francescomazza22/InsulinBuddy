@@ -152,24 +152,24 @@ input:focus-visible, select:focus-visible, button:focus-visible { outline: 2px s
 /* ================= CALCULATOR ================= */
 .dose-card {
   background: linear-gradient(155deg, var(--acc-1) 0%, var(--acc-2) 100%);
-  color: #fff; border-radius: var(--radius-l); padding: 20px 20px 16px; margin-bottom: 16px;
+  color: #fff; border-radius: var(--radius-l); padding: 14px 16px 12px; margin-bottom: 16px;
 }
-.dose-card__top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
-.dose-card__label { font-size: 0.74rem; font-weight: 700; letter-spacing: 0.06em; color: rgba(255,255,255,0.85); }
-.carbs-pill { background: rgba(255,255,255,0.22); padding: 5px 12px; border-radius: 999px; font-size: 0.8rem; font-weight: 600; }
+.dose-card__top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 2px; }
+.dose-card__label { font-size: 0.7rem; font-weight: 700; letter-spacing: 0.06em; color: rgba(255,255,255,0.85); }
+.carbs-pill { background: rgba(255,255,255,0.22); padding: 4px 11px; border-radius: 999px; font-size: 0.76rem; font-weight: 600; }
 .carbs-pill--muted { background: var(--surface); color: var(--ink-soft); border: 1px solid var(--line); }
-.dose-card__value { display: flex; align-items: baseline; gap: 8px; font-family: var(--font-display); font-size: 2.1rem; line-height: 1; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; margin-bottom: 14px; }
-.dose-card__unit { font-family: var(--font-ui); font-size: 0.95rem; font-weight: 500; color: rgba(255,255,255,0.82); }
-.dose-card__controls { display: flex; gap: 8px; flex-wrap: wrap; }
+.dose-card__value { display: flex; align-items: baseline; gap: 7px; font-family: var(--font-display); font-size: 1.9rem; line-height: 1; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; margin-bottom: 8px; }
+.dose-card__unit { font-family: var(--font-ui); font-size: 0.88rem; font-weight: 500; color: rgba(255,255,255,0.82); }
+.dose-card__controls { display: flex; gap: 6px; flex-wrap: wrap; }
 .pill-btn {
-  display: inline-flex; align-items: center; gap: 6px; background: rgba(255,255,255,0.16);
-  border: 1px solid rgba(255,255,255,0.3); color: #fff; padding: 8px 14px; border-radius: 999px;
-  font-size: 0.84rem; font-weight: 600; cursor: pointer; font-family: var(--font-ui);
+  display: inline-flex; align-items: center; gap: 5px; background: rgba(255,255,255,0.16);
+  border: 1px solid rgba(255,255,255,0.3); color: #fff; padding: 6px 11px; border-radius: 999px;
+  font-size: 0.78rem; font-weight: 600; cursor: pointer; font-family: var(--font-ui);
 }
-.pill-btn svg { width: 15px; height: 15px; }
+.pill-btn svg { width: 13px; height: 13px; }
 .pill-btn.is-active { background: #fff; color: var(--acc-1); border-color: #fff; }
-.pill-btn--icon { padding: 8px; }
-.correction-row { margin-top: 14px; padding-top: 14px; border-top: 1px solid rgba(255,255,255,0.25); }
+.pill-btn--icon { padding: 6px; }
+.correction-row { margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.25); }
 .correction-row label { display: block; font-size: 0.8rem; margin-bottom: 6px; color: rgba(255,255,255,0.9); }
 .correction-row__input { display: flex; align-items: center; background: rgba(255,255,255,0.16); border-radius: var(--radius-s); overflow: hidden; }
 .correction-row__input input { flex: 1; background: transparent; border: none; padding: 11px 12px; color: #fff; font-size: 1rem; font-family: var(--font-ui); }
@@ -192,6 +192,12 @@ input:focus-visible, select:focus-visible, button:focus-visible { outline: 2px s
 .meal-item__main { flex: 1; min-width: 0; }
 .meal-item__name { font-weight: 600; font-size: 0.92rem; margin: 0; }
 .meal-item__meta { font-size: 0.78rem; color: var(--ink-soft); margin: 1px 0 0; }
+.meal-item__grams-input {
+  width: 40px; padding: 1px 3px; margin-right: 1px; text-align: right;
+  border: 1.3px solid var(--line); border-radius: 6px; background: var(--surface);
+  color: var(--ink); font-family: var(--font-ui); font-size: 0.8rem; font-variant-numeric: tabular-nums;
+}
+.meal-item__grams-input:focus { outline: none; border-color: var(--acc-1); }
 .meal-item__carbs { font-family: var(--font-display); font-size: 1rem; font-weight: 700; color: var(--amber); flex-shrink: 0; }
 .meal-item__remove { background: none; border: none; color: var(--ink-soft); cursor: pointer; padding: 4px; flex-shrink: 0; }
 .meal-item__remove svg { width: 15px; height: 15px; display: block; }
