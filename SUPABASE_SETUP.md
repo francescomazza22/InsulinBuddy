@@ -82,12 +82,21 @@ instead of "Cloud sync isn't set up yet."
 ## What this does and doesn't give you
 
 - **Does**: real accounts, cross-device sync, data survives clearing your
-  browser or losing your phone.
-- **Doesn't**: offline support beyond a local cache (if you lose connection
-  mid-edit, that specific change may not reach the server until you're back
-  online — there's no conflict resolution for editing the same account from
-  two offline devices at once), real-time collaboration between multiple
-  people, or automatic backups beyond what Supabase itself provides.
+  browser or losing your phone. **Offline is handled properly**: if you lose
+  signal mid-use (a lift, a tunnel, airplane mode), everything keeps working
+  off your local copy, and any changes made while offline automatically sync
+  to the database the moment you're back online — including if you close the
+  app entirely while offline and reopen it later. Settings → General →
+  Account shows a small status line ("All changes saved" / "Offline — will
+  sync") so you can see which state you're in.
+- **Doesn't**: real-time collaboration between multiple people, or conflict
+  resolution if you edit the *same* account from two devices at the *exact
+  same time* while both are online — whichever saves last wins, since each
+  save uploads the full state rather than merging field-by-field. This is a
+  narrow edge case for personal use (it only matters if you're actively
+  editing on two devices simultaneously, not just using one after the
+  other), and there are no automatic backups beyond what Supabase itself
+  provides.
 - The **passphrase lock** feature (Settings → Privacy) is only for local-only
   use without an account — once you're signed in, it's hidden, since your
   Supabase account and its Row Level Security policy are already doing that

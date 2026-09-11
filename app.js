@@ -499,7 +499,9 @@
       row.innerHTML = `
         <div class="meal-item__main">
           <p class="meal-item__name">${escapeHtml(item.name)}</p>
-          <p class="meal-item__meta">${item.grams}g${item.kcal ? " · ~" + Math.round(item.kcal) + " kcal" : ""}</p>
+          <p class="meal-item__meta">
+            <input type="number" class="meal-item__grams-input" min="0" value="${item.grams}" data-idx="${idx}" aria-label="Grams">g${item.kcal ? " · ~<span class=\"meal-item__kcal\">" + Math.round(item.kcal) + "</span> kcal" : ""}
+          </p>
         </div>
         <div class="meal-item__carbs">${round1(item.carbs)}g</div>
         <button class="meal-item__remove" data-idx="${idx}" aria-label="Remove">
@@ -515,6 +517,22 @@
     if (!btn) return;
     draft.items.splice(parseInt(btn.dataset.idx, 10), 1);
     renderMealItems();
+    recompute();
+  });
+
+  mealItemsBox.addEventListener("input", e => {
+    if (!e.target.classList.contains("meal-item__grams-input")) return;
+    const idx = parseInt(e.target.dataset.idx, 10);
+    const item = draft.items[idx];
+    if (!item) return;
+    const grams = parseFloat(e.target.value) || 0;
+    item.grams = grams;
+    item.carbs = item.carbsPer100g != null ? Math.round(item.carbsPer100g * grams) / 100 : item.carbs;
+    item.kcal = item.kcalPer100g ? Math.round(item.kcalPer100g * grams) / 100 : item.kcal;
+    const row = e.target.closest(".meal-item");
+    row.querySelector(".meal-item__carbs").textContent = round1(item.carbs) + "g";
+    const kcalEl = row.querySelector(".meal-item__kcal");
+    if (kcalEl && item.kcal) kcalEl.textContent = Math.round(item.kcal);
     recompute();
   });
 
