@@ -186,16 +186,28 @@ input:focus-visible, select:focus-visible, button:focus-visible { outline: 2px s
 
 .meal-items { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }
 .meal-item {
-  display: flex; align-items: center; gap: 10px; background: var(--surface);
-  border: 1.5px solid var(--line); border-radius: var(--radius-s); padding: 10px 12px;
+  position: relative; overflow: hidden; border-radius: var(--radius-s);
+  border: 1.5px solid var(--line);
+}
+.meal-item__edit-reveal {
+  position: absolute; top: 0; right: 0; bottom: 0; width: 72px;
+  background: var(--acc-1); color: #fff; border: none; cursor: pointer;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+  font-size: 0.72rem; font-weight: 700; font-family: var(--font-ui);
+}
+.meal-item__edit-reveal svg { width: 16px; height: 16px; }
+.meal-item__content {
+  position: relative; z-index: 1; display: flex; align-items: center; gap: 10px;
+  background: var(--surface); padding: 10px 12px; transition: transform 0.18s ease;
+  touch-action: pan-y;
 }
 .meal-item__main { flex: 1; min-width: 0; }
 .meal-item__name { font-weight: 600; font-size: 0.92rem; margin: 0; }
 .meal-item__meta { font-size: 0.78rem; color: var(--ink-soft); margin: 1px 0 0; }
 .meal-item__grams-input {
-  width: 40px; padding: 1px 3px; margin-right: 1px; text-align: right;
+  width: 50px; padding: 3px 4px; margin-right: 1px; text-align: right;
   border: 1.3px solid var(--line); border-radius: 6px; background: var(--surface);
-  color: var(--ink); font-family: var(--font-ui); font-size: 0.8rem; font-variant-numeric: tabular-nums;
+  color: var(--ink); font-family: var(--font-ui); font-variant-numeric: tabular-nums;
 }
 .meal-item__grams-input:focus { outline: none; border-color: var(--acc-1); }
 .meal-item__carbs { font-family: var(--font-display); font-size: 1rem; font-weight: 700; color: var(--amber); flex-shrink: 0; }

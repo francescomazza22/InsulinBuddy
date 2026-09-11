@@ -496,28 +496,47 @@
     draft.items.forEach((item, idx) => {
       const row = document.createElement("div");
       row.className = "meal-item";
+      row.dataset.idx = idx;
       row.innerHTML = `
-        <div class="meal-item__main">
-          <p class="meal-item__name">${escapeHtml(item.name)}</p>
-          <p class="meal-item__meta">
-            <input type="number" class="meal-item__grams-input" min="0" value="${item.grams}" data-idx="${idx}" aria-label="Grams">g${item.kcal ? " · ~<span class=\"meal-item__kcal\">" + Math.round(item.kcal) + "</span> kcal" : ""}
-          </p>
-        </div>
-        <div class="meal-item__carbs">${round1(item.carbs)}g</div>
-        <button class="meal-item__remove" data-idx="${idx}" aria-label="Remove">
-          <svg viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        <button class="meal-item__edit-reveal" type="button" aria-label="Edit grams">
+          <svg viewBox="0 0 24 24" fill="none"><path d="M4 20l4-1 11-11-3-3L5 16z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg>
+          Edit
         </button>
+        <div class="meal-item__content">
+          <div class="meal-item__main">
+            <p class="meal-item__name">${escapeHtml(item.name)}</p>
+            <p class="meal-item__meta">
+              <input type="number" class="meal-item__grams-input" min="0" value="${item.grams}" data-idx="${idx}" aria-label="Grams">g${item.kcal ? " · ~<span class=\"meal-item__kcal\">" + Math.round(item.kcal) + "</span> kcal" : ""}
+            </p>
+          </div>
+          <div class="meal-item__carbs">${round1(item.carbs)}g</div>
+          <button class="meal-item__remove" data-idx="${idx}" aria-label="Remove">
+            <svg viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+          </button>
+        </div>
       `;
       mealItemsBox.appendChild(row);
     });
   }
 
   mealItemsBox.addEventListener("click", e => {
-    const btn = e.target.closest(".meal-item__remove");
-    if (!btn) return;
-    draft.items.splice(parseInt(btn.dataset.idx, 10), 1);
-    renderMealItems();
-    recompute();
+    const removeBtn = e.target.closest(".meal-item__remove");
+    if (removeBtn) {
+      draft.items.splice(parseInt(removeBtn.dataset.idx, 10), 1);
+      renderMealItems();
+      recompute();
+      return;
+    }
+    const editBtn = e.target.closest(".meal-item__edit-reveal");
+    if (editBtn) {
+      const row = editBtn.closest(".meal-item");
+      const content = row.querySelector(".meal-item__content");
+      content.style.transform = "translateX(0)";
+      row.classList.remove("is-swiped");
+      const gramsInput = row.querySelector(".meal-item__grams-input");
+      gramsInput.focus();
+      gramsInput.select();
+    }
   });
 
   mealItemsBox.addEventListener("input", e => {
@@ -535,6 +554,34 @@
     if (kcalEl && item.kcal) kcalEl.textContent = Math.round(item.kcal);
     recompute();
   });
+
+  // ---- Swipe-to-reveal (pointer events unify touch + mouse) ----
+  const SWIPE_REVEAL_PX = 72;
+  let swipe = null;
+  mealItemsBox.addEventListener("pointerdown", e => {
+    const content = e.target.closest(".meal-item__content");
+    if (!content || e.target.closest(".meal-item__remove") || e.target.closest(".meal-item__grams-input")) return;
+    swipe = { content, row: content.closest(".meal-item"), startX: e.clientX, dx: 0, pointerId: e.pointerId };
+    content.style.transition = "none";
+    try { content.setPointerCapture(e.pointerId); } catch (err) { /* not supported everywhere, harmless to skip */ }
+  });
+  mealItemsBox.addEventListener("pointermove", e => {
+    if (!swipe || e.pointerId !== swipe.pointerId) return;
+    const alreadyOpen = swipe.row.classList.contains("is-swiped");
+    const base = alreadyOpen ? -SWIPE_REVEAL_PX : 0;
+    swipe.dx = Math.max(-SWIPE_REVEAL_PX, Math.min(0, base + (e.clientX - swipe.startX)));
+    swipe.content.style.transform = `translateX(${swipe.dx}px)`;
+  });
+  function endSwipe(e) {
+    if (!swipe || (e && e.pointerId !== swipe.pointerId)) return;
+    swipe.content.style.transition = "";
+    const open = swipe.dx < -SWIPE_REVEAL_PX / 2;
+    swipe.content.style.transform = open ? `translateX(-${SWIPE_REVEAL_PX}px)` : "translateX(0)";
+    swipe.row.classList.toggle("is-swiped", open);
+    swipe = null;
+  }
+  mealItemsBox.addEventListener("pointerup", endSwipe);
+  mealItemsBox.addEventListener("pointercancel", endSwipe);
 
   function round1(n) { return Math.round(n * 10) / 10; }
 
