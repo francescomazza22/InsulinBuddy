@@ -485,6 +485,7 @@
     renderFoodPickList();
     renderMealItems();
     recompute();
+    saveDraftLocal();
   }
 
   addBtn.addEventListener("click", addSelectedToMeal);
@@ -525,6 +526,7 @@
       draft.items.splice(parseInt(removeBtn.dataset.idx, 10), 1);
       renderMealItems();
       recompute();
+      saveDraftLocal();
       return;
     }
     const editBtn = e.target.closest(".meal-item__edit-reveal");
@@ -534,9 +536,15 @@
       content.style.transform = "translateX(0)";
       row.classList.remove("is-swiped");
       const gramsInput = row.querySelector(".meal-item__grams-input");
+      gramsInput.classList.add("is-editing");
       gramsInput.focus();
       gramsInput.select();
     }
+  });
+
+  mealItemsBox.addEventListener("focusout", e => {
+    if (!e.target.classList.contains("meal-item__grams-input")) return;
+    e.target.classList.remove("is-editing");
   });
 
   mealItemsBox.addEventListener("input", e => {
@@ -553,6 +561,7 @@
     const kcalEl = row.querySelector(".meal-item__kcal");
     if (kcalEl && item.kcal) kcalEl.textContent = Math.round(item.kcal);
     recompute();
+    saveDraftLocal();
   });
 
   // ---- Swipe-to-reveal (pointer events unify touch + mouse) ----
@@ -622,8 +631,9 @@
     glucoseUnitLabel.textContent = unitLabel();
     if (draft.correctionOn) glucoseInput.focus();
     recompute();
+    saveDraftLocal();
   });
-  glucoseInput.addEventListener("input", recompute);
+  glucoseInput.addEventListener("input", () => { recompute(); saveDraftLocal(); });
 
   function renderRatioPicker() {
     const rows = [
@@ -655,9 +665,48 @@
     draft.manualRatioId = btn.dataset.id === "__auto__" ? null : btn.dataset.id;
     ratioPicker.hidden = true;
     recompute();
+    saveDraftLocal();
   });
   document.addEventListener("click", () => { ratioPicker.hidden = true; });
   document.addEventListener("keydown", e => { if (e.key === "Escape") ratioPicker.hidden = true; });
+
+  // Persist the in-progress (not-yet-logged) meal to localStorage as it's built,
+  // so it survives the browser/app reloading the page after being backgrounded —
+  // which mobile browsers commonly do under memory pressure when you switch apps.
+  const DRAFT_KEY = "insulinBuddy.draft";
+  function saveDraftLocal() {
+    try {
+      localStorage.setItem(DRAFT_KEY, JSON.stringify({
+        items: draft.items,
+        correctionOn: draft.correctionOn,
+        glucose: glucoseInput.value || "",
+        manualRatioId: draft.manualRatioId
+      }));
+    } catch (e) { /* storage unavailable — non-fatal, draft just won't survive a reload */ }
+  }
+  function loadDraftLocal() {
+    try {
+      const raw = localStorage.getItem(DRAFT_KEY);
+      return raw ? JSON.parse(raw) : null;
+    } catch (e) { return null; }
+  }
+  function clearDraftLocal() { localStorage.removeItem(DRAFT_KEY); }
+
+  function restoreDraftIfAny() {
+    const saved = loadDraftLocal();
+    if (!saved || !Array.isArray(saved.items) || saved.items.length === 0) return;
+    draft.items = saved.items;
+    draft.manualRatioId = saved.manualRatioId || null;
+    if (saved.glucose) glucoseInput.value = saved.glucose;
+    if (saved.correctionOn) {
+      draft.correctionOn = true;
+      correctionToggle.classList.add("is-active");
+      correctionRow.hidden = false;
+      glucoseUnitLabel.textContent = unitLabel();
+    }
+    renderMealItems();
+    recompute();
+  }
 
   function resetDraft() {
     draft = { items: [], correctionOn: false, glucose: "", manualRatioId: null };
@@ -667,6 +716,7 @@
     correctionRow.hidden = true;
     ratioPicker.hidden = true;
     selectedPickId = null;
+    clearDraftLocal();
     renderFoodPickList();
     renderMealItems();
     recompute();
@@ -2027,6 +2077,7 @@
     renderFoodPickList();
     renderMealItems();
     recompute();
+    restoreDraftIfAny();
     showView("calculator");
 
     // Keep the auto-selected ratio (and the settings timeline's "now" marker) accurate
