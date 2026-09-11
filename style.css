@@ -205,11 +205,19 @@ input:focus-visible, select:focus-visible, button:focus-visible { outline: 2px s
 .meal-item__name { font-weight: 600; font-size: 0.92rem; margin: 0; }
 .meal-item__meta { font-size: 0.78rem; color: var(--ink-soft); margin: 1px 0 0; }
 .meal-item__grams-input {
-  width: 50px; padding: 3px 4px; margin-right: 1px; text-align: right;
-  border: 1.3px solid var(--line); border-radius: 6px; background: var(--surface);
-  color: var(--ink); font-family: var(--font-ui); font-variant-numeric: tabular-nums;
+  width: 26px; padding: 0; margin: 0; text-align: left;
+  border: none; background: transparent; border-radius: 4px;
+  color: inherit; font-family: inherit; font-variant-numeric: tabular-nums;
+  pointer-events: none; /* plain-looking by default; only editable once swipe-revealed */
 }
-.meal-item__grams-input:focus { outline: none; border-color: var(--acc-1); }
+.app input.meal-item__grams-input { font-size: inherit; }
+.meal-item__grams-input.is-editing {
+  width: 54px; padding: 4px 6px; text-align: right; pointer-events: auto;
+  border: 1.5px solid var(--acc-1); background: var(--surface); color: var(--ink);
+  box-shadow: 0 0 0 3px rgba(0,0,0,0.04);
+}
+.app input.meal-item__grams-input.is-editing { font-size: 16px; }
+.meal-item__grams-input:focus { outline: none; }
 .meal-item__carbs { font-family: var(--font-display); font-size: 1rem; font-weight: 700; color: var(--amber); flex-shrink: 0; }
 .meal-item__remove { background: none; border: none; color: var(--ink-soft); cursor: pointer; padding: 4px; flex-shrink: 0; }
 .meal-item__remove svg { width: 15px; height: 15px; display: block; }
