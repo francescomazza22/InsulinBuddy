@@ -271,6 +271,55 @@ async function run() {
     check("no JS errors during trends", errors.length === 0);
   }
 
+  // ================= Unit-based (quantity) foods =================
+  section("Unit-based foods (e.g. '1 sandwich' instead of grams)");
+  {
+    const { window: win, d, errors } = newApp();
+    await wait(100);
+    click(win, d.querySelector('[data-target="library"]'));
+    click(win, d.getElementById("lib-add-btn"));
+    const sheet = d.querySelector(".sheet-backdrop");
+    input(win, sheet.querySelector("#fs-name"), "Pret Sandwich");
+    input(win, sheet.querySelector("#fs-carbs"), "26");
+    const checkbox = sheet.querySelector("#fs-unit-based");
+    checkbox.checked = true;
+    checkbox.dispatchEvent(new win.Event("change", { bubbles: true }));
+    check("unit fields reveal when checkbox is checked", !sheet.querySelector("#fs-unit-fields").hidden);
+
+    click(win, sheet.querySelector("#fs-save"));
+    check("save is rejected without unit name/weight", !!d.querySelector(".sheet-backdrop"));
+
+    input(win, sheet.querySelector("#fs-unit-label"), "sandwich");
+    input(win, sheet.querySelector("#fs-grams-per-unit"), "220");
+    click(win, sheet.querySelector("#fs-save"));
+    check("sheet closes once unit info is complete", !d.querySelector(".sheet-backdrop"));
+
+    click(win, d.querySelector('[data-target="calculator"]'));
+    input(win, d.getElementById("cc-search"), "Pret Sandwich");
+    click(win, d.getElementById("cc-food-list").children[0]);
+    check("grams field relabels to Qty for a unit-based food", d.getElementById("cc-grams").placeholder === "Qty");
+    input(win, d.getElementById("cc-grams"), "1");
+    click(win, d.getElementById("cc-add-btn"));
+
+    const mealItem = d.querySelector(".meal-item");
+    const qtyInput = mealItem.querySelector(".meal-item__grams-input");
+    check("meal item stores quantity (1), not raw grams", qtyInput.value === "1");
+    check("meal item displays the unit label", mealItem.querySelector(".meal-item__meta").textContent.includes("sandwich"));
+    check("carbs computed via grams-per-unit conversion (26 x 220/100 = 57.2g)", d.getElementById("cc-carbs-pill").textContent.includes("57.2"));
+
+    click(win, mealItem.querySelector(".meal-item__edit-reveal"));
+    input(win, qtyInput, "0.5");
+    check("editing quantity recomputes carbs (26 x 110/100 = 28.6g)", mealItem.querySelector(".meal-item__carbs").textContent.includes("28.6"));
+
+    click(win, d.getElementById("cc-log-btn"));
+    click(win, d.querySelector('[data-target="history"]'));
+    const entry = d.querySelector(".history-entry");
+    click(win, entry);
+    check("history entry preserves quantity + unit label", entry.textContent.includes("0.5 sandwich"));
+
+    check("no JS errors during unit-based food flow", errors.length === 0);
+  }
+
   // ================= Settings: ratios, palette, dark mode =================
   section("Settings");
   {

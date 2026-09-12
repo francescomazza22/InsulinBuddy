@@ -411,14 +411,16 @@
     const foods = state.library.map(f => ({
       id: "food:" + f.id, refType: "food", refId: f.id, name: f.name,
       carbsPer100g: f.carbs, kcalPer100g: f.kcal, notes: f.notes,
-      usageCount: f.usageCount || 0, favorite: f.favorite
+      usageCount: f.usageCount || 0, favorite: f.favorite,
+      unitBased: !!f.unitBased, unitLabel: f.unitLabel || null, gramsPerUnit: f.gramsPerUnit || null
     }));
     const recipes = state.recipes.filter(r => r.finalWeight > 0).map(r => {
       const t = recipeTotals(r);
       return {
         id: "recipe:" + r.id, refType: "recipe", refId: r.id, name: r.name,
         carbsPer100g: t.carbsPer100g, kcalPer100g: t.kcalPer100g, notes: r.notes,
-        usageCount: r.usageCount || 0, favorite: r.favorite
+        usageCount: r.usageCount || 0, favorite: r.favorite,
+        unitBased: false, unitLabel: null, gramsPerUnit: null
       };
     });
     return [...recipes, ...foods];
@@ -436,7 +438,8 @@
       const row = document.createElement("div");
       row.className = "food-pick-item" + (selectedPickId === item.id ? " is-selected" : "");
       row.dataset.id = item.id;
-      const meta = `<span class="c-carbs">${item.carbsPer100g ?? "?"}g carbs</span>${item.kcalPer100g ? ` · <span class="c-kcal">~${item.kcalPer100g} kcal</span> / 100g` : " / 100g"}`;
+      const unitSuffix = item.unitBased ? `/ ${escapeHtml(item.unitLabel)} (${item.gramsPerUnit}g)` : "/ 100g";
+      const meta = `<span class="c-carbs">${item.carbsPer100g ?? "?"}g carbs</span>${item.kcalPer100g ? ` · <span class="c-kcal">~${item.kcalPer100g} kcal</span> ${unitSuffix}` : ` ${unitSuffix}`}`;
       row.innerHTML = `
         <div class="food-pick-item__main">
           <p class="food-pick-item__name">${escapeHtml(item.name)}</p>
@@ -459,10 +462,17 @@
     searchInput.value = item.name;
     renderFoodPickList();
     gramsInput.disabled = false;
+    gramsInput.placeholder = item.unitBased ? "Qty" : "Grams";
+    gramsInput.step = item.unitBased ? "0.5" : "1";
     gramsInput.focus();
   });
 
-  searchInput.addEventListener("input", () => { selectedPickId = null; renderFoodPickList(); });
+  searchInput.addEventListener("input", () => {
+    selectedPickId = null;
+    gramsInput.placeholder = "Grams";
+    gramsInput.step = "1";
+    renderFoodPickList();
+  });
 
   function addSelectedToMeal() {
     if (!selectedPickId) return;
@@ -470,10 +480,21 @@
     const items = pickableItems();
     const item = items.find(i => i.id === selectedPickId);
     if (!item || item.carbsPer100g == null) return;
-    const grams = parseFloat(gramsInput.value);
-    if (!grams || grams <= 0) { gramsInput.focus(); return; }
+    const entered = parseFloat(gramsInput.value);
+    if (!entered || entered <= 0) { gramsInput.focus(); return; }
+
+    let grams, quantity = null, unitLabel = null;
+    if (item.unitBased) {
+      quantity = entered;
+      unitLabel = item.unitLabel;
+      grams = quantity * item.gramsPerUnit;
+    } else {
+      grams = entered;
+    }
+
     draft.items.push({
-      refType: type, refId: id, name: item.name, grams,
+      refType: type, refId: id, name: item.name, grams, quantity, unitLabel,
+      gramsPerUnit: item.unitBased ? item.gramsPerUnit : null,
       carbsPer100g: item.carbsPer100g, kcalPer100g: item.kcalPer100g,
       carbs: Math.round(item.carbsPer100g * grams) / 100,
       kcal: item.kcalPer100g ? Math.round(item.kcalPer100g * grams) / 100 : null
@@ -482,6 +503,8 @@
     searchInput.value = "";
     gramsInput.value = "";
     gramsInput.disabled = false;
+    gramsInput.placeholder = "Grams";
+    gramsInput.step = "1";
     renderFoodPickList();
     renderMealItems();
     recompute();
@@ -498,8 +521,11 @@
       const row = document.createElement("div");
       row.className = "meal-item";
       row.dataset.idx = idx;
+      const isUnit = item.quantity != null && item.unitLabel;
+      const qtyDisplay = isUnit ? formatQty(item.quantity) : item.grams;
+      const suffix = isUnit ? " " + escapeHtml(item.unitLabel) + (item.quantity === 1 ? "" : "s") : "g";
       row.innerHTML = `
-        <button class="meal-item__edit-reveal" type="button" aria-label="Edit grams">
+        <button class="meal-item__edit-reveal" type="button" aria-label="Edit">
           <svg viewBox="0 0 24 24" fill="none"><path d="M4 20l4-1 11-11-3-3L5 16z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg>
           Edit
         </button>
@@ -507,7 +533,7 @@
           <div class="meal-item__main">
             <p class="meal-item__name">${escapeHtml(item.name)}</p>
             <p class="meal-item__meta">
-              <input type="number" class="meal-item__grams-input" min="0" value="${item.grams}" data-idx="${idx}" aria-label="Grams">g${item.kcal ? " · ~<span class=\"meal-item__kcal\">" + Math.round(item.kcal) + "</span> kcal" : ""}
+              <input type="number" class="meal-item__grams-input" min="0" step="${isUnit ? "0.5" : "1"}" value="${qtyDisplay}" data-idx="${idx}" aria-label="${isUnit ? "Quantity" : "Grams"}">${suffix}${item.kcal ? " · ~<span class=\"meal-item__kcal\">" + Math.round(item.kcal) + "</span> kcal" : ""}
             </p>
           </div>
           <div class="meal-item__carbs">${round1(item.carbs)}g</div>
@@ -552,7 +578,14 @@
     const idx = parseInt(e.target.dataset.idx, 10);
     const item = draft.items[idx];
     if (!item) return;
-    const grams = parseFloat(e.target.value) || 0;
+    const entered = parseFloat(e.target.value) || 0;
+    let grams;
+    if (item.quantity != null && item.gramsPerUnit) {
+      item.quantity = entered;
+      grams = entered * item.gramsPerUnit;
+    } else {
+      grams = entered;
+    }
     item.grams = grams;
     item.carbs = item.carbsPer100g != null ? Math.round(item.carbsPer100g * grams) / 100 : item.carbs;
     item.kcal = item.kcalPer100g ? Math.round(item.kcalPer100g * grams) / 100 : item.kcal;
@@ -593,6 +626,7 @@
   mealItemsBox.addEventListener("pointercancel", endSwipe);
 
   function round1(n) { return Math.round(n * 10) / 10; }
+  function formatQty(n) { return n % 1 === 0 ? String(n) : String(round1(n)); }
 
   function totalCarbs() { return draft.items.reduce((s, i) => s + i.carbs, 0); }
 
@@ -764,6 +798,7 @@
       periodName: periodEntry ? periodEntry.name.toLowerCase() : "",
       items: draft.items.map(i => ({
         refType: i.refType, refId: i.refId, name: i.name, grams: i.grams,
+        quantity: i.quantity ?? null, unitLabel: i.unitLabel ?? null, gramsPerUnit: i.gramsPerUnit ?? null,
         carbsPer100g: i.carbsPer100g, kcalPer100g: i.kcalPer100g,
         carbs: i.carbs, kcal: i.kcal
       })),
@@ -885,8 +920,10 @@
           <div class="lib-item__title-row">
             <p class="lib-item__name">${escapeHtml(f.name)}</p>
             ${categoryBadge(f.category)}
+            ${f.unitBased ? `<span class="lib-item__badge cat-other">Per ${escapeHtml(f.unitLabel)}</span>` : ""}
           </div>
           <p class="lib-item__meta"><span class="c-carbs">${f.carbs}g carbs/100g</span>${f.kcal ? ` · <span class="c-kcal">~${f.kcal} kcal/100g</span>` : ""}</p>
+          ${f.unitBased ? `<p class="lib-item__note">1 ${escapeHtml(f.unitLabel)} = ${f.gramsPerUnit}g → ${round1(f.carbs * f.gramsPerUnit / 100)}g carbs</p>` : ""}
           ${f.notes ? `<p class="lib-item__note">${escapeHtml(f.notes)}</p>` : ""}
           <p class="lib-item__usage">Used ${f.usageCount || 0}× times</p>
         </div>
@@ -931,7 +968,7 @@
 
   function openFoodSheet(food) {
     const isEdit = !!food;
-    const f = food || { name: "", category: "other", carbs: "", kcal: "", fat: "", protein: "", salt: "", notes: "", favorite: false };
+    const f = food || { name: "", category: "other", carbs: "", kcal: "", fat: "", protein: "", salt: "", notes: "", favorite: false, unitBased: false, unitLabel: "", gramsPerUnit: "" };
     const backdrop = document.createElement("div");
     backdrop.className = "sheet-backdrop";
     backdrop.innerHTML = `
@@ -968,7 +1005,18 @@
           <input type="number" id="fs-salt" value="${f.salt ?? ""}" step="0.1" placeholder="e.g., 0.5">
         </div>
 
-        <div class="field" style="margin-top:18px;">
+        <div class="checkbox-row" style="margin-top:18px;">
+          <label><input type="checkbox" id="fs-unit-based" ${f.unitBased ? "checked" : ""}> Log this by quantity, not weight</label>
+        </div>
+        <p class="panel-card__hint" style="margin:-10px 0 14px;">e.g., "1 sandwich" instead of grams. The nutrition above still applies per 100g — we just need to know how much one whole item weighs.</p>
+        <div class="unit-fields" id="fs-unit-fields" ${f.unitBased ? "" : "hidden"}>
+          <div class="field-grid" style="margin-bottom:16px;">
+            <div class="field" style="margin-bottom:0;"><label>Unit name</label><input type="text" id="fs-unit-label" value="${escapeAttr(f.unitLabel || "")}" placeholder="e.g., sandwich"></div>
+            <div class="field" style="margin-bottom:0;"><label>Weight per unit (g)</label><input type="number" id="fs-grams-per-unit" value="${f.gramsPerUnit ?? ""}" step="1" placeholder="e.g., 220"></div>
+          </div>
+        </div>
+
+        <div class="field">
           <label>Category</label>
           <select id="fs-cat">
             ${CATEGORIES.map(c => `<option value="${c.id}" ${c.id === f.category ? "selected" : ""}>${c.label}</option>`).join("")}
@@ -986,11 +1034,21 @@
       </div>
     `;
     openSheet(backdrop);
+    backdrop.querySelector("#fs-unit-based").addEventListener("change", e => {
+      backdrop.querySelector("#fs-unit-fields").hidden = !e.target.checked;
+    });
     backdrop.addEventListener("click", e => { if (e.target === backdrop || e.target.id === "fs-cancel" || e.target.closest("#fs-close")) closeSheet(backdrop); });
     backdrop.querySelector("#fs-save").addEventListener("click", () => {
       const name = backdrop.querySelector("#fs-name").value.trim();
       const carbs = parseFloat(backdrop.querySelector("#fs-carbs").value);
       if (!name || isNaN(carbs)) { alert("Please enter at least a name and carbs per 100g."); return; }
+      const unitBased = backdrop.querySelector("#fs-unit-based").checked;
+      const unitLabel = backdrop.querySelector("#fs-unit-label").value.trim();
+      const gramsPerUnit = parseFloat(backdrop.querySelector("#fs-grams-per-unit").value);
+      if (unitBased && (!unitLabel || !gramsPerUnit || gramsPerUnit <= 0)) {
+        alert("For a quantity-based food, please give it a unit name and a weight per unit greater than 0.");
+        return;
+      }
       const payload = {
         name,
         category: backdrop.querySelector("#fs-cat").value,
@@ -1000,7 +1058,10 @@
         protein: parseFloat(backdrop.querySelector("#fs-protein").value) || null,
         salt: parseFloat(backdrop.querySelector("#fs-salt").value) || null,
         notes: backdrop.querySelector("#fs-notes").value.trim(),
-        favorite: backdrop.querySelector("#fs-fav").checked
+        favorite: backdrop.querySelector("#fs-fav").checked,
+        unitBased,
+        unitLabel: unitBased ? unitLabel : null,
+        gramsPerUnit: unitBased ? gramsPerUnit : null
       };
       if (isEdit) Object.assign(f, payload);
       else state.library.unshift({ id: "food-" + Date.now(), usageCount: 0, ...payload });
@@ -1286,7 +1347,11 @@
             <p class="history-entry__title">${meal.label} <span class="muted">· ${formatTime(entry.ts)} · ${escapeHtml(entry.periodName || "")}</span></p>
             <p class="history-entry__foods">${entry.items.map(i => escapeHtml(i.name)).join(", ")}</p>
             <div class="history-entry__detail" hidden>
-              ${entry.items.map(i => `<div><span>${escapeHtml(i.name)}${i.grams ? " (" + i.grams + "g)" : ""}</span><span>${round1(i.carbs)}g carbs</span></div>`).join("")}
+              ${entry.items.map(i => {
+                const isUnit = i.quantity != null && i.unitLabel;
+                const qtyLabel = isUnit ? ` (${formatQty(i.quantity)} ${i.unitLabel}${i.quantity === 1 ? "" : "s"})` : (i.grams ? " (" + i.grams + "g)" : "");
+                return `<div><span>${escapeHtml(i.name)}${qtyLabel}</span><span>${round1(i.carbs)}g carbs</span></div>`;
+              }).join("")}
               <div class="history-entry__row-actions">
                 <button data-use="${entry.id}" type="button">Use Again</button>
                 <button data-edit="${entry.id}" type="button">Edit</button>
@@ -1502,16 +1567,21 @@
     openSheet(backdrop);
 
     function renderItems() {
-      backdrop.querySelector("#em-items").innerHTML = items.map((it, idx) => `
+      backdrop.querySelector("#em-items").innerHTML = items.map((it, idx) => {
+        const isUnit = it.quantity != null && it.unitLabel;
+        const val = isUnit ? formatQty(it.quantity) : it.grams;
+        const suffix = isUnit ? escapeHtml(it.unitLabel) + (it.quantity === 1 ? "" : "s") : "g";
+        return `
         <div class="ingredient-row">
           <span class="ingredient-row__name">${escapeHtml(it.name)}</span>
-          <input type="number" min="0" value="${it.grams}" data-idx="${idx}" class="em-grams-input" style="width:70px;padding:6px 8px;text-align:right;">
-          <span style="width:14px;"></span>
+          <input type="number" min="0" step="${isUnit ? "0.5" : "1"}" value="${val}" data-idx="${idx}" class="em-grams-input" style="width:70px;padding:6px 8px;text-align:right;">
+          <span style="width:34px;font-size:0.8rem;color:var(--ink-soft);">${suffix}</span>
           <button type="button" data-idx="${idx}" class="em-remove" aria-label="Remove item">
             <svg viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
           </button>
         </div>
-      `).join("");
+      `;
+      }).join("");
       updatePreview();
     }
 
@@ -1542,10 +1612,18 @@
     backdrop.querySelector("#em-items").addEventListener("input", e => {
       if (!e.target.classList.contains("em-grams-input")) return;
       const idx = parseInt(e.target.dataset.idx, 10);
-      const grams = parseFloat(e.target.value) || 0;
-      items[idx].grams = grams;
-      items[idx].carbs = items[idx].carbsPer100g != null ? Math.round(items[idx].carbsPer100g * grams) / 100 : items[idx].carbs;
-      items[idx].kcal = items[idx].kcalPer100g ? Math.round(items[idx].kcalPer100g * grams) / 100 : items[idx].kcal;
+      const entered = parseFloat(e.target.value) || 0;
+      const it = items[idx];
+      let grams;
+      if (it.quantity != null && it.gramsPerUnit) {
+        it.quantity = entered;
+        grams = entered * it.gramsPerUnit;
+      } else {
+        grams = entered;
+      }
+      it.grams = grams;
+      it.carbs = it.carbsPer100g != null ? Math.round(it.carbsPer100g * grams) / 100 : it.carbs;
+      it.kcal = it.kcalPer100g ? Math.round(it.kcalPer100g * grams) / 100 : it.kcal;
       updatePreview();
     });
     backdrop.querySelector("#em-items").addEventListener("click", e => {
@@ -1879,11 +1957,12 @@
   }
 
   el("btn-export-library").addEventListener("click", () => {
-    const foodHeaders = ["fat_per_100g", "usage_count", "is_favorite", "notes", "calories_per_100g", "salt_per_100g", "name", "carbs_per_100g", "category", "protein_per_100g", "id"];
+    const foodHeaders = ["fat_per_100g", "usage_count", "is_favorite", "notes", "calories_per_100g", "salt_per_100g", "name", "carbs_per_100g", "category", "protein_per_100g", "unit_based", "unit_label", "grams_per_unit", "id"];
     const foodRows = state.library.map(f => ({
       fat_per_100g: f.fat, usage_count: f.usageCount || 0, is_favorite: !!f.favorite,
       notes: f.notes, calories_per_100g: f.kcal, salt_per_100g: f.salt, name: f.name,
-      carbs_per_100g: f.carbs, category: f.category, protein_per_100g: f.protein, id: f.id
+      carbs_per_100g: f.carbs, category: f.category, protein_per_100g: f.protein,
+      unit_based: !!f.unitBased, unit_label: f.unitLabel || "", grams_per_unit: f.gramsPerUnit || "", id: f.id
     }));
     downloadText("Food_export.csv", toCsv(foodRows, foodHeaders), "text/csv");
 
@@ -1932,7 +2011,9 @@
             carbs: parseFloat(r.carbs_per_100g) || 0, kcal: parseFloat(r.calories_per_100g) || null,
             protein: parseFloat(r.protein_per_100g) || null, fat: parseFloat(r.fat_per_100g) || null,
             salt: parseFloat(r.salt_per_100g) || null, notes: r.notes || "",
-            favorite: r.is_favorite === "true", usageCount: parseInt(r.usage_count, 10) || 0
+            favorite: r.is_favorite === "true", usageCount: parseInt(r.usage_count, 10) || 0,
+            unitBased: r.unit_based === "true", unitLabel: r.unit_label || null,
+            gramsPerUnit: parseFloat(r.grams_per_unit) || null
           }));
         }
         let added = 0, updated = 0;
