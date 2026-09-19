@@ -420,7 +420,8 @@ html[data-theme="dark"] .disclaimer-banner { background: #3A310F; color: #E8CE85
    under 16px. Higher specificity than the per-field rules above (class +
    type beats a single class), so this wins without touching their other
    properties like width or text-align. */
-.app input, .app select, .app textarea { font-size: 16px; }
+.app input, .app select, .app textarea,
+.sheet-backdrop input, .sheet-backdrop select, .sheet-backdrop textarea { font-size: 16px; }
 
 /* Clean, consistent number inputs across browsers (no spinner arrows) */
 input[type="number"] { -moz-appearance: textfield; }
@@ -435,7 +436,8 @@ input[type="number"]::-webkit-inner-spin-button {
 .lib-item__actions button,
 .meal-item__remove,
 .ratio-row__del,
-.entry__delete {
+.entry__delete,
+.ingredient-row button {
   min-width: 34px;
   min-height: 34px;
   display: inline-flex;
@@ -490,7 +492,7 @@ input[type="number"]::-webkit-inner-spin-button {
 .ingredient-dropdown__item:hover { background: var(--paper); }
 .ingredient-dropdown__item span { color: var(--ink-soft); font-size: 0.78rem; flex-shrink: 0; }
 .ingredient-add-row { display: flex; gap: 8px; }
-.ingredient-add-row input { flex: 1; padding: 12px 14px; font-size: 16px; background: var(--surface); }
+.ingredient-add-row input { width: 84px; flex-shrink: 0; padding: 12px 10px; font-size: 16px; background: var(--surface); text-align: center; }
 .ingredient-add-row button {
   width: 44px; flex-shrink: 0; border: none; border-radius: var(--radius-s); background: var(--acc-1);
   color: #fff; cursor: pointer; display: flex; align-items: center; justify-content: center;
