@@ -177,9 +177,10 @@ input:focus-visible, select:focus-visible, button:focus-visible { outline: 2px s
 .correction-row__input input:focus { outline: none; }
 .correction-row__input span { padding: 0 12px; font-size: 0.82rem; color: rgba(255,255,255,0.85); }
 .correction-row__unit-toggle {
-  padding: 0 12px; height: 100%; font-size: 0.8rem; font-weight: 700; color: #fff;
+  padding: 0 12px; align-self: stretch; font-size: 0.8rem; font-weight: 700; color: #fff;
   background: rgba(255,255,255,0.18); border: none; cursor: pointer; font-family: var(--font-ui);
   text-decoration: underline; text-underline-offset: 2px; white-space: nowrap;
+  border-radius: 0 var(--radius-s) var(--radius-s) 0;
 }
 
 .ratio-picker { background: var(--surface); border: 1.5px solid var(--line); border-radius: var(--radius-m); padding: 10px; margin-bottom: 16px; display: flex; flex-direction: column; gap: 4px; }
