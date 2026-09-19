@@ -117,6 +117,15 @@ async function run() {
     check("dose includes correction when toggled on",
       Math.abs(parseFloat(d.getElementById("cc-dose-number").textContent) - expectedTotal) < 0.01);
 
+    // Glucose unit toggle (mg/dL <-> mmol/L)
+    const doseAtMgdl = d.getElementById("cc-dose-number").textContent;
+    check("glucose unit defaults to mg/dL", d.getElementById("cc-glucose-unit").textContent === "mg/dL");
+    click(win, d.getElementById("cc-glucose-unit"));
+    check("toggling converts 200 mg/dL to ~11.1 mmol/L", d.getElementById("cc-glucose").value === "11.1");
+    check("dose is unchanged by the unit toggle (same physical reading)", d.getElementById("cc-dose-number").textContent === doseAtMgdl);
+    input(win, d.getElementById("cc-glucose"), "11.1");
+    check("entering 11.1 mmol/L directly gives the same dose as 200 mg/dL", d.getElementById("cc-dose-number").textContent === doseAtMgdl);
+
     check("no JS errors during calculator use", errors.length === 0);
   }
 

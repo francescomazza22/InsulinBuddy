@@ -308,6 +308,7 @@
     items: [],          // { refType, refId, name, grams, carbs, kcal }
     correctionOn: false,
     glucose: "",
+    glucoseUnit: null,  // "mgdl" | "mmol" — which unit the glucose reading is entered in; null = follow Settings
     manualRatioId: null // overrides time-of-day auto ratio; can be a timeRatio or activityRatio id
   };
 
@@ -345,7 +346,12 @@
     const list = state.settings.timeRatios;
     return list.find(r => inRange(minutes, r.start, r.end)) || list[0] || null;
   }
-  function unitLabel() { return state.settings.units === "mmol" ? "mmol/L" : "mg/dL"; }
+  function unitLabel(unit) { return (unit || state.settings.units) === "mmol" ? "mmol/L" : "mg/dL"; }
+  const MGDL_PER_MMOL = 18.0182;
+  function convertGlucose(value, fromUnit, toUnit) {
+    if (fromUnit === toUnit) return value;
+    return fromUnit === "mmol" ? value * MGDL_PER_MMOL : value / MGDL_PER_MMOL;
+  }
 
   function activeRatioEntry() {
     if (draft.manualRatioId) {
@@ -643,7 +649,8 @@
     if (draft.correctionOn) {
       const bg = parseFloat(glucoseInput.value);
       if (!isNaN(bg) && bg > 0 && state.settings.isf > 0) {
-        correctionPart = Math.max(0, (bg - state.settings.target) / state.settings.isf);
+        const bgInSettingsUnit = convertGlucose(bg, draft.glucoseUnit, state.settings.units);
+        correctionPart = Math.max(0, (bgInSettingsUnit - state.settings.target) / state.settings.isf);
       }
     }
 
@@ -662,12 +669,25 @@
     draft.correctionOn = !draft.correctionOn;
     correctionToggle.classList.toggle("is-active", draft.correctionOn);
     correctionRow.hidden = !draft.correctionOn;
-    glucoseUnitLabel.textContent = unitLabel();
+    if (!draft.glucoseUnit) draft.glucoseUnit = state.settings.units;
+    glucoseUnitLabel.textContent = unitLabel(draft.glucoseUnit);
     if (draft.correctionOn) glucoseInput.focus();
     recompute();
     saveDraftLocal();
   });
   glucoseInput.addEventListener("input", () => { recompute(); saveDraftLocal(); });
+  glucoseUnitLabel.addEventListener("click", () => {
+    const newUnit = draft.glucoseUnit === "mmol" ? "mgdl" : "mmol";
+    const current = parseFloat(glucoseInput.value);
+    if (!isNaN(current)) {
+      const converted = convertGlucose(current, draft.glucoseUnit, newUnit);
+      glucoseInput.value = newUnit === "mmol" ? round1(converted) : Math.round(converted);
+    }
+    draft.glucoseUnit = newUnit;
+    glucoseUnitLabel.textContent = unitLabel(newUnit);
+    recompute();
+    saveDraftLocal();
+  });
 
   function renderRatioPicker() {
     const rows = [
@@ -714,6 +734,7 @@
         items: draft.items,
         correctionOn: draft.correctionOn,
         glucose: glucoseInput.value || "",
+        glucoseUnit: draft.glucoseUnit,
         manualRatioId: draft.manualRatioId
       }));
     } catch (e) { /* storage unavailable — non-fatal, draft just won't survive a reload */ }
@@ -731,19 +752,20 @@
     if (!saved || !Array.isArray(saved.items) || saved.items.length === 0) return;
     draft.items = saved.items;
     draft.manualRatioId = saved.manualRatioId || null;
+    draft.glucoseUnit = saved.glucoseUnit || state.settings.units;
     if (saved.glucose) glucoseInput.value = saved.glucose;
     if (saved.correctionOn) {
       draft.correctionOn = true;
       correctionToggle.classList.add("is-active");
       correctionRow.hidden = false;
-      glucoseUnitLabel.textContent = unitLabel();
+      glucoseUnitLabel.textContent = unitLabel(draft.glucoseUnit);
     }
     renderMealItems();
     recompute();
   }
 
   function resetDraft() {
-    draft = { items: [], correctionOn: false, glucose: "", manualRatioId: null };
+    draft = { items: [], correctionOn: false, glucose: "", glucoseUnit: null, manualRatioId: null };
     searchInput.value = ""; gramsInput.value = ""; gramsInput.disabled = false;
     glucoseInput.value = "";
     correctionToggle.classList.remove("is-active");
@@ -790,7 +812,8 @@
     const ratioEntry = draft._computed.ratioEntry;
     const now = new Date();
     const periodEntry = currentTimeRatio(now);
-    const glucoseVal = draft.correctionOn ? (parseFloat(glucoseInput.value) || null) : null;
+    const glucoseRaw = draft.correctionOn ? parseFloat(glucoseInput.value) : NaN;
+    const glucoseVal = !isNaN(glucoseRaw) ? round1(convertGlucose(glucoseRaw, draft.glucoseUnit || state.settings.units, state.settings.units)) : null;
     const entry = {
       id: "h-" + Date.now(),
       ts: now.getTime(),
