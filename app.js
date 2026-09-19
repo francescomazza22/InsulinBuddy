@@ -1004,7 +1004,7 @@
         </div>
         <div class="field">
           <label>Food Name</label>
-          <input type="text" id="fs-name" value="${escapeAttr(f.name)}" placeholder="e.g., Brown Rice">
+          <input type="text" id="fs-name" value="${escapeAttr(f.name)}" placeholder="e.g., Brown Rice" autocomplete="off" autocorrect="off">
         </div>
 
         <div class="field-inline-row">
@@ -1182,7 +1182,7 @@
         </div>
 
         <div class="field-grid">
-          <div class="field"><label>Recipe Name</label><input type="text" id="rs-name" value="${escapeAttr(r.name)}" placeholder="e.g., Chocolate Cake"></div>
+          <div class="field"><label>Recipe Name</label><input type="text" id="rs-name" value="${escapeAttr(r.name)}" placeholder="e.g., Chocolate Cake" autocomplete="off" autocorrect="off"></div>
           <div class="field"><label>Category</label>
             <select id="rs-cat">${CATEGORIES.map(c => `<option value="${c.id}" ${c.id === r.category ? "selected" : ""}>${c.label}</option>`).join("")}</select>
           </div>
@@ -1195,7 +1195,7 @@
             <div class="ingredient-dropdown" id="rs-ing-dropdown" hidden></div>
           </div>
           <div class="ingredient-add-row">
-            <input type="number" id="rs-ing-weight" placeholder="Weight (g)" min="0">
+            <input type="number" id="rs-ing-weight" placeholder="Grams" min="0">
             <button type="button" id="rs-ing-add" aria-label="Add ingredient">
               <svg viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
             </button>
@@ -1567,7 +1567,7 @@
         <label class="block-label">Meal type</label>
         <div class="field-grid" id="em-meal-types" style="margin-bottom:18px;">
           ${Object.entries(MEAL_TYPES).map(([key, m]) => `
-            <button class="btn btn--secondary" data-meal="${key}" type="button" style="display:flex;align-items:center;gap:8px;justify-content:center;${key === mealType ? `border-color:${m.color};color:${m.color};` : ""}">
+            <button class="btn btn--secondary" data-meal="${key}" type="button" style="display:flex;align-items:center;gap:8px;justify-content:center;${key === mealType ? `border-color:${m.color};color:${m.color};background:${m.color}1a;` : ""}">
               <span style="color:${m.color};width:18px;height:18px;">${m.icon}</span>${m.label}
             </button>
           `).join("")}
@@ -1628,9 +1628,9 @@
       const btn = e.target.closest("[data-meal]");
       if (!btn) return;
       mealType = btn.dataset.meal;
-      backdrop.querySelectorAll("#em-meal-types button").forEach(b => { b.style.borderColor = ""; b.style.color = ""; });
+      backdrop.querySelectorAll("#em-meal-types button").forEach(b => { b.style.borderColor = ""; b.style.color = ""; b.style.background = ""; });
       const m = MEAL_TYPES[mealType];
-      btn.style.borderColor = m.color; btn.style.color = m.color;
+      btn.style.borderColor = m.color; btn.style.color = m.color; btn.style.background = m.color + "1a";
     });
     backdrop.querySelector("#em-items").addEventListener("input", e => {
       if (!e.target.classList.contains("em-grams-input")) return;
