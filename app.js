@@ -1635,12 +1635,13 @@
       <div class="trend-stat-card"><div class="trend-stat-card__value">${avgDose}u</div><div class="trend-stat-card__label">Avg dose / day</div></div>
     `;
 
-    chartCarbsBox.innerHTML = buildBarChartSvg(buckets, "carbs", "g");
-    chartDoseBox.innerHTML = buildBarChartSvg(buckets, "dose", "u");
+    const chartWidth = chartCarbsBox.clientWidth || 320;
+    chartCarbsBox.innerHTML = buildBarChartSvg(buckets, "carbs", "g", chartWidth);
+    chartDoseBox.innerHTML = buildBarChartSvg(buckets, "dose", "u", chartWidth);
   }
 
-  function buildBarChartSvg(buckets, field, unit) {
-    const W = 320, H = 140, padBottom = 18, padTop = 10;
+  function buildBarChartSvg(buckets, field, unit, containerWidth) {
+    const W = Math.max(containerWidth || 320, 200), H = 140, padBottom = 18, padTop = 10;
     const maxVal = Math.max(1, ...buckets.map(b => b[field]));
     const barGap = 3;
     const barWidth = (W - barGap * (buckets.length - 1)) / buckets.length;
@@ -1660,7 +1661,7 @@
       `;
     }).join("");
 
-    return `<svg class="trend-chart" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" style="width:100%;height:140px;">${bars}</svg>`;
+    return `<svg class="trend-chart" viewBox="0 0 ${W} ${H}" style="width:100%;height:140px;">${bars}</svg>`;
   }
 
   historyGroups.addEventListener("click", e => {
