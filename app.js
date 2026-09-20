@@ -764,6 +764,18 @@
     recompute();
   }
 
+  // Belt-and-suspenders for iOS: per-action saves above should already cover
+  // this, but mobile Safari/home-screen web apps can discard the page the
+  // moment it's backgrounded, so we also save right at the actual signals
+  // for "about to be hidden or unloaded" — and re-check on the way back in,
+  // in case the page was resumed from the back/forward cache rather than
+  // re-run from scratch (which would otherwise skip the normal boot restore).
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) saveDraftLocal();
+  });
+  window.addEventListener("pagehide", () => { saveDraftLocal(); });
+  window.addEventListener("pageshow", e => { if (e.persisted) restoreDraftIfAny(); });
+
   function resetDraft() {
     draft = { items: [], correctionOn: false, glucose: "", glucoseUnit: null, manualRatioId: null };
     searchInput.value = ""; gramsInput.value = ""; gramsInput.disabled = false;
@@ -2195,7 +2207,7 @@
   function renderEverything() {
     document.documentElement.setAttribute("data-palette", state.settings.palette);
     document.documentElement.setAttribute("data-theme", state.settings.darkMode ? "dark" : "light");
-    draft = { items: [], correctionOn: false, glucose: "", manualRatioId: null };
+    draft = { items: [], correctionOn: false, glucose: "", glucoseUnit: null, manualRatioId: null };
     renderFoodPickList(); renderMealItems(); recompute();
     renderLibrary(); renderHistory(); renderSettings();
   }
