@@ -32,7 +32,7 @@ function section(name) {
   console.log("\n" + name);
 }
 
-function newApp({ withSupabase = false } = {}) {
+function newApp({ withSupabase = false, mockFetch = null } = {}) {
   const html = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
   const dom = new JSDOM(html, { runScripts: "outside-only", url: "http://localhost/", pretendToBeVisual: true });
   const { window } = dom;
@@ -46,6 +46,7 @@ function newApp({ withSupabase = false } = {}) {
   };
   window.confirm = () => true;
   window.alert = () => {};
+  if (mockFetch) window.fetch = mockFetch;
   window.supabase = withSupabase ? withSupabase : {
     createClient: () => ({
       auth: {
@@ -327,6 +328,64 @@ async function run() {
     check("history entry preserves quantity + unit label", entry.textContent.includes("0.5 sandwich"));
 
     check("no JS errors during unit-based food flow", errors.length === 0);
+  }
+
+  // ================= Nightscout sync =================
+  section("Nightscout sync");
+  {
+    const calls = [];
+    let shouldFail = false;
+    const mockFetch = async (url, opts) => {
+      calls.push({ url, body: JSON.parse(opts.body) });
+      return shouldFail ? { ok: false, status: 500 } : { ok: true, status: 200 };
+    };
+    const { window: win, d, errors } = newApp({ mockFetch });
+    await wait(100);
+
+    click(win, d.querySelector('[data-target="settings"]'));
+    click(win, d.querySelectorAll("#settings-segmented .segmented__btn")[2]);
+    input(win, d.getElementById("ns-url"), "https://f1b1.ns.gluroo.com?token=abc123");
+    input(win, d.getElementById("ns-token"), "abc123");
+    check("status shows connected once both fields are filled", d.getElementById("ns-status").textContent.includes("Connected"));
+
+    click(win, d.querySelector('[data-target="calculator"]'));
+    input(win, d.getElementById("cc-search"), "Mela");
+    click(win, d.getElementById("cc-food-list").children[0]);
+    input(win, d.getElementById("cc-grams"), "150");
+    click(win, d.getElementById("cc-add-btn"));
+    click(win, d.getElementById("cc-correction-toggle"));
+    input(win, d.getElementById("cc-glucose"), "180");
+    click(win, d.getElementById("cc-log-btn"));
+    await wait(100);
+
+    check("a request was sent on logging a meal", calls.length === 1);
+    check("the base URL's own ?token= is stripped and rebuilt cleanly", calls[0].url === "https://f1b1.ns.gluroo.com/api/v1/treatments?token=abc123");
+    check("carbs sent correctly (150g apple @ 25g/100g = 37.5g)", calls[0].body.carbs === 37.5);
+    check("insulin sent as meal + correction dose combined", calls[0].body.insulin === 6);
+    check("glucose included when a correction was used", calls[0].body.glucose === 180);
+    check("eventType matches Nightscout's convention", calls[0].body.eventType === "Meal Bolus");
+
+    // Now simulate Nightscout being unreachable
+    shouldFail = true;
+    input(win, d.getElementById("cc-search"), "Mela");
+    click(win, d.getElementById("cc-food-list").children[0]);
+    input(win, d.getElementById("cc-grams"), "100");
+    click(win, d.getElementById("cc-add-btn"));
+    click(win, d.getElementById("cc-log-btn"));
+    await wait(100);
+    const gramsInputStillWorks = d.getElementById("cc-grams").value === ""; // draft reset confirms logMeal completed normally
+    check("logMeal completes normally even when Nightscout is unreachable", gramsInputStillWorks);
+    const queueAfterFail = JSON.parse(win.localStorage.getItem("insulinBuddy.nsQueue") || "[]");
+    check("failed sync gets queued for retry", queueAfterFail.length === 1);
+
+    // Reconnect — queue should flush
+    shouldFail = false;
+    win.dispatchEvent(new win.Event("online"));
+    await wait(150);
+    const queueAfterFlush = JSON.parse(win.localStorage.getItem("insulinBuddy.nsQueue") || "[]");
+    check("queue empties once the connection is restored", queueAfterFlush.length === 0);
+
+    check("no JS errors during Nightscout sync", errors.length === 0);
   }
 
   // ================= Settings: ratios, palette, dark mode =================

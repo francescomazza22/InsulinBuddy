@@ -54,6 +54,10 @@ If you change any of the cached files, bump the `CACHE_NAME` version string at t
 
 By default everything stays in this browser. If you'd rather have real accounts and cross-device sync (still free, still hosted on GitHub Pages), see **`SUPABASE_SETUP.md`** for a step-by-step guide using Supabase.
 
+## Optional: Nightscout sync
+
+In Settings → General → Nightscout Sync, enter your Nightscout site's URL and API token (the token-based one from a URL like `https://yoursite.ns.example.com?token=...`, not the older API secret) to have every logged meal — carbs, total insulin, and glucose if you used a correction — sent to your Nightscout site automatically as a "Meal Bolus" treatment. This is entirely optional, lives only in your own browser's settings (never in this repo's code), and if your Nightscout site is briefly unreachable, entries queue up locally and retry automatically once it's back.
+
 ## Running the test suite
 
 There's a small test suite in `tests/run.js` that drives the actual UI (clicking buttons, filling in fields) in a simulated browser, covering dose math, library/recipe CRUD, the full history lifecycle, trends, and settings. It's dev-only tooling — the app itself has no dependencies or build step.

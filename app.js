@@ -72,7 +72,9 @@
         timeRatios: structuredClone(DEFAULT_TIME_RATIOS),
         activityRatios: structuredClone(DEFAULT_ACTIVITY_RATIOS),
         palette: "blueViolet",
-        darkMode: false
+        darkMode: false,
+        nightscoutUrl: "",
+        nightscoutToken: ""
       },
       library: structuredClone(typeof SEED_FOODS !== "undefined" ? SEED_FOODS : []),
       recipes: structuredClone(typeof SEED_RECIPES !== "undefined" ? SEED_RECIPES : []),
@@ -856,8 +858,104 @@
       }
     });
     saveState();
+    syncEntryToNightscout(entry);
     resetDraft();
   }
+
+  // ================= Nightscout sync =================
+  // Sends the carbs + total insulin (and glucose, if a correction was used) for
+  // each logged meal to your own Nightscout site, as a standard "Meal Bolus"
+  // treatment — the same format apps like Loop and xDrip already use, so it
+  // shows up in Nightscout's normal treatment views/reports.
+  const NS_QUEUE_KEY = "insulinBuddy.nsQueue";
+
+  function nightscoutConfigured() {
+    return !!(state.settings.nightscoutUrl && state.settings.nightscoutToken);
+  }
+
+  function nightscoutBaseUrl() {
+    // Accept a URL that already has a ?token=... on it (as pasted straight from
+    // Nightscout) as well as a bare URL with the token entered separately.
+    return state.settings.nightscoutUrl.split("?")[0].replace(/\/+$/, "");
+  }
+
+  function buildTreatmentFromEntry(entry) {
+    const totalInsulin = round1((entry.mealDose || 0) + (entry.correctionDose || 0));
+    const treatment = {
+      eventType: "Meal Bolus",
+      carbs: entry.totalCarbs,
+      insulin: totalInsulin,
+      created_at: new Date(entry.ts).toISOString(),
+      enteredBy: "Insulin Buddy",
+      notes: entry.items.map(i => i.name).join(", ")
+    };
+    if (entry.glucose != null) {
+      // Nightscout expects glucose in mg/dL regardless of the site's display unit.
+      treatment.glucose = state.settings.units === "mmol" ? round1(convertGlucose(entry.glucose, "mmol", "mgdl")) : entry.glucose;
+      treatment.glucoseType = "Finger";
+    }
+    return treatment;
+  }
+
+  function loadNsQueue() {
+    try { return JSON.parse(localStorage.getItem(NS_QUEUE_KEY)) || []; } catch (e) { return []; }
+  }
+  function saveNsQueue(queue) {
+    try { localStorage.setItem(NS_QUEUE_KEY, JSON.stringify(queue)); } catch (e) { /* non-fatal */ }
+  }
+
+  function renderNsStatus(message, isError) {
+    const box = el("ns-status");
+    if (!box) return;
+    box.textContent = message;
+    box.style.color = isError ? "var(--brick)" : "";
+  }
+
+  async function sendTreatmentToNightscout(treatment) {
+    const url = `${nightscoutBaseUrl()}/api/v1/treatments?token=${encodeURIComponent(state.settings.nightscoutToken)}`;
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(treatment)
+    });
+    if (!res.ok) throw new Error("Nightscout responded with " + res.status);
+  }
+
+  async function syncEntryToNightscout(entry) {
+    if (!nightscoutConfigured()) return;
+    await flushNightscoutQueue(); // send anything still pending first, oldest-first
+    const treatment = buildTreatmentFromEntry(entry);
+    try {
+      await sendTreatmentToNightscout(treatment);
+      renderNsStatus("Last meal synced to Nightscout.");
+    } catch (e) {
+      console.error("Nightscout sync failed, will retry:", e);
+      const queue = loadNsQueue();
+      queue.push(treatment);
+      saveNsQueue(queue);
+      renderNsStatus(`Couldn't reach Nightscout — ${queue.length} entr${queue.length === 1 ? "y" : "ies"} waiting to sync.`, true);
+    }
+  }
+
+  async function flushNightscoutQueue() {
+    if (!nightscoutConfigured()) return;
+    let queue = loadNsQueue();
+    if (queue.length === 0) return;
+    while (queue.length > 0) {
+      try {
+        await sendTreatmentToNightscout(queue[0]);
+        queue.shift();
+        saveNsQueue(queue);
+      } catch (e) {
+        break; // still failing — stop and leave the rest queued for next time
+      }
+    }
+    if (queue.length === 0) renderNsStatus("All entries synced to Nightscout.");
+    else renderNsStatus(`Couldn't reach Nightscout — ${queue.length} entr${queue.length === 1 ? "y" : "ies"} waiting to sync.`, true);
+  }
+
+  window.addEventListener("online", flushNightscoutQueue);
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) flushNightscoutQueue(); });
 
   function escapeHtml(s) {
     return String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -1726,8 +1824,24 @@
     renderPaletteGrid();
     el("dark-mode-toggle").checked = state.settings.darkMode;
     renderAccountSection();
+    renderNightscoutSection();
     el("privacy-panel-card").hidden = !!currentUser;
     if (!currentUser) renderPrivacySection();
+  }
+
+  function renderNightscoutSection() {
+    const urlInput = el("ns-url");
+    const tokenInput = el("ns-token");
+    if (document.activeElement !== urlInput) urlInput.value = state.settings.nightscoutUrl || "";
+    if (document.activeElement !== tokenInput) tokenInput.value = state.settings.nightscoutToken || "";
+    const queueLen = loadNsQueue().length;
+    if (!nightscoutConfigured()) {
+      renderNsStatus("Add your Nightscout URL and token above to enable automatic sync.");
+    } else if (queueLen > 0) {
+      renderNsStatus(`${queueLen} entr${queueLen === 1 ? "y" : "ies"} waiting to sync.`, true);
+    } else {
+      renderNsStatus("Connected — meals will sync automatically when logged.");
+    }
   }
 
   function renderAccountSection() {
@@ -2168,6 +2282,17 @@
     state.settings.darkMode = e.target.checked;
     document.documentElement.setAttribute("data-theme", state.settings.darkMode ? "dark" : "light");
     saveState();
+  });
+
+  el("ns-url").addEventListener("input", e => {
+    state.settings.nightscoutUrl = e.target.value.trim();
+    saveState();
+    renderNightscoutSection();
+  });
+  el("ns-token").addEventListener("input", e => {
+    state.settings.nightscoutToken = e.target.value.trim();
+    saveState();
+    renderNightscoutSection();
   });
 
   el("btn-refresh-app").addEventListener("click", () => location.reload());
