@@ -40,7 +40,7 @@ html[data-theme="dark"] {
 
 [hidden] { display: none !important; }
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-html, body { margin: 0; padding: 0; overscroll-behavior-y: contain; }
+html, body { margin: 0; padding: 0; overscroll-behavior-y: contain; overflow-x: hidden; }
 body {
   background: var(--paper);
   color: var(--ink);
@@ -313,7 +313,9 @@ html[data-theme="dark"] .cat-snacks, html[data-theme="dark"] .cat-other { filter
   padding: 12px 14px; font-size: 16px; color: var(--ink); font-family: var(--font-ui); resize: vertical;
 }
 .sheet textarea:focus { outline: none; border-color: var(--acc-1); }
-.sheet .field-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.sheet .field-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; min-width: 0; }
+.sheet .field-grid > * { min-width: 0; }
+.sheet .field-grid input, .sheet .field-grid select { width: 100%; box-sizing: border-box; }
 .sheet-actions { display: flex; gap: 10px; margin-top: 6px; }
 .sheet-actions .btn { flex: 1; }
 .sheet-actions .btn--secondary { background: var(--surface); border: 1.5px solid var(--line); color: var(--ink); }
