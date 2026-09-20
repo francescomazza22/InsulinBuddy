@@ -73,8 +73,7 @@
         activityRatios: structuredClone(DEFAULT_ACTIVITY_RATIOS),
         palette: "blueViolet",
         darkMode: false,
-        nightscoutUrl: "",
-        nightscoutToken: ""
+        nightscoutUrl: ""
       },
       library: structuredClone(typeof SEED_FOODS !== "undefined" ? SEED_FOODS : []),
       recipes: structuredClone(typeof SEED_RECIPES !== "undefined" ? SEED_RECIPES : []),
@@ -869,8 +868,13 @@
   // shows up in Nightscout's normal treatment views/reports.
   const NS_QUEUE_KEY = "insulinBuddy.nsQueue";
 
+  function nightscoutToken() {
+    const m = (state.settings.nightscoutUrl || "").match(/[?&]token=([^&]+)/);
+    return m ? decodeURIComponent(m[1]) : null;
+  }
+
   function nightscoutConfigured() {
-    return !!(state.settings.nightscoutUrl && state.settings.nightscoutToken);
+    return !!(state.settings.nightscoutUrl && nightscoutToken());
   }
 
   function nightscoutBaseUrl() {
@@ -912,7 +916,7 @@
   }
 
   async function sendTreatmentToNightscout(treatment) {
-    const url = `${nightscoutBaseUrl()}/api/v1/treatments?token=${encodeURIComponent(state.settings.nightscoutToken)}`;
+    const url = `${nightscoutBaseUrl()}/api/v1/treatments?token=${encodeURIComponent(nightscoutToken())}`;
     const res = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -933,7 +937,8 @@
       const queue = loadNsQueue();
       queue.push(treatment);
       saveNsQueue(queue);
-      renderNsStatus(`Couldn't reach Nightscout — ${queue.length} entr${queue.length === 1 ? "y" : "ies"} waiting to sync.`, true);
+      const reason = e && e.message ? ` (${e.message})` : "";
+      renderNsStatus(`Couldn't reach Nightscout${reason} — ${queue.length} entr${queue.length === 1 ? "y" : "ies"} waiting to sync. Try "Test Connection" for details.`, true);
     }
   }
 
@@ -952,6 +957,53 @@
     }
     if (queue.length === 0) renderNsStatus("All entries synced to Nightscout.");
     else renderNsStatus(`Couldn't reach Nightscout — ${queue.length} entr${queue.length === 1 ? "y" : "ies"} waiting to sync.`, true);
+  }
+
+  async function testNightscoutConnection() {
+    if (!nightscoutConfigured()) {
+      renderNsStatus("Enter a URL and token first.", true);
+      return;
+    }
+    const base = nightscoutBaseUrl();
+    renderNsStatus("Testing…");
+
+    // Step 1: basic reachability + CORS, via a lightweight GET that needs no auth.
+    try {
+      const statusRes = await fetch(`${base}/api/v1/status.json`);
+      if (!statusRes.ok) {
+        renderNsStatus(`Reached the server, but it responded with an error (HTTP ${statusRes.status}). Double-check the URL.`, true);
+        return;
+      }
+    } catch (e) {
+      renderNsStatus("Couldn't reach that URL at all — check it's typed correctly, or your Nightscout site may be blocking cross-origin requests (CORS) from other sites.", true);
+      return;
+    }
+
+    // Step 2: an actual write, using the exact same path a real sync uses, so
+    // this tests write permission for real rather than just guessing. Uses a
+    // clearly-labeled Note (not a Meal Bolus) so it can't be mistaken for real
+    // meal data, and is safe to delete from Nightscout's Treatments view.
+    try {
+      const testRes = await fetch(`${base}/api/v1/treatments?token=${encodeURIComponent(nightscoutToken())}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          eventType: "Note",
+          notes: "Insulin Buddy — connection test (safe to delete)",
+          created_at: new Date().toISOString(),
+          enteredBy: "Insulin Buddy"
+        })
+      });
+      if (testRes.ok) {
+        renderNsStatus("Connected! A test note was created in Nightscout — feel free to delete it. Meal sync should work now.");
+      } else if (testRes.status === 401 || testRes.status === 403) {
+        renderNsStatus(`The server was reachable, but the token was rejected (HTTP ${testRes.status}). Check the token is correct and has write/careportal permission in Nightscout's admin settings.`, true);
+      } else {
+        renderNsStatus(`The server was reachable, but the write failed (HTTP ${testRes.status}).`, true);
+      }
+    } catch (e) {
+      renderNsStatus("The status check worked, but the actual write request failed — this often means CORS is blocking write requests specifically. Check your Nightscout site's CORS settings.", true);
+    }
   }
 
   window.addEventListener("online", flushNightscoutQueue);
@@ -1831,12 +1883,12 @@
 
   function renderNightscoutSection() {
     const urlInput = el("ns-url");
-    const tokenInput = el("ns-token");
     if (document.activeElement !== urlInput) urlInput.value = state.settings.nightscoutUrl || "";
-    if (document.activeElement !== tokenInput) tokenInput.value = state.settings.nightscoutToken || "";
     const queueLen = loadNsQueue().length;
-    if (!nightscoutConfigured()) {
-      renderNsStatus("Add your Nightscout URL and token above to enable automatic sync.");
+    if (!state.settings.nightscoutUrl) {
+      renderNsStatus("Paste your Nightscout URL above (including its ?token=...) to enable automatic sync.");
+    } else if (!nightscoutConfigured()) {
+      renderNsStatus("That URL doesn't have a ?token=... on it — copy the full link from Nightscout, token included.", true);
     } else if (queueLen > 0) {
       renderNsStatus(`${queueLen} entr${queueLen === 1 ? "y" : "ies"} waiting to sync.`, true);
     } else {
@@ -2289,9 +2341,10 @@
     saveState();
     renderNightscoutSection();
   });
-  el("ns-token").addEventListener("input", e => {
-    state.settings.nightscoutToken = e.target.value.trim();
-    saveState();
+  el("btn-ns-test").addEventListener("click", () => { testNightscoutConnection(); });
+  el("btn-ns-refresh").addEventListener("click", async () => {
+    renderNsStatus("Checking…");
+    await flushNightscoutQueue();
     renderNightscoutSection();
   });
 
