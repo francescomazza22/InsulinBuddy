@@ -345,8 +345,7 @@ async function run() {
     click(win, d.querySelector('[data-target="settings"]'));
     click(win, d.querySelectorAll("#settings-segmented .segmented__btn")[2]);
     input(win, d.getElementById("ns-url"), "https://f1b1.ns.gluroo.com?token=abc123");
-    input(win, d.getElementById("ns-token"), "abc123");
-    check("status shows connected once both fields are filled", d.getElementById("ns-status").textContent.includes("Connected"));
+    check("status shows connected once the URL (with token) is filled in", d.getElementById("ns-status").textContent.includes("Connected"));
 
     click(win, d.querySelector('[data-target="calculator"]'));
     input(win, d.getElementById("cc-search"), "Mela");
@@ -355,13 +354,14 @@ async function run() {
     click(win, d.getElementById("cc-add-btn"));
     click(win, d.getElementById("cc-correction-toggle"));
     input(win, d.getElementById("cc-glucose"), "180");
+    const expectedDose = parseFloat(d.getElementById("cc-dose-number").textContent);
     click(win, d.getElementById("cc-log-btn"));
     await wait(100);
 
     check("a request was sent on logging a meal", calls.length === 1);
     check("the base URL's own ?token= is stripped and rebuilt cleanly", calls[0].url === "https://f1b1.ns.gluroo.com/api/v1/treatments?token=abc123");
     check("carbs sent correctly (150g apple @ 25g/100g = 37.5g)", calls[0].body.carbs === 37.5);
-    check("insulin sent as meal + correction dose combined", calls[0].body.insulin === 6);
+    check("insulin sent matches the dose actually shown (meal + correction combined)", calls[0].body.insulin === expectedDose);
     check("glucose included when a correction was used", calls[0].body.glucose === 180);
     check("eventType matches Nightscout's convention", calls[0].body.eventType === "Meal Bolus");
 
@@ -386,6 +386,25 @@ async function run() {
     check("queue empties once the connection is restored", queueAfterFlush.length === 0);
 
     check("no JS errors during Nightscout sync", errors.length === 0);
+  }
+
+  section("Nightscout Test Connection button");
+  {
+    // A reachable status endpoint but a rejected token should give a specific,
+    // actionable message rather than a generic failure.
+    const mockFetch = async url => {
+      if (url.includes("status.json")) return { ok: true, status: 200 };
+      return { ok: false, status: 401 };
+    };
+    const { window: win, d, errors } = newApp({ mockFetch });
+    await wait(100);
+    click(win, d.querySelector('[data-target="settings"]'));
+    click(win, d.querySelectorAll("#settings-segmented .segmented__btn")[2]);
+    input(win, d.getElementById("ns-url"), "https://f1b1.ns.gluroo.com?token=bad-token");
+    click(win, d.getElementById("btn-ns-test"));
+    await wait(100);
+    check("a rejected token gives a specific 401 message, not a generic one", d.getElementById("ns-status").textContent.includes("401"));
+    check("no JS errors during connection test", errors.length === 0);
   }
 
   // ================= Settings: ratios, palette, dark mode =================

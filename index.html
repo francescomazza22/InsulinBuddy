@@ -363,14 +363,15 @@
           <p class="panel-card__hint">When you log a meal, its carbs and insulin dose (and glucose, if you used a correction) are sent to your Nightscout site automatically. This lives in your own browser only — it's never included in the app's code or the GitHub repo.</p>
           <div class="field">
             <label>Nightscout URL</label>
-            <input type="text" id="ns-url" placeholder="https://yoursite.ns.example.com" autocomplete="off" autocorrect="off">
-          </div>
-          <div class="field">
-            <label>API Token</label>
-            <input type="text" id="ns-token" placeholder="e.g., f1b15d69-9085-..." autocomplete="off" autocorrect="off">
+            <input type="text" id="ns-url" placeholder="https://yoursite.ns.example.com?token=..." autocomplete="off" autocorrect="off">
           </div>
           <div id="ns-status" class="panel-card__hint"></div>
+          <div style="display:flex; gap:8px; margin-top:10px;">
+            <button class="dashed-btn" id="btn-ns-test" type="button" style="flex:1;">Test Connection</button>
+            <button class="dashed-btn" id="btn-ns-refresh" type="button" style="flex:1;">Refresh</button>
+          </div>
         </div>
+
 
         <div class="panel-card" id="privacy-panel-card">
           <h2 class="panel-card__title"><svg viewBox="0 0 24 24" fill="none" class="icon-inline"><rect x="5" y="11" width="14" height="9" rx="2" stroke="currentColor" stroke-width="1.6"/><path d="M8 11V7a4 4 0 018 0v4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg> Privacy</h2>
