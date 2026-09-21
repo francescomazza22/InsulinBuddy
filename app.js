@@ -2395,9 +2395,39 @@
   });
 
   // ================= Init =================
+  // One-time patch: adds Glycemic Index values to existing library foods that
+  // match by name, for anyone whose library was already saved before this
+  // feature existed (seed data in foods_data.js only ever populates a BRAND
+  // NEW install — it can't retroactively update a library that's already
+  // sitting in someone's browser). Only ever sets the gi field, never touches
+  // anything else, and never overwrites a gi value someone's already set.
+  const GI_SEED_MAP = {
+    "Mela": 36, "Riso Integrale": 68, "Pane Integrale": 74, "Orange": 43, "Piselli (frozen)": 51,
+    "Polenta": 68, "Fagioli": 24, "Riso Nero": 42, "Pasta di semola": 53, "Ananas": 59, "Mango": 51,
+    "Lenticchie bollite": 32, "Fragole": 40, "Riso Cotto": 73, "Ceci cotti": 28, "Uva": 59,
+    "Apple Juice": 41, "Riso": 73, "Patate gialle": 78, "Pane comune": 75, "Pane in cassetta": 75,
+    "Ciliegie": 22, "Pasta all'uovo": 49, "Patate dolci": 63, "Latte semiskimmed": 32, "Parsnip": 52,
+    "Zucchero": 65, "Additional sugar": 65, "Gnocchi di patate": 68, "Miele": 61, "Banana": 51,
+    "Tortilla": 52, "Pesca": 42, "Oat": 55, "Lenticchie cotte": 32, "Lenticchie secche": 32,
+    "Piadina": 67, "Pear": 38, "Berries": 40, "Quinoa": 53, "Cuscus crudo": 65,
+    "Fette Biscottate (each)": 70, "Marmellata": 49, "Dried apricot": 30, "Ceci secchi": 28,
+    "Fagioli secchi": 24, "Croissant (Gails)": 67
+  };
+  function applyGiSeedPatch() {
+    let changed = false;
+    state.library.forEach(f => {
+      if (f.gi == null && GI_SEED_MAP[f.name] != null) {
+        f.gi = GI_SEED_MAP[f.name];
+        changed = true;
+      }
+    });
+    if (changed) saveState();
+  }
+
   async function finishInit() {
     document.documentElement.setAttribute("data-palette", state.settings.palette);
     document.documentElement.setAttribute("data-theme", state.settings.darkMode ? "dark" : "light");
+    applyGiSeedPatch();
     renderFoodPickList();
     renderMealItems();
     recompute();

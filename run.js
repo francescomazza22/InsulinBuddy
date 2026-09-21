@@ -32,7 +32,7 @@ function section(name) {
   console.log("\n" + name);
 }
 
-function newApp({ withSupabase = false, mockFetch = null } = {}) {
+function newApp({ withSupabase = false, mockFetch = null, preSeedStorage = null } = {}) {
   const html = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
   const dom = new JSDOM(html, { runScripts: "outside-only", url: "http://localhost/", pretendToBeVisual: true });
   const { window } = dom;
@@ -60,6 +60,17 @@ function newApp({ withSupabase = false, mockFetch = null } = {}) {
   const errors = [];
   window.addEventListener("error", e => errors.push(e.error ? e.error.stack : e.message));
   window.addEventListener("unhandledrejection", e => errors.push(e.reason ? (e.reason.stack || e.reason) : e));
+
+  // window.localStorage = {...} above doesn't actually replace jsdom's own
+  // real localStorage (a known jsdom quirk — the assignment is silently a
+  // no-op), so app.js's own calls always hit jsdom's real store underneath,
+  // not the `store` object above. That's harmless for tests that only read
+  // and write during the test itself (both sides consistently hit the same
+  // real store), but a test that needs an EXISTING saved state before boot
+  // must seed it through the real API, not by pre-populating `store`.
+  if (preSeedStorage) {
+    for (const [k, v] of Object.entries(preSeedStorage)) window.localStorage.setItem(k, v);
+  }
 
   window.eval(fs.readFileSync(path.join(ROOT, "foods_data.js"), "utf8"));
   window.eval(fs.readFileSync(path.join(ROOT, "app.js"), "utf8"));
@@ -279,6 +290,34 @@ async function run() {
     check("switching to 7-day range redraws with 7 bars", (d.getElementById("trend-chart-carbs").innerHTML.match(/<rect/g) || []).length === 7);
 
     check("no JS errors during trends", errors.length === 0);
+  }
+
+  // ================= GI seed-patch migration (existing saved libraries) =================
+  section("GI migration patches existing libraries without disturbing other fields");
+  {
+    const oldLibrary = [
+      { id: "food-mela", name: "Mela", category: "fruits", carbs: 30, kcal: 60, protein: null, fat: 0.3, salt: null, notes: "my own note", favorite: true, usageCount: 42 },
+      { id: "food-avocado", name: "Avocado", category: "fruits", carbs: 2, kcal: 160, protein: 2, fat: 15, salt: null, notes: "", favorite: false, usageCount: 5 },
+      { id: "food-custom-gi", name: "Pane comune", category: "grains", carbs: 50, kcal: 250, protein: 8, fat: 1, salt: null, gi: 60, notes: "already has a manually-set GI", favorite: false, usageCount: 10 }
+    ];
+    const oldState = { settings: { isf: 50, target: 100, units: "mgdl", rounding: "0.5", maxDose: 15, timeRatios: [], activityRatios: [], palette: "blueViolet", darkMode: false }, library: oldLibrary, recipes: [], history: [] };
+    const { window: win, d, errors } = newApp({ preSeedStorage: { "insulinBuddy.v2": JSON.stringify(oldState) } });
+    await wait(300); // the migration's saveState() is async
+
+    const saved = JSON.parse(win.localStorage.getItem("insulinBuddy.v2"));
+    const mela = saved.library.find(f => f.name === "Mela");
+    check("GI gets patched onto a matching existing food", mela.gi === 36);
+    check("that food's other custom fields are untouched (carbs)", mela.carbs === 30);
+    check("...and kcal", mela.kcal === 60);
+    check("...and favorite/usageCount/notes", mela.favorite === true && mela.usageCount === 42 && mela.notes === "my own note");
+
+    const avocado = saved.library.find(f => f.name === "Avocado");
+    check("a food with no seed match is left alone", avocado.gi === undefined);
+
+    const paneComune = saved.library.find(f => f.name === "Pane comune");
+    check("an already-set GI value is never overwritten by the seed patch", paneComune.gi === 60);
+
+    check("no JS errors during the migration", errors.length === 0);
   }
 
   // ================= Glycemic index / glycemic load =================
