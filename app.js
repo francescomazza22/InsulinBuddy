@@ -636,11 +636,12 @@
   function formatQty(n) { return n % 1 === 0 ? String(n) : String(round1(n)); }
 
   function totalCarbs() { return draft.items.reduce((s, i) => s + i.carbs, 0); }
-  function glycemicLoadInfo(items) {
-    const withGi = items.filter(i => i.gi != null);
-    if (withGi.length === 0) return null;
-    const gl = withGi.reduce((s, i) => s + (i.gi * i.carbs) / 100, 0);
-    return { value: round1(gl), partial: withGi.length < items.length };
+  function compoundGiInfo(items) {
+    const withGi = items.filter(i => i.gi != null && i.carbs > 0);
+    const totalCarbsWithGi = withGi.reduce((s, i) => s + i.carbs, 0);
+    if (withGi.length === 0 || totalCarbsWithGi === 0) return null;
+    const weightedSum = withGi.reduce((s, i) => s + i.gi * i.carbs, 0);
+    return { value: Math.round(weightedSum / totalCarbsWithGi), partial: withGi.length < items.filter(i => i.carbs > 0).length };
   }
 
   function recompute() {
@@ -670,12 +671,12 @@
     clearAllBtn.hidden = carbs <= 0;
 
     const glIndicator = el("cc-gl-indicator");
-    const glInfo = glycemicLoadInfo(draft.items);
-    if (glInfo) {
-      const band = glInfo.value >= 20 ? "high" : glInfo.value >= 11 ? "medium" : "low";
-      glIndicator.textContent = `GL ${glInfo.value}${glInfo.partial ? "*" : ""}`;
+    const giInfo = compoundGiInfo(draft.items);
+    if (giInfo) {
+      const band = giInfo.value >= 70 ? "high" : giInfo.value >= 56 ? "medium" : "low";
+      glIndicator.textContent = `GI ${giInfo.value}${giInfo.partial ? "*" : ""}`;
       glIndicator.className = `gl-indicator gl-indicator--${band}`;
-      glIndicator.title = glInfo.partial ? "Glycemic load — not all items have a GI value, so this is a partial total" : "Glycemic load for this meal";
+      glIndicator.title = giInfo.partial ? "Compound GI, carb-weighted across this meal's items — not all items have a GI value, so this is a partial estimate" : "Compound GI for this meal, weighted by each item's carb contribution";
       glIndicator.hidden = false;
     } else {
       glIndicator.hidden = true;
@@ -859,7 +860,7 @@
       })),
       totalCarbs: round1(totalCarbs()),
       totalKcal: Math.round(draft.items.reduce((s, i) => s + (i.kcal || 0), 0)),
-      glycemicLoad: glycemicLoadInfo(draft.items),
+      glycemicLoad: compoundGiInfo(draft.items),
       mealDose: draft._computed.mealDose,
       correctionDose: draft._computed.correctionDose,
       glucose: glucoseVal,
@@ -1563,7 +1564,7 @@
                 const qtyLabel = isUnit ? ` (${formatQty(i.quantity)} ${i.unitLabel}${i.quantity === 1 ? "" : "s"})` : (i.grams ? " (" + i.grams + "g)" : "");
                 return `<div><span>${escapeHtml(i.name)}${qtyLabel}</span><span>${round1(i.carbs)}g carbs</span></div>`;
               }).join("")}
-              ${entry.glycemicLoad ? `<div class="history-entry__gl"><span class="gl-indicator gl-indicator--${entry.glycemicLoad.value >= 20 ? "high" : entry.glycemicLoad.value >= 11 ? "medium" : "low"}">GL ${entry.glycemicLoad.value}${entry.glycemicLoad.partial ? "*" : ""}</span></div>` : ""}
+              ${entry.glycemicLoad ? `<div class="history-entry__gl"><span class="gl-indicator gl-indicator--${entry.glycemicLoad.value >= 70 ? "high" : entry.glycemicLoad.value >= 56 ? "medium" : "low"}">GI ${entry.glycemicLoad.value}${entry.glycemicLoad.partial ? "*" : ""}</span></div>` : ""}
               <div class="history-entry__row-actions">
                 <button data-use="${entry.id}" type="button">Use Again</button>
                 <button data-edit="${entry.id}" type="button">Edit</button>
@@ -2445,6 +2446,7 @@
   function renderEverything() {
     document.documentElement.setAttribute("data-palette", state.settings.palette);
     document.documentElement.setAttribute("data-theme", state.settings.darkMode ? "dark" : "light");
+    applyGiSeedPatch();
     draft = { items: [], correctionOn: false, glucose: "", glucoseUnit: null, manualRatioId: null };
     renderFoodPickList(); renderMealItems(); recompute();
     renderLibrary(); renderHistory(); renderSettings();

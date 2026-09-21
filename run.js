@@ -292,6 +292,54 @@ async function run() {
     check("no JS errors during trends", errors.length === 0);
   }
 
+  section("GI migration also runs when signing in after the app already loaded (not just at initial boot)");
+  {
+    const users = { "a@x.com": { id: "u1" } };
+    const cloudLibrary = [
+      { id: "food-mela", name: "Mela", category: "fruits", carbs: 25, kcal: 52, protein: null, fat: 0.5, salt: null, notes: "", favorite: false, usageCount: 0 }
+    ];
+    const appState = { "u1": { settings: { isf: 50, target: 100, units: "mgdl", rounding: "0.5", maxDose: 15, timeRatios: [], activityRatios: [], palette: "blueViolet", darkMode: false }, library: cloudLibrary, recipes: [], history: [] } };
+    let currentSession = null, authChangeCb = null;
+    const fakeSupabase = {
+      createClient: () => ({
+        auth: {
+          onAuthStateChange(cb) {
+            authChangeCb = cb;
+            setTimeout(() => cb("INITIAL_SESSION", currentSession), 0);
+            return { data: { subscription: { unsubscribe() {} } } };
+          },
+          async signInWithPassword({ email }) {
+            currentSession = { user: users[email] };
+            authChangeCb("SIGNED_IN", currentSession);
+            return { error: null };
+          }
+        },
+        from() {
+          return {
+            select() { return { eq(c, v) { return { async maybeSingle() { const row = appState[v]; return { data: row ? { data: row } : null, error: null }; } }; } }; },
+            async upsert(row) { appState[row.user_id] = JSON.parse(JSON.stringify(row.data)); return { error: null }; }
+          };
+        }
+      }),
+      _debug: { appState }
+    };
+    const { window: win, d, errors } = newApp({ withSupabase: fakeSupabase });
+    await wait(150); // initial boot, not signed in yet
+
+    click(win, d.querySelector('[data-target="settings"]'));
+    click(win, d.querySelectorAll("#settings-segmented .segmented__btn")[2]);
+    input(win, d.getElementById("acct-email"), "a@x.com");
+    input(win, d.getElementById("acct-password"), "pw");
+    click(win, d.getElementById("btn-sign-in"));
+    await wait(300);
+
+    click(win, d.querySelector('[data-target="library"]'));
+    const melaRow = [...d.querySelectorAll("#lib-foods-list .lib-item")].find(elx => elx.textContent.includes("Mela"));
+    check("GI patch applies to a cloud library loaded via interactive sign-in", !!melaRow && melaRow.textContent.includes("GI 36"));
+    check("the patch also gets pushed back up to the cloud database", appState["u1"].library.find(f => f.name === "Mela").gi === 36);
+    check("no JS errors during sign-in migration", errors.length === 0);
+  }
+
   // ================= GI seed-patch migration (existing saved libraries) =================
   section("GI migration patches existing libraries without disturbing other fields");
   {
@@ -320,48 +368,88 @@ async function run() {
     check("no JS errors during the migration", errors.length === 0);
   }
 
-  // ================= Glycemic index / glycemic load =================
-  section("Glycemic index & glycemic load");
+  // ================= Glycemic index / compound GI =================
+  section("Glycemic index & compound GI");
   {
     const { window: win, d, errors } = newApp();
     await wait(100);
 
-    // Mela is seeded with GI 36, 25g carbs/100g. 150g -> 37.5g carbs -> GL = 36*37.5/100 = 13.5
+    // Mela is seeded with GI 36, 25g carbs/100g. 150g -> 37.5g carbs.
+    // With only one GI-bearing item, compound GI equals that item's own GI.
     input(win, d.getElementById("cc-search"), "Mela");
     click(win, d.getElementById("cc-food-list").children[0]);
     input(win, d.getElementById("cc-grams"), "150");
     click(win, d.getElementById("cc-add-btn"));
 
-    const glIndicator = d.getElementById("cc-gl-indicator");
-    check("GL indicator becomes visible once an item with a GI value is added", !glIndicator.hidden);
-    check("GL computed correctly (36 x 37.5 / 100 = 13.5)", glIndicator.textContent === "GL 13.5");
-    check("GL band is 'medium' for a value in the 11-19 range", glIndicator.className.includes("gl-indicator--medium"));
+    const giIndicator = d.getElementById("cc-gl-indicator");
+    check("GI indicator becomes visible once an item with a GI value is added", !giIndicator.hidden);
+    check("compound GI equals the single item's own GI (36)", giIndicator.textContent === "GI 36");
+    check("GI band is 'low' for a value <=55", giIndicator.className.includes("gl-indicator--low"));
 
-    // Adding a food with no GI data should mark the total as partial
+    // Adding a carb-containing food with no GI data should mark the total as partial
     input(win, d.getElementById("cc-search"), "Avocado");
     click(win, d.getElementById("cc-food-list").children[0]);
     input(win, d.getElementById("cc-grams"), "50");
     click(win, d.getElementById("cc-add-btn"));
-    check("GL total is marked partial when an item has no GI value", glIndicator.textContent === "GL 13.5*");
+    check("compound GI is marked partial when an item has no GI value", giIndicator.textContent === "GI 36*");
 
     click(win, d.getElementById("cc-log-btn"));
     click(win, d.querySelector('[data-target="history"]'));
     const entry = d.querySelector(".history-entry");
     click(win, entry);
-    check("history detail shows the same GL, snapshotted", entry.querySelector(".gl-indicator").textContent === "GL 13.5*");
+    check("history detail shows the same compound GI, snapshotted", entry.querySelector(".gl-indicator").textContent === "GI 36*");
 
     // Editing a food's GI in the Library should show up there, and the CSV round-trip should carry it
     click(win, d.querySelector('[data-target="library"]'));
     input(win, d.getElementById("lib-search"), "Mela");
     click(win, d.querySelector('#lib-foods-list [data-act="edit"]'));
-    const sheet = d.querySelector(".sheet-backdrop");
-    check("Edit Food sheet pre-fills the existing GI value", sheet.querySelector("#fs-gi").value === "36");
-    input(win, sheet.querySelector("#fs-gi"), "40");
-    click(win, sheet.querySelector("#fs-save"));
+    const sheet0 = d.querySelector(".sheet-backdrop");
+    check("Edit Food sheet pre-fills the existing GI value", sheet0.querySelector("#fs-gi").value === "36");
+    input(win, sheet0.querySelector("#fs-gi"), "40");
+    click(win, sheet0.querySelector("#fs-save"));
     input(win, d.getElementById("lib-search"), "Mela");
     check("Library reflects the updated GI badge", d.querySelector("#lib-foods-list .lib-item").textContent.includes("GI 40"));
 
-    check("no JS errors during GI/GL flow", errors.length === 0);
+    check("no JS errors during GI/compound-GI flow", errors.length === 0);
+  }
+
+  section("Compound GI is carb-weighted, not weight-weighted");
+  {
+    // 100g of a food that's 100% carbs at GI 100, plus 250g of a food that's
+    // 20% carbs at GI 20 (=50g carbs) -> compound GI = (100*100 + 20*50) / (100+50) = 73,
+    // NOT a plain average of 100 and 20, and NOT weighted by raw grams (100 vs 250).
+    const { window: win, d, errors } = newApp();
+    await wait(100);
+
+    click(win, d.querySelector('[data-target="library"]'));
+    click(win, d.getElementById("lib-add-btn"));
+    let sheet = d.querySelector(".sheet-backdrop");
+    input(win, sheet.querySelector("#fs-name"), "Test HighGI");
+    input(win, sheet.querySelector("#fs-carbs"), "100");
+    input(win, sheet.querySelector("#fs-gi"), "100");
+    click(win, sheet.querySelector("#fs-save"));
+
+    click(win, d.getElementById("lib-add-btn"));
+    sheet = d.querySelector(".sheet-backdrop");
+    input(win, sheet.querySelector("#fs-name"), "Test LowGI");
+    input(win, sheet.querySelector("#fs-carbs"), "20");
+    input(win, sheet.querySelector("#fs-gi"), "20");
+    click(win, sheet.querySelector("#fs-save"));
+
+    click(win, d.querySelector('[data-target="calculator"]'));
+    input(win, d.getElementById("cc-search"), "Test HighGI");
+    click(win, d.getElementById("cc-food-list").children[0]);
+    input(win, d.getElementById("cc-grams"), "100");
+    click(win, d.getElementById("cc-add-btn"));
+    input(win, d.getElementById("cc-search"), "Test LowGI");
+    click(win, d.getElementById("cc-food-list").children[0]);
+    input(win, d.getElementById("cc-grams"), "250");
+    click(win, d.getElementById("cc-add-btn"));
+
+    const giIndicator2 = d.getElementById("cc-gl-indicator");
+    check("compound GI is carb-weighted, not a plain or gram-weighted average (expect 73)", giIndicator2.textContent === "GI 73");
+    check("a value of 73 bands as 'high' (>=70)", giIndicator2.className.includes("gl-indicator--high"));
+    check("no JS errors", errors.length === 0);
   }
 
   // ================= Unit-based (quantity) foods =================
