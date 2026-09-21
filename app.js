@@ -417,7 +417,7 @@
   function pickableItems() {
     const foods = state.library.map(f => ({
       id: "food:" + f.id, refType: "food", refId: f.id, name: f.name,
-      carbsPer100g: f.carbs, kcalPer100g: f.kcal, notes: f.notes,
+      carbsPer100g: f.carbs, kcalPer100g: f.kcal, notes: f.notes, gi: f.gi || null,
       usageCount: f.usageCount || 0, favorite: f.favorite,
       unitBased: !!f.unitBased, unitLabel: f.unitLabel || null, gramsPerUnit: f.gramsPerUnit || null
     }));
@@ -502,7 +502,7 @@
     draft.items.push({
       refType: type, refId: id, name: item.name, grams, quantity, unitLabel,
       gramsPerUnit: item.unitBased ? item.gramsPerUnit : null,
-      carbsPer100g: item.carbsPer100g, kcalPer100g: item.kcalPer100g,
+      carbsPer100g: item.carbsPer100g, kcalPer100g: item.kcalPer100g, gi: item.gi || null,
       carbs: Math.round(item.carbsPer100g * grams) / 100,
       kcal: item.kcalPer100g ? Math.round(item.kcalPer100g * grams) / 100 : null
     });
@@ -636,6 +636,12 @@
   function formatQty(n) { return n % 1 === 0 ? String(n) : String(round1(n)); }
 
   function totalCarbs() { return draft.items.reduce((s, i) => s + i.carbs, 0); }
+  function glycemicLoadInfo(items) {
+    const withGi = items.filter(i => i.gi != null);
+    if (withGi.length === 0) return null;
+    const gl = withGi.reduce((s, i) => s + (i.gi * i.carbs) / 100, 0);
+    return { value: round1(gl), partial: withGi.length < items.length };
+  }
 
   function recompute() {
     const carbs = totalCarbs();
@@ -662,6 +668,18 @@
 
     logBtn.disabled = carbs <= 0;
     clearAllBtn.hidden = carbs <= 0;
+
+    const glIndicator = el("cc-gl-indicator");
+    const glInfo = glycemicLoadInfo(draft.items);
+    if (glInfo) {
+      const band = glInfo.value >= 20 ? "high" : glInfo.value >= 11 ? "medium" : "low";
+      glIndicator.textContent = `GL ${glInfo.value}${glInfo.partial ? "*" : ""}`;
+      glIndicator.className = `gl-indicator gl-indicator--${band}`;
+      glIndicator.title = glInfo.partial ? "Glycemic load — not all items have a GI value, so this is a partial total" : "Glycemic load for this meal";
+      glIndicator.hidden = false;
+    } else {
+      glIndicator.hidden = true;
+    }
 
     draft._computed = { carbs, mealDose: roundDose(mealPart), correctionDose: roundDose(correctionPart), finalDose, ratioEntry };
   }
@@ -835,11 +853,13 @@
       items: draft.items.map(i => ({
         refType: i.refType, refId: i.refId, name: i.name, grams: i.grams,
         quantity: i.quantity ?? null, unitLabel: i.unitLabel ?? null, gramsPerUnit: i.gramsPerUnit ?? null,
+        gi: i.gi ?? null,
         carbsPer100g: i.carbsPer100g, kcalPer100g: i.kcalPer100g,
         carbs: i.carbs, kcal: i.kcal
       })),
       totalCarbs: round1(totalCarbs()),
       totalKcal: Math.round(draft.items.reduce((s, i) => s + (i.kcal || 0), 0)),
+      glycemicLoad: glycemicLoadInfo(draft.items),
       mealDose: draft._computed.mealDose,
       correctionDose: draft._computed.correctionDose,
       glucose: glucoseVal,
@@ -1106,6 +1126,7 @@
             <p class="lib-item__name">${escapeHtml(f.name)}</p>
             ${categoryBadge(f.category)}
             ${f.unitBased ? `<span class="lib-item__badge cat-other">Per ${escapeHtml(f.unitLabel)}</span>` : ""}
+            ${f.gi != null ? `<span class="lib-item__badge cat-other">GI ${f.gi}</span>` : ""}
           </div>
           <p class="lib-item__meta"><span class="c-carbs">${f.carbs}g carbs/100g</span>${f.kcal ? ` · <span class="c-kcal">~${f.kcal} kcal/100g</span>` : ""}</p>
           ${f.unitBased ? `<p class="lib-item__note">1 ${escapeHtml(f.unitLabel)} = ${f.gramsPerUnit}g → ${round1(f.carbs * f.gramsPerUnit / 100)}g carbs</p>` : ""}
@@ -1189,6 +1210,10 @@
           <label>Salt per 100g <span class="field__optional">(optional)</span></label>
           <input type="number" id="fs-salt" value="${f.salt ?? ""}" step="0.1" placeholder="e.g., 0.5">
         </div>
+        <div class="field-inline-row">
+          <label>Glycemic Index <span class="field__optional">(optional)</span></label>
+          <input type="number" id="fs-gi" value="${f.gi ?? ""}" step="1" min="0" max="110" placeholder="e.g., 55">
+        </div>
 
         <div class="checkbox-row" style="margin-top:18px;">
           <label><input type="checkbox" id="fs-unit-based" ${f.unitBased ? "checked" : ""}> Log this by quantity, not weight</label>
@@ -1242,6 +1267,7 @@
         fat: parseFloat(backdrop.querySelector("#fs-fat").value) || null,
         protein: parseFloat(backdrop.querySelector("#fs-protein").value) || null,
         salt: parseFloat(backdrop.querySelector("#fs-salt").value) || null,
+        gi: parseFloat(backdrop.querySelector("#fs-gi").value) || null,
         notes: backdrop.querySelector("#fs-notes").value.trim(),
         favorite: backdrop.querySelector("#fs-fav").checked,
         unitBased,
@@ -1537,6 +1563,7 @@
                 const qtyLabel = isUnit ? ` (${formatQty(i.quantity)} ${i.unitLabel}${i.quantity === 1 ? "" : "s"})` : (i.grams ? " (" + i.grams + "g)" : "");
                 return `<div><span>${escapeHtml(i.name)}${qtyLabel}</span><span>${round1(i.carbs)}g carbs</span></div>`;
               }).join("")}
+              ${entry.glycemicLoad ? `<div class="history-entry__gl"><span class="gl-indicator gl-indicator--${entry.glycemicLoad.value >= 20 ? "high" : entry.glycemicLoad.value >= 11 ? "medium" : "low"}">GL ${entry.glycemicLoad.value}${entry.glycemicLoad.partial ? "*" : ""}</span></div>` : ""}
               <div class="history-entry__row-actions">
                 <button data-use="${entry.id}" type="button">Use Again</button>
                 <button data-edit="${entry.id}" type="button">Edit</button>
@@ -2159,12 +2186,13 @@
   }
 
   el("btn-export-library").addEventListener("click", () => {
-    const foodHeaders = ["fat_per_100g", "usage_count", "is_favorite", "notes", "calories_per_100g", "salt_per_100g", "name", "carbs_per_100g", "category", "protein_per_100g", "unit_based", "unit_label", "grams_per_unit", "id"];
+    const foodHeaders = ["fat_per_100g", "usage_count", "is_favorite", "notes", "calories_per_100g", "salt_per_100g", "name", "carbs_per_100g", "category", "protein_per_100g", "unit_based", "unit_label", "grams_per_unit", "glycemic_index", "id"];
     const foodRows = state.library.map(f => ({
       fat_per_100g: f.fat, usage_count: f.usageCount || 0, is_favorite: !!f.favorite,
       notes: f.notes, calories_per_100g: f.kcal, salt_per_100g: f.salt, name: f.name,
       carbs_per_100g: f.carbs, category: f.category, protein_per_100g: f.protein,
-      unit_based: !!f.unitBased, unit_label: f.unitLabel || "", grams_per_unit: f.gramsPerUnit || "", id: f.id
+      unit_based: !!f.unitBased, unit_label: f.unitLabel || "", grams_per_unit: f.gramsPerUnit || "",
+      glycemic_index: f.gi || "", id: f.id
     }));
     downloadText("Food_export.csv", toCsv(foodRows, foodHeaders), "text/csv");
 
@@ -2215,7 +2243,8 @@
             salt: parseFloat(r.salt_per_100g) || null, notes: r.notes || "",
             favorite: r.is_favorite === "true", usageCount: parseInt(r.usage_count, 10) || 0,
             unitBased: r.unit_based === "true", unitLabel: r.unit_label || null,
-            gramsPerUnit: parseFloat(r.grams_per_unit) || null
+            gramsPerUnit: parseFloat(r.grams_per_unit) || null,
+            gi: parseFloat(r.glycemic_index) || null
           }));
         }
         let added = 0, updated = 0;
