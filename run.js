@@ -281,6 +281,50 @@ async function run() {
     check("no JS errors during trends", errors.length === 0);
   }
 
+  // ================= Glycemic index / glycemic load =================
+  section("Glycemic index & glycemic load");
+  {
+    const { window: win, d, errors } = newApp();
+    await wait(100);
+
+    // Mela is seeded with GI 36, 25g carbs/100g. 150g -> 37.5g carbs -> GL = 36*37.5/100 = 13.5
+    input(win, d.getElementById("cc-search"), "Mela");
+    click(win, d.getElementById("cc-food-list").children[0]);
+    input(win, d.getElementById("cc-grams"), "150");
+    click(win, d.getElementById("cc-add-btn"));
+
+    const glIndicator = d.getElementById("cc-gl-indicator");
+    check("GL indicator becomes visible once an item with a GI value is added", !glIndicator.hidden);
+    check("GL computed correctly (36 x 37.5 / 100 = 13.5)", glIndicator.textContent === "GL 13.5");
+    check("GL band is 'medium' for a value in the 11-19 range", glIndicator.className.includes("gl-indicator--medium"));
+
+    // Adding a food with no GI data should mark the total as partial
+    input(win, d.getElementById("cc-search"), "Avocado");
+    click(win, d.getElementById("cc-food-list").children[0]);
+    input(win, d.getElementById("cc-grams"), "50");
+    click(win, d.getElementById("cc-add-btn"));
+    check("GL total is marked partial when an item has no GI value", glIndicator.textContent === "GL 13.5*");
+
+    click(win, d.getElementById("cc-log-btn"));
+    click(win, d.querySelector('[data-target="history"]'));
+    const entry = d.querySelector(".history-entry");
+    click(win, entry);
+    check("history detail shows the same GL, snapshotted", entry.querySelector(".gl-indicator").textContent === "GL 13.5*");
+
+    // Editing a food's GI in the Library should show up there, and the CSV round-trip should carry it
+    click(win, d.querySelector('[data-target="library"]'));
+    input(win, d.getElementById("lib-search"), "Mela");
+    click(win, d.querySelector('#lib-foods-list [data-act="edit"]'));
+    const sheet = d.querySelector(".sheet-backdrop");
+    check("Edit Food sheet pre-fills the existing GI value", sheet.querySelector("#fs-gi").value === "36");
+    input(win, sheet.querySelector("#fs-gi"), "40");
+    click(win, sheet.querySelector("#fs-save"));
+    input(win, d.getElementById("lib-search"), "Mela");
+    check("Library reflects the updated GI badge", d.querySelector("#lib-foods-list .lib-item").textContent.includes("GI 40"));
+
+    check("no JS errors during GI/GL flow", errors.length === 0);
+  }
+
   // ================= Unit-based (quantity) foods =================
   section("Unit-based foods (e.g. '1 sandwich' instead of grams)");
   {

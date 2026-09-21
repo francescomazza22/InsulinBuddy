@@ -104,6 +104,12 @@ button, .tab, .segmented__btn { touch-action: manipulation; }
 .fab svg { width: 20px; height: 20px; }
 
 .section-header { font-size: 0.78rem; font-weight: 700; letter-spacing: 0.04em; color: var(--ink-soft); margin: 4px 0 12px; }
+.section-header--row { display: flex; align-items: center; justify-content: space-between; }
+.gl-indicator { font-size: 0.74rem; font-weight: 600; letter-spacing: normal; color: var(--ink-soft); background: var(--surface); border: 1px solid var(--line); border-radius: 999px; padding: 3px 10px; }
+.gl-indicator--low { color: #1a7f4f; border-color: #b7e3cb; background: #eafaf1; }
+.gl-indicator--medium { color: #92660a; border-color: #f2debb; background: #fdf3e2; }
+.gl-indicator--high { color: #a0332a; border-color: #f3c6c1; background: #fceceb; }
+.history-entry__gl { margin: 8px 0 4px; }
 
 .field { margin-bottom: 16px; }
 .field label { display: block; font-size: 0.86rem; font-weight: 600; margin-bottom: 6px; }
