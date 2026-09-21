@@ -1,4 +1,4 @@
-// Preloaded from the original Base44 food library export.
+// Preloaded from the xls file
 var SEED_FOODS = [
   {
     "id": "6a23270674ca8f17ec8fafef",
