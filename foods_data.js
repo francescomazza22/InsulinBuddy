@@ -62,6 +62,7 @@ var SEED_FOODS = [
     "protein": null,
     "fat": null,
     "salt": null,
+    "gi": 15,
     "notes": "",
     "favorite": false,
     "usageCount": 0
@@ -249,6 +250,7 @@ var SEED_FOODS = [
     "protein": 10,
     "fat": 1.5,
     "salt": 0,
+    "gi": 28,
     "notes": "",
     "favorite": false,
     "usageCount": 1
@@ -358,6 +360,7 @@ var SEED_FOODS = [
     "protein": 1,
     "fat": 0.2,
     "salt": 0,
+    "gi": 51,
     "notes": "",
     "favorite": false,
     "usageCount": 0
@@ -426,6 +429,7 @@ var SEED_FOODS = [
     "protein": 9,
     "fat": 1.5,
     "salt": 1,
+    "gi": 69,
     "notes": "",
     "favorite": false,
     "usageCount": 0
@@ -492,6 +496,7 @@ var SEED_FOODS = [
     "protein": 3.3,
     "fat": 1.2,
     "salt": 0,
+    "gi": 52,
     "notes": "",
     "favorite": false,
     "usageCount": 0
@@ -531,6 +536,7 @@ var SEED_FOODS = [
     "protein": 3.5,
     "fat": 1.5,
     "salt": 0.1,
+    "gi": 35,
     "notes": "",
     "favorite": false,
     "usageCount": 0
@@ -679,6 +685,7 @@ var SEED_FOODS = [
     "protein": 10,
     "fat": 12,
     "salt": 1.5,
+    "gi": 70,
     "notes": "",
     "favorite": false,
     "usageCount": 1
@@ -772,6 +779,7 @@ var SEED_FOODS = [
     "protein": 28,
     "fat": 49,
     "salt": 1.1,
+    "gi": 14,
     "notes": "",
     "favorite": false,
     "usageCount": 0
@@ -1108,6 +1116,7 @@ var SEED_FOODS = [
     "protein": 11,
     "fat": 10,
     "salt": 1.8,
+    "gi": 65,
     "notes": "",
     "favorite": false,
     "usageCount": 0
@@ -1297,6 +1306,7 @@ var SEED_FOODS = [
     "protein": 13,
     "fat": 1.5,
     "salt": 1.2,
+    "gi": 70,
     "notes": "",
     "favorite": false,
     "usageCount": 0
@@ -1310,6 +1320,7 @@ var SEED_FOODS = [
     "protein": 8,
     "fat": 14,
     "salt": 1.1,
+    "gi": 6,
     "notes": "",
     "favorite": false,
     "usageCount": 0
@@ -1362,6 +1373,7 @@ var SEED_FOODS = [
     "protein": 24,
     "fat": 50,
     "salt": 0.5,
+    "gi": 14,
     "notes": "",
     "favorite": false,
     "usageCount": 0
@@ -1428,6 +1440,7 @@ var SEED_FOODS = [
     "protein": 9,
     "fat": 8,
     "salt": 1.3,
+    "gi": 52,
     "notes": "",
     "favorite": false,
     "usageCount": 0
@@ -1482,6 +1495,7 @@ var SEED_FOODS = [
     "protein": 3.5,
     "fat": 11,
     "salt": 0.1,
+    "gi": 57,
     "notes": "",
     "favorite": false,
     "usageCount": 0

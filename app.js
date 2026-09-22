@@ -1729,9 +1729,10 @@
     draft = {
       items: entry.items.map(i => ({
         refType: i.refType, refId: i.refId, name: i.name, grams: i.grams,
-        carbsPer100g: i.carbsPer100g, kcalPer100g: i.kcalPer100g, carbs: i.carbs, kcal: i.kcal
+        quantity: i.quantity ?? null, unitLabel: i.unitLabel ?? null, gramsPerUnit: i.gramsPerUnit ?? null,
+        carbsPer100g: i.carbsPer100g, kcalPer100g: i.kcalPer100g, gi: i.gi ?? null, carbs: i.carbs, kcal: i.kcal
       })),
-      correctionOn: false, glucose: "", manualRatioId: null
+      correctionOn: false, glucose: "", glucoseUnit: null, manualRatioId: null
     };
     searchInput.value = ""; gramsInput.value = ""; gramsInput.disabled = false;
     glucoseInput.value = ""; correctionToggle.classList.remove("is-active"); correctionRow.hidden = true;
@@ -2412,7 +2413,10 @@
     "Tortilla": 52, "Pesca": 42, "Oat": 55, "Lenticchie cotte": 32, "Lenticchie secche": 32,
     "Piadina": 67, "Pear": 38, "Berries": 40, "Quinoa": 53, "Cuscus crudo": 65,
     "Fette Biscottate (each)": 70, "Marmellata": 49, "Dried apricot": 30, "Ceci secchi": 28,
-    "Fagioli secchi": 24, "Croissant (Gails)": 67
+    "Fagioli secchi": 24, "Croissant (Gails)": 67,
+    "Special K": 69, "Wrap": 52, "Gelato": 57, "Hummus": 6, "Peanut Butter": 14,
+    "Corn on Cobs": 52, "Butternut squash": 51, "Avocado": 15, "Dry roasted peanuts": 14,
+    "Croutons": 70, "Cracker misura": 65, "Pangrattato": 70, "Barley (orzo) secco": 28, "Yogurt": 35
   };
   function applyGiSeedPatch() {
     let changed = false;

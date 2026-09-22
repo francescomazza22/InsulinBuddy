@@ -234,6 +234,7 @@ async function run() {
     click(win, d.querySelector("[data-use]"));
     check("Use Again switches to Calculator", !d.getElementById("view-calculator").hidden);
     check("Use Again loads the item into the current meal", d.getElementById("cc-meal-items").children.length === 1);
+    check("Use Again preserves the item's GI value (not just carbs/kcal)", d.getElementById("cc-gl-indicator").textContent === "GI 36");
 
     // Edit
     click(win, d.querySelector('[data-target="history"]'));
@@ -345,7 +346,7 @@ async function run() {
   {
     const oldLibrary = [
       { id: "food-mela", name: "Mela", category: "fruits", carbs: 30, kcal: 60, protein: null, fat: 0.3, salt: null, notes: "my own note", favorite: true, usageCount: 42 },
-      { id: "food-avocado", name: "Avocado", category: "fruits", carbs: 2, kcal: 160, protein: 2, fat: 15, salt: null, notes: "", favorite: false, usageCount: 5 },
+      { id: "food-mystery", name: "Mystery Snack", category: "other", carbs: 2, kcal: 160, protein: 2, fat: 15, salt: null, notes: "", favorite: false, usageCount: 5 },
       { id: "food-custom-gi", name: "Pane comune", category: "grains", carbs: 50, kcal: 250, protein: 8, fat: 1, salt: null, gi: 60, notes: "already has a manually-set GI", favorite: false, usageCount: 10 }
     ];
     const oldState = { settings: { isf: 50, target: 100, units: "mgdl", rounding: "0.5", maxDose: 15, timeRatios: [], activityRatios: [], palette: "blueViolet", darkMode: false }, library: oldLibrary, recipes: [], history: [] };
@@ -359,7 +360,7 @@ async function run() {
     check("...and kcal", mela.kcal === 60);
     check("...and favorite/usageCount/notes", mela.favorite === true && mela.usageCount === 42 && mela.notes === "my own note");
 
-    const avocado = saved.library.find(f => f.name === "Avocado");
+    const avocado = saved.library.find(f => f.name === "Mystery Snack");
     check("a food with no seed match is left alone", avocado.gi === undefined);
 
     const paneComune = saved.library.find(f => f.name === "Pane comune");
@@ -387,9 +388,9 @@ async function run() {
     check("GI band is 'low' for a value <=55", giIndicator.className.includes("gl-indicator--low"));
 
     // Adding a carb-containing food with no GI data should mark the total as partial
-    input(win, d.getElementById("cc-search"), "Avocado");
+    input(win, d.getElementById("cc-search"), "Nutella");
     click(win, d.getElementById("cc-food-list").children[0]);
-    input(win, d.getElementById("cc-grams"), "50");
+    input(win, d.getElementById("cc-grams"), "20");
     click(win, d.getElementById("cc-add-btn"));
     check("compound GI is marked partial when an item has no GI value", giIndicator.textContent === "GI 36*");
 
@@ -497,6 +498,11 @@ async function run() {
     const entry = d.querySelector(".history-entry");
     click(win, entry);
     check("history entry preserves quantity + unit label", entry.textContent.includes("0.5 sandwich"));
+
+    click(win, d.querySelector("[data-use]"));
+    const reusedItem = d.querySelector(".meal-item");
+    check("Use Again preserves the unit label (not reverted to raw grams)", reusedItem.querySelector(".meal-item__meta").textContent.includes("sandwich"));
+    check("Use Again preserves the quantity value", reusedItem.querySelector(".meal-item__grams-input").value === "0.5");
 
     check("no JS errors during unit-based food flow", errors.length === 0);
   }
