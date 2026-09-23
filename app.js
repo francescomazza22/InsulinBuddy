@@ -317,6 +317,17 @@
   const tabs = document.querySelectorAll(".tab");
   const views = document.querySelectorAll("[data-view]");
 
+  // Measures the real rendered tabbar height (which already accounts for the
+  // device's own safe-area inset) so the sticky log bar can sit precisely
+  // above it, rather than guessing a fixed pixel value that would be wrong
+  // on some devices.
+  function syncTabbarHeightVar() {
+    const tabbar = document.querySelector(".tabbar");
+    if (tabbar) document.documentElement.style.setProperty("--tabbar-height", tabbar.offsetHeight + "px");
+    const logBar = document.getElementById("cc-sticky-log-bar");
+    if (logBar) document.documentElement.style.setProperty("--sticky-log-bar-height", logBar.offsetHeight + "px");
+  }
+
   function showView(name) {
     if (!state) return; // still waiting on the cloud auth check (see boot()); nothing to show yet
     views.forEach(v => { v.hidden = v.id !== `view-${name}`; });
@@ -324,6 +335,7 @@
       if (t.dataset.target === name) t.setAttribute("aria-current", "page");
       else t.removeAttribute("aria-current");
     });
+    el("cc-sticky-log-bar").hidden = name !== "calculator";
     if (name === "library") renderLibrary();
     if (name === "history") renderHistory();
     if (name === "settings") renderSettings();
@@ -668,6 +680,7 @@
     doseNumber.textContent = finalDose.toFixed(1);
 
     logBtn.disabled = carbs <= 0;
+    logBtn.classList.toggle("btn--pulse", carbs > 0);
     clearAllBtn.hidden = carbs <= 0;
 
     const glIndicator = el("cc-gl-indicator");
@@ -2438,6 +2451,8 @@
     recompute();
     restoreDraftIfAny();
     showView("calculator");
+    syncTabbarHeightVar();
+    window.addEventListener("resize", syncTabbarHeightVar);
 
     // Keep the auto-selected ratio (and the settings timeline's "now" marker) accurate
     // as real time passes, not just at page load.
