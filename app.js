@@ -73,7 +73,8 @@
         activityRatios: structuredClone(DEFAULT_ACTIVITY_RATIOS),
         palette: "blueViolet",
         darkMode: false,
-        nightscoutUrl: ""
+        nightscoutUrl: "",
+        customBackground: null
       },
       library: structuredClone(typeof SEED_FOODS !== "undefined" ? SEED_FOODS : []),
       recipes: structuredClone(typeof SEED_RECIPES !== "undefined" ? SEED_RECIPES : []),
@@ -1917,12 +1918,40 @@
     fillCorrectionForm();
     el("export-count-label").textContent = `${state.library.length} foods · ${state.recipes.length} recipes`;
     renderPaletteGrid();
+    renderBackgroundSection();
     el("dark-mode-toggle").checked = state.settings.darkMode;
     renderAccountSection();
     renderNightscoutSection();
     el("privacy-panel-card").hidden = !!currentUser;
     if (!currentUser) renderPrivacySection();
   }
+
+  function renderBackgroundSection() {
+    const input = el("bg-color-input");
+    const statusText = el("bg-status-text");
+    const resetBtn = el("btn-bg-reset");
+    if (state.settings.customBackground) {
+      if (document.activeElement !== input) input.value = state.settings.customBackground;
+      statusText.textContent = "Custom color";
+      resetBtn.hidden = false;
+    } else {
+      statusText.textContent = "Using theme default";
+      resetBtn.hidden = true;
+    }
+  }
+
+  el("bg-color-input").addEventListener("input", e => {
+    state.settings.customBackground = e.target.value;
+    applyCustomBackground();
+    saveState();
+    renderBackgroundSection();
+  });
+  el("btn-bg-reset").addEventListener("click", () => {
+    state.settings.customBackground = null;
+    applyCustomBackground();
+    saveState();
+    renderBackgroundSection();
+  });
 
   function renderNightscoutSection() {
     const urlInput = el("ns-url");
@@ -2068,9 +2097,10 @@
     state.settings.timeRatios.forEach(r => {
       const row = document.createElement("div");
       row.className = "ratio-row";
+      row.style.borderLeft = `4px solid ${r.color}`;
+      row.style.background = `${r.color}12`;
       row.innerHTML = `
         <div class="ratio-row__top" data-toggle="${r.id}" style="cursor:pointer;">
-          <span class="ratio-row__dot" style="background:${r.color}"></span>
           <span>
             <span class="ratio-row__name">${escapeHtml(r.name)}</span>
             <span class="ratio-row__time">${r.start} – ${r.end}</span>
@@ -2130,9 +2160,10 @@
     state.settings.activityRatios.forEach(r => {
       const row = document.createElement("div");
       row.className = "ratio-row";
+      row.style.borderLeft = `4px solid ${r.color}`;
+      row.style.background = `${r.color}12`;
       row.innerHTML = `
         <div class="ratio-row__top">
-          <span class="ratio-row__dot" style="background:${r.color}"></span>
           <span class="ratio-row__name" style="flex:1;">${escapeHtml(r.name)}</span>
           <span class="ratio-x">1 unit per <input type="number" min="1" value="${r.ratio}" data-field="ratio" data-id="${r.id}" style="width:52px;padding:6px;text-align:center;"> g</span>
           <button class="ratio-row__del" data-del="${r.id}" aria-label="Delete">
@@ -2442,9 +2473,18 @@
     if (changed) saveState();
   }
 
+  function applyCustomBackground() {
+    if (state.settings.customBackground) {
+      document.documentElement.style.setProperty("--app-bg", state.settings.customBackground);
+    } else {
+      document.documentElement.style.removeProperty("--app-bg");
+    }
+  }
+
   async function finishInit() {
     document.documentElement.setAttribute("data-palette", state.settings.palette);
     document.documentElement.setAttribute("data-theme", state.settings.darkMode ? "dark" : "light");
+    applyCustomBackground();
     applyGiSeedPatch();
     renderFoodPickList();
     renderMealItems();
@@ -2465,6 +2505,7 @@
   function renderEverything() {
     document.documentElement.setAttribute("data-palette", state.settings.palette);
     document.documentElement.setAttribute("data-theme", state.settings.darkMode ? "dark" : "light");
+    applyCustomBackground();
     applyGiSeedPatch();
     draft = { items: [], correctionOn: false, glucose: "", glucoseUnit: null, manualRatioId: null };
     renderFoodPickList(); renderMealItems(); recompute();
