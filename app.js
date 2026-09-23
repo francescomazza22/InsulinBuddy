@@ -1926,22 +1926,23 @@
     if (!currentUser) renderPrivacySection();
   }
 
-  function renderBackgroundSection() {
-    const input = el("bg-color-input");
-    const statusText = el("bg-status-text");
-    const resetBtn = el("btn-bg-reset");
-    if (state.settings.customBackground) {
-      if (document.activeElement !== input) input.value = state.settings.customBackground;
-      statusText.textContent = "Custom color";
-      resetBtn.hidden = false;
-    } else {
-      statusText.textContent = "Using theme default";
-      resetBtn.hidden = true;
-    }
-  }
+  const BG_PRESETS = ["#F5F3EE", "#E1EDF7", "#EDE5F5", "#E5EFE7", "#F7E8E6", "#E7E9EC"];
 
-  el("bg-color-input").addEventListener("input", e => {
-    state.settings.customBackground = e.target.value;
+  function renderBackgroundSection() {
+    const grid = el("bg-swatch-grid");
+    const resetBtn = el("btn-bg-reset");
+    const active = state.settings.customBackground;
+    grid.innerHTML = BG_PRESETS.map(color => `
+      <button class="bg-swatch${color === active ? " is-active" : ""}" type="button" data-color="${color}" style="background:${color};" aria-label="Background color ${color}">
+        ${color === active ? '<svg viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>' : ""}
+      </button>
+    `).join("");
+    resetBtn.hidden = !active;
+  }
+  el("bg-swatch-grid").addEventListener("click", e => {
+    const btn = e.target.closest(".bg-swatch");
+    if (!btn) return;
+    state.settings.customBackground = btn.dataset.color;
     applyCustomBackground();
     saveState();
     renderBackgroundSection();
