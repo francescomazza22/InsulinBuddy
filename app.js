@@ -2510,6 +2510,7 @@
     applyGiSeedPatch();
     draft = { items: [], correctionOn: false, glucose: "", glucoseUnit: null, manualRatioId: null };
     renderFoodPickList(); renderMealItems(); recompute();
+    restoreDraftIfAny();
     renderLibrary(); renderHistory(); renderSettings();
   }
 
