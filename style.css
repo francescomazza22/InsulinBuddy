@@ -294,25 +294,26 @@ input.meal-item__grams-input:focus { outline: none; }
 .filter-panel__row select { padding: 8px 10px; font-size: 16px; }
 .filter-panel__row label { display: flex; align-items: center; gap: 8px; font-weight: 600; }
 
-.lib-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 10px; align-items: start; }
-.lib-item { background: var(--surface); border: 1.5px solid var(--line); border-radius: var(--radius-m); padding: 13px 14px; display: flex; align-items: flex-start; gap: 10px; }
+.lib-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 8px; align-items: start; }
+.lib-item { background: var(--surface); border: 1.5px solid var(--line); border-radius: var(--radius-m); padding: 10px 12px; display: flex; align-items: flex-start; gap: 9px; }
 .lib-item__star { background: none; border: none; cursor: pointer; padding: 2px; color: var(--line); flex-shrink: 0; margin-top: 1px; }
-.lib-item__star svg { width: 19px; height: 19px; }
+.lib-item__star svg { width: 18px; height: 18px; }
 .lib-item__star.is-fav { color: #E8A93D; }
 .lib-item__main { flex: 1; min-width: 0; }
-.lib-item__title-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.lib-item__name { font-weight: 600; font-size: 0.96rem; margin: 0; }
-.lib-item__badge { font-size: 0.66rem; font-weight: 700; letter-spacing: 0.03em; padding: 3px 8px; border-radius: 999px; text-transform: uppercase; }
-.lib-item__meta { font-size: 0.82rem; margin: 3px 0 0; }
+.lib-item__name { font-weight: 600; font-size: 0.9rem; margin: 0; }
+.lib-item__badges { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
+.lib-item__badges:empty { display: none; }
+.lib-item__badge { font-size: 0.64rem; font-weight: 700; letter-spacing: 0.03em; padding: 2px 7px; border-radius: 999px; text-transform: uppercase; }
+.lib-item__meta { font-size: 0.78rem; margin: 4px 0 0; }
 .lib-item__meta .c-carbs { color: var(--green); font-weight: 600; }
 .lib-item__meta .c-kcal { color: var(--amber); }
-.lib-item__note { font-size: 0.78rem; font-style: italic; color: var(--ink-soft); margin: 3px 0 0; }
-.lib-item__usage { font-size: 0.76rem; color: var(--ink-soft); margin: 3px 0 0; }
-.lib-item__actions { display: flex; gap: 2px; flex-shrink: 0; }
-.lib-item__actions button { background: none; border: none; color: var(--ink-soft); cursor: pointer; padding: 5px; border-radius: 8px; }
+.lib-item__usage { color: var(--ink-soft); font-weight: 500; }
+.lib-item__note { font-size: 0.74rem; font-style: italic; color: var(--ink-soft); margin: 3px 0 0; }
+.lib-item__actions { display: flex; gap: 1px; flex-shrink: 0; }
+.lib-item__actions button { background: none; border: none; color: var(--ink-soft); cursor: pointer; padding: 4px; border-radius: 8px; }
 .lib-item__actions button:hover { background: var(--paper); }
 .lib-item__actions button.danger:hover { color: var(--brick); background: var(--brick-soft); }
-.lib-item__actions svg { width: 16px; height: 16px; display: block; }
+.lib-item__actions svg { width: 15px; height: 15px; display: block; }
 
 /* category color chips */
 .cat-fruits { background: #FBE1EC; color: #B23A6B; }
