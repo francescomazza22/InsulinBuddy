@@ -1137,16 +1137,14 @@
           <svg viewBox="0 0 24 24" fill="${f.favorite ? "currentColor" : "none"}"><path d="M12 3.5l2.6 5.6 6 .7-4.4 4.2 1.1 6-5.3-3-5.3 3 1.1-6-4.4-4.2 6-.7z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>
         </button>
         <div class="lib-item__main">
-          <div class="lib-item__title-row">
-            <p class="lib-item__name">${escapeHtml(f.name)}</p>
+          <p class="lib-item__name">${escapeHtml(f.name)}</p>
+          <div class="lib-item__badges">
             ${categoryBadge(f.category)}
-            ${f.unitBased ? `<span class="lib-item__badge cat-other">Per ${escapeHtml(f.unitLabel)}</span>` : ""}
             ${f.gi != null ? `<span class="lib-item__badge cat-other">GI ${f.gi}</span>` : ""}
           </div>
-          <p class="lib-item__meta"><span class="c-carbs">${f.carbs}g carbs/100g</span>${f.kcal ? ` · <span class="c-kcal">~${f.kcal} kcal/100g</span>` : ""}</p>
+          <p class="lib-item__meta"><span class="c-carbs">${f.carbs}g carbs</span>${f.kcal ? ` · <span class="c-kcal">~${f.kcal} kcal</span>` : ""} <span class="lib-item__usage">· ${f.usageCount || 0}×</span></p>
           ${f.unitBased ? `<p class="lib-item__note">1 ${escapeHtml(f.unitLabel)} = ${f.gramsPerUnit}g → ${round1(f.carbs * f.gramsPerUnit / 100)}g carbs</p>` : ""}
           ${f.notes ? `<p class="lib-item__note">${escapeHtml(f.notes)}</p>` : ""}
-          <p class="lib-item__usage">Used ${f.usageCount || 0}× times</p>
         </div>
         <div class="lib-item__actions">
           <button data-act="edit" data-id="${f.id}" aria-label="Edit"><svg viewBox="0 0 24 24" fill="none"><path d="M4 20l4-1 11-11-3-3L5 16z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg></button>
@@ -1311,23 +1309,20 @@
       const row = document.createElement("div");
       row.className = "lib-item";
       const perG = t.carbsPer100g != null
-        ? `<span class="c-carbs">${t.carbsPer100g}g carbs/100g</span>${t.kcalPer100g ? ` · <span class="c-kcal">~${t.kcalPer100g} kcal/100g</span>` : ""}`
+        ? `<span class="c-carbs">${t.carbsPer100g}g carbs</span>${t.kcalPer100g ? ` · <span class="c-kcal">~${t.kcalPer100g} kcal</span>` : ""}`
         : `<span style="color:var(--brick);">Set a final weight to use this in the Calculator</span>`;
       row.innerHTML = `
         <button class="lib-item__star${r.favorite ? " is-fav" : ""}" data-id="${r.id}" aria-label="Toggle favorite">
           <svg viewBox="0 0 24 24" fill="${r.favorite ? "currentColor" : "none"}"><path d="M12 3.5l2.6 5.6 6 .7-4.4 4.2 1.1 6-5.3-3-5.3 3 1.1-6-4.4-4.2 6-.7z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>
         </button>
         <div class="lib-item__main">
-          <div class="lib-item__title-row">
-            <p class="lib-item__name">${escapeHtml(r.name)}</p>
-            ${categoryBadge(r.category || "other")}
-          </div>
-          <p class="lib-item__meta">${perG}</p>
+          <p class="lib-item__name">${escapeHtml(r.name)}</p>
+          <div class="lib-item__badges">${categoryBadge(r.category || "other")}</div>
+          <p class="lib-item__meta">${perG} <span class="lib-item__usage">· ${r.usageCount || 0}×</span></p>
           <p class="lib-item__note">${r.items.map(it => {
             const name = it.name || (state.library.find(x => x.id === it.foodId) || {}).name;
             return name ? `${name} (${it.grams}g)` : "";
           }).filter(Boolean).join(", ")}${r.finalWeight ? ` — final weight ${r.finalWeight}g` : ""}</p>
-          <p class="lib-item__usage">Used ${r.usageCount || 0}× times</p>
         </div>
         <div class="lib-item__actions">
           <button data-act="edit" data-id="${r.id}" aria-label="Edit"><svg viewBox="0 0 24 24" fill="none"><path d="M4 20l4-1 11-11-3-3L5 16z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg></button>
