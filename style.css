@@ -198,7 +198,7 @@ input:focus-visible, select:focus-visible, button:focus-visible { outline: 2px s
 }
 .pill-btn svg { width: 13px; height: 13px; }
 .pill-btn.is-active { background: #fff; color: var(--acc-1); border-color: #fff; }
-.pill-btn--icon { padding: 6px; }
+.pill-btn--icon { padding: 6px; margin-left: auto; }
 .correction-row { margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.25); }
 .correction-row label { display: block; font-size: 0.8rem; margin-bottom: 6px; color: rgba(255,255,255,0.9); }
 .correction-row__input { display: flex; align-items: center; background: rgba(255,255,255,0.16); border-radius: var(--radius-s); overflow: hidden; }
