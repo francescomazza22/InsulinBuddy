@@ -1599,10 +1599,9 @@
             <div class="history-entry__detail" hidden>
               ${entry.items.map(i => {
                 const isUnit = i.quantity != null && i.unitLabel;
-                const qtyLabel = isUnit ? ` (${formatQty(i.quantity)} ${i.unitLabel}${i.quantity === 1 ? "" : "s"})` : (i.grams ? " (" + i.grams + "g)" : "");
-                return `<div><span>${escapeHtml(i.name)}${qtyLabel}</span><span>${round1(i.carbs)}g carbs</span></div>`;
+                const qtyLabel = isUnit ? `${formatQty(i.quantity)} ${i.unitLabel}${i.quantity === 1 ? "" : "s"}` : (i.grams ? i.grams + "g" : "");
+                return `<div class="history-entry__item"><span class="history-entry__item-name">${escapeHtml(i.name)}</span><span class="history-entry__item-qty">${qtyLabel}</span><span class="history-entry__item-carbs">${round1(i.carbs)}g</span></div>`;
               }).join("")}
-              ${entry.glycemicLoad ? `<div class="history-entry__gl"><span class="gl-indicator gl-indicator--${entry.glycemicLoad.value >= 70 ? "high" : entry.glycemicLoad.value >= 56 ? "medium" : "low"}">GI ${entry.glycemicLoad.value}${entry.glycemicLoad.partial ? "*" : ""}</span></div>` : ""}
               <div class="history-entry__row-actions">
                 <button data-use="${entry.id}" type="button">Use Again</button>
                 <button data-edit="${entry.id}" type="button">Edit</button>
@@ -1613,6 +1612,7 @@
           <div class="history-entry__stats">
             <span class="stat-kcal">${entry.totalKcal || 0} kcal</span>
             <span class="stat-grams">${entry.totalCarbs}g</span>
+            ${entry.glycemicLoad ? `<span class="gl-indicator gl-indicator--${entry.glycemicLoad.value >= 70 ? "high" : entry.glycemicLoad.value >= 56 ? "medium" : "low"} gl-indicator--compact">GI ${entry.glycemicLoad.value}${entry.glycemicLoad.partial ? "*" : ""}</span>` : ""}
             <span class="dose-pill"><svg viewBox="0 0 24 24" fill="none"><path d="M12 2C12 2 5 10.5 5 15.5C5 19.6 8.13 22 12 22C15.87 22 19 19.6 19 15.5C19 10.5 12 2 12 2Z" stroke="currentColor" stroke-width="2"/></svg>${doseText}</span>
           </div>
         `;
@@ -1759,7 +1759,9 @@
     const row = e.target.closest(".history-entry");
     if (!row) return;
     const detail = row.querySelector(".history-entry__detail");
+    const summary = row.querySelector(".history-entry__foods");
     detail.hidden = !detail.hidden;
+    summary.hidden = !detail.hidden;
   });
 
   function useMealAgain(entry) {
