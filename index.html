@@ -91,7 +91,12 @@
       <div class="section-header">ADD FOOD ITEM</div>
 
       <div class="add-row">
-        <input type="text" id="cc-search" class="add-row__search" placeholder="Search foods&hellip;" autocomplete="off">
+        <div class="search-input-wrap">
+          <input type="text" id="cc-search" class="add-row__search" placeholder="Search foods&hellip;" autocomplete="off">
+          <button class="search-input-clear" id="cc-search-clear" type="button" aria-label="Clear search" hidden>
+            <svg viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+          </button>
+        </div>
         <input type="number" id="cc-grams" class="add-row__grams" placeholder="Grams" min="0" step="1" inputmode="decimal" aria-label="Grams">
         <button class="add-row__btn" id="cc-add-btn" type="button" aria-label="Add food">
           <svg viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
