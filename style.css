@@ -258,7 +258,14 @@ input.meal-item__grams-input:focus { outline: none; }
 .meal-item__remove svg { width: 15px; height: 15px; display: block; }
 
 .add-row { display: flex; gap: 8px; margin-bottom: 10px; }
-.add-row__search { flex: 1; min-width: 0; padding: 10px 12px; font-size: 0.96rem; }
+.search-input-wrap { position: relative; flex: 1; min-width: 0; }
+.add-row__search { flex: 1; min-width: 0; width: 100%; padding: 10px 34px 10px 12px; font-size: 0.96rem; }
+.search-input-clear {
+  position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
+  width: 24px; height: 24px; border: none; background: var(--paper); border-radius: 50%;
+  color: var(--ink-soft); display: flex; align-items: center; justify-content: center; cursor: pointer;
+}
+.search-input-clear svg { width: 12px; height: 12px; }
 .add-row__grams { width: 76px; flex-shrink: 0; padding: 10px 8px; font-size: 0.96rem; text-align: center; }
 .add-row__btn { width: 40px; flex-shrink: 0; border: none; border-radius: var(--radius-s); background: var(--acc-1); color: #fff; cursor: pointer; display: flex; align-items: center; justify-content: center; }
 .add-row__btn svg { width: 16px; height: 16px; }

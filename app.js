@@ -518,11 +518,18 @@
     gramsInput.focus();
   });
 
+  const searchClearBtn = el("cc-search-clear");
   searchInput.addEventListener("input", () => {
     selectedPickId = null;
     gramsInput.placeholder = "Grams";
     gramsInput.step = "1";
+    searchClearBtn.hidden = searchInput.value.length === 0;
     renderFoodPickList();
+  });
+  searchClearBtn.addEventListener("click", () => {
+    searchInput.value = "";
+    searchInput.dispatchEvent(new Event("input", { bubbles: true }));
+    searchInput.focus();
   });
 
   function addSelectedToMeal() {
@@ -552,6 +559,7 @@
     });
     selectedPickId = null;
     searchInput.value = "";
+    searchClearBtn.hidden = true;
     gramsInput.value = "";
     gramsInput.disabled = false;
     gramsInput.placeholder = "Grams";
@@ -843,7 +851,7 @@
 
   function resetDraft() {
     draft = { items: [], correctionOn: false, glucose: "", glucoseUnit: null, manualRatioId: null };
-    searchInput.value = ""; gramsInput.value = ""; gramsInput.disabled = false;
+    searchInput.value = ""; searchClearBtn.hidden = true; gramsInput.value = ""; gramsInput.disabled = false;
     glucoseInput.value = "";
     correctionToggle.classList.remove("is-active");
     correctionRow.hidden = true;
@@ -1776,7 +1784,7 @@
       })),
       correctionOn: false, glucose: "", glucoseUnit: null, manualRatioId: null
     };
-    searchInput.value = ""; gramsInput.value = ""; gramsInput.disabled = false;
+    searchInput.value = ""; searchClearBtn.hidden = true; gramsInput.value = ""; gramsInput.disabled = false;
     glucoseInput.value = ""; correctionToggle.classList.remove("is-active"); correctionRow.hidden = true;
     ratioPicker.hidden = true; selectedPickId = null;
     renderFoodPickList(); renderMealItems(); recompute();
