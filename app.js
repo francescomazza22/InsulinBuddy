@@ -18,6 +18,8 @@
     : null;
   let currentUser = null; // { id, email } once signed in; null in local-only mode
   let cloudLoadStatus = { ok: true, message: "", at: null };
+  let lastKnownCloudHistoryCount = null; // baseline for the data-loss guard in saveStateCloud()
+  let cloudSaveBlocked = null; // { fromCount, toCount } when the guard below trips, else null
   const PENDING_SYNC_KEY = "insulinBuddy.pendingSync";
   let cloudSyncPending = localStorage.getItem(PENDING_SYNC_KEY) === "1";
 
@@ -232,8 +234,22 @@
     return { ok: true, state: normalizeState(data.data) };
   }
   let cloudSaveTimer = null;
-  async function saveStateCloud() {
+  async function saveStateCloud(force) {
     if (!supabaseClient || !currentUser) return;
+
+    // Data-loss guard: never silently push a history that's collapsed to zero
+    // compared to the last count we confirmed was really in the cloud. Some
+    // future bug, a bad merge, or a race condition could otherwise silently
+    // overwrite real data with nothing — this stops that whole class of
+    // failure from ever reaching the cloud, regardless of what causes it.
+    if (!force && lastKnownCloudHistoryCount != null && lastKnownCloudHistoryCount > 0 && state.history.length === 0) {
+      cloudSaveBlocked = { fromCount: lastKnownCloudHistoryCount, toCount: 0 };
+      console.error(`Cloud save blocked: history would drop from ${lastKnownCloudHistoryCount} to 0. This looks like a bug, not an intentional change — not syncing until confirmed.`);
+      markPending();
+      renderStatusPanel();
+      return;
+    }
+
     clearTimeout(cloudSaveTimer);
     await new Promise(resolve => {
       cloudSaveTimer = setTimeout(async () => {
@@ -242,6 +258,8 @@
             user_id: currentUser.id, data: state, updated_at: new Date().toISOString()
           });
           if (error) throw error;
+          cloudSaveBlocked = null;
+          lastKnownCloudHistoryCount = state.history.length;
           markSynced();
         } catch (e) {
           console.error("Cloud save failed (offline?) — will retry once back online:", e);
@@ -250,6 +268,13 @@
         resolve();
       }, 500);
     });
+  }
+  // Escape hatch for the rare genuine case (someone really did delete all their
+  // history) — bypasses the guard above exactly once, on explicit request.
+  async function forceSyncNow() {
+    cloudSaveBlocked = null;
+    await saveStateCloud(true);
+    renderStatusPanel();
   }
   function markPending() {
     cloudSyncPending = true;
@@ -1951,6 +1976,8 @@
       rows.push(statusRow("Cloud Sync", "off", "Not set up — everything stays only on this device."));
     } else if (!currentUser) {
       rows.push(statusRow("Cloud Sync", "off", "Not signed in — everything stays only on this device."));
+    } else if (cloudSaveBlocked) {
+      rows.push(`<div class="status-row"><span class="status-dot status-dot--error"></span><div><p class="status-row__title">Cloud Sync</p><p class="status-row__detail">Paused — your history would have dropped from ${cloudSaveBlocked.fromCount} to ${cloudSaveBlocked.toCount} entries, which looks like a bug rather than something you did on purpose. Nothing has been synced to protect your data. If you genuinely meant to clear your history, you can override this below.</p><button class="dashed-btn" id="btn-force-sync" type="button" style="margin-top:8px;">Sync anyway</button></div></div>`);
     } else if (!cloudLoadStatus.ok) {
       rows.push(statusRow("Cloud Sync", "error", cloudLoadStatus.message));
     } else if (cloudSyncPending) {
@@ -1978,6 +2005,8 @@
     }
 
     el("status-panel-list").innerHTML = rows.join("");
+    const forceBtn = document.getElementById("btn-force-sync");
+    if (forceBtn) forceBtn.addEventListener("click", forceSyncNow);
   }
   el("btn-status-refresh").addEventListener("click", () => renderStatusPanel());
 
@@ -2596,10 +2625,12 @@
             } else if (result.state) {
               cloudLoadStatus = { ok: true, message: "", at: Date.now() };
               state = result.state;
+              lastKnownCloudHistoryCount = state.history.length;
             } else {
               // Genuinely no cloud row yet for this account — safe to create one.
               cloudLoadStatus = { ok: true, message: "", at: Date.now() };
               state = defaultState();
+              lastKnownCloudHistoryCount = 0;
               await saveStateCloud();
             }
           }
