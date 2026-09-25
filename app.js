@@ -1224,6 +1224,117 @@
     }
   });
 
+  // Newest first. version-badge-text/version-summary-text in the Settings
+  // card are always drawn from CHANGELOG[0], so the two can never drift.
+  const CHANGELOG = [
+    {
+      version: "1.7.0",
+      summary: "Ratio editing on logged meals, clearer meal icons, and a quicker way to clear search.",
+      changes: [
+        "Edit a previously logged meal's insulin ratio, not just its items",
+        "Breakfast, Lunch, and Dinner now each have a distinct, clearer icon",
+        "Added a quick clear (×) button to the food search field"
+      ]
+    },
+    {
+      version: "1.6.0",
+      summary: "A cloud sync bug that could lose history has been fixed, with a permanent safeguard added.",
+      changes: [
+        "Fixed a bug where a failed cloud sync could overwrite real data with an empty state",
+        "Added a general safeguard that blocks any future sync from silently erasing existing history",
+        "Added a System Status panel showing cloud sync, Nightscout, and offline status at a glance"
+      ]
+    },
+    {
+      version: "1.5.0",
+      summary: "Personalize your background, and let the app follow your device's appearance automatically.",
+      changes: [
+        "Added custom background colors, independent of your color theme",
+        'Added "Match System Appearance" to follow your device\'s light/dark setting automatically'
+      ]
+    },
+    {
+      version: "1.4.0",
+      summary: "A visual refresh across Settings for better consistency and readability.",
+      changes: [
+        "Insulin ratio rows are now color-coded to match the 24h timeline",
+        "Distinct icons and colors for Account, Nightscout, and Privacy sections",
+        "Reduced clutter and tightened spacing throughout Settings and the Food Library"
+      ]
+    },
+    {
+      version: "1.3.0",
+      summary: "Faster logging with a sticky Log button, and a more compact calculator.",
+      changes: [
+        "The Log Meal button now stays fixed at the bottom of the screen",
+        "Reduced font sizes and spacing across the calculator for more content per screen"
+      ]
+    },
+    {
+      version: "1.2.0",
+      summary: "Glycemic index tracking, so you can see how a meal might affect your blood sugar.",
+      changes: [
+        "Added glycemic index (GI) to many common foods",
+        "Meals now show a carb-weighted compound GI, not just total carbs"
+      ]
+    },
+    {
+      version: "1.1.0",
+      summary: "Unit-based foods, trends, and Nightscout integration.",
+      changes: [
+        'Foods can now be logged by quantity (e.g. "1 slice") instead of just grams',
+        "Added a Trends view with daily carb and dose charts",
+        "Added automatic Nightscout sync for logged meals"
+      ]
+    },
+    {
+      version: "1.0.0",
+      summary: "The original rebuild — a dependency-free, static version of the Base44 app.",
+      changes: [
+        "Full rebuild of the original insulin dose calculator as a static web app",
+        "Runs entirely in your browser — nothing is sent anywhere unless you set up sync"
+      ]
+    }
+  ];
+
+  function renderVersionCard() {
+    const latest = CHANGELOG[0];
+    el("version-badge-text").innerHTML = `v${latest.version} <svg viewBox="0 0 24 24" fill="none" width="14" height="14"><path d="M9 6l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+    el("version-summary-text").textContent = `${latest.summary} Tap to see what's changed.`;
+  }
+  el("btn-open-changelog").addEventListener("click", openChangelogSheet);
+  renderVersionCard();
+
+  function openChangelogSheet() {
+    const backdrop = document.createElement("div");
+    backdrop.className = "sheet-backdrop";
+    backdrop.innerHTML = `
+      <div class="sheet">
+        <div class="sheet-head">
+          <h2>What's changed</h2>
+          <button class="sheet-close" id="cl-close" type="button" aria-label="Close">
+            <svg viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+          </button>
+        </div>
+        ${CHANGELOG.map((entry, i) => `
+          <div class="changelog-entry">
+            <div class="changelog-entry__head">
+              <span class="changelog-entry__version">v${entry.version}</span>
+              ${i === 0 ? '<span class="changelog-entry__current">Current</span>' : ""}
+            </div>
+            <ul class="changelog-entry__list">
+              ${entry.changes.map(c => `<li>${escapeHtml(c)}</li>`).join("")}
+            </ul>
+          </div>
+        `).join("")}
+      </div>
+    `;
+    document.body.appendChild(backdrop);
+    backdrop.addEventListener("click", e => {
+      if (e.target === backdrop || e.target.closest("#cl-close")) closeSheet(backdrop);
+    });
+  }
+
   function openFoodSheet(food) {
     const isEdit = !!food;
     const f = food || { name: "", category: "other", carbs: "", kcal: "", fat: "", protein: "", salt: "", notes: "", favorite: false, unitBased: false, unitLabel: "", gramsPerUnit: "" };

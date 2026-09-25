@@ -301,6 +301,33 @@
       <!-- Data -->
       <div class="settings-panel" id="panel-data" hidden>
         <div class="panel-card">
+          <div style="display:flex; align-items:center; justify-content:space-between;">
+            <h2 class="panel-card__title">System Status</h2>
+            <button class="dashed-btn" id="btn-status-refresh" type="button" style="width:auto; padding:6px 12px;">Refresh</button>
+          </div>
+          <div id="status-panel-list"></div>
+        </div>
+
+        <div class="panel-card">
+          <h2 class="panel-card__title"><span class="panel-card__icon-badge panel-card__icon-badge--account"><svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="8" r="3.2" stroke="currentColor" stroke-width="1.6"/><path d="M5 20c0-3.5 3-6 7-6s7 2.5 7 6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></span> Account &amp; Sync</h2>
+          <div id="account-section"></div>
+        </div>
+
+        <div class="panel-card">
+          <h2 class="panel-card__title"><span class="panel-card__icon-badge panel-card__icon-badge--nightscout"><svg viewBox="0 0 24 24" fill="none"><path d="M3 12h4l2-7 4 14 2-7h6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span> Nightscout Sync</h2>
+          <p class="panel-card__hint">When you log a meal, its carbs and insulin dose (and glucose, if you used a correction) are sent to your Nightscout site automatically. This lives in your own browser only — it's never included in the app's code or the GitHub repo.</p>
+          <div class="field">
+            <label>Nightscout URL</label>
+            <input type="text" id="ns-url" placeholder="https://yoursite.ns.example.com?token=..." autocomplete="off" autocorrect="off">
+          </div>
+          <div id="ns-status" class="panel-card__hint"></div>
+          <div style="display:flex; gap:8px; margin-top:10px;">
+            <button class="dashed-btn" id="btn-ns-test" type="button" style="flex:1;">Test Connection</button>
+            <button class="dashed-btn" id="btn-ns-refresh" type="button" style="flex:1;">Refresh</button>
+          </div>
+        </div>
+
+        <div class="panel-card">
           <h2 class="panel-card__title">Import / Export Library</h2>
           <button class="data-row" id="btn-export-library" type="button">
             <span class="data-row__icon data-row__icon--down">
@@ -350,14 +377,6 @@
       <!-- General -->
       <div class="settings-panel" id="panel-general" hidden>
         <div class="panel-card">
-          <div style="display:flex; align-items:center; justify-content:space-between;">
-            <h2 class="panel-card__title">System Status</h2>
-            <button class="dashed-btn" id="btn-status-refresh" type="button" style="width:auto; padding:6px 12px;">Refresh</button>
-          </div>
-          <div id="status-panel-list"></div>
-        </div>
-
-        <div class="panel-card">
           <h2 class="panel-card__title">Color Theme</h2>
           <p class="panel-card__hint">Choose your palette</p>
           <div class="palette-grid" id="palette-grid"></div>
@@ -390,26 +409,6 @@
           </div>
         </div>
 
-        <div class="panel-card">
-          <h2 class="panel-card__title"><span class="panel-card__icon-badge panel-card__icon-badge--account"><svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="8" r="3.2" stroke="currentColor" stroke-width="1.6"/><path d="M5 20c0-3.5 3-6 7-6s7 2.5 7 6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></span> Account &amp; Sync</h2>
-          <div id="account-section"></div>
-        </div>
-
-        <div class="panel-card">
-          <h2 class="panel-card__title"><span class="panel-card__icon-badge panel-card__icon-badge--nightscout"><svg viewBox="0 0 24 24" fill="none"><path d="M3 12h4l2-7 4 14 2-7h6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span> Nightscout Sync</h2>
-          <p class="panel-card__hint">When you log a meal, its carbs and insulin dose (and glucose, if you used a correction) are sent to your Nightscout site automatically. This lives in your own browser only — it's never included in the app's code or the GitHub repo.</p>
-          <div class="field">
-            <label>Nightscout URL</label>
-            <input type="text" id="ns-url" placeholder="https://yoursite.ns.example.com?token=..." autocomplete="off" autocorrect="off">
-          </div>
-          <div id="ns-status" class="panel-card__hint"></div>
-          <div style="display:flex; gap:8px; margin-top:10px;">
-            <button class="dashed-btn" id="btn-ns-test" type="button" style="flex:1;">Test Connection</button>
-            <button class="dashed-btn" id="btn-ns-refresh" type="button" style="flex:1;">Refresh</button>
-          </div>
-        </div>
-
-
         <div class="panel-card" id="privacy-panel-card">
           <h2 class="panel-card__title"><span class="panel-card__icon-badge panel-card__icon-badge--privacy"><svg viewBox="0 0 24 24" fill="none"><rect x="5" y="11" width="14" height="9" rx="2" stroke="currentColor" stroke-width="1.6"/><path d="M8 11V7a4 4 0 018 0v4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></span> Privacy</h2>
           <div id="privacy-lock-section"></div>
@@ -422,13 +421,13 @@
           <span class="data-row__text"><span class="data-row__title">Refresh App</span></span>
         </button>
 
-        <div class="version-card">
+        <button class="version-card" id="btn-open-changelog" type="button">
           <div class="version-card__row">
             <span>App Version</span>
-            <span class="version-card__badge">v1.0.0</span>
+            <span class="version-card__badge" id="version-badge-text">v1.7.0 <svg viewBox="0 0 24 24" fill="none" width="14" height="14"><path d="M9 6l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
           </div>
-          <p>A dependency-free rebuild of your original app. Runs entirely in this browser — nothing is sent anywhere.</p>
-        </div>
+          <p id="version-summary-text">Cloud sync, glycemic index tracking, and stronger data-loss protection since the original rebuild. Tap to see what's changed.</p>
+        </button>
 
         <div class="disclaimer-banner">
           <svg viewBox="0 0 24 24" fill="none"><path d="M12 9v4M12 17h.01M10.3 3.9L2.6 17.5a1.5 1.5 0 001.3 2.3h16.2a1.5 1.5 0 001.3-2.3L13.7 3.9a1.5 1.5 0 00-2.6 0z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>
