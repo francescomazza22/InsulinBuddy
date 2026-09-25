@@ -114,7 +114,6 @@ button, .tab, .segmented__btn { touch-action: manipulation; }
 .gl-indicator--low { color: #1a7f4f; border-color: #b7e3cb; background: #eafaf1; }
 .gl-indicator--medium { color: #92660a; border-color: #f2debb; background: #fdf3e2; }
 .gl-indicator--high { color: #a0332a; border-color: #f3c6c1; background: #fceceb; }
-.history-entry__gl { margin: 8px 0 4px; }
 
 .field { margin-bottom: 16px; }
 .field label { display: block; font-size: 0.86rem; font-weight: 600; margin-bottom: 6px; }
@@ -362,22 +361,26 @@ html[data-theme="dark"] .cat-snacks, html[data-theme="dark"] .cat-other { filter
 .history-group__date { grid-column: 1 / -1; font-size: 0.76rem; font-weight: 700; letter-spacing: 0.05em; color: var(--ink-soft); margin: 0; text-transform: uppercase; }
 .history-entry {
   background: var(--surface); border: 1.5px solid var(--line); border-left-width: 4px;
-  border-radius: var(--radius-m); padding: 12px 14px; display: flex; gap: 10px; align-items: flex-start;
+  border-radius: var(--radius-m); padding: 11px 13px; display: flex; gap: 10px; align-items: flex-start;
   cursor: pointer;
 }
-.history-entry__icon { width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: #fff; }
-.history-entry__icon svg { width: 16px; height: 16px; }
+.history-entry__icon { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: #fff; }
+.history-entry__icon svg { width: 15px; height: 15px; }
 .history-entry__main { flex: 1; min-width: 0; }
-.history-entry__title { font-size: 0.92rem; font-weight: 600; margin: 0; display: flex; gap: 6px; flex-wrap: wrap; align-items: baseline; }
-.history-entry__title .muted { font-weight: 400; color: var(--ink-soft); font-size: 0.84rem; }
-.history-entry__foods { font-size: 0.84rem; color: var(--ink-soft); margin: 3px 0 0; }
+.history-entry__title { font-size: 0.9rem; font-weight: 600; margin: 0; display: flex; gap: 6px; flex-wrap: wrap; align-items: baseline; }
+.history-entry__title .muted { font-weight: 400; color: var(--ink-soft); font-size: 0.8rem; }
+.history-entry__foods { font-size: 0.8rem; color: var(--ink-soft); margin: 3px 0 0; }
 .history-entry__stats { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0; }
-.stat-kcal { font-size: 0.78rem; color: var(--amber); font-weight: 600; }
-.stat-grams { font-size: 0.78rem; color: var(--ink-soft); }
+.stat-kcal { font-size: 0.76rem; color: var(--amber); font-weight: 600; }
+.stat-grams { font-size: 0.76rem; color: var(--ink-soft); }
+.gl-indicator--compact { font-size: 0.68rem; padding: 2px 8px; }
 .dose-pill { background: var(--acc-1); color: #fff; font-size: 0.78rem; font-weight: 700; padding: 4px 10px; border-radius: 999px; display: inline-flex; align-items: center; gap: 4px; }
 .dose-pill svg { width: 11px; height: 11px; }
-.history-entry__detail { margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--line); font-size: 0.82rem; color: var(--ink-soft); }
-.history-entry__detail div { display: flex; justify-content: space-between; margin-bottom: 3px; }
+.history-entry__detail { margin-top: 9px; padding-top: 9px; border-top: 1px dashed var(--line); font-size: 0.8rem; color: var(--ink-soft); }
+.history-entry__item { display: flex; align-items: baseline; gap: 8px; margin-bottom: 4px; }
+.history-entry__item-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.history-entry__item-qty { color: var(--ink-soft); opacity: 0.75; font-size: 0.76rem; flex-shrink: 0; }
+.history-entry__item-carbs { font-weight: 600; color: var(--green); flex-shrink: 0; min-width: 38px; text-align: right; }
 .history-entry__row-actions { display: flex; gap: 10px; margin-top: 10px; }
 .history-entry__row-actions button { background: none; border: none; color: var(--ink-soft); font-size: 0.82rem; font-weight: 600; cursor: pointer; padding: 0; }
 .history-entry__row-actions button.danger { color: var(--brick); }
