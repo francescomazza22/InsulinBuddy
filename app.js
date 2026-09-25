@@ -17,6 +17,7 @@
     ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
     : null;
   let currentUser = null; // { id, email } once signed in; null in local-only mode
+  let cloudLoadStatus = { ok: true, message: "", at: null };
   const PENDING_SYNC_KEY = "insulinBuddy.pendingSync";
   let cloudSyncPending = localStorage.getItem(PENDING_SYNC_KEY) === "1";
 
@@ -223,9 +224,12 @@
   async function loadStateCloud() {
     const { data, error } = await supabaseClient
       .from("app_state").select("data").eq("user_id", currentUser.id).maybeSingle();
-    if (error) { console.error("Cloud load failed:", error); return null; }
-    if (!data) return null; // first sign-in, no row yet
-    return normalizeState(data.data);
+    if (error) {
+      console.error("Cloud load failed:", error);
+      return { ok: false }; // couldn't reach the cloud — NOT the same as "no data exists yet"
+    }
+    if (!data) return { ok: true, state: null }; // first sign-in, no row yet — safe to initialize
+    return { ok: true, state: normalizeState(data.data) };
   }
   let cloudSaveTimer = null;
   async function saveStateCloud() {
@@ -1914,6 +1918,7 @@
     el("export-count-label").textContent = `${state.library.length} foods · ${state.recipes.length} recipes`;
     renderPaletteGrid();
     renderBackgroundSection();
+    renderStatusPanel();
     el("dark-mode-toggle").checked = state.settings.darkMode;
     renderAccountSection();
     renderNightscoutSection();
@@ -1922,6 +1927,59 @@
   }
 
   const BG_PRESETS = ["#F5F3EE", "#E1EDF7", "#EDE5F5", "#E5EFE7", "#F7E8E6", "#E7E9EC"];
+
+  function timeAgo(ms) {
+    if (!ms) return "";
+    const s = Math.floor((Date.now() - ms) / 1000);
+    if (s < 10) return "just now";
+    if (s < 60) return `${s}s ago`;
+    const m = Math.floor(s / 60);
+    if (m < 60) return `${m} min ago`;
+    const h = Math.floor(m / 60);
+    return `${h}h ago`;
+  }
+
+  function statusRow(label, dotClass, detail) {
+    return `<div class="status-row"><span class="status-dot status-dot--${dotClass}"></span><div><p class="status-row__title">${label}</p><p class="status-row__detail">${detail}</p></div></div>`;
+  }
+
+  async function renderStatusPanel() {
+    const rows = [];
+
+    // Cloud sync
+    if (!supabaseClient) {
+      rows.push(statusRow("Cloud Sync", "off", "Not set up — everything stays only on this device."));
+    } else if (!currentUser) {
+      rows.push(statusRow("Cloud Sync", "off", "Not signed in — everything stays only on this device."));
+    } else if (!cloudLoadStatus.ok) {
+      rows.push(statusRow("Cloud Sync", "error", cloudLoadStatus.message));
+    } else if (cloudSyncPending) {
+      rows.push(statusRow("Cloud Sync", "warn", `Offline — changes saved on this device, will sync automatically.`));
+    } else {
+      rows.push(statusRow("Cloud Sync", "ok", `Signed in as ${escapeHtml(currentUser.email || "")}${cloudLoadStatus.at ? " · checked " + timeAgo(cloudLoadStatus.at) : ""}`));
+    }
+
+    // Nightscout
+    if (!nightscoutConfigured()) {
+      rows.push(statusRow("Nightscout Sync", "off", "Not set up."));
+    } else {
+      const queueLen = loadNsQueue().length;
+      if (queueLen > 0) rows.push(statusRow("Nightscout Sync", "warn", `${queueLen} entr${queueLen === 1 ? "y" : "ies"} waiting to sync.`));
+      else rows.push(statusRow("Nightscout Sync", "ok", "Connected — meals sync automatically."));
+    }
+
+    // Offline app cache (service worker)
+    if (!("serviceWorker" in navigator)) {
+      rows.push(statusRow("Offline Access", "off", "Not supported in this browser."));
+    } else {
+      const reg = await navigator.serviceWorker.getRegistration().catch(() => null);
+      if (reg && reg.active) rows.push(statusRow("Offline Access", "ok", "Active — the app can open without a connection."));
+      else rows.push(statusRow("Offline Access", "warn", "Not active yet — open the app once more with a connection to enable it."));
+    }
+
+    el("status-panel-list").innerHTML = rows.join("");
+  }
+  el("btn-status-refresh").addEventListener("click", () => renderStatusPanel());
 
   function renderBackgroundSection() {
     const grid = el("bg-swatch-grid");
@@ -1981,20 +2039,23 @@
     } else {
       box.innerHTML = `
         <p class="panel-card__hint" style="margin-top:-4px;">Sign in to sync your library, ratios, and history to your account instead of just this device.</p>
-        <div class="field"><label>Email</label><input type="email" id="acct-email" autocomplete="email"></div>
-        <div class="field"><label>Password</label><input type="password" id="acct-password" autocomplete="current-password"></div>
-        <p class="lock-screen__error" id="acct-error" hidden></p>
-        <div class="sheet-actions">
-          <button class="btn btn--secondary" id="btn-sign-up" type="button">Create account</button>
-          <button class="btn btn--primary" id="btn-sign-in" type="button">Sign in</button>
-        </div>
+        <form id="acct-signin-form">
+          <div class="field"><label>Email</label><input type="email" id="acct-email" autocomplete="email" required></div>
+          <div class="field"><label>Password</label><input type="password" id="acct-password" autocomplete="current-password" required></div>
+          <p class="lock-screen__error" id="acct-error" hidden></p>
+          <div class="sheet-actions">
+            <button class="btn btn--secondary" id="btn-sign-up" type="button">Create account</button>
+            <button class="btn btn--primary" id="btn-sign-in" type="submit">Sign in</button>
+          </div>
+        </form>
       `;
       const emailEl = el("acct-email"), passEl = el("acct-password"), errEl = el("acct-error");
       const showErr = msg => { errEl.textContent = msg; errEl.hidden = false; };
-      el("btn-sign-in").addEventListener("click", async () => {
+      el("acct-signin-form").addEventListener("submit", async e => {
+        e.preventDefault();
         errEl.hidden = true;
         try { await signIn(emailEl.value.trim(), passEl.value); }
-        catch (e) { showErr(e.message || "Couldn't sign in."); }
+        catch (err) { showErr(err.message || "Couldn't sign in."); }
       });
       el("btn-sign-up").addEventListener("click", async () => {
         errEl.hidden = true;
@@ -2524,9 +2585,23 @@
             state = loadStatePlain();
             await saveStateCloud();
           } else {
-            const cloud = await loadStateCloud();
-            state = cloud || defaultState();
-            if (!cloud) await saveStateCloud();
+            const result = await loadStateCloud();
+            if (!result.ok) {
+              // Couldn't reach the cloud right now (network hiccup, etc.) — this is
+              // NOT the same as "no data exists yet". Fall back to whatever's saved
+              // locally and leave the cloud row completely untouched, so a bad
+              // network moment can never overwrite real data with an empty state.
+              cloudLoadStatus = { ok: false, message: "Couldn't load your data from the cloud — showing what's saved on this device instead.", at: Date.now() };
+              state = loadStatePlain();
+            } else if (result.state) {
+              cloudLoadStatus = { ok: true, message: "", at: Date.now() };
+              state = result.state;
+            } else {
+              // Genuinely no cloud row yet for this account — safe to create one.
+              cloudLoadStatus = { ok: true, message: "", at: Date.now() };
+              state = defaultState();
+              await saveStateCloud();
+            }
           }
         } else {
           currentUser = null;
