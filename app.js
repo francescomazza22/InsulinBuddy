@@ -44,14 +44,15 @@
   ];
 
   const MEAL_TYPES = {
-    breakfast: { label: "Breakfast", color: "#E8935D", icon: iconSun() },
+    breakfast: { label: "Breakfast", color: "#E8935D", icon: iconCoffee() },
     lunch:     { label: "Lunch",     color: "#D6A419", icon: iconSun() },
     dinner:    { label: "Dinner",    color: "#6B5FD0", icon: iconMoon() },
     snack:     { label: "Snack",     color: "#4C9A6A", icon: iconApple() }
   };
 
   function iconSun() { return '<svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="4" stroke="currentColor" stroke-width="1.8"/><path d="M12 3v2M12 19v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M3 12h2M19 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>'; }
-  function iconMoon() { return '<svg viewBox="0 0 24 24" fill="none"><path d="M20 14.5A8 8 0 1110 3.2 6.5 6.5 0 0020 14.5z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>'; }
+  function iconMoon() { return '<svg viewBox="0 0 24 24" fill="none"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>'; }
+  function iconCoffee() { return '<svg viewBox="0 0 24 24" fill="none"><path d="M4 8h13v6a4 4 0 01-4 4H8a4 4 0 01-4-4V8z" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><path d="M17 9.5h1.5a2.2 2.2 0 010 4.4H17" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><path d="M8.5 1.5c-.8.8-.8 1.2 0 2s.8 1.2 0 2M12.5 1.5c-.8.8-.8 1.2 0 2s.8 1.2 0 2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>'; }
   function iconApple() { return '<svg viewBox="0 0 24 24" fill="none"><path d="M12 8.5c-3.5-2.5-8 0-8 5S7.5 21 10 20c1-.4 1-.4 2 0 2.5 1 6-2.5 6-6.5s-4.5-7.5-6-5z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M12 8.5c0-1.5.5-3 2-4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>'; }
 
   const DEFAULT_TIME_RATIOS = [
@@ -1785,6 +1786,13 @@
     let items = entry.items.map(i => ({ ...i }));
     let mealType = entry.mealType;
     let glucose = entry.glucose;
+    const allRatios = [
+      ...state.settings.timeRatios.map(r => ({ ...r, kind: "time" })),
+      ...state.settings.activityRatios.map(r => ({ ...r, kind: "activity" }))
+    ];
+    const matchedRatio = allRatios.find(r => r.name === entry.ratioLabel);
+    let selectedRatioValue = entry.ratioValue;
+    let selectedRatioLabel = entry.ratioLabel;
 
     const backdrop = document.createElement("div");
     backdrop.className = "sheet-backdrop";
@@ -1804,6 +1812,11 @@
             </button>
           `).join("")}
         </div>
+        <label class="block-label">Insulin ratio</label>
+        <select id="em-ratio" style="width:100%; padding:12px 14px; border:1.5px solid var(--line); border-radius:var(--radius-s); font-size:0.96rem; margin-bottom:18px; background:var(--surface); color:var(--ink);">
+          ${!matchedRatio ? `<option value="__original__" selected>Original: ${escapeHtml(entry.ratioLabel || "—")} (1:${entry.ratioValue})</option>` : ""}
+          ${allRatios.map(r => `<option value="${r.id}" ${matchedRatio && matchedRatio.id === r.id ? "selected" : ""}>${escapeHtml(r.name)} (1:${r.ratio})</option>`).join("")}
+        </select>
         <label class="block-label">Items</label>
         <div id="em-items" class="ingredient-list" style="margin-bottom:16px;"></div>
         ${entry.glucose != null ? `
@@ -1848,12 +1861,12 @@
         const g = parseFloat(glucoseInputEl.value);
         if (!isNaN(g) && g > 0) correctionDose = Math.max(0, (g - state.settings.target) / state.settings.isf);
       }
-      const mealDose = entry.ratioValue ? totalCarbs / entry.ratioValue : 0;
+      const mealDose = selectedRatioValue ? totalCarbs / selectedRatioValue : 0;
       let total = mealDose + correctionDose;
       if (state.settings.maxDose > 0 && total > state.settings.maxDose) total = state.settings.maxDose;
       backdrop.querySelector("#em-preview").textContent =
         `New total: ${round1(totalCarbs)}g carbs → ${roundDose(total).toFixed(1)} units` +
-        (entry.ratioValue ? ` (using the original 1:${entry.ratioValue} ratio)` : "");
+        (selectedRatioValue ? ` (using ${selectedRatioLabel ? escapeHtml(selectedRatioLabel) + " " : ""}1:${selectedRatioValue})` : "");
     }
 
     backdrop.querySelector("#em-meal-types").addEventListener("click", e => {
@@ -1889,6 +1902,12 @@
     });
     const glucoseEl = backdrop.querySelector("#em-glucose");
     if (glucoseEl) glucoseEl.addEventListener("input", updatePreview);
+    backdrop.querySelector("#em-ratio").addEventListener("change", e => {
+      const chosen = allRatios.find(r => r.id === e.target.value);
+      if (chosen) { selectedRatioValue = chosen.ratio; selectedRatioLabel = chosen.name; }
+      else { selectedRatioValue = entry.ratioValue; selectedRatioLabel = entry.ratioLabel; } // "__original__"
+      updatePreview();
+    });
 
     renderItems();
     backdrop.addEventListener("click", e => { if (e.target === backdrop || e.target.id === "em-cancel" || e.target.closest("#em-close")) closeSheet(backdrop); });
@@ -1896,7 +1915,7 @@
       if (items.length === 0) { alert("A meal needs at least one item — delete it instead if you want it gone."); return; }
       const totalCarbs = round1(items.reduce((s, i) => s + i.carbs, 0));
       const totalKcal = Math.round(items.reduce((s, i) => s + (i.kcal || 0), 0));
-      const mealDose = entry.ratioValue ? roundDose(totalCarbs / entry.ratioValue) : entry.mealDose;
+      const mealDose = selectedRatioValue ? roundDose(totalCarbs / selectedRatioValue) : entry.mealDose;
       let correctionDose = 0;
       const glucoseInputEl2 = backdrop.querySelector("#em-glucose");
       let newGlucose = entry.glucose;
@@ -1911,6 +1930,8 @@
       entry.mealDose = mealDose;
       entry.correctionDose = correctionDose;
       entry.glucose = newGlucose;
+      entry.ratioValue = selectedRatioValue;
+      entry.ratioLabel = selectedRatioLabel;
       saveState();
       renderHistory();
       closeSheet(backdrop);
