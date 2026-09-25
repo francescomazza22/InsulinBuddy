@@ -479,10 +479,18 @@ html[data-theme="dark"] .cat-snacks, html[data-theme="dark"] .cat-other { filter
 .switch input:checked + .switch__track { background: var(--acc-1); }
 .switch input:checked + .switch__track::before { transform: translateX(18px); }
 
-.version-card { background: var(--surface); border: 1.5px solid var(--line); border-radius: var(--radius-m); padding: 14px; margin: 14px 0; }
-.version-card__row { display: flex; justify-content: space-between; align-items: center; font-weight: 600; font-size: 0.92rem; margin-bottom: 6px; }
-.version-card__badge { font-size: 0.78rem; color: var(--ink-soft); font-weight: 400; }
+.version-card { background: var(--surface); border: 1.5px solid var(--line); border-radius: var(--radius-m); padding: 14px; margin: 14px 0; width: 100%; text-align: left; font-family: var(--font-ui); cursor: pointer; display: block; }
+.version-card__row { display: flex; justify-content: space-between; align-items: center; font-weight: 600; font-size: 0.92rem; margin-bottom: 6px; color: var(--ink); }
+.version-card__badge { font-size: 0.78rem; color: var(--ink-soft); font-weight: 400; display: inline-flex; align-items: center; gap: 2px; }
 .version-card p { font-size: 0.82rem; color: var(--ink-soft); margin: 0; line-height: 1.5; }
+
+.changelog-entry { padding: 14px 0; border-top: 1px solid var(--line); }
+.changelog-entry:first-of-type { border-top: none; padding-top: 6px; }
+.changelog-entry__head { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.changelog-entry__version { font-weight: 700; font-size: 0.94rem; }
+.changelog-entry__current { font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; color: var(--acc-1); background: var(--acc-1-rgb, 59,130,246); background: rgba(var(--acc-1-rgb), 0.12); padding: 2px 8px; border-radius: 999px; }
+.changelog-entry__list { margin: 0; padding-left: 20px; }
+.changelog-entry__list li { font-size: 0.86rem; color: var(--ink-soft); line-height: 1.5; margin-bottom: 4px; }
 
 .disclaimer-banner { display: flex; gap: 10px; align-items: flex-start; background: #FCEFCB; color: #7A5A0A; border: 1px solid #F0DC9A; border-radius: var(--radius-s); padding: 12px 14px; font-size: 0.82rem; line-height: 1.4; }
 .disclaimer-banner svg { width: 18px; height: 18px; flex-shrink: 0; margin-top: 1px; }
