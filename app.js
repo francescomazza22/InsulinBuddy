@@ -77,6 +77,7 @@
         activityRatios: structuredClone(DEFAULT_ACTIVITY_RATIOS),
         palette: "blueViolet",
         darkMode: false,
+        darkModeAuto: false,
         nightscoutUrl: "",
         customBackground: null
       },
@@ -1968,6 +1969,8 @@
     renderBackgroundSection();
     renderStatusPanel();
     el("dark-mode-toggle").checked = state.settings.darkMode;
+    el("dark-mode-toggle").disabled = state.settings.darkModeAuto;
+    el("dark-mode-auto-toggle").checked = state.settings.darkModeAuto;
     renderAccountSection();
     renderNightscoutSection();
     el("privacy-panel-card").hidden = !!currentUser;
@@ -2036,7 +2039,10 @@
   function renderBackgroundSection() {
     const grid = el("bg-swatch-grid");
     const resetBtn = el("btn-bg-reset");
+    const darkNote = el("bg-dark-mode-note");
     const active = state.settings.customBackground;
+    darkNote.hidden = !isDarkModeActive();
+    grid.style.opacity = isDarkModeActive() ? "0.5" : "1";
     grid.innerHTML = BG_PRESETS.map(color => `
       <button class="bg-swatch${color === active ? " is-active" : ""}" type="button" data-color="${color}" style="background:${color};" aria-label="Background color ${color}">
         ${color === active ? '<svg viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>' : ""}
@@ -2517,9 +2523,22 @@
 
   el("dark-mode-toggle").addEventListener("change", e => {
     state.settings.darkMode = e.target.checked;
-    document.documentElement.setAttribute("data-theme", state.settings.darkMode ? "dark" : "light");
+    applyTheme();
+    renderBackgroundSection();
     saveState();
   });
+  el("dark-mode-auto-toggle").addEventListener("change", e => {
+    state.settings.darkModeAuto = e.target.checked;
+    el("dark-mode-toggle").disabled = state.settings.darkModeAuto;
+    applyTheme();
+    renderBackgroundSection();
+    saveState();
+  });
+  if (window.matchMedia) {
+    window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {
+      if (state.settings.darkModeAuto) { applyTheme(); renderBackgroundSection(); }
+    });
+  }
 
   el("ns-url").addEventListener("input", e => {
     state.settings.nightscoutUrl = e.target.value.trim();
@@ -2582,8 +2601,18 @@
     if (changed) saveState();
   }
 
+  function isDarkModeActive() {
+    if (state.settings.darkModeAuto) {
+      return window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+    }
+    return state.settings.darkMode;
+  }
+  function applyTheme() {
+    document.documentElement.setAttribute("data-theme", isDarkModeActive() ? "dark" : "light");
+    applyCustomBackground();
+  }
   function applyCustomBackground() {
-    if (state.settings.customBackground) {
+    if (state.settings.customBackground && !isDarkModeActive()) {
       document.documentElement.style.setProperty("--app-bg", state.settings.customBackground);
     } else {
       document.documentElement.style.removeProperty("--app-bg");
@@ -2592,8 +2621,7 @@
 
   async function finishInit() {
     document.documentElement.setAttribute("data-palette", state.settings.palette);
-    document.documentElement.setAttribute("data-theme", state.settings.darkMode ? "dark" : "light");
-    applyCustomBackground();
+    applyTheme();
     applyGiSeedPatch();
     renderFoodPickList();
     renderMealItems();
@@ -2613,8 +2641,7 @@
 
   function renderEverything() {
     document.documentElement.setAttribute("data-palette", state.settings.palette);
-    document.documentElement.setAttribute("data-theme", state.settings.darkMode ? "dark" : "light");
-    applyCustomBackground();
+    applyTheme();
     applyGiSeedPatch();
     draft = { items: [], correctionOn: false, glucose: "", glucoseUnit: null, manualRatioId: null };
     renderFoodPickList(); renderMealItems(); recompute();
