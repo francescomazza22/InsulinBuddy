@@ -345,6 +345,14 @@
       <!-- General -->
       <div class="settings-panel" id="panel-general" hidden>
         <div class="panel-card">
+          <div style="display:flex; align-items:center; justify-content:space-between;">
+            <h2 class="panel-card__title">System Status</h2>
+            <button class="dashed-btn" id="btn-status-refresh" type="button" style="width:auto; padding:6px 12px;">Refresh</button>
+          </div>
+          <div id="status-panel-list"></div>
+        </div>
+
+        <div class="panel-card">
           <h2 class="panel-card__title">Color Theme</h2>
           <p class="panel-card__hint">Choose your palette</p>
           <div class="palette-grid" id="palette-grid"></div>
