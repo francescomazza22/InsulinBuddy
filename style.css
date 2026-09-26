@@ -199,6 +199,18 @@ input:focus-visible, select:focus-visible, button:focus-visible { outline: 2px s
 .pill-btn.is-active { background: #fff; color: var(--acc-1); border-color: #fff; }
 .pill-btn--icon { padding: 6px; margin-left: auto; }
 .correction-row { margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.25); }
+
+.active-panel {
+  background: var(--surface); border: 1.5px solid var(--line); border-radius: var(--radius-m);
+  padding: 12px 14px; margin-bottom: 16px;
+}
+.active-panel__stats { display: flex; align-items: center; gap: 14px; }
+.active-panel__stat { flex: 1; display: flex; align-items: center; gap: 8px; }
+.active-panel__stat svg { width: 20px; height: 20px; color: var(--acc-1); flex-shrink: 0; }
+.active-panel__value { font-family: var(--font-display); font-weight: 700; font-size: 1.05rem; color: var(--ink); }
+.active-panel__sub { font-size: 0.76rem; color: var(--ink-soft); margin-left: -2px; }
+.active-panel__divider { width: 1px; align-self: stretch; background: var(--line); }
+.active-panel__clear { font-size: 0.76rem; color: var(--ink-soft); margin: 8px 0 0; text-align: center; }
 .correction-row label { display: block; font-size: 0.8rem; margin-bottom: 6px; color: rgba(255,255,255,0.9); }
 .correction-row__input { display: flex; align-items: center; background: rgba(255,255,255,0.16); border-radius: var(--radius-s); overflow: hidden; }
 .correction-row__input input { flex: 1; background: transparent; border: none; padding: 11px 12px; color: #fff; font-size: 1rem; font-family: var(--font-ui); }
@@ -557,6 +569,14 @@ input[type="number"]::-webkit-inner-spin-button {
 .sheet-head__icon svg { width: 100%; height: 100%; }
 
 .block-label { font-size: 0.86rem; font-weight: 600; display: block; margin: 4px 0 8px; }
+.insulin-preset-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.insulin-preset-btn {
+  padding: 12px 10px; border-radius: var(--radius-s); border: 1.5px solid var(--line);
+  background: var(--surface); color: var(--ink); font-family: var(--font-ui); font-size: 0.86rem;
+  font-weight: 600; cursor: pointer; text-align: center;
+}
+.insulin-preset-btn--wide { grid-column: 1 / -1; }
+.insulin-preset-btn.is-active { border-color: var(--acc-1); color: var(--acc-1); background: rgba(var(--acc-1-rgb), 0.08); }
 
 .ingredient-box { border: 1.5px solid var(--line); border-radius: var(--radius-m); padding: 12px; background: var(--paper); margin-bottom: 4px; }
 .ingredient-search-wrap { position: relative; margin-bottom: 8px; }
