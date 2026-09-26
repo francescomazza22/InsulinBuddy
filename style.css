@@ -215,6 +215,7 @@ input:focus-visible, select:focus-visible, button:focus-visible { outline: 2px s
 .active-panel__divider { width: 1px; align-self: stretch; background: var(--line); }
 .active-panel__clear { font-size: 0.7rem; color: var(--ink-soft); margin: 5px 0 0; text-align: center; }
 .correction-row label { display: block; font-size: 0.8rem; margin-bottom: 6px; color: rgba(255,255,255,0.9); }
+.correction-row__iob-note { font-size: 0.78rem; color: rgba(255,255,255,0.9); margin: 8px 0 0; }
 .correction-row__input { display: flex; align-items: center; background: rgba(255,255,255,0.16); border-radius: var(--radius-s); overflow: hidden; }
 .correction-row__input input { flex: 1; background: transparent; border: none; padding: 11px 12px; color: #fff; font-size: 1rem; font-family: var(--font-ui); }
 .correction-row__input input::placeholder { color: rgba(255,255,255,0.6); }
