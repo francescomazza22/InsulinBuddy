@@ -78,6 +78,8 @@
         palette: "blueViolet",
         darkMode: false,
         darkModeAuto: false,
+        insulinModel: { preset: "rapid", peakMinutes: 75, diaMinutes: 360 },
+        carbAbsorptionMinutes: { high: 120, medium: 180, low: 240, unknown: 180 },
         nightscoutUrl: "",
         customBackground: null
       },
@@ -368,6 +370,7 @@
       else t.removeAttribute("aria-current");
     });
     el("cc-sticky-log-bar").hidden = name !== "calculator";
+    if (name === "calculator") renderActivePanel();
     if (name === "library") renderLibrary();
     if (name === "history") renderHistory();
     if (name === "settings") renderSettings();
@@ -696,6 +699,114 @@
     return { value: Math.round(weightedSum / totalCarbsWithGi), partial: withGi.length < items.filter(i => i.carbs > 0).length };
   }
 
+  // ================= Active Insulin & Carbs (IOB / COB) =================
+  // IOB: the "scalable exponential" insulin activity model used by Loop,
+  // AndroidAPS, and OpenAPS (originally by Dragan Maksimovic, refined by
+  // Pete Schwamb) -- not a bespoke curve. Given a dose's peak activity time
+  // (peakMinutes) and total duration of insulin action (diaMinutes), this
+  // returns the fraction of that dose still active `minutesAgo` minutes
+  // after it was given. tau/a/S are derived (not tuned by hand) so the
+  // curve is analytically exactly 1 (100%) at t=0 and exactly 0 at t=DIA,
+  // with a smooth single peak in between.
+  function iobFraction(minutesAgo, peakMinutes, diaMinutes) {
+    if (minutesAgo <= 0) return 1;
+    if (minutesAgo >= diaMinutes) return 0;
+    const tp = peakMinutes, td = diaMinutes, t = minutesAgo;
+    const tau = tp * (1 - tp / td) / (1 - 2 * tp / td);
+    const a = 2 * tau / td;
+    const S = 1 / (1 - a + (1 + a) * Math.exp(-td / tau));
+    return 1 - S * (1 - a) * ((t * t / (tau * td * (1 - a)) - t / tau - 1) * Math.exp(-t / tau) + 1);
+  }
+
+  // COB: a deliberately simple linear decay -- carbs remaining fall at a
+  // constant rate from 100% of the meal's carbs at t=0 to 0% at the meal's
+  // own absorption time. This trades physiological precision (real
+  // absorption is closer to a bell curve) for a curve anyone can audit by
+  // hand, which is what was asked for here.
+  function cobGrams(minutesAgo, carbs, absorptionMinutes) {
+    if (minutesAgo <= 0) return carbs;
+    if (minutesAgo >= absorptionMinutes) return 0;
+    return carbs * (1 - minutesAgo / absorptionMinutes);
+  }
+
+  // Which absorption time applies to a given logged meal, based on its
+  // snapshotted compound GI -- reusing the exact same high/medium/low bands
+  // (>=70 / 56-69 / <=55) as the compound-GI indicator shown elsewhere in
+  // the app, so a meal that reads "high GI" there uses the "high" time here
+  // too. Meals with no GI data at all fall back to the "unknown" default.
+  function absorptionMinutesForEntry(entry) {
+    const m = state.settings.carbAbsorptionMinutes;
+    if (!entry.glycemicLoad) return m.unknown;
+    const gi = entry.glycemicLoad.value;
+    if (gi >= 70) return m.high;
+    if (gi >= 56) return m.medium;
+    return m.low;
+  }
+
+  // Sums IOB across every logged dose in the last DIA minutes, and COB
+  // across every logged meal still within its own absorption window
+  // (stacking: overlapping doses/meals just add together, no interaction
+  // terms). Also reports the estimated time each will reach zero, computed
+  // directly from the model rather than searched for, since each curve is
+  // constructed to hit exactly zero at its own dose/meal's cutoff time --
+  // the total therefore reaches zero exactly when the last-contributing
+  // dose/meal does.
+  function calcActiveInsulinAndCarbs() {
+    const now = Date.now();
+    const dia = state.settings.insulinModel.diaMinutes;
+    const peak = state.settings.insulinModel.peakMinutes;
+    const carbAbs = state.settings.carbAbsorptionMinutes;
+    const maxAbsorption = Math.max(carbAbs.high, carbAbs.medium, carbAbs.low, carbAbs.unknown);
+
+    let iob = 0, cob = 0, iobClearAt = 0, cobClearAt = 0;
+
+    state.history.forEach(entry => {
+      const minutesAgo = (now - entry.ts) / 60000;
+      const totalDose = (entry.mealDose || 0) + (entry.correctionDose || 0);
+      if (totalDose > 0 && minutesAgo >= 0 && minutesAgo < dia) {
+        iob += totalDose * iobFraction(minutesAgo, peak, dia);
+        iobClearAt = Math.max(iobClearAt, entry.ts + dia * 60000);
+      }
+      if (entry.totalCarbs > 0 && minutesAgo >= 0 && minutesAgo < maxAbsorption) {
+        const absorption = absorptionMinutesForEntry(entry);
+        if (minutesAgo < absorption) {
+          cob += cobGrams(minutesAgo, entry.totalCarbs, absorption);
+          cobClearAt = Math.max(cobClearAt, entry.ts + absorption * 60000);
+        }
+      }
+    });
+
+    return {
+      iob: Math.round(iob * 10) / 10,
+      cob: Math.round(cob),
+      iobClearAt: iob > 0.05 ? iobClearAt : null,
+      cobClearAt: cob > 0.5 ? cobClearAt : null
+    };
+  }
+
+  function formatDuration(ms) {
+    const totalMin = Math.max(0, Math.round(ms / 60000));
+    const h = Math.floor(totalMin / 60);
+    const m = totalMin % 60;
+    if (h === 0) return `${m}m`;
+    if (m === 0) return `${h}h`;
+    return `${h}h${m}`;
+  }
+
+  function renderActivePanel() {
+    const panel = el("active-panel");
+    const { iob, cob, iobClearAt, cobClearAt } = calcActiveInsulinAndCarbs();
+    if (iob <= 0 && cob <= 0) { panel.hidden = true; return; }
+    panel.hidden = false;
+    el("active-iob-value").textContent = `≈${iob.toFixed(1)} u`;
+    el("active-cob-value").textContent = `≈${cob} g`;
+    const now = Date.now();
+    const clearParts = [];
+    if (iobClearAt) clearParts.push(`Insulin clears in ~${formatDuration(iobClearAt - now)}`);
+    if (cobClearAt) clearParts.push(`${iobClearAt ? "c" : "C"}arbs clear in ~${formatDuration(cobClearAt - now)}`);
+    el("active-clear-text").textContent = clearParts.join(" · ");
+  }
+
   function recompute() {
     const carbs = totalCarbs();
     carbsPill.textContent = `${round1(carbs)}g Carbs`;
@@ -933,6 +1044,7 @@
     saveState();
     syncEntryToNightscout(entry);
     resetDraft();
+    renderActivePanel();
   }
 
   // ================= Nightscout sync =================
@@ -1227,6 +1339,16 @@
   // Newest first. version-badge-text/version-summary-text in the Settings
   // card are always drawn from CHANGELOG[0], so the two can never drift.
   const CHANGELOG = [
+    {
+      version: "1.8.0",
+      summary: "New: an Active Insulin & Carbs panel on the Calculator, estimating what's still on board.",
+      changes: [
+        "Added an Active Insulin & Carbs panel showing estimated IOB and COB, with time until each clears",
+        "Uses the same exponential insulin model as Loop/AndroidAPS/OpenAPS, with editable peak time and duration (presets for NovoRapid/Humalog and Fiasp/Lyumjev)",
+        "Carb absorption time now editable per GI band in Settings",
+        "Display only — these estimates never feed into your suggested dose"
+      ]
+    },
     {
       version: "1.7.0",
       summary: "Ratio editing on logged meals, clearer meal icons, and a quicker way to clear search.",
@@ -1858,10 +1980,12 @@
       const [removed] = state.history.splice(idx, 1);
       saveState();
       renderHistory();
+      renderActivePanel();
       showUndoToast("Meal deleted", () => {
         state.history.splice(idx, 0, removed);
         saveState();
         renderHistory();
+        renderActivePanel();
       });
       return;
     }
@@ -2054,6 +2178,7 @@
       entry.ratioLabel = selectedRatioLabel;
       saveState();
       renderHistory();
+      renderActivePanel();
       closeSheet(backdrop);
     });
   }
@@ -2087,6 +2212,7 @@
     renderPaletteGrid();
     renderBackgroundSection();
     renderStatusPanel();
+    renderInsulinCarbSettings();
     el("dark-mode-toggle").checked = state.settings.darkMode;
     el("dark-mode-toggle").disabled = state.settings.darkModeAuto;
     el("dark-mode-auto-toggle").checked = state.settings.darkModeAuto;
@@ -2154,6 +2280,67 @@
     if (forceBtn) forceBtn.addEventListener("click", forceSyncNow);
   }
   el("btn-status-refresh").addEventListener("click", () => renderStatusPanel());
+
+  const INSULIN_PRESETS = {
+    rapid: { peakMinutes: 75, diaMinutes: 360 },
+    fiasp: { peakMinutes: 55, diaMinutes: 360 }
+  };
+  function clampNum(n, min, max) { return Math.min(max, Math.max(min, n)); }
+
+  function renderInsulinCarbSettings() {
+    const im = state.settings.insulinModel;
+    const ca = state.settings.carbAbsorptionMinutes;
+    document.querySelectorAll("#insulin-preset-buttons .insulin-preset-btn").forEach(btn => {
+      btn.classList.toggle("is-active", btn.dataset.preset === im.preset);
+    });
+    el("insulin-peak-input").value = im.peakMinutes;
+    el("insulin-dia-input").value = im.diaMinutes;
+    el("carb-abs-high").value = ca.high;
+    el("carb-abs-medium").value = ca.medium;
+    el("carb-abs-low").value = ca.low;
+    el("carb-abs-unknown").value = ca.unknown;
+  }
+
+  el("insulin-preset-buttons").addEventListener("click", e => {
+    const btn = e.target.closest(".insulin-preset-btn");
+    if (!btn) return;
+    const preset = btn.dataset.preset;
+    state.settings.insulinModel.preset = preset;
+    if (INSULIN_PRESETS[preset]) Object.assign(state.settings.insulinModel, INSULIN_PRESETS[preset]);
+    saveState();
+    renderInsulinCarbSettings();
+    renderActivePanel();
+  });
+
+  function handleInsulinFieldEdit() {
+    const dia = clampNum(parseInt(el("insulin-dia-input").value, 10) || 360, 180, 600);
+    const peakRaw = clampNum(parseInt(el("insulin-peak-input").value, 10) || 75, 20, 120);
+    // tau's denominator is (1 - 2*peak/dia); peak must stay well below half of
+    // DIA or the exponential curve becomes numerically unstable. Clamping here
+    // rather than just validating keeps the field always usable.
+    const peak = Math.min(peakRaw, Math.floor(dia / 2) - 10);
+    state.settings.insulinModel = { preset: "custom", peakMinutes: peak, diaMinutes: dia };
+    saveState();
+    renderInsulinCarbSettings();
+    renderActivePanel();
+  }
+  el("insulin-peak-input").addEventListener("change", handleInsulinFieldEdit);
+  el("insulin-dia-input").addEventListener("change", handleInsulinFieldEdit);
+
+  function handleCarbAbsEdit() {
+    state.settings.carbAbsorptionMinutes = {
+      high: clampNum(parseInt(el("carb-abs-high").value, 10) || 120, 30, 360),
+      medium: clampNum(parseInt(el("carb-abs-medium").value, 10) || 180, 30, 360),
+      low: clampNum(parseInt(el("carb-abs-low").value, 10) || 240, 30, 480),
+      unknown: clampNum(parseInt(el("carb-abs-unknown").value, 10) || 180, 30, 480)
+    };
+    saveState();
+    renderInsulinCarbSettings();
+    renderActivePanel();
+  }
+  ["carb-abs-high", "carb-abs-medium", "carb-abs-low", "carb-abs-unknown"].forEach(id => {
+    el(id).addEventListener("change", handleCarbAbsEdit);
+  });
 
   function renderBackgroundSection() {
     const grid = el("bg-swatch-grid");
@@ -2746,6 +2933,7 @@
     renderMealItems();
     recompute();
     restoreDraftIfAny();
+    renderActivePanel();
     showView("calculator");
     syncTabbarHeightVar();
     window.addEventListener("resize", syncTabbarHeightVar);
@@ -2755,6 +2943,7 @@
     setInterval(() => {
       if (!draft.manualRatioId) recompute();
       if (!el("view-settings").hidden && !panelRatios.hidden) renderTimeline();
+      if (!el("view-calculator").hidden) renderActivePanel();
     }, 30000);
   }
 
@@ -2765,6 +2954,7 @@
     draft = { items: [], correctionOn: false, glucose: "", glucoseUnit: null, manualRatioId: null };
     renderFoodPickList(); renderMealItems(); recompute();
     restoreDraftIfAny();
+    renderActivePanel();
     renderLibrary(); renderHistory(); renderSettings();
   }
 
