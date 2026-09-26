@@ -77,6 +77,7 @@
             <input type="number" id="cc-glucose" inputmode="decimal" min="0" step="0.1" placeholder="0">
             <button type="button" id="cc-glucose-unit" class="correction-row__unit-toggle">mg/dL</button>
           </div>
+          <p class="correction-row__iob-note" id="cc-iob-adjust-note" hidden></p>
         </div>
       </div>
 
@@ -355,6 +356,17 @@
             <div class="field__row"><input type="number" id="carb-abs-unknown" min="30" max="480" step="5" inputmode="numeric"><span class="field__unit">min</span></div>
           </div>
         </div>
+
+        <div class="panel-card">
+          <div class="toggle-row">
+            <span>Subtract active insulin from corrections</span>
+            <label class="switch">
+              <input type="checkbox" id="iob-aware-correction-toggle">
+              <span class="switch__track"></span>
+            </label>
+          </div>
+          <p class="panel-card__hint" style="margin-top:6px;">Unlike the settings above, this one changes your suggested dose: when on, a correction is reduced by your current Active Insulin (IOB) — your meal dose is never affected. Off by default.</p>
+        </div>
       </div>
 
       <!-- Data -->
@@ -483,7 +495,7 @@
         <button class="version-card" id="btn-open-changelog" type="button">
           <div class="version-card__row">
             <span>App Version</span>
-            <span class="version-card__badge" id="version-badge-text">v1.8.2 <svg viewBox="0 0 24 24" fill="none" width="14" height="14"><path d="M9 6l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+            <span class="version-card__badge" id="version-badge-text">v1.8.3 <svg viewBox="0 0 24 24" fill="none" width="14" height="14"><path d="M9 6l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
           </div>
           <p id="version-summary-text">Cloud sync, glycemic index tracking, and stronger data-loss protection since the original rebuild. Tap to see what's changed.</p>
         </button>

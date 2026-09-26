@@ -83,6 +83,7 @@
         darkModeAuto: false,
         insulinModel: { preset: "rapid", peakMinutes: 75, diaMinutes: 360 },
         carbAbsorptionMinutes: { high: 120, medium: 180, low: 240, unknown: 180 },
+        iobAwareCorrection: false,
         nightscoutUrl: "",
         customBackground: null
       },
@@ -815,7 +816,7 @@
 
   function renderActiveGraphSVG(series) {
     const { points, startTime, endTime, now } = series;
-    const W = 320, H = 150, padL = 8, padR = 8, padT = 10, padB = 22;
+    const W = 320, H = 165, padL = 26, padR = 30, padT = 10, padB = 22;
     const plotW = W - padL - padR, plotH = H - padT - padB;
     const maxIob = Math.max(0.5, ...points.map(p => p.iob));
     const maxCob = Math.max(5, ...points.map(p => p.cob));
@@ -830,12 +831,38 @@
 
     const fmtTime = t => new Date(t).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
 
+    // Three horizontal reference lines (0%, 50%, 100% of plot height). Since
+    // both curves are scaled to their own max, the same height fractions map
+    // to meaningful values on both axes at once -- just different numbers.
+    const fracs = [0, 0.5, 1];
+    const gridlines = fracs.map(f => {
+      const y = padT + plotH * (1 - f);
+      const iobVal = (maxIob * f).toFixed(maxIob < 2 ? 2 : 1);
+      const cobVal = Math.round(maxCob * f);
+      return `
+        <line x1="${padL}" y1="${y.toFixed(1)}" x2="${padL + plotW}" y2="${y.toFixed(1)}" stroke="var(--line)" stroke-width="1" ${f === 0 ? "" : 'stroke-dasharray="2,3"'}/>
+        <text x="${padL - 4}" y="${(y + 3).toFixed(1)}" font-size="8" fill="#3B82F6" text-anchor="end">${iobVal}</text>
+        <text x="${padL + plotW + 4}" y="${(y + 3).toFixed(1)}" font-size="8" fill="#D97706" text-anchor="start">${cobVal}</text>
+      `;
+    }).join("");
+
+    // Small hourly tick marks along the X-axis for a sense of time scale,
+    // in addition to the start/now/end text labels.
+    const hourMs = 60 * 60000;
+    const firstTick = Math.ceil(startTime / hourMs) * hourMs;
+    let xTicks = "";
+    for (let t = firstTick; t < endTime; t += hourMs) {
+      const x = xFor(t).toFixed(1);
+      xTicks += `<line x1="${x}" y1="${padT + plotH}" x2="${x}" y2="${padT + plotH + 3}" stroke="var(--ink-soft)" stroke-width="1"/>`;
+    }
+
     return `
       <svg viewBox="0 0 ${W} ${H}" style="width:100%; height:auto; display:block;">
+        ${gridlines}
         <line x1="${nowX}" y1="${padT}" x2="${nowX}" y2="${padT + plotH}" stroke="var(--ink-soft)" stroke-width="1" stroke-dasharray="3,3" opacity="0.6"/>
         <path d="${cobPath}" fill="none" stroke="#D97706" stroke-width="2" stroke-linejoin="round"/>
         <path d="${iobPath}" fill="none" stroke="#3B82F6" stroke-width="2" stroke-linejoin="round"/>
-        <line x1="${padL}" y1="${padT + plotH}" x2="${padL + plotW}" y2="${padT + plotH}" stroke="var(--line)" stroke-width="1"/>
+        ${xTicks}
         ${showStartLabel ? `<text x="${padL}" y="${H - 4}" font-size="9" fill="var(--ink-soft)">${fmtTime(startTime)}</text>` : ""}
         <text x="${nowX}" y="${H - 4}" font-size="9" fill="var(--ink-soft)" text-anchor="${showStartLabel ? "middle" : "start"}">now</text>
         <text x="${padL + plotW}" y="${H - 4}" font-size="9" fill="var(--ink-soft)" text-anchor="end">${fmtTime(endTime)}</text>
@@ -894,12 +921,26 @@
     const mealPart = ratioEntry && ratioEntry.ratio > 0 ? carbs / ratioEntry.ratio : 0;
 
     let correctionPart = 0;
+    let iobSubtracted = 0;
+    let rawCorrectionPart = 0;
     if (draft.correctionOn) {
       const bg = parseFloat(glucoseInput.value);
       if (!isNaN(bg) && bg > 0 && state.settings.isf > 0) {
         const bgInSettingsUnit = convertGlucose(bg, draft.glucoseUnit, state.settings.units);
-        correctionPart = Math.max(0, (bgInSettingsUnit - state.settings.target) / state.settings.isf);
+        rawCorrectionPart = Math.max(0, (bgInSettingsUnit - state.settings.target) / state.settings.isf);
+        if (state.settings.iobAwareCorrection) {
+          const currentIob = calcActiveInsulinAndCarbs().iob;
+          iobSubtracted = Math.min(rawCorrectionPart, currentIob);
+        }
+        correctionPart = rawCorrectionPart - iobSubtracted;
       }
+    }
+    const iobNote = el("cc-iob-adjust-note");
+    if (iobSubtracted > 0.05) {
+      iobNote.textContent = `Correction: ${round1(rawCorrectionPart)}u − ${round1(iobSubtracted)}u IOB = ${round1(correctionPart)}u`;
+      iobNote.hidden = false;
+    } else {
+      iobNote.hidden = true;
     }
 
     let total = mealPart + correctionPart;
@@ -1418,6 +1459,15 @@
   // Newest first. version-badge-text/version-summary-text in the Settings
   // card are always drawn from CHANGELOG[0], so the two can never drift.
   const CHANGELOG = [
+    {
+      version: "1.8.3",
+      summary: "The Active Insulin & Carbs graph now shows real axis values, and corrections can optionally account for IOB.",
+      changes: [
+        "The graph now shows actual insulin (units) and carb (grams) values on its axes, color-matched to each line, plus hourly time ticks",
+        "New optional setting (off by default): subtract active insulin from a correction dose, the same way pump bolus calculators do — your meal dose is never affected",
+        "When active, the Calculator shows the exact breakdown (e.g. \"Correction: 4u − 3.6u IOB = 0.4u\") rather than hiding the adjustment"
+      ]
+    },
     {
       version: "1.8.2",
       summary: "The Active Insulin & Carbs panel is now tappable for a graph, and more compact.",
@@ -2396,7 +2446,14 @@
     el("carb-abs-medium").value = ca.medium;
     el("carb-abs-low").value = ca.low;
     el("carb-abs-unknown").value = ca.unknown;
+    el("iob-aware-correction-toggle").checked = state.settings.iobAwareCorrection;
   }
+
+  el("iob-aware-correction-toggle").addEventListener("change", e => {
+    state.settings.iobAwareCorrection = e.target.checked;
+    saveState();
+    recompute();
+  });
 
   el("insulin-preset-buttons").addEventListener("click", e => {
     const btn = e.target.closest(".insulin-preset-btn");
