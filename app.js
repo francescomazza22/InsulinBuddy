@@ -47,8 +47,11 @@
     breakfast: { label: "Breakfast", color: "#E8935D", icon: iconCoffee() },
     lunch:     { label: "Lunch",     color: "#D6A419", icon: iconSun() },
     dinner:    { label: "Dinner",    color: "#6B5FD0", icon: iconMoon() },
-    snack:     { label: "Snack",     color: "#4C9A6A", icon: iconApple() }
+    snack:     { label: "Snack",     color: "#4C9A6A", icon: iconApple() },
+    correction: { label: "Correction", color: "#C0392B", icon: iconPulse() }
   };
+
+  function iconPulse() { return '<svg viewBox="0 0 24 24" fill="none"><path d="M3 12h4l2-7 4 14 2-7h6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>'; }
 
   function iconSun() { return '<svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="4" stroke="currentColor" stroke-width="1.8"/><path d="M12 3v2M12 19v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M3 12h2M19 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>'; }
   function iconMoon() { return '<svg viewBox="0 0 24 24" fill="none"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>'; }
@@ -830,9 +833,10 @@
     const finalDose = Math.max(0, roundDose(total));
     doseNumber.textContent = finalDose.toFixed(1);
 
-    logBtn.disabled = carbs <= 0;
-    logBtn.classList.toggle("btn--pulse", carbs > 0);
-    clearAllBtn.hidden = carbs <= 0;
+    const hasSomethingToLog = carbs > 0 || correctionPart > 0;
+    logBtn.disabled = !hasSomethingToLog;
+    logBtn.classList.toggle("btn--pulse", hasSomethingToLog);
+    clearAllBtn.hidden = !hasSomethingToLog;
 
     const glIndicator = el("cc-gl-indicator");
     const giInfo = compoundGiInfo(draft.items);
@@ -987,8 +991,9 @@
   }
 
   logBtn.addEventListener("click", () => {
-    if (totalCarbs() <= 0) return;
-    logMeal(autoMealType(new Date()));
+    const hasCorrection = draft._computed && draft._computed.correctionDose > 0;
+    if (totalCarbs() <= 0 && !hasCorrection) return;
+    logMeal(totalCarbs() > 0 ? autoMealType(new Date()) : "correction");
   });
 
   // ---- Bottom-sheet helpers: lock background scroll on mobile while a sheet is open ----
@@ -1339,6 +1344,15 @@
   // Newest first. version-badge-text/version-summary-text in the Settings
   // card are always drawn from CHANGELOG[0], so the two can never drift.
   const CHANGELOG = [
+    {
+      version: "1.8.1",
+      summary: "You can now log a correction on its own, with no food required.",
+      changes: [
+        "The Log button now works for a correction-only entry (no food added)",
+        "Correction-only entries get their own label and icon in History, instead of being mislabeled by time of day",
+        "Active Insulin & Carbs correctly counts a correction-only dose as IOB"
+      ]
+    },
     {
       version: "1.8.0",
       summary: "New: an Active Insulin & Carbs panel on the Calculator, estimating what's still on board.",
@@ -1838,7 +1852,7 @@
           <div class="history-entry__icon" style="background:${meal.color}">${meal.icon}</div>
           <div class="history-entry__main">
             <p class="history-entry__title">${meal.label} <span class="muted">· ${formatTime(entry.ts)} · ${escapeHtml(entry.periodName || "")}</span></p>
-            <p class="history-entry__foods">${entry.items.map(i => escapeHtml(i.name)).join(", ")}</p>
+            <p class="history-entry__foods">${entry.items.length ? entry.items.map(i => escapeHtml(i.name)).join(", ") : "No food — correction only"}</p>
             <div class="history-entry__detail" hidden>
               ${entry.items.map(i => {
                 const isUnit = i.quantity != null && i.unitLabel;
