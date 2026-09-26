@@ -754,8 +754,8 @@
   // constructed to hit exactly zero at its own dose/meal's cutoff time --
   // the total therefore reaches zero exactly when the last-contributing
   // dose/meal does.
-  function calcActiveInsulinAndCarbs() {
-    const now = Date.now();
+  function calcActiveInsulinAndCarbs(atTime) {
+    const now = atTime != null ? atTime : Date.now();
     const dia = state.settings.insulinModel.diaMinutes;
     const peak = state.settings.insulinModel.peakMinutes;
     const carbAbs = state.settings.carbAbsorptionMinutes;
@@ -795,6 +795,80 @@
     if (m === 0) return `${h}h`;
     return `${h}h${m}`;
   }
+
+  // Builds a (time, iob, cob) series for the detail graph: 30 minutes of
+  // recent context, then projected forward (assuming no further doses/meals)
+  // until whichever of IOB/COB clears last.
+  function buildActiveSeries() {
+    const now = Date.now();
+    const info = calcActiveInsulinAndCarbs(now);
+    const startTime = now - 30 * 60000;
+    const endTime = Math.max(info.iobClearAt || now, info.cobClearAt || now, now + 30 * 60000);
+    const stepMs = 5 * 60000;
+    const points = [];
+    for (let t = startTime; t <= endTime; t += stepMs) {
+      const r = calcActiveInsulinAndCarbs(t);
+      points.push({ t, iob: r.iob, cob: r.cob });
+    }
+    return { points, startTime, endTime, now, info };
+  }
+
+  function renderActiveGraphSVG(series) {
+    const { points, startTime, endTime, now } = series;
+    const W = 320, H = 150, padL = 8, padR = 8, padT = 10, padB = 22;
+    const plotW = W - padL - padR, plotH = H - padT - padB;
+    const maxIob = Math.max(0.5, ...points.map(p => p.iob));
+    const maxCob = Math.max(5, ...points.map(p => p.cob));
+    const xFor = t => padL + ((t - startTime) / (endTime - startTime)) * plotW;
+    const yForIob = v => padT + plotH - (v / maxIob) * plotH;
+    const yForCob = v => padT + plotH - (v / maxCob) * plotH;
+
+    const iobPath = points.map((p, i) => `${i === 0 ? "M" : "L"}${xFor(p.t).toFixed(1)},${yForIob(p.iob).toFixed(1)}`).join(" ");
+    const cobPath = points.map((p, i) => `${i === 0 ? "M" : "L"}${xFor(p.t).toFixed(1)},${yForCob(p.cob).toFixed(1)}`).join(" ");
+    const nowX = xFor(now).toFixed(1);
+    const showStartLabel = (parseFloat(nowX) - padL) > 34;
+
+    const fmtTime = t => new Date(t).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+
+    return `
+      <svg viewBox="0 0 ${W} ${H}" style="width:100%; height:auto; display:block;">
+        <line x1="${nowX}" y1="${padT}" x2="${nowX}" y2="${padT + plotH}" stroke="var(--ink-soft)" stroke-width="1" stroke-dasharray="3,3" opacity="0.6"/>
+        <path d="${cobPath}" fill="none" stroke="#D97706" stroke-width="2" stroke-linejoin="round"/>
+        <path d="${iobPath}" fill="none" stroke="#3B82F6" stroke-width="2" stroke-linejoin="round"/>
+        <line x1="${padL}" y1="${padT + plotH}" x2="${padL + plotW}" y2="${padT + plotH}" stroke="var(--line)" stroke-width="1"/>
+        ${showStartLabel ? `<text x="${padL}" y="${H - 4}" font-size="9" fill="var(--ink-soft)">${fmtTime(startTime)}</text>` : ""}
+        <text x="${nowX}" y="${H - 4}" font-size="9" fill="var(--ink-soft)" text-anchor="${showStartLabel ? "middle" : "start"}">now</text>
+        <text x="${padL + plotW}" y="${H - 4}" font-size="9" fill="var(--ink-soft)" text-anchor="end">${fmtTime(endTime)}</text>
+      </svg>
+    `;
+  }
+
+  function openActiveDetailSheet() {
+    const series = buildActiveSeries();
+    const backdrop = document.createElement("div");
+    backdrop.className = "sheet-backdrop";
+    backdrop.innerHTML = `
+      <div class="sheet">
+        <div class="sheet-head">
+          <h2>Active Insulin &amp; Carbs</h2>
+          <button class="sheet-close" id="aiog-close" type="button" aria-label="Close">
+            <svg viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+          </button>
+        </div>
+        <p class="panel-card__hint">Projected forward from now assuming no further food or insulin — a real dose or meal will change this.</p>
+        ${renderActiveGraphSVG(series)}
+        <div style="display:flex; gap:16px; justify-content:center; margin-top:8px;">
+          <span style="display:flex; align-items:center; gap:6px; font-size:0.8rem; color:var(--ink-soft);"><span style="width:10px; height:10px; border-radius:50%; background:#3B82F6; display:inline-block;"></span>Insulin (u)</span>
+          <span style="display:flex; align-items:center; gap:6px; font-size:0.8rem; color:var(--ink-soft);"><span style="width:10px; height:10px; border-radius:50%; background:#D97706; display:inline-block;"></span>Carbs (g)</span>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(backdrop);
+    backdrop.addEventListener("click", e => {
+      if (e.target === backdrop || e.target.closest("#aiog-close")) closeSheet(backdrop);
+    });
+  }
+  el("active-panel").addEventListener("click", openActiveDetailSheet);
 
   function renderActivePanel() {
     const panel = el("active-panel");
@@ -1344,6 +1418,15 @@
   // Newest first. version-badge-text/version-summary-text in the Settings
   // card are always drawn from CHANGELOG[0], so the two can never drift.
   const CHANGELOG = [
+    {
+      version: "1.8.2",
+      summary: "The Active Insulin & Carbs panel is now tappable for a graph, and more compact.",
+      changes: [
+        "Tap the Active Insulin & Carbs panel to see a graph of insulin and carbs projected forward until both clear",
+        "Made the panel itself noticeably smaller",
+        "Moved its Insulin & Carb Timing settings into the Insulin Ratios tab, alongside your other dosing settings"
+      ]
+    },
     {
       version: "1.8.1",
       summary: "You can now log a correction on its own, with no food required.",
