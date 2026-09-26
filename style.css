@@ -202,15 +202,18 @@ input:focus-visible, select:focus-visible, button:focus-visible { outline: 2px s
 
 .active-panel {
   background: var(--surface); border: 1.5px solid var(--line); border-radius: var(--radius-m);
-  padding: 12px 14px; margin-bottom: 16px;
+  padding: 9px 12px; margin-bottom: 16px; width: 100%; text-align: left; cursor: pointer;
+  font-family: var(--font-ui); display: block;
 }
-.active-panel__stats { display: flex; align-items: center; gap: 14px; }
-.active-panel__stat { flex: 1; display: flex; align-items: center; gap: 8px; }
-.active-panel__stat svg { width: 20px; height: 20px; color: var(--acc-1); flex-shrink: 0; }
-.active-panel__value { font-family: var(--font-display); font-weight: 700; font-size: 1.05rem; color: var(--ink); }
-.active-panel__sub { font-size: 0.76rem; color: var(--ink-soft); margin-left: -2px; }
+.active-panel:active { background: var(--paper); }
+.active-panel__stats { display: flex; align-items: center; gap: 10px; }
+.active-panel__stat { flex: 1; display: flex; align-items: center; gap: 6px; min-width: 0; }
+.active-panel__stat svg { width: 15px; height: 15px; color: var(--acc-1); flex-shrink: 0; }
+.active-panel__value { font-family: var(--font-display); font-weight: 700; font-size: 0.9rem; color: var(--ink); white-space: nowrap; }
+.active-panel__sub { font-size: 0.72rem; color: var(--ink-soft); margin-left: -3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.active-panel__chevron { width: 14px; height: 14px; color: var(--ink-soft); flex-shrink: 0; }
 .active-panel__divider { width: 1px; align-self: stretch; background: var(--line); }
-.active-panel__clear { font-size: 0.76rem; color: var(--ink-soft); margin: 8px 0 0; text-align: center; }
+.active-panel__clear { font-size: 0.7rem; color: var(--ink-soft); margin: 5px 0 0; text-align: center; }
 .correction-row label { display: block; font-size: 0.8rem; margin-bottom: 6px; color: rgba(255,255,255,0.9); }
 .correction-row__input { display: flex; align-items: center; background: rgba(255,255,255,0.16); border-radius: var(--radius-s); overflow: hidden; }
 .correction-row__input input { flex: 1; background: transparent; border: none; padding: 11px 12px; color: #fff; font-size: 1rem; font-family: var(--font-ui); }
