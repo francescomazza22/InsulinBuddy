@@ -18,6 +18,12 @@
     : null;
   let currentUser = null; // { id, email } once signed in; null in local-only mode
   let cloudLoadStatus = { ok: true, message: "", at: null };
+  // Auditable record of the most recent real Nightscout read/write attempt --
+  // updated every time one actually happens (not just on manual test), so
+  // the System Status panel always reflects genuine, current behavior.
+  // via: "proxy" | "direct" | null (null = never attempted yet)
+  let nightscoutReadStatus = { ok: null, via: null, at: null, message: "" };
+  let nightscoutWriteStatus = { ok: null, via: null, at: null, message: "" };
   let lastKnownCloudHistoryCount = null; // baseline for the data-loss guard in saveStateCloud()
   let cloudSaveBlocked = null; // { fromCount, toCount } when the guard below trips, else null
   const PENDING_SYNC_KEY = "insulinBuddy.pendingSync";
@@ -1265,6 +1271,14 @@
     }
   }
 
+  function recordNightscoutStatus(kind, ok, via, message) {
+    const rec = { ok, via, at: Date.now(), message };
+    if (kind === "read") nightscoutReadStatus = rec;
+    else nightscoutWriteStatus = rec;
+    // Keep the System Status panel live if it's currently on screen.
+    if (!el("view-settings").hidden && !el("panel-data").hidden) renderStatusPanel();
+  }
+
   async function fetchCurrentGlucoseFromNightscout() {
     const statusEl = el("cc-fetch-glucose-status");
     statusEl.hidden = false;
@@ -1273,6 +1287,7 @@
 
     const viaProxy = await fetchGlucoseViaSupabaseProxy();
     if (viaProxy.ok) {
+      recordNightscoutStatus("read", true, "proxy", "Read succeeded via the Supabase proxy.");
       applyFetchedGlucoseEntries(viaProxy.data, statusEl);
       return;
     }
@@ -1284,18 +1299,23 @@
       const base = nightscoutBaseUrl();
       const res = await fetch(`${base}/api/v1/entries.json?count=1&token=${encodeURIComponent(nightscoutToken())}`);
       if (!res.ok) {
-        statusEl.textContent = res.status === 401 || res.status === 403
+        const msg = res.status === 401 || res.status === 403
           ? `Nightscout rejected the token (HTTP ${res.status}) — check it in Settings.`
           : `Nightscout responded with an error (HTTP ${res.status}).`;
+        recordNightscoutStatus("read", false, "direct", msg);
+        statusEl.textContent = msg;
         statusEl.classList.add("correction-row__fetch-status--error");
         return;
       }
       const data = await res.json();
+      recordNightscoutStatus("read", true, "direct", "Read succeeded via a direct request.");
       applyFetchedGlucoseEntries(data, statusEl);
     } catch (e) {
-      statusEl.textContent = viaProxy.reason === "not-signed-in"
+      const msg = viaProxy.reason === "not-signed-in"
         ? "Couldn't reach Nightscout directly (likely CORS) — sign in to Cloud Sync in Settings to fetch through Supabase instead."
         : "Couldn't reach Nightscout — this usually means CORS is blocking it, and the Supabase proxy isn't available either. You can still enter your glucose manually.";
+      recordNightscoutStatus("read", false, "none", msg);
+      statusEl.textContent = msg;
       statusEl.classList.add("correction-row__fetch-status--error");
     }
   }
@@ -1341,7 +1361,10 @@
         const { data, error } = await supabaseClient.functions.invoke("write-nightscout-treatment", {
           body: { baseUrl: nightscoutBaseUrl(), token: nightscoutToken(), treatment }
         });
-        if (!error && data && data.ok) return;
+        if (!error && data && data.ok) {
+          recordNightscoutStatus("write", true, "proxy", "Write succeeded via the Supabase proxy.");
+          return;
+        }
         if (!error && data && data.error) throw new Error(data.error);
         if (error) throw new Error(error.message || String(error));
       } catch (e) {
@@ -1350,12 +1373,24 @@
       }
     }
     const url = `${nightscoutBaseUrl()}/api/v1/treatments?token=${encodeURIComponent(nightscoutToken())}`;
-    const res = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(treatment)
-    });
-    if (!res.ok) throw new Error("Nightscout responded with " + res.status);
+    let res;
+    try {
+      res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(treatment)
+      });
+    } catch (e) {
+      const msg = e && e.message ? e.message : "Could not reach Nightscout directly, and the Supabase proxy isn't available either.";
+      recordNightscoutStatus("write", false, "none", msg);
+      throw e;
+    }
+    if (!res.ok) {
+      const msg = `Nightscout responded with HTTP ${res.status}.`;
+      recordNightscoutStatus("write", false, "direct", msg);
+      throw new Error("Nightscout responded with " + res.status);
+    }
+    recordNightscoutStatus("write", true, "direct", "Write succeeded via a direct request.");
   }
 
   async function syncEntryToNightscout(entry) {
@@ -1397,49 +1432,63 @@
       renderNsStatus("Enter a URL and token first.", true);
       return;
     }
-    const base = nightscoutBaseUrl();
-    const proxyAvailable = !!(supabaseClient && currentUser);
-    const proxyNote = proxyAvailable
-      ? " Sync itself will still work via the Supabase proxy, since you're signed in."
-      : " Sign in to Cloud Sync to enable the Supabase proxy as a workaround for this.";
     renderNsStatus("Testing…");
 
-    // Step 1: basic reachability + CORS, via a lightweight GET that needs no auth.
-    try {
-      const statusRes = await fetch(`${base}/api/v1/status.json`);
-      if (!statusRes.ok) {
-        renderNsStatus(`Reached the server, but it responded with an error (HTTP ${statusRes.status}). Double-check the URL.`, true);
-        return;
+    // Read: reuses the exact same proxy-then-direct logic as a real fetch,
+    // so this genuinely reflects what happens when you tap "Fetch from
+    // Nightscout" -- not just a guess about what CORS might do.
+    const viaProxyRead = await fetchGlucoseViaSupabaseProxy();
+    let readOk = false, readVia = null, readMsg = "";
+    if (viaProxyRead.ok) {
+      readOk = true; readVia = "proxy"; readMsg = "Read succeeded via the Supabase proxy.";
+    } else {
+      try {
+        const base = nightscoutBaseUrl();
+        const res = await fetch(`${base}/api/v1/entries.json?count=1&token=${encodeURIComponent(nightscoutToken())}`);
+        if (res.ok) {
+          readOk = true; readVia = "direct"; readMsg = "Read succeeded via a direct request.";
+        } else {
+          readMsg = `Nightscout responded with HTTP ${res.status} when read directly.`;
+        }
+      } catch (e) {
+        readMsg = viaProxyRead.reason === "not-signed-in"
+          ? "Direct read blocked (likely CORS) — sign in to Cloud Sync to enable the Supabase proxy as a workaround."
+          : `Direct read blocked (likely CORS), and the Supabase proxy also failed: ${viaProxyRead.reason}`;
       }
-    } catch (e) {
-      renderNsStatus("Couldn't reach that URL directly from the browser — your Nightscout site is likely blocking cross-origin (CORS) requests." + proxyNote, true);
-      return;
     }
+    recordNightscoutStatus("read", readOk, readVia, readMsg);
 
-    // Step 2: an actual write, using the exact same path a real sync uses, so
-    // this tests write permission for real rather than just guessing. Uses a
-    // clearly-labeled Note (not a Meal Bolus) so it can't be mistaken for real
-    // meal data, and is safe to delete from Nightscout's Treatments view.
+    // Write: an actual write through the exact same function a real sync
+    // uses (proxy-then-direct), so write permission is tested for real.
+    // Uses a clearly-labeled Note (not a Meal Bolus) so it can't be mistaken
+    // for real meal data, and is safe to delete from Nightscout's Treatments view.
+    let writeOk = false;
     try {
-      const testRes = await fetch(`${base}/api/v1/treatments?token=${encodeURIComponent(nightscoutToken())}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          eventType: "Note",
-          notes: "Insulin Buddy — connection test (safe to delete)",
-          created_at: new Date().toISOString(),
-          enteredBy: "Insulin Buddy"
-        })
+      await sendTreatmentToNightscout({
+        eventType: "Note",
+        notes: "Insulin Buddy — connection test (safe to delete)",
+        created_at: new Date().toISOString(),
+        enteredBy: "Insulin Buddy"
       });
-      if (testRes.ok) {
-        renderNsStatus("Connected! A test note was created in Nightscout — feel free to delete it. Meal sync should work now.");
-      } else if (testRes.status === 401 || testRes.status === 403) {
-        renderNsStatus(`The server was reachable, but the token was rejected (HTTP ${testRes.status}). Check the token is correct and has write/careportal permission in Nightscout's admin settings.`, true);
-      } else {
-        renderNsStatus(`The server was reachable, but the write failed (HTTP ${testRes.status}).`, true);
-      }
+      writeOk = true;
     } catch (e) {
-      renderNsStatus("The status check worked, but the write request failed directly from the browser — this usually means CORS is blocking writes specifically." + proxyNote, true);
+      // sendTreatmentToNightscout already recorded the specific failure.
+    }
+    const writeVia = nightscoutWriteStatus.via;
+    const writeMsg = nightscoutWriteStatus.message;
+
+    if (readOk && writeOk) {
+      if (readVia === "direct" && writeVia === "direct") {
+        renderNsStatus("Connected directly! A test note was created in Nightscout — feel free to delete it.");
+      } else if (readVia === "proxy" && writeVia === "proxy") {
+        renderNsStatus("Direct requests are blocked (likely CORS), but the Supabase proxy handles both read and write fine — sync will use that automatically. A test note was created in Nightscout.");
+      } else {
+        renderNsStatus(`Read works ${readVia === "proxy" ? "via the Supabase proxy" : "directly"}; write works ${writeVia === "proxy" ? "via the Supabase proxy" : "directly"}. A test note was created in Nightscout.`);
+      }
+    } else if (readOk || writeOk) {
+      renderNsStatus(`Read: ${readOk ? "working" : "failed — " + readMsg}. Write: ${writeOk ? "working" : "failed — " + writeMsg}.`, true);
+    } else {
+      renderNsStatus(`Nothing is reaching Nightscout right now. Read: ${readMsg} Write: ${writeMsg}`, true);
     }
   }
 
@@ -1590,6 +1639,15 @@
   // Newest first. version-badge-text/version-summary-text in the Settings
   // card are always drawn from CHANGELOG[0], so the two can never drift.
   const CHANGELOG = [
+    {
+      version: "1.10.2",
+      summary: "System Status now shows Nightscout read and write separately, and Test Connection reports the real, complete picture.",
+      changes: [
+        "Split \"Nightscout Sync\" into separate, auditable Read and Write rows, showing which path (Supabase proxy or direct) actually succeeded and when",
+        "Both rows reflect real usage automatically -- every actual fetch or sync updates them, not just a manual test",
+        "Test Connection now actually exercises the Supabase proxy for both read and write, instead of only ever testing the direct path -- so it no longer says \"could not reach\" when sync is genuinely working via the proxy"
+      ]
+    },
     {
       version: "1.10.1",
       summary: "Nightscout sync (carbs and insulin) now also routes through the Supabase proxy, fixing the CORS block that stopped writes before.",
@@ -2600,13 +2658,33 @@
       rows.push(statusRow("Cloud Sync", "ok", `Signed in as ${escapeHtml(currentUser.email || "")}${cloudLoadStatus.at ? " · checked " + timeAgo(cloudLoadStatus.at) : ""}<br>Account ID: ${escapeHtml(currentUser.id || "unknown")}<br>${state.history.length} meal${state.history.length === 1 ? "" : "s"} loaded · ${state.library.length} food${state.library.length === 1 ? "" : "s"} in library`));
     }
 
-    // Nightscout
+    // Nightscout -- read and write tracked separately, reflecting the most
+    // recent REAL attempt (not just a manual test), including which path
+    // (Supabase proxy vs. direct) actually worked.
     if (!nightscoutConfigured()) {
-      rows.push(statusRow("Nightscout Sync", "off", "Not set up."));
+      rows.push(statusRow("Nightscout Read", "off", "Not set up."));
+      rows.push(statusRow("Nightscout Write", "off", "Not set up."));
     } else {
+      if (!nightscoutReadStatus.at) {
+        rows.push(statusRow("Nightscout Read", "off", `Not checked yet — use "Fetch from Nightscout" on the Calculator, or Test Connection below.`));
+      } else if (nightscoutReadStatus.ok) {
+        const via = nightscoutReadStatus.via === "proxy" ? "via Supabase proxy" : "via direct request";
+        rows.push(statusRow("Nightscout Read", "ok", `Working ${via} · checked ${timeAgo(nightscoutReadStatus.at)}`));
+      } else {
+        rows.push(statusRow("Nightscout Read", "error", `${escapeHtml(nightscoutReadStatus.message)} · checked ${timeAgo(nightscoutReadStatus.at)}`));
+      }
+
       const queueLen = loadNsQueue().length;
-      if (queueLen > 0) rows.push(statusRow("Nightscout Sync", "warn", `${queueLen} entr${queueLen === 1 ? "y" : "ies"} waiting to sync.`));
-      else rows.push(statusRow("Nightscout Sync", "ok", "Connected — meals sync automatically."));
+      if (!nightscoutWriteStatus.at) {
+        rows.push(statusRow("Nightscout Write", "off", "Not checked yet — log a meal, or use Test Connection below."));
+      } else if (queueLen > 0) {
+        rows.push(statusRow("Nightscout Write", "warn", `${queueLen} entr${queueLen === 1 ? "y" : "ies"} waiting to sync · last attempt ${timeAgo(nightscoutWriteStatus.at)}: ${escapeHtml(nightscoutWriteStatus.message)}`));
+      } else if (nightscoutWriteStatus.ok) {
+        const via = nightscoutWriteStatus.via === "proxy" ? "via Supabase proxy" : "via direct request";
+        rows.push(statusRow("Nightscout Write", "ok", `Working ${via} · last synced ${timeAgo(nightscoutWriteStatus.at)}`));
+      } else {
+        rows.push(statusRow("Nightscout Write", "error", `${escapeHtml(nightscoutWriteStatus.message)} · checked ${timeAgo(nightscoutWriteStatus.at)}`));
+      }
     }
 
     // Offline app cache (service worker)
