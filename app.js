@@ -1226,11 +1226,60 @@
     return state.settings.nightscoutUrl.split("?")[0].replace(/\/+$/, "");
   }
 
+  function applyFetchedGlucoseEntries(data, statusEl) {
+    if (!Array.isArray(data) || data.length === 0 || typeof data[0].sgv !== "number") {
+      statusEl.textContent = "Reached Nightscout, but it didn't return a recent glucose reading.";
+      statusEl.classList.add("correction-row__fetch-status--error");
+      return;
+    }
+    const latest = data[0];
+    const ageMin = Math.round((Date.now() - latest.date) / 60000);
+    const ageText = ageMin <= 0 ? "just now" : ageMin === 1 ? "1 minute ago" : `${ageMin} minutes ago`;
+    const converted = round1(convertGlucose(latest.sgv, "mgdl", draft.glucoseUnit || state.settings.units));
+    glucoseInput.value = converted;
+    glucoseInput.dispatchEvent(new Event("input", { bubbles: true }));
+    if (ageMin > 15) {
+      statusEl.textContent = `Loaded, but this reading is from ${ageText} — that's fairly stale. Worth double-checking before dosing.`;
+      statusEl.classList.add("correction-row__fetch-status--error");
+    } else {
+      statusEl.textContent = `Loaded from ${ageText}. Double-check it looks right before dosing.`;
+    }
+  }
+
+  // Tries the Supabase Edge Function proxy, which makes the Nightscout
+  // request server-side (Deno), sidestepping browser CORS entirely. Requires
+  // the user to be signed in to Cloud Sync, since the function verifies a
+  // Supabase session by default.
+  async function fetchGlucoseViaSupabaseProxy() {
+    if (!supabaseClient) return { ok: false, reason: "no-proxy" };
+    if (!currentUser) return { ok: false, reason: "not-signed-in" };
+    try {
+      const { data, error } = await supabaseClient.functions.invoke("fetch-nightscout-glucose", {
+        body: { baseUrl: nightscoutBaseUrl(), token: nightscoutToken() }
+      });
+      if (error) return { ok: false, reason: error.message || String(error) };
+      if (data && data.error) return { ok: false, reason: data.error };
+      return { ok: true, data: data.entries };
+    } catch (e) {
+      return { ok: false, reason: String(e) };
+    }
+  }
+
   async function fetchCurrentGlucoseFromNightscout() {
     const statusEl = el("cc-fetch-glucose-status");
     statusEl.hidden = false;
     statusEl.className = "correction-row__fetch-status";
     statusEl.textContent = "Fetching…";
+
+    const viaProxy = await fetchGlucoseViaSupabaseProxy();
+    if (viaProxy.ok) {
+      applyFetchedGlucoseEntries(viaProxy.data, statusEl);
+      return;
+    }
+
+    // Proxy unavailable, not signed in, or it failed -- fall back to a direct
+    // browser request, which still works for any Nightscout instance that
+    // does allow CORS.
     try {
       const base = nightscoutBaseUrl();
       const res = await fetch(`${base}/api/v1/entries.json?count=1&token=${encodeURIComponent(nightscoutToken())}`);
@@ -1242,25 +1291,11 @@
         return;
       }
       const data = await res.json();
-      if (!Array.isArray(data) || data.length === 0 || typeof data[0].sgv !== "number") {
-        statusEl.textContent = "Reached Nightscout, but it didn't return a recent glucose reading.";
-        statusEl.classList.add("correction-row__fetch-status--error");
-        return;
-      }
-      const latest = data[0];
-      const ageMin = Math.round((Date.now() - latest.date) / 60000);
-      const ageText = ageMin <= 0 ? "just now" : ageMin === 1 ? "1 minute ago" : `${ageMin} minutes ago`;
-      const converted = round1(convertGlucose(latest.sgv, "mgdl", draft.glucoseUnit || state.settings.units));
-      glucoseInput.value = converted;
-      glucoseInput.dispatchEvent(new Event("input", { bubbles: true }));
-      if (ageMin > 15) {
-        statusEl.textContent = `Loaded, but this reading is from ${ageText} — that's fairly stale. Worth double-checking before dosing.`;
-        statusEl.classList.add("correction-row__fetch-status--error");
-      } else {
-        statusEl.textContent = `Loaded from ${ageText}. Double-check it looks right before dosing.`;
-      }
+      applyFetchedGlucoseEntries(data, statusEl);
     } catch (e) {
-      statusEl.textContent = "Couldn't reach Nightscout — this usually means the site is blocking cross-origin (CORS) requests. You can still enter your glucose manually.";
+      statusEl.textContent = viaProxy.reason === "not-signed-in"
+        ? "Couldn't reach Nightscout directly (likely CORS) — sign in to Cloud Sync in Settings to fetch through Supabase instead."
+        : "Couldn't reach Nightscout — this usually means CORS is blocking it, and the Supabase proxy isn't available either. You can still enter your glucose manually.";
       statusEl.classList.add("correction-row__fetch-status--error");
     }
   }
@@ -1536,6 +1571,15 @@
   // Newest first. version-badge-text/version-summary-text in the Settings
   // card are always drawn from CHANGELOG[0], so the two can never drift.
   const CHANGELOG = [
+    {
+      version: "1.10.0",
+      summary: "Nightscout glucose fetch now routes through a Supabase proxy first, sidestepping the CORS block entirely when you're signed in.",
+      changes: [
+        "New Supabase Edge Function (fetch-nightscout-glucose) makes the Nightscout request server-side, where browser CORS restrictions don't apply",
+        "Fetch from Nightscout now tries this proxy first when signed in to Cloud Sync, falling back to a direct request otherwise",
+        "Clear messaging when the proxy isn't available because you're not signed in"
+      ]
+    },
     {
       version: "1.9.2",
       summary: "Fixed an oversized logged-time field and a wasted line taken up by the reset icon.",
