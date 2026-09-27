@@ -1537,6 +1537,14 @@
   // card are always drawn from CHANGELOG[0], so the two can never drift.
   const CHANGELOG = [
     {
+      version: "1.9.2",
+      summary: "Fixed an oversized logged-time field and a wasted line taken up by the reset icon.",
+      changes: [
+        "The logged-time field in Edit Meal now sizes to its content instead of stretching full width",
+        "Moved the reset (trash) icon up next to the carbs pill, so it no longer forces the dose card's pills onto an extra line by itself"
+      ]
+    },
+    {
       version: "1.9.1",
       summary: "Edit a meal's logged time (with Active Insulin & Carbs updating to match), and a more compact dose card.",
       changes: [
@@ -2308,7 +2316,7 @@
         </div>
         <div class="field">
           <label for="em-logged-time">Logged time</label>
-          <input type="datetime-local" id="em-logged-time" value="${toDatetimeLocalValue(entry.ts)}" style="width:100%; padding:12px 14px; border:1.5px solid var(--line); border-radius:var(--radius-s); font-size:16px; background:var(--surface); color:var(--ink); font-family:var(--font-ui);">
+          <input type="datetime-local" id="em-logged-time" value="${toDatetimeLocalValue(entry.ts)}" style="padding:12px 14px; border:1.5px solid var(--line); border-radius:var(--radius-s); font-size:16px; background:var(--surface); color:var(--ink); font-family:var(--font-ui);">
           <p class="panel-card__hint" style="margin-top:6px;">Changing this updates Active Insulin &amp; Carbs and Trends to match.</p>
         </div>
         <label class="block-label">Insulin ratio</label>
