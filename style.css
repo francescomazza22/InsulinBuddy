@@ -181,26 +181,26 @@ input:focus-visible, select:focus-visible, button:focus-visible { outline: 2px s
 /* ================= CALCULATOR ================= */
 .dose-card {
   background: linear-gradient(155deg, var(--acc-1) 0%, var(--acc-2) 100%);
-  color: #fff; border-radius: var(--radius-l); padding: 14px 16px 12px; margin-bottom: 16px;
+  color: #fff; border-radius: var(--radius-l); padding: 11px 14px 10px; margin-bottom: 14px;
 }
-.dose-card__top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 2px; }
-.dose-card__label { font-size: 0.7rem; font-weight: 700; letter-spacing: 0.06em; color: rgba(255,255,255,0.85); }
-.carbs-pill { background: rgba(255,255,255,0.22); padding: 4px 11px; border-radius: 999px; font-size: 0.76rem; font-weight: 600; }
+.dose-card__top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1px; }
+.dose-card__label { font-size: 0.66rem; font-weight: 700; letter-spacing: 0.06em; color: rgba(255,255,255,0.85); }
+.carbs-pill { background: rgba(255,255,255,0.22); padding: 3px 10px; border-radius: 999px; font-size: 0.74rem; font-weight: 600; }
 .carbs-pill--muted { background: var(--surface); color: var(--ink-soft); border: 1px solid var(--line); }
-.dose-card__value { display: flex; align-items: baseline; gap: 7px; font-family: var(--font-display); font-size: 1.9rem; line-height: 1; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; margin-bottom: 8px; }
-.dose-card__unit { font-family: var(--font-ui); font-size: 0.88rem; font-weight: 500; color: rgba(255,255,255,0.82); }
-.dose-card__controls { display: flex; gap: 6px; flex-wrap: wrap; }
+.dose-card__value { display: flex; align-items: baseline; gap: 6px; font-family: var(--font-display); font-size: 1.55rem; line-height: 1; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; margin-bottom: 6px; }
+.dose-card__unit { font-family: var(--font-ui); font-size: 0.82rem; font-weight: 500; color: rgba(255,255,255,0.82); }
+.dose-card__controls { display: flex; gap: 5px; flex-wrap: wrap; }
 .pill-btn {
-  display: inline-flex; align-items: center; gap: 5px; background: rgba(255,255,255,0.16);
-  border: 1px solid rgba(255,255,255,0.3); color: #fff; padding: 6px 11px; border-radius: 999px;
-  font-size: 0.78rem; font-weight: 600; cursor: pointer; font-family: var(--font-ui);
+  display: inline-flex; align-items: center; gap: 4px; background: rgba(255,255,255,0.16);
+  border: 1px solid rgba(255,255,255,0.3); color: #fff; padding: 5px 10px; border-radius: 999px;
+  font-size: 0.74rem; font-weight: 600; cursor: pointer; font-family: var(--font-ui);
 }
-.pill-btn svg { width: 13px; height: 13px; }
+.pill-btn svg { width: 12px; height: 12px; }
 .pill-btn.is-active { background: #fff; color: var(--acc-1); border-color: #fff; }
 .pill-btn--warn.is-active { background: #FBBF24; color: #7C2D12; border-color: #FBBF24; }
-.pill-btn--icon { padding: 6px; margin-left: auto; }
-.dose-card__no-insulin-note { font-size: 0.8rem; color: rgba(255,255,255,0.95); background: rgba(0,0,0,0.15); padding: 8px 10px; border-radius: var(--radius-s); margin: 10px 0 0; }
-.correction-row { margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.25); }
+.pill-btn--icon { padding: 5px; margin-left: auto; }
+.dose-card__no-insulin-note { font-size: 0.76rem; color: rgba(255,255,255,0.95); background: rgba(0,0,0,0.15); padding: 6px 9px; border-radius: var(--radius-s); margin: 8px 0 0; }
+.correction-row { margin-top: 8px; padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.25); }
 
 .active-panel {
   background: var(--surface); border: 1.5px solid var(--line); border-radius: var(--radius-m);
