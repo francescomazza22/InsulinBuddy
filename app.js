@@ -1334,6 +1334,21 @@
   }
 
   async function sendTreatmentToNightscout(treatment) {
+    // Try the Supabase proxy first (bypasses browser CORS entirely, same as
+    // the glucose read); fall back to a direct POST if that's not available.
+    if (supabaseClient && currentUser) {
+      try {
+        const { data, error } = await supabaseClient.functions.invoke("write-nightscout-treatment", {
+          body: { baseUrl: nightscoutBaseUrl(), token: nightscoutToken(), treatment }
+        });
+        if (!error && data && data.ok) return;
+        if (!error && data && data.error) throw new Error(data.error);
+        if (error) throw new Error(error.message || String(error));
+      } catch (e) {
+        // Proxy failed -- fall through to a direct attempt below rather than
+        // giving up, since it might still work for a CORS-friendly instance.
+      }
+    }
     const url = `${nightscoutBaseUrl()}/api/v1/treatments?token=${encodeURIComponent(nightscoutToken())}`;
     const res = await fetch(url, {
       method: "POST",
@@ -1383,6 +1398,10 @@
       return;
     }
     const base = nightscoutBaseUrl();
+    const proxyAvailable = !!(supabaseClient && currentUser);
+    const proxyNote = proxyAvailable
+      ? " Sync itself will still work via the Supabase proxy, since you're signed in."
+      : " Sign in to Cloud Sync to enable the Supabase proxy as a workaround for this.";
     renderNsStatus("Testing…");
 
     // Step 1: basic reachability + CORS, via a lightweight GET that needs no auth.
@@ -1393,7 +1412,7 @@
         return;
       }
     } catch (e) {
-      renderNsStatus("Couldn't reach that URL at all — check it's typed correctly, or your Nightscout site may be blocking cross-origin requests (CORS) from other sites.", true);
+      renderNsStatus("Couldn't reach that URL directly from the browser — your Nightscout site is likely blocking cross-origin (CORS) requests." + proxyNote, true);
       return;
     }
 
@@ -1420,7 +1439,7 @@
         renderNsStatus(`The server was reachable, but the write failed (HTTP ${testRes.status}).`, true);
       }
     } catch (e) {
-      renderNsStatus("The status check worked, but the actual write request failed — this often means CORS is blocking write requests specifically. Check your Nightscout site's CORS settings.", true);
+      renderNsStatus("The status check worked, but the write request failed directly from the browser — this usually means CORS is blocking writes specifically." + proxyNote, true);
     }
   }
 
@@ -1571,6 +1590,15 @@
   // Newest first. version-badge-text/version-summary-text in the Settings
   // card are always drawn from CHANGELOG[0], so the two can never drift.
   const CHANGELOG = [
+    {
+      version: "1.10.1",
+      summary: "Nightscout sync (carbs and insulin) now also routes through the Supabase proxy, fixing the CORS block that stopped writes before.",
+      changes: [
+        "New Supabase Edge Function (write-nightscout-treatment) posts meal/correction data to Nightscout server-side",
+        "Meal sync and the queued-retry sync both now try this proxy first when signed in, falling back to a direct request otherwise",
+        "Test Connection now clarifies that a direct CORS failure doesn't mean sync itself is broken, since the proxy covers it"
+      ]
+    },
     {
       version: "1.10.0",
       summary: "Nightscout glucose fetch now routes through a Supabase proxy first, sidestepping the CORS block entirely when you're signed in.",
