@@ -1537,6 +1537,14 @@
   // card are always drawn from CHANGELOG[0], so the two can never drift.
   const CHANGELOG = [
     {
+      version: "1.9.1",
+      summary: "Edit a meal's logged time (with Active Insulin & Carbs updating to match), and a more compact dose card.",
+      changes: [
+        "Edit Meal now includes the logged time — changing it correctly re-sorts History and recalculates Active Insulin & Carbs",
+        "Reduced the size of the dose card at the top of the Calculator — smaller text, tighter spacing, pills now fit on one line"
+      ]
+    },
+    {
       version: "1.9.0",
       summary: "Log carbs with no insulin when treating a low, and optionally pull your glucose straight from Nightscout.",
       changes: [
@@ -2262,6 +2270,12 @@
     showView("calculator");
   }
 
+  function toDatetimeLocalValue(ts) {
+    const d = new Date(ts);
+    const pad = n => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  }
+
   function openEditMealSheet(entry) {
     let items = entry.items.map(i => ({ ...i }));
     let mealType = entry.mealType;
@@ -2291,6 +2305,11 @@
               <span style="color:${m.color};width:18px;height:18px;">${m.icon}</span>${m.label}
             </button>
           `).join("")}
+        </div>
+        <div class="field">
+          <label for="em-logged-time">Logged time</label>
+          <input type="datetime-local" id="em-logged-time" value="${toDatetimeLocalValue(entry.ts)}" style="width:100%; padding:12px 14px; border:1.5px solid var(--line); border-radius:var(--radius-s); font-size:16px; background:var(--surface); color:var(--ink); font-family:var(--font-ui);">
+          <p class="panel-card__hint" style="margin-top:6px;">Changing this updates Active Insulin &amp; Carbs and Trends to match.</p>
         </div>
         <label class="block-label">Insulin ratio</label>
         <select id="em-ratio" style="width:100%; padding:12px 14px; border:1.5px solid var(--line); border-radius:var(--radius-s); font-size:0.96rem; margin-bottom:18px; background:var(--surface); color:var(--ink);">
@@ -2412,6 +2431,14 @@
       entry.glucose = newGlucose;
       entry.ratioValue = selectedRatioValue;
       entry.ratioLabel = selectedRatioLabel;
+      const timeInputEl = backdrop.querySelector("#em-logged-time");
+      if (timeInputEl && timeInputEl.value) {
+        const newTs = new Date(timeInputEl.value).getTime();
+        if (!isNaN(newTs)) {
+          entry.ts = newTs;
+          state.history.sort((a, b) => b.ts - a.ts);
+        }
+      }
       saveState();
       renderHistory();
       renderActivePanel();
