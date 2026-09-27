@@ -1353,6 +1353,8 @@
     box.style.color = isError ? "var(--brick)" : "";
   }
 
+  let nightscoutLastWriteResponse = null; // raw body from Nightscout's own POST response, for diagnostics
+
   async function sendTreatmentToNightscout(treatment) {
     // Try the Supabase proxy first (bypasses browser CORS entirely, same as
     // the glucose read); fall back to a direct POST if that's not available.
@@ -1362,7 +1364,9 @@
           body: { baseUrl: nightscoutBaseUrl(), token: nightscoutToken(), treatment }
         });
         if (!error && data && data.ok) {
-          recordNightscoutStatus("write", true, "proxy", "Write succeeded via the Supabase proxy.");
+          nightscoutLastWriteResponse = data.body;
+          const idNote = extractNightscoutId(data.body);
+          recordNightscoutStatus("write", true, "proxy", `Write succeeded via the Supabase proxy.${idNote}`);
           return;
         }
         if (!error && data && data.error) throw new Error(data.error);
@@ -1373,24 +1377,39 @@
       }
     }
     const url = `${nightscoutBaseUrl()}/api/v1/treatments?token=${encodeURIComponent(nightscoutToken())}`;
-    let res;
+    let res, rawText;
     try {
       res = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(treatment)
       });
+      rawText = await res.text();
     } catch (e) {
       const msg = e && e.message ? e.message : "Could not reach Nightscout directly, and the Supabase proxy isn't available either.";
       recordNightscoutStatus("write", false, "none", msg);
       throw e;
     }
+    let parsedBody = rawText;
+    try { parsedBody = JSON.parse(rawText); } catch (e) { /* leave as raw text */ }
+    nightscoutLastWriteResponse = parsedBody;
     if (!res.ok) {
       const msg = `Nightscout responded with HTTP ${res.status}.`;
       recordNightscoutStatus("write", false, "direct", msg);
       throw new Error("Nightscout responded with " + res.status);
     }
-    recordNightscoutStatus("write", true, "direct", "Write succeeded via a direct request.");
+    const idNote = extractNightscoutId(parsedBody);
+    recordNightscoutStatus("write", true, "direct", `Write succeeded via a direct request.${idNote}`);
+  }
+
+  // Nightscout's POST response normally echoes back the created document(s),
+  // including the _id it assigned -- surfacing that here lets you search for
+  // this exact record in the raw treatments.json data to confirm it actually
+  // persisted, not just that the request returned success.
+  function extractNightscoutId(body) {
+    const doc = Array.isArray(body) ? body[0] : body;
+    if (doc && typeof doc === "object" && doc._id) return ` Nightscout returned id: ${doc._id}`;
+    return " (Nightscout's response didn't include the usual created-document id -- worth checking the raw response.)";
   }
 
   async function syncEntryToNightscout(entry) {
@@ -1479,11 +1498,11 @@
 
     if (readOk && writeOk) {
       if (readVia === "direct" && writeVia === "direct") {
-        renderNsStatus("Connected directly! A test note was created in Nightscout — feel free to delete it.");
+        renderNsStatus(`Connected directly! A test note was created in Nightscout — feel free to delete it. ${writeMsg}`);
       } else if (readVia === "proxy" && writeVia === "proxy") {
-        renderNsStatus("Direct requests are blocked (likely CORS), but the Supabase proxy handles both read and write fine — sync will use that automatically. A test note was created in Nightscout.");
+        renderNsStatus(`Direct requests are blocked (likely CORS), but the Supabase proxy handles both read and write fine — sync will use that automatically. ${writeMsg}`);
       } else {
-        renderNsStatus(`Read works ${readVia === "proxy" ? "via the Supabase proxy" : "directly"}; write works ${writeVia === "proxy" ? "via the Supabase proxy" : "directly"}. A test note was created in Nightscout.`);
+        renderNsStatus(`Read works ${readVia === "proxy" ? "via the Supabase proxy" : "directly"}; write works ${writeVia === "proxy" ? "via the Supabase proxy" : "directly"}. ${writeMsg}`);
       }
     } else if (readOk || writeOk) {
       renderNsStatus(`Read: ${readOk ? "working" : "failed — " + readMsg}. Write: ${writeOk ? "working" : "failed — " + writeMsg}.`, true);
@@ -1639,6 +1658,15 @@
   // Newest first. version-badge-text/version-summary-text in the Settings
   // card are always drawn from CHANGELOG[0], so the two can never drift.
   const CHANGELOG = [
+    {
+      version: "1.10.3",
+      summary: "Test Connection now shows Nightscout's actual response (including the created-document id), to diagnose writes that report success but don't persist.",
+      changes: [
+        "The write proxy now forwards Nightscout's real response body instead of a plain yes/no",
+        "Test Connection and every real sync now report the id Nightscout assigned the new record, or a clear note when one wasn't returned",
+        "This surfaces cases where a write reports success but nothing actually lands in the treatments collection"
+      ]
+    },
     {
       version: "1.10.2",
       summary: "System Status now shows Nightscout read and write separately, and Test Connection reports the real, complete picture.",
