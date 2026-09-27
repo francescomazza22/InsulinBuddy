@@ -62,6 +62,10 @@
             <svg viewBox="0 0 24 24" fill="none"><path d="M3 12h4l2-7 4 14 2-7h6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
             Correction
           </button>
+          <button class="pill-btn pill-btn--warn" id="cc-no-insulin-toggle" type="button">
+            <svg viewBox="0 0 24 24" fill="none"><path d="M12 19V5M12 19l-5-5M12 19l5-5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Treating a Low
+          </button>
           <button class="pill-btn" id="cc-ratio-pill" type="button">
             <svg viewBox="0 0 24 24" fill="none"><path d="M7 7h11l-3-3M17 17H6l3 3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
             Ratio <span id="cc-ratio-value">1:15</span>
@@ -71,12 +75,16 @@
           </button>
         </div>
 
+        <p class="dose-card__no-insulin-note" id="cc-no-insulin-note" hidden>Logging carbs only — no insulin will be recorded for this entry.</p>
+
         <div class="correction-row" id="cc-correction-row" hidden>
           <label for="cc-glucose">Current glucose</label>
           <div class="correction-row__input">
             <input type="number" id="cc-glucose" inputmode="decimal" min="0" step="0.1" placeholder="0">
             <button type="button" id="cc-glucose-unit" class="correction-row__unit-toggle">mg/dL</button>
           </div>
+          <button type="button" id="cc-fetch-glucose" class="correction-row__fetch-btn" hidden>Fetch from Nightscout</button>
+          <p class="correction-row__fetch-status" id="cc-fetch-glucose-status" hidden></p>
           <p class="correction-row__iob-note" id="cc-iob-adjust-note" hidden></p>
         </div>
       </div>
@@ -495,7 +503,7 @@
         <button class="version-card" id="btn-open-changelog" type="button">
           <div class="version-card__row">
             <span>App Version</span>
-            <span class="version-card__badge" id="version-badge-text">v1.8.3 <svg viewBox="0 0 24 24" fill="none" width="14" height="14"><path d="M9 6l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+            <span class="version-card__badge" id="version-badge-text">v1.9.0 <svg viewBox="0 0 24 24" fill="none" width="14" height="14"><path d="M9 6l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
           </div>
           <p id="version-summary-text">Cloud sync, glycemic index tracking, and stronger data-loss protection since the original rebuild. Tap to see what's changed.</p>
         </button>
