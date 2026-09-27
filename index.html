@@ -54,7 +54,12 @@
       <div class="dose-card">
         <div class="dose-card__top">
           <div class="dose-card__label">INSULIN DOSE</div>
-          <div class="carbs-pill" id="cc-carbs-pill">0.0g Carbs</div>
+          <div class="dose-card__top-right">
+            <div class="carbs-pill" id="cc-carbs-pill">0.0g Carbs</div>
+            <button class="pill-btn pill-btn--icon" id="cc-reset-btn" type="button" aria-label="Reset calculator">
+              <svg viewBox="0 0 24 24" fill="none"><path d="M5 7h14M9 7V5a1 1 0 011-1h4a1 1 0 011 1v2m-9 0l1 12a2 2 0 002 2h6a2 2 0 002-2l1-12" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+          </div>
         </div>
         <div class="dose-card__value"><span id="cc-dose-number">0.0</span><span class="dose-card__unit">units</span></div>
         <div class="dose-card__controls">
@@ -69,9 +74,6 @@
           <button class="pill-btn" id="cc-ratio-pill" type="button">
             <svg viewBox="0 0 24 24" fill="none"><path d="M7 7h11l-3-3M17 17H6l3 3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
             Ratio <span id="cc-ratio-value">1:15</span>
-          </button>
-          <button class="pill-btn pill-btn--icon" id="cc-reset-btn" type="button" aria-label="Reset calculator">
-            <svg viewBox="0 0 24 24" fill="none"><path d="M5 7h14M9 7V5a1 1 0 011-1h4a1 1 0 011 1v2m-9 0l1 12a2 2 0 002 2h6a2 2 0 002-2l1-12" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
           </button>
         </div>
 
@@ -503,7 +505,7 @@
         <button class="version-card" id="btn-open-changelog" type="button">
           <div class="version-card__row">
             <span>App Version</span>
-            <span class="version-card__badge" id="version-badge-text">v1.9.1 <svg viewBox="0 0 24 24" fill="none" width="14" height="14"><path d="M9 6l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+            <span class="version-card__badge" id="version-badge-text">v1.9.2 <svg viewBox="0 0 24 24" fill="none" width="14" height="14"><path d="M9 6l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
           </div>
           <p id="version-summary-text">Cloud sync, glycemic index tracking, and stronger data-loss protection since the original rebuild. Tap to see what's changed.</p>
         </button>
