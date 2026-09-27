@@ -197,7 +197,9 @@ input:focus-visible, select:focus-visible, button:focus-visible { outline: 2px s
 }
 .pill-btn svg { width: 13px; height: 13px; }
 .pill-btn.is-active { background: #fff; color: var(--acc-1); border-color: #fff; }
+.pill-btn--warn.is-active { background: #FBBF24; color: #7C2D12; border-color: #FBBF24; }
 .pill-btn--icon { padding: 6px; margin-left: auto; }
+.dose-card__no-insulin-note { font-size: 0.8rem; color: rgba(255,255,255,0.95); background: rgba(0,0,0,0.15); padding: 8px 10px; border-radius: var(--radius-s); margin: 10px 0 0; }
 .correction-row { margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.25); }
 
 .active-panel {
@@ -227,6 +229,12 @@ input:focus-visible, select:focus-visible, button:focus-visible { outline: 2px s
   text-decoration: underline; text-underline-offset: 2px; white-space: nowrap;
   border-radius: 0 var(--radius-s) var(--radius-s) 0;
 }
+.correction-row__fetch-btn {
+  margin-top: 8px; background: none; border: none; color: #fff; text-decoration: underline;
+  text-underline-offset: 2px; font-size: 0.8rem; font-family: var(--font-ui); cursor: pointer; padding: 0;
+}
+.correction-row__fetch-status { font-size: 0.78rem; color: rgba(255,255,255,0.9); margin: 6px 0 0; }
+.correction-row__fetch-status--error { color: #FED7AA; }
 
 .ratio-picker { background: var(--surface); border: 1.5px solid var(--line); border-radius: var(--radius-m); padding: 10px; margin-bottom: 16px; display: flex; flex-direction: column; gap: 4px; }
 .ratio-picker__item { display: flex; align-items: center; justify-content: space-between; padding: 10px 10px; border-radius: 10px; background: none; border: none; cursor: pointer; font-family: var(--font-ui); text-align: left; }
@@ -398,6 +406,7 @@ html[data-theme="dark"] .cat-snacks, html[data-theme="dark"] .cat-other { filter
 .stat-grams { font-size: 0.76rem; color: var(--ink-soft); }
 .gl-indicator--compact { font-size: 0.68rem; padding: 2px 8px; }
 .dose-pill { background: var(--acc-1); color: #fff; font-size: 0.78rem; font-weight: 700; padding: 4px 10px; border-radius: 999px; display: inline-flex; align-items: center; gap: 4px; }
+.dose-pill--warn { background: #FBBF24; color: #7C2D12; }
 .dose-pill svg { width: 11px; height: 11px; }
 .history-entry__detail { margin-top: 9px; padding-top: 9px; border-top: 1px dashed var(--line); font-size: 0.8rem; color: var(--ink-soft); }
 .history-entry__item { display: flex; align-items: baseline; gap: 8px; margin-bottom: 4px; }

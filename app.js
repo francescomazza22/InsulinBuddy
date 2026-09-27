@@ -346,6 +346,7 @@
   let draft = {
     items: [],          // { refType, refId, name, grams, carbs, kcal }
     correctionOn: false,
+    noInsulinOn: false, // "Treating a Low" — logs carbs with zero insulin regardless of ratio/correction
     glucose: "",
     glucoseUnit: null,  // "mgdl" | "mmol" — which unit the glucose reading is entered in; null = follow Settings
     manualRatioId: null // overrides time-of-day auto ratio; can be a timeRatio or activityRatio id
@@ -945,10 +946,17 @@
 
     let total = mealPart + correctionPart;
     if (state.settings.maxDose > 0 && total > state.settings.maxDose) total = state.settings.maxDose;
-    const finalDose = Math.max(0, roundDose(total));
+    let finalDose = Math.max(0, roundDose(total));
+    let loggedMealDose = roundDose(mealPart);
+    let loggedCorrectionDose = roundDose(correctionPart);
+    if (draft.noInsulinOn) {
+      finalDose = 0;
+      loggedMealDose = 0;
+      loggedCorrectionDose = 0;
+    }
     doseNumber.textContent = finalDose.toFixed(1);
 
-    const hasSomethingToLog = carbs > 0 || correctionPart > 0;
+    const hasSomethingToLog = draft.noInsulinOn ? carbs > 0 : (carbs > 0 || correctionPart > 0);
     logBtn.disabled = !hasSomethingToLog;
     logBtn.classList.toggle("btn--pulse", hasSomethingToLog);
     clearAllBtn.hidden = !hasSomethingToLog;
@@ -965,16 +973,36 @@
       glIndicator.hidden = true;
     }
 
-    draft._computed = { carbs, mealDose: roundDose(mealPart), correctionDose: roundDose(correctionPart), finalDose, ratioEntry };
+    draft._computed = { carbs, mealDose: loggedMealDose, correctionDose: loggedCorrectionDose, finalDose, ratioEntry };
   }
 
   correctionToggle.addEventListener("click", () => {
     draft.correctionOn = !draft.correctionOn;
     correctionToggle.classList.toggle("is-active", draft.correctionOn);
     correctionRow.hidden = !draft.correctionOn;
+    el("cc-fetch-glucose").hidden = !(draft.correctionOn && nightscoutConfigured());
+    el("cc-fetch-glucose-status").hidden = true;
+    if (draft.correctionOn && draft.noInsulinOn) {
+      draft.noInsulinOn = false;
+      el("cc-no-insulin-toggle").classList.remove("is-active");
+      el("cc-no-insulin-note").hidden = true;
+    }
     if (!draft.glucoseUnit) draft.glucoseUnit = state.settings.units;
     glucoseUnitLabel.textContent = unitLabel(draft.glucoseUnit);
     if (draft.correctionOn) glucoseInput.focus();
+    recompute();
+    saveDraftLocal();
+  });
+
+  el("cc-no-insulin-toggle").addEventListener("click", () => {
+    draft.noInsulinOn = !draft.noInsulinOn;
+    el("cc-no-insulin-toggle").classList.toggle("is-active", draft.noInsulinOn);
+    el("cc-no-insulin-note").hidden = !draft.noInsulinOn;
+    if (draft.noInsulinOn && draft.correctionOn) {
+      draft.correctionOn = false;
+      correctionToggle.classList.remove("is-active");
+      correctionRow.hidden = true;
+    }
     recompute();
     saveDraftLocal();
   });
@@ -1036,6 +1064,7 @@
       localStorage.setItem(DRAFT_KEY, JSON.stringify({
         items: draft.items,
         correctionOn: draft.correctionOn,
+        noInsulinOn: draft.noInsulinOn,
         glucose: glucoseInput.value || "",
         glucoseUnit: draft.glucoseUnit,
         manualRatioId: draft.manualRatioId
@@ -1063,6 +1092,11 @@
       correctionRow.hidden = false;
       glucoseUnitLabel.textContent = unitLabel(draft.glucoseUnit);
     }
+    if (saved.noInsulinOn) {
+      draft.noInsulinOn = true;
+      el("cc-no-insulin-toggle").classList.add("is-active");
+      el("cc-no-insulin-note").hidden = false;
+    }
     renderMealItems();
     recompute();
   }
@@ -1080,11 +1114,13 @@
   window.addEventListener("pageshow", e => { if (e.persisted) restoreDraftIfAny(); });
 
   function resetDraft() {
-    draft = { items: [], correctionOn: false, glucose: "", glucoseUnit: null, manualRatioId: null };
+    draft = { items: [], correctionOn: false, noInsulinOn: false, glucose: "", glucoseUnit: null, manualRatioId: null };
     searchInput.value = ""; searchClearBtn.hidden = true; gramsInput.value = ""; gramsInput.disabled = false;
     glucoseInput.value = "";
     correctionToggle.classList.remove("is-active");
     correctionRow.hidden = true;
+    el("cc-no-insulin-toggle").classList.remove("is-active");
+    el("cc-no-insulin-note").hidden = true;
     ratioPicker.hidden = true;
     selectedPickId = null;
     clearDraftLocal();
@@ -1147,6 +1183,7 @@
       glycemicLoad: compoundGiInfo(draft.items),
       mealDose: draft._computed.mealDose,
       correctionDose: draft._computed.correctionDose,
+      noInsulin: draft.noInsulinOn,
       glucose: glucoseVal,
       ratioLabel: ratioEntry ? ratioEntry.name : "",
       ratioValue: ratioEntry ? ratioEntry.ratio : null
@@ -1188,6 +1225,46 @@
     // Nightscout) as well as a bare URL with the token entered separately.
     return state.settings.nightscoutUrl.split("?")[0].replace(/\/+$/, "");
   }
+
+  async function fetchCurrentGlucoseFromNightscout() {
+    const statusEl = el("cc-fetch-glucose-status");
+    statusEl.hidden = false;
+    statusEl.className = "correction-row__fetch-status";
+    statusEl.textContent = "Fetching…";
+    try {
+      const base = nightscoutBaseUrl();
+      const res = await fetch(`${base}/api/v1/entries.json?count=1&token=${encodeURIComponent(nightscoutToken())}`);
+      if (!res.ok) {
+        statusEl.textContent = res.status === 401 || res.status === 403
+          ? `Nightscout rejected the token (HTTP ${res.status}) — check it in Settings.`
+          : `Nightscout responded with an error (HTTP ${res.status}).`;
+        statusEl.classList.add("correction-row__fetch-status--error");
+        return;
+      }
+      const data = await res.json();
+      if (!Array.isArray(data) || data.length === 0 || typeof data[0].sgv !== "number") {
+        statusEl.textContent = "Reached Nightscout, but it didn't return a recent glucose reading.";
+        statusEl.classList.add("correction-row__fetch-status--error");
+        return;
+      }
+      const latest = data[0];
+      const ageMin = Math.round((Date.now() - latest.date) / 60000);
+      const ageText = ageMin <= 0 ? "just now" : ageMin === 1 ? "1 minute ago" : `${ageMin} minutes ago`;
+      const converted = round1(convertGlucose(latest.sgv, "mgdl", draft.glucoseUnit || state.settings.units));
+      glucoseInput.value = converted;
+      glucoseInput.dispatchEvent(new Event("input", { bubbles: true }));
+      if (ageMin > 15) {
+        statusEl.textContent = `Loaded, but this reading is from ${ageText} — that's fairly stale. Worth double-checking before dosing.`;
+        statusEl.classList.add("correction-row__fetch-status--error");
+      } else {
+        statusEl.textContent = `Loaded from ${ageText}. Double-check it looks right before dosing.`;
+      }
+    } catch (e) {
+      statusEl.textContent = "Couldn't reach Nightscout — this usually means the site is blocking cross-origin (CORS) requests. You can still enter your glucose manually.";
+      statusEl.classList.add("correction-row__fetch-status--error");
+    }
+  }
+  el("cc-fetch-glucose").addEventListener("click", fetchCurrentGlucoseFromNightscout);
 
   function buildTreatmentFromEntry(entry) {
     const totalInsulin = round1((entry.mealDose || 0) + (entry.correctionDose || 0));
@@ -1459,6 +1536,15 @@
   // Newest first. version-badge-text/version-summary-text in the Settings
   // card are always drawn from CHANGELOG[0], so the two can never drift.
   const CHANGELOG = [
+    {
+      version: "1.9.0",
+      summary: "Log carbs with no insulin when treating a low, and optionally pull your glucose straight from Nightscout.",
+      changes: [
+        "New \"Treating a Low\" toggle — logs your food and carbs as usual but always records zero insulin, regardless of your ratio",
+        "Carbs logged this way still count toward Carbs on Board; insulin correctly stays at zero on the Active Insulin & Carbs panel",
+        "New \"Fetch from Nightscout\" option in the Correction row, pulling your latest CGM reading (shows its age, and flags it if it's more than 15 minutes stale)"
+      ]
+    },
     {
       version: "1.8.3",
       summary: "The Active Insulin & Carbs graph now shows real axis values, and corrections can optionally account for IOB.",
@@ -1981,6 +2067,9 @@
         row.style.borderLeftColor = meal.color;
         row.dataset.id = entry.id;
         const doseText = entry.correctionDose > 0 ? `${entry.mealDose}+${entry.correctionDose}u` : `${entry.mealDose}u`;
+        const dosePillHtml = entry.noInsulin
+          ? `<span class="dose-pill dose-pill--warn"><svg viewBox="0 0 24 24" fill="none"><path d="M12 19V5M12 19l-5-5M12 19l5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>No Insulin</span>`
+          : `<span class="dose-pill"><svg viewBox="0 0 24 24" fill="none"><path d="M12 2C12 2 5 10.5 5 15.5C5 19.6 8.13 22 12 22C15.87 22 19 19.6 19 15.5C19 10.5 12 2 12 2Z" stroke="currentColor" stroke-width="2"/></svg>${doseText}</span>`;
         row.innerHTML = `
           <div class="history-entry__icon" style="background:${meal.color}">${meal.icon}</div>
           <div class="history-entry__main">
@@ -2003,7 +2092,7 @@
             <span class="stat-kcal">${entry.totalKcal || 0} kcal</span>
             <span class="stat-grams">${entry.totalCarbs}g</span>
             ${entry.glycemicLoad ? `<span class="gl-indicator gl-indicator--${entry.glycemicLoad.value >= 70 ? "high" : entry.glycemicLoad.value >= 56 ? "medium" : "low"} gl-indicator--compact">GI ${entry.glycemicLoad.value}${entry.glycemicLoad.partial ? "*" : ""}</span>` : ""}
-            <span class="dose-pill"><svg viewBox="0 0 24 24" fill="none"><path d="M12 2C12 2 5 10.5 5 15.5C5 19.6 8.13 22 12 22C15.87 22 19 19.6 19 15.5C19 10.5 12 2 12 2Z" stroke="currentColor" stroke-width="2"/></svg>${doseText}</span>
+            ${dosePillHtml}
           </div>
         `;
         groupEl.appendChild(row);
@@ -2164,7 +2253,7 @@
         quantity: i.quantity ?? null, unitLabel: i.unitLabel ?? null, gramsPerUnit: i.gramsPerUnit ?? null,
         carbsPer100g: i.carbsPer100g, kcalPer100g: i.kcalPer100g, gi: i.gi ?? null, carbs: i.carbs, kcal: i.kcal
       })),
-      correctionOn: false, glucose: "", glucoseUnit: null, manualRatioId: null
+      correctionOn: false, noInsulinOn: false, glucose: "", glucoseUnit: null, manualRatioId: null
     };
     searchInput.value = ""; searchClearBtn.hidden = true; gramsInput.value = ""; gramsInput.disabled = false;
     glucoseInput.value = ""; correctionToggle.classList.remove("is-active"); correctionRow.hidden = true;
@@ -3105,7 +3194,7 @@
     document.documentElement.setAttribute("data-palette", state.settings.palette);
     applyTheme();
     applyGiSeedPatch();
-    draft = { items: [], correctionOn: false, glucose: "", glucoseUnit: null, manualRatioId: null };
+    draft = { items: [], correctionOn: false, noInsulinOn: false, glucose: "", glucoseUnit: null, manualRatioId: null };
     renderFoodPickList(); renderMealItems(); recompute();
     restoreDraftIfAny();
     renderActivePanel();
