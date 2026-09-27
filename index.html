@@ -93,16 +93,18 @@
 
       <button class="active-panel" id="active-panel" type="button" hidden>
         <div class="active-panel__stats">
-          <div class="active-panel__stat">
-            <svg viewBox="0 0 24 24" fill="none"><path d="M12 2C12 2 5 10.5 5 15.5C5 19.6 8.13 22 12 22C15.87 22 19 19.6 19 15.5C19 10.5 12 2 12 2Z" stroke="currentColor" stroke-width="1.8"/></svg>
-            <span class="active-panel__value" id="active-iob-value">≈0.0 u</span>
-            <span class="active-panel__sub">active</span>
-          </div>
-          <div class="active-panel__divider"></div>
-          <div class="active-panel__stat">
-            <svg viewBox="0 0 24 24" fill="none"><path d="M4 12c2-6 5-9 8-9s6 3 8 9-3 9-8 9-10-3-8-9Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M8 12h8M9 9h6M9 15h6" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
-            <span class="active-panel__value" id="active-cob-value">≈0 g</span>
-            <span class="active-panel__sub">to absorb</span>
+          <div class="active-panel__stats-left">
+            <div class="active-panel__stat">
+              <svg viewBox="0 0 24 24" fill="none"><path d="M12 2C12 2 5 10.5 5 15.5C5 19.6 8.13 22 12 22C15.87 22 19 19.6 19 15.5C19 10.5 12 2 12 2Z" stroke="currentColor" stroke-width="1.8"/></svg>
+              <span class="active-panel__value" id="active-iob-value">≈0.0 u</span>
+              <span class="active-panel__sub">active</span>
+            </div>
+            <div class="active-panel__divider"></div>
+            <div class="active-panel__stat">
+              <svg viewBox="0 0 24 24" fill="none"><path d="M4 12c2-6 5-9 8-9s6 3 8 9-3 9-8 9-10-3-8-9Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M8 12h8M9 9h6M9 15h6" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+              <span class="active-panel__value" id="active-cob-value">≈0 g</span>
+              <span class="active-panel__sub">to absorb</span>
+            </div>
           </div>
           <svg class="active-panel__chevron" viewBox="0 0 24 24" fill="none"><path d="M9 6l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </div>
@@ -505,7 +507,7 @@
         <button class="version-card" id="btn-open-changelog" type="button">
           <div class="version-card__row">
             <span>App Version</span>
-            <span class="version-card__badge" id="version-badge-text">v1.11.0 <svg viewBox="0 0 24 24" fill="none" width="14" height="14"><path d="M9 6l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+            <span class="version-card__badge" id="version-badge-text">v1.11.1 <svg viewBox="0 0 24 24" fill="none" width="14" height="14"><path d="M9 6l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
           </div>
           <p id="version-summary-text">Cloud sync, glycemic index tracking, and stronger data-loss protection since the original rebuild. Tap to see what's changed.</p>
         </button>

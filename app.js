@@ -1800,6 +1800,14 @@
   // card are always drawn from CHANGELOG[0], so the two can never drift.
   const CHANGELOG = [
     {
+      version: "1.11.1",
+      summary: "Actually fixed the Active Insulin & Carbs panel's spacing this time -- the chevron was leaving ~100px of dead space after it.",
+      changes: [
+        "The stat content and the chevron are now properly balanced across the full row, instead of clustering left with a large empty gap afterward",
+        "The chevron sits at the true trailing edge of the panel, matching standard disclosure-indicator placement"
+      ]
+    },
+    {
       version: "1.11.0",
       summary: "The Active Insulin & Carbs graph now has three tabs: the forward projection, today's real history, and (with Nightscout) an actual glucose trend.",
       changes: [
