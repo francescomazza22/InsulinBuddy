@@ -1,17 +1,19 @@
 // Supabase Edge Function: fetch-nightscout-glucose
 //
-// Proxies a single request to a user's own Nightscout instance
-// (GET /api/v1/entries.json?count=1) from Deno (server-side), so the
+// Proxies a request to a user's own Nightscout instance
+// (GET /api/v1/entries.json?count=N) from Deno (server-side), so the
 // browser never talks to Nightscout directly. This is the whole point:
 // CORS is a browser-only restriction, so it simply doesn't apply to a
 // server-to-server call like this one, even when the Nightscout instance
 // itself has no CORS headers configured.
 //
 // The caller (the app, running in the browser) sends its own Nightscout
-// base URL and token in the request body — nothing is hardcoded here and
-// nothing is stored server-side. Deployed with default JWT verification
-// (the Supabase project's default), so only a signed-in user of this
-// project can invoke it.
+// base URL, token, and an optional count (defaults to 1, capped at 500 --
+// used for pulling a short history for the glucose trend graph, not just
+// the latest single reading) in the request body — nothing is hardcoded
+// here and nothing is stored server-side. Deployed with default JWT
+// verification (the Supabase project's default), so only a signed-in user
+// of this project can invoke it.
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -30,7 +32,7 @@ Deno.serve(async (req: Request) => {
     return new Response("ok", { headers: corsHeaders });
   }
 
-  let body: { baseUrl?: string; token?: string };
+  let body: { baseUrl?: string; token?: string; count?: number };
   try {
     body = await req.json();
   } catch {
@@ -38,6 +40,7 @@ Deno.serve(async (req: Request) => {
   }
 
   const { baseUrl, token } = body;
+  const count = Number.isInteger(body.count) && body.count! > 0 && body.count! <= 500 ? body.count : 1;
   if (!baseUrl || !token) {
     return jsonResponse({ error: "Missing baseUrl or token." }, 400);
   }
@@ -53,7 +56,7 @@ Deno.serve(async (req: Request) => {
     return jsonResponse({ error: "baseUrl must be http(s)." }, 400);
   }
 
-  const nsUrl = `${baseUrl.replace(/\/+$/, "")}/api/v1/entries.json?count=1&token=${encodeURIComponent(token)}`;
+  const nsUrl = `${baseUrl.replace(/\/+$/, "")}/api/v1/entries.json?count=${count}&token=${encodeURIComponent(token)}`;
 
   try {
     const nsRes = await fetch(nsUrl, { headers: { Accept: "application/json" } });

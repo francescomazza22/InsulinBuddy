@@ -804,6 +804,23 @@
     return `${h}h${m}`;
   }
 
+  // Same as buildActiveSeries, but a real historical view: from midnight
+  // today to now, showing what actually happened rather than a forward
+  // projection. No "no further doses" caveat needed here -- it's history.
+  function buildTodaySeries() {
+    const now = Date.now();
+    const startOfDay = new Date(now);
+    startOfDay.setHours(0, 0, 0, 0);
+    const startTime = startOfDay.getTime();
+    const stepMs = 10 * 60000; // 10-minute resolution is plenty over a full day
+    const points = [];
+    for (let t = startTime; t <= now; t += stepMs) {
+      const r = calcActiveInsulinAndCarbs(t);
+      points.push({ t, iob: r.iob, cob: r.cob });
+    }
+    return { points, startTime, endTime: now, now };
+  }
+
   // Builds a (time, iob, cob) series for the detail graph: 30 minutes of
   // recent context, then projected forward (assuming no further doses/meals)
   // until whichever of IOB/COB clears last.
@@ -835,6 +852,7 @@
     const cobPath = points.map((p, i) => `${i === 0 ? "M" : "L"}${xFor(p.t).toFixed(1)},${yForCob(p.cob).toFixed(1)}`).join(" ");
     const nowX = xFor(now).toFixed(1);
     const showStartLabel = (parseFloat(nowX) - padL) > 34;
+    const nowIsAtEnd = (endTime - now) < ((endTime - startTime) * 0.02); // e.g. the Today tab, where "now" IS the right edge
 
     const fmtTime = t => new Date(t).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
 
@@ -866,21 +884,77 @@
     return `
       <svg viewBox="0 0 ${W} ${H}" style="width:100%; height:auto; display:block;">
         ${gridlines}
-        <line x1="${nowX}" y1="${padT}" x2="${nowX}" y2="${padT + plotH}" stroke="var(--ink-soft)" stroke-width="1" stroke-dasharray="3,3" opacity="0.6"/>
+        ${nowIsAtEnd ? "" : `<line x1="${nowX}" y1="${padT}" x2="${nowX}" y2="${padT + plotH}" stroke="var(--ink-soft)" stroke-width="1" stroke-dasharray="3,3" opacity="0.6"/>`}
         <path d="${cobPath}" fill="none" stroke="#D97706" stroke-width="2" stroke-linejoin="round"/>
         <path d="${iobPath}" fill="none" stroke="#3B82F6" stroke-width="2" stroke-linejoin="round"/>
         ${xTicks}
-        ${showStartLabel ? `<text x="${padL}" y="${H - 4}" font-size="9" fill="var(--ink-soft)">${fmtTime(startTime)}</text>` : ""}
-        <text x="${nowX}" y="${H - 4}" font-size="9" fill="var(--ink-soft)" text-anchor="${showStartLabel ? "middle" : "start"}">now</text>
+        ${nowIsAtEnd
+          ? `<text x="${padL}" y="${H - 4}" font-size="9" fill="var(--ink-soft)">${fmtTime(startTime)}</text>`
+          : (showStartLabel ? `<text x="${padL}" y="${H - 4}" font-size="9" fill="var(--ink-soft)">${fmtTime(startTime)}</text>` : "")}
+        ${nowIsAtEnd ? "" : `<text x="${nowX}" y="${H - 4}" font-size="9" fill="var(--ink-soft)" text-anchor="${showStartLabel ? "middle" : "start"}">now</text>`}
+        <text x="${padL + plotW}" y="${H - 4}" font-size="9" fill="var(--ink-soft)" text-anchor="end">${nowIsAtEnd ? "now" : fmtTime(endTime)}</text>
+      </svg>
+    `;
+  }
+
+  function renderGlucoseGraphSVG(entries) {
+    const points = entries
+      .filter(e => typeof e.sgv === "number")
+      .map(e => ({ t: e.date, sgv: e.sgv }))
+      .sort((a, b) => a.t - b.t);
+    if (points.length === 0) return null;
+
+    const W = 320, H = 165, padL = 30, padR = 10, padT = 10, padB = 22;
+    const plotW = W - padL - padR, plotH = H - padT - padB;
+    const startTime = points[0].t, endTime = points[points.length - 1].t;
+    const span = Math.max(1, endTime - startTime);
+    const maxVal = Math.max(220, ...points.map(p => p.sgv));
+    const unit = state.settings.units;
+    const toDisplay = v => unit === "mmol" ? convertGlucose(v, "mgdl", "mmol") : v;
+    const fmtVal = v => unit === "mmol" ? round1(toDisplay(v)) : Math.round(toDisplay(v));
+
+    const xFor = t => padL + ((t - startTime) / span) * plotW;
+    const yFor = v => padT + plotH - (v / maxVal) * plotH;
+
+    const path = points.map((p, i) => `${i === 0 ? "M" : "L"}${xFor(p.t).toFixed(1)},${yFor(p.sgv).toFixed(1)}`).join(" ");
+    const lowY = yFor(70).toFixed(1), highY = yFor(180).toFixed(1);
+
+    const fmtTime = t => new Date(t).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+    const hourMs = 60 * 60000;
+    const firstTick = Math.ceil(startTime / hourMs) * hourMs;
+    let xTicks = "";
+    for (let t = firstTick; t < endTime; t += hourMs) {
+      const x = xFor(t).toFixed(1);
+      xTicks += `<line x1="${x}" y1="${padT + plotH}" x2="${x}" y2="${padT + plotH + 3}" stroke="var(--ink-soft)" stroke-width="1"/>`;
+    }
+
+    return `
+      <svg viewBox="0 0 ${W} ${H}" style="width:100%; height:auto; display:block;">
+        <rect x="${padL}" y="${highY}" width="${plotW}" height="${(parseFloat(lowY) - parseFloat(highY)).toFixed(1)}" fill="#22C55E" opacity="0.08"/>
+        <line x1="${padL}" y1="${lowY}" x2="${padL + plotW}" y2="${lowY}" stroke="#EF4444" stroke-width="1" stroke-dasharray="2,3" opacity="0.6"/>
+        <line x1="${padL}" y1="${highY}" x2="${padL + plotW}" y2="${highY}" stroke="#F59E0B" stroke-width="1" stroke-dasharray="2,3" opacity="0.6"/>
+        <text x="${padL - 4}" y="${(parseFloat(lowY) + 3).toFixed(1)}" font-size="8" fill="#EF4444" text-anchor="end">${fmtVal(70)}</text>
+        <text x="${padL - 4}" y="${(parseFloat(highY) + 3).toFixed(1)}" font-size="8" fill="#F59E0B" text-anchor="end">${fmtVal(180)}</text>
+        <path d="${path}" fill="none" stroke="#3B82F6" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+        <line x1="${padL}" y1="${padT + plotH}" x2="${padL + plotW}" y2="${padT + plotH}" stroke="var(--line)" stroke-width="1"/>
+        ${xTicks}
+        <text x="${padL}" y="${H - 4}" font-size="9" fill="var(--ink-soft)">${fmtTime(startTime)}</text>
         <text x="${padL + plotW}" y="${H - 4}" font-size="9" fill="var(--ink-soft)" text-anchor="end">${fmtTime(endTime)}</text>
       </svg>
     `;
   }
 
+
+  const AIOG_TABS = [
+    { key: "now", label: "Now" },
+    { key: "today", label: "Today" },
+    { key: "glucose", label: "Glucose" }
+  ];
+
   function openActiveDetailSheet() {
-    const series = buildActiveSeries();
     const backdrop = document.createElement("div");
     backdrop.className = "sheet-backdrop";
+    const tabs = nightscoutConfigured() ? AIOG_TABS : AIOG_TABS.filter(t => t.key !== "glucose");
     backdrop.innerHTML = `
       <div class="sheet">
         <div class="sheet-head">
@@ -889,18 +963,69 @@
             <svg viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
           </button>
         </div>
-        <p class="panel-card__hint">Projected forward from now assuming no further food or insulin — a real dose or meal will change this.</p>
-        ${renderActiveGraphSVG(series)}
-        <div style="display:flex; gap:16px; justify-content:center; margin-top:8px;">
-          <span style="display:flex; align-items:center; gap:6px; font-size:0.8rem; color:var(--ink-soft);"><span style="width:10px; height:10px; border-radius:50%; background:#3B82F6; display:inline-block;"></span>Insulin (u)</span>
-          <span style="display:flex; align-items:center; gap:6px; font-size:0.8rem; color:var(--ink-soft);"><span style="width:10px; height:10px; border-radius:50%; background:#D97706; display:inline-block;"></span>Carbs (g)</span>
+        <div class="graph-tabs" id="aiog-tabs">
+          ${tabs.map((t, i) => `<button class="graph-tab${i === 0 ? " is-active" : ""}" data-tab="${t.key}" type="button">${t.label}</button>`).join("")}
         </div>
+        <div id="aiog-content"></div>
       </div>
     `;
     document.body.appendChild(backdrop);
     backdrop.addEventListener("click", e => {
       if (e.target === backdrop || e.target.closest("#aiog-close")) closeSheet(backdrop);
     });
+    backdrop.querySelectorAll(".graph-tab").forEach(btn => {
+      btn.addEventListener("click", () => {
+        backdrop.querySelectorAll(".graph-tab").forEach(b => b.classList.remove("is-active"));
+        btn.classList.add("is-active");
+        renderAiogTab(backdrop, btn.dataset.tab);
+      });
+    });
+    renderAiogTab(backdrop, "now");
+  }
+
+  function aiogLegendHtml() {
+    return `
+      <div style="display:flex; gap:16px; justify-content:center; margin-top:8px;">
+        <span style="display:flex; align-items:center; gap:6px; font-size:0.8rem; color:var(--ink-soft);"><span style="width:10px; height:10px; border-radius:50%; background:#3B82F6; display:inline-block;"></span>Insulin (u)</span>
+        <span style="display:flex; align-items:center; gap:6px; font-size:0.8rem; color:var(--ink-soft);"><span style="width:10px; height:10px; border-radius:50%; background:#D97706; display:inline-block;"></span>Carbs (g)</span>
+      </div>
+    `;
+  }
+
+  async function renderAiogTab(backdrop, tab) {
+    const content = backdrop.querySelector("#aiog-content");
+    if (tab === "now") {
+      const series = buildActiveSeries();
+      content.innerHTML = `
+        <p class="panel-card__hint">Projected forward from now assuming no further food or insulin — a real dose or meal will change this.</p>
+        ${renderActiveGraphSVG(series)}
+        ${aiogLegendHtml()}
+      `;
+    } else if (tab === "today") {
+      const series = buildTodaySeries();
+      content.innerHTML = `
+        <p class="panel-card__hint">What actually happened today, from midnight to now.</p>
+        ${renderActiveGraphSVG(series)}
+        ${aiogLegendHtml()}
+      `;
+    } else if (tab === "glucose") {
+      content.innerHTML = `<p class="panel-card__hint">Loading recent glucose…</p>`;
+      const result = await fetchGlucoseHistory(72); // ~6 hours at typical 5-minute CGM intervals
+      if (!content.isConnected) return; // sheet was closed while this was loading
+      if (!result.ok) {
+        content.innerHTML = `<p class="panel-card__hint" style="color:#B91C1C;">Couldn't load glucose: ${escapeHtml(result.reason)}</p>`;
+        return;
+      }
+      const svg = renderGlucoseGraphSVG(result.entries);
+      if (!svg) {
+        content.innerHTML = `<p class="panel-card__hint">No recent glucose data found.</p>`;
+        return;
+      }
+      content.innerHTML = `
+        <p class="panel-card__hint">Last ~6 hours from Nightscout. Dashed lines mark the standard 70&ndash;180 range.</p>
+        ${svg}
+      `;
+    }
   }
   el("active-panel").addEventListener("click", openActiveDetailSheet);
 
@@ -1256,18 +1381,34 @@
   // request server-side (Deno), sidestepping browser CORS entirely. Requires
   // the user to be signed in to Cloud Sync, since the function verifies a
   // Supabase session by default.
-  async function fetchGlucoseViaSupabaseProxy() {
+  async function fetchGlucoseViaSupabaseProxy(count) {
     if (!supabaseClient) return { ok: false, reason: "no-proxy" };
     if (!currentUser) return { ok: false, reason: "not-signed-in" };
     try {
       const { data, error } = await supabaseClient.functions.invoke("fetch-nightscout-glucose", {
-        body: { baseUrl: nightscoutBaseUrl(), token: nightscoutToken() }
+        body: { baseUrl: nightscoutBaseUrl(), token: nightscoutToken(), count: count || 1 }
       });
       if (error) return { ok: false, reason: error.message || String(error) };
       if (data && data.error) return { ok: false, reason: data.error };
       return { ok: true, data: data.entries };
     } catch (e) {
       return { ok: false, reason: String(e) };
+    }
+  }
+
+  // Fetches recent glucose history (proxy first, falling back to direct) for
+  // the trend graph -- same priority as the single-reading fetch elsewhere.
+  async function fetchGlucoseHistory(count) {
+    const viaProxy = await fetchGlucoseViaSupabaseProxy(count);
+    if (viaProxy.ok) return { ok: true, entries: viaProxy.data };
+    try {
+      const base = nightscoutBaseUrl();
+      const res = await fetch(`${base}/api/v1/entries.json?count=${count}&token=${encodeURIComponent(nightscoutToken())}`);
+      if (!res.ok) return { ok: false, reason: `Nightscout responded with HTTP ${res.status}.` };
+      const data = await res.json();
+      return { ok: true, entries: data };
+    } catch (e) {
+      return { ok: false, reason: viaProxy.reason === "not-signed-in" ? "Sign in to Cloud Sync to load the glucose trend via Supabase, or check your connection." : "Couldn't reach Nightscout for glucose history." };
     }
   }
 
@@ -1658,6 +1799,15 @@
   // Newest first. version-badge-text/version-summary-text in the Settings
   // card are always drawn from CHANGELOG[0], so the two can never drift.
   const CHANGELOG = [
+    {
+      version: "1.11.0",
+      summary: "The Active Insulin & Carbs graph now has three tabs: the forward projection, today's real history, and (with Nightscout) an actual glucose trend.",
+      changes: [
+        "Added tabs to the graph: \"Now\" (the existing forward projection), \"Today\" (what actually happened from midnight to now), and \"Glucose\" (a real CGM trend from Nightscout, when configured)",
+        "The Glucose tab shows the last ~6 hours with the standard 70\u2013180 range shaded, using the same Supabase proxy as the rest of Nightscout sync",
+        "Fixed a label overlap on the Today tab, where \"now\" and the end-of-graph time always coincide"
+      ]
+    },
     {
       version: "1.10.3",
       summary: "Test Connection now shows Nightscout's actual response (including the created-document id), to diagnose writes that report success but don't persist.",
