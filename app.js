@@ -1,5 +1,12 @@
-(() => {
-  "use strict";
+import { escapeHtml, escapeAttr, round1, formatQty, dayKeyFromTs, timeAgo, makeId, redact } from "./js/util.js";
+import { convertGlucose, roundDose as roundDoseWith, activeAt, compoundGiInfo, computeDose, giBand, niceScale, buildTrendBuckets, summarizeTrends, mealTypeBreakdown, absorptionMinutesForEntry as absorptionForEntry, iobFraction, cobGrams } from "./js/calc.js";
+import { SCHEMA_VERSION, normalizeState as normalizeStateWith, makeFingerprint, stampChanges, mergeStates, statesEquivalent, prepareRestoredState, unexplainedEmptying } from "./js/state.js";
+import { NightscoutClient, NsOutbox, nsToken, nsBaseUrl, nsConfigured, treatmentsForEntry } from "./js/nightscout.js";
+import { createDiag, hookGlobalErrors } from "./js/diag.js";
+import { LocalBackups, shouldAutoSnapshot } from "./js/backup.js";
+import { groupByDay, takeEntries, matchesQuery, recentDistinctMeals, mealLabel, PAGE_SIZE } from "./js/history.js";
+import { createDialogs } from "./js/dialogs.js";
+
 
   const STORAGE_KEY = "insulinBuddy.v2";
 
@@ -25,6 +32,7 @@
   let nightscoutReadStatus = { ok: null, via: null, at: null, message: "" };
   let nightscoutWriteStatus = { ok: null, via: null, at: null, message: "" };
   let lastKnownCloudHistoryCount = null; // baseline for the data-loss guard in saveStateCloud()
+  let lastKnownCloudHistoryIds = null;   // ...and exactly WHICH meals the cloud had, so a deliberate delete can be told from an accident
   let cloudSaveBlocked = null; // { fromCount, toCount } when the guard below trips, else null
   const PENDING_SYNC_KEY = "insulinBuddy.pendingSync";
   let cloudSyncPending = localStorage.getItem(PENDING_SYNC_KEY) === "1";
@@ -91,6 +99,8 @@
         carbAbsorptionMinutes: { high: 120, medium: 180, low: 240, unknown: 180 },
         iobAwareCorrection: false,
         nightscoutUrl: "",
+        nsFormat: "combined",   // "combined" (one Meal Bolus) or "split" (carbs and insulin separately)
+        nsSyncEdits: true,       // also update / delete in Nightscout when a meal is edited / deleted
         customBackground: null
       },
       library: structuredClone(typeof SEED_FOODS !== "undefined" ? SEED_FOODS : []),
@@ -98,6 +108,13 @@
       history: []
     };
   }
+
+
+  // ---- thin wrappers: the maths lives in js/calc.js, these bind it to live state ----
+  function roundDose(value) { return roundDoseWith(value, state.settings.rounding); }
+  function calcActiveInsulinAndCarbs(atTime) { return activeAt(state.history, state.settings, atTime); }
+  function normalizeState(parsed) { return normalizeStateWith(parsed, defaultState); }
+  function absorptionMinutesForEntry(entry) { return absorptionForEntry(entry, state.settings.carbAbsorptionMinutes); }
 
   // ================= Optional passphrase lock (client-side encryption) =================
   // This is genuinely real encryption (PBKDF2 + AES-GCM via the Web Crypto API), not a
@@ -177,50 +194,78 @@
     encryptionKey = null;
   }
 
+  let localWasLegacy = false; // true when the saved copy predates the versioned schema (or doesn't exist)
   function loadStatePlain() {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
-      if (!raw) return defaultState();
+      if (!raw) { localWasLegacy = true; return normalizeState({}); }
       const parsed = JSON.parse(raw);
-      const d = defaultState();
-      return {
-        settings: { ...d.settings, ...(parsed.settings || {}) },
-        library: Array.isArray(parsed.library) ? parsed.library : d.library,
-        recipes: Array.isArray(parsed.recipes) ? parsed.recipes : [],
-        history: Array.isArray(parsed.history) ? parsed.history : []
-      };
+      localWasLegacy = parsed.schemaVersion !== SCHEMA_VERSION;
+      return normalizeState(parsed);
     } catch (e) {
       console.error("Could not read saved data, starting fresh.", e);
-      return defaultState();
+      diag.log("error", "storage", "Could not read saved data, starting fresh: " + (e && e.message));
+      localWasLegacy = true;
+      return normalizeState({});
     }
   }
   async function loadStateEncrypted(key) {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return defaultState();
+    if (!raw) return normalizeState({});
     const payload = JSON.parse(raw);
     const json = await decryptString(key, payload);
-    const parsed = JSON.parse(json);
-    const d = defaultState();
-    return {
-      settings: { ...d.settings, ...(parsed.settings || {}) },
-      library: Array.isArray(parsed.library) ? parsed.library : d.library,
-      recipes: Array.isArray(parsed.recipes) ? parsed.recipes : [],
-      history: Array.isArray(parsed.history) ? parsed.history : []
-    };
+    return normalizeState(JSON.parse(json));
   }
 
   let state; // populated by boot() below, once (and if) the lock screen is cleared
 
-  // ================= Cloud sync functions =================
-  function normalizeState(parsed) {
-    const d = defaultState();
-    return {
-      settings: { ...d.settings, ...(parsed.settings || {}) },
-      library: Array.isArray(parsed.library) ? parsed.library : d.library,
-      recipes: Array.isArray(parsed.recipes) ? parsed.recipes : [],
-      history: Array.isArray(parsed.history) ? parsed.history : []
-    };
+  // ================= Services: dialogs, diagnostics, local backups, Nightscout =================
+  const dialogs = createDialogs(document);
+  const diagSecrets = () => { try { return [nightscoutToken()]; } catch { return []; } };
+  const diag = createDiag({ storage: localStorage, secrets: diagSecrets });
+  hookGlobalErrors(window, diag);
+
+  // Rolling local snapshots: a safety net under sync/merge, import and delete-all.
+  const backups = new LocalBackups();
+  const LAST_SNAPSHOT_KEY = "insulinBuddy.lastSnapshot";
+  async function snapshotNow(reason, stateOverride) {
+    try {
+      const st = stateOverride || state;
+      if (!backups.available() || !st) return;
+      const json = JSON.stringify(st);            // captured synchronously, before any caller mutates state
+      let payload = json, encrypted = false;
+      if (encryptionKey) { payload = JSON.stringify(await encryptString(encryptionKey, json)); encrypted = true; }
+      await backups.snapshot(payload, { reason, meals: st.history.length, foods: st.library.length, encrypted });
+      localStorage.setItem(LAST_SNAPSHOT_KEY, String(Date.now()));
+      diag.log("info", "backup", `Snapshot saved (${reason}): ${st.history.length} meals`);
+    } catch (e) { diag.log("warn", "backup", "Snapshot failed: " + ((e && e.message) || e)); }
   }
+  function maybeAutoSnapshot() {
+    const last = Number(localStorage.getItem(LAST_SNAPSHOT_KEY)) || 0;
+    if (shouldAutoSnapshot(last, Date.now())) { localStorage.setItem(LAST_SNAPSHOT_KEY, String(Date.now())); snapshotNow("auto"); }
+  }
+
+  // Nightscout: one client (proxy first, direct fallback) + a persistent outbox.
+  const nsClient = new NightscoutClient({
+    invoke: (name, body) => (supabaseClient && currentUser)
+      ? supabaseClient.functions.invoke(name, { body })
+      : Promise.reject(new Error("not signed in")),
+    diag,
+    onStatus: (kind, ok, via, message) => recordNightscoutStatus(kind, ok, via, message)
+  });
+  const nsOutbox = new NsOutbox({
+    storage: localStorage, client: nsClient, diag,
+    getConfig: () => nsCfg(),
+    onEntryPatch: (entryId, patch) => {
+      const entry = state.history.find(h => h.id === entryId);
+      if (!entry) return;
+      Object.assign(entry, patch);
+      saveState();
+    },
+    onChange: () => refreshNsUi()
+  });
+
+  // ================= Cloud sync functions =================
 
   async function signUp(email, password) {
     if (!supabaseClient) throw new Error("Cloud sync isn't set up yet.");
@@ -239,44 +284,55 @@
 
   async function loadStateCloud() {
     const { data, error } = await supabaseClient
-      .from("app_state").select("data").eq("user_id", currentUser.id).maybeSingle();
+      .from("app_state").select("data, updated_at").eq("user_id", currentUser.id).maybeSingle();
     if (error) {
       console.error("Cloud load failed:", error);
-      return { ok: false }; // couldn't reach the cloud — NOT the same as "no data exists yet"
+      diag.log("error", "sync", "Cloud load failed: " + (error.message || error));
+      return { ok: false }; // couldn't reach the cloud -- NOT the same as "no data exists yet"
     }
-    if (!data) return { ok: true, state: null }; // first sign-in, no row yet — safe to initialize
-    return { ok: true, state: normalizeState(data.data) };
+    if (!data) return { ok: true, state: null }; // first sign-in, no row yet -- safe to initialize
+    return { ok: true, state: normalizeState(data.data), updatedAt: data.updated_at };
   }
   let cloudSaveTimer = null;
   async function saveStateCloud(force) {
     if (!supabaseClient || !currentUser) return;
 
     // Data-loss guard: never silently push a history that's collapsed to zero
-    // compared to the last count we confirmed was really in the cloud. Some
-    // future bug, a bad merge, or a race condition could otherwise silently
-    // overwrite real data with nothing — this stops that whole class of
-    // failure from ever reaching the cloud, regardless of what causes it.
-    if (!force && lastKnownCloudHistoryCount != null && lastKnownCloudHistoryCount > 0 && state.history.length === 0) {
-      cloudSaveBlocked = { fromCount: lastKnownCloudHistoryCount, toCount: 0 };
-      console.error(`Cloud save blocked: history would drop from ${lastKnownCloudHistoryCount} to 0. This looks like a bug, not an intentional change — not syncing until confirmed.`);
-      markPending();
-      renderStatusPanel();
-      return;
+    // compared to the last count we confirmed was really in the cloud.
+    // An empty history is only allowed through if every meal the cloud had was
+    // deliberately deleted (each leaves a deletion marker). Anything else that
+    // empties the history is a bug, not a decision, so it must not reach the cloud.
+    if (!force && state.history.length === 0 && lastKnownCloudHistoryIds && lastKnownCloudHistoryIds.size > 0) {
+      const unexplained = unexplainedEmptying(state, lastKnownCloudHistoryIds);
+      if (unexplained.length > 0) {
+        cloudSaveBlocked = { fromCount: lastKnownCloudHistoryIds.size, toCount: 0 };
+        console.error(`Cloud save blocked: history would drop from ${lastKnownCloudHistoryIds.size} to 0.`);
+        diag.log("error", "sync", `Cloud save blocked: history would drop from ${lastKnownCloudHistoryIds.size} to 0 with ${unexplained.length} meals not deliberately deleted`);
+        markPending();
+        renderStatusPanel();
+        return;
+      }
     }
 
     clearTimeout(cloudSaveTimer);
     await new Promise(resolve => {
       cloudSaveTimer = setTimeout(async () => {
         try {
-          const { error } = await supabaseClient.from("app_state").upsert({
-            user_id: currentUser.id, data: state, updated_at: new Date().toISOString()
-          });
+          // Merge first: if another device wrote since we last synced, fold its
+          // changes in BEFORE uploading, so nothing it saved can be overwritten.
+          await pullAndMerge("before save");
+          const { data: up, error } = await supabaseClient.from("app_state")
+            .upsert({ user_id: currentUser.id, data: state, updated_at: new Date().toISOString() })
+            .select("updated_at").maybeSingle();
           if (error) throw error;
+          lastKnownCloudUpdatedAt = up ? up.updated_at : null;   // unknown => next save re-checks (safe)
           cloudSaveBlocked = null;
           lastKnownCloudHistoryCount = state.history.length;
+          lastKnownCloudHistoryIds = new Set(state.history.map(h => h.id));
           markSynced();
         } catch (e) {
-          console.error("Cloud save failed (offline?) — will retry once back online:", e);
+          console.error("Cloud save failed (offline?) -- will retry once back online:", e);
+          diag.log("warn", "sync", "Cloud save failed, will retry: " + ((e && e.message) || e));
           markPending();
         }
         resolve();
@@ -285,6 +341,53 @@
   }
   // Escape hatch for the rare genuine case (someone really did delete all their
   // history) — bypasses the guard above exactly once, on explicit request.
+  // ---- multi-device merge (see js/state.js for the rules) ----
+  let lastKnownCloudUpdatedAt = null; // the cloud row's updated_at as of our last sync
+  let stateFp = null;                 // fingerprint of the last saved state, to spot what changed
+  let lastPullAt = 0;
+
+  // Cheap check first (just updated_at); only download + merge when someone else wrote.
+  async function pullAndMerge(reason) {
+    if (!supabaseClient || !currentUser) return false;
+    const head = await supabaseClient.from("app_state").select("updated_at").eq("user_id", currentUser.id).maybeSingle();
+    if (head.error) throw head.error;
+    if (!head.data) return false;
+    lastPullAt = Date.now();
+    if (head.data.updated_at === lastKnownCloudUpdatedAt) return false;
+    const full = await loadStateCloud();
+    if (!full.ok) throw new Error("Couldn't download the cloud copy");
+    if (!full.state) return false;
+    lastKnownCloudUpdatedAt = full.updatedAt;
+    return applyRemoteState(full.state, reason);
+  }
+
+  function applyRemoteState(remote, reason) {
+    const merged = mergeStates(state, remote, defaultState);
+    if (statesEquivalent(merged, state)) return false;
+    snapshotNow("before-merge");
+    state.settings = merged.settings;
+    state.settingsUpdatedAt = merged.settingsUpdatedAt;
+    state.library = merged.library;
+    state.recipes = merged.recipes;
+    state.history = merged.history;
+    state.deleted = merged.deleted;
+    stateFp = makeFingerprint(state);            // merged data is already known: don't re-stamp it
+    saveStateRaw(state, encryptionKey).catch(e => console.error("Local save after merge failed:", e));
+    diag.log("info", "sync", `Merged changes from another device (${reason}); ${state.history.length} meals`);
+    renderAfterSync();
+    return true;
+  }
+
+  // Refresh what's on screen after a background merge WITHOUT resetting the
+  // meal being built in the Calculator (renderEverything() would).
+  function renderAfterSync() {
+    document.documentElement.setAttribute("data-palette", state.settings.palette);
+    applyTheme();
+    renderFoodPickList(); renderMealItems(); recompute(); renderActivePanel();
+    renderLibrary(); renderHistory();
+    if (!el("view-settings").hidden) renderSettings();
+  }
+
   async function forceSyncNow() {
     cloudSaveBlocked = null;
     await saveStateCloud(true);
@@ -315,12 +418,16 @@
   async function attemptReconnectSync() {
     if (!supabaseClient) return;
     if (currentUser) {
-      if (cloudSyncPending) await saveStateCloud();
+      try {
+        if (cloudSyncPending) await saveStateCloud();                       // merges, then uploads
+        else if (Date.now() - lastPullAt > 15000) await pullAndMerge("returned to app");
+      } catch (e) { diag.log("warn", "sync", "Background sync failed: " + ((e && e.message) || e)); }
+      flushNightscoutQueue();
       return;
     }
     // We're in local-fallback mode (e.g. the app booted while fully offline).
-    // See if a session is reachable now, and if so, treat our local copy —
-    // the freshest thing we actually know about — as what should be pushed up.
+    // See if a session is reachable now; if so, our local copy is what should be
+    // merged with the cloud and pushed up.
     try {
       const { data: { session } } = await supabaseClient.auth.getSession();
       if (session && session.user) {
@@ -329,7 +436,7 @@
         renderEverything();
       }
     } catch (e) {
-      // still offline — nothing to do, we'll try again on the next trigger
+      // still offline -- nothing to do, we'll try again on the next trigger
     }
   }
   window.addEventListener("online", attemptReconnectSync);
@@ -344,7 +451,10 @@
     }
   }
   async function saveState() {
+    if (!stateFp) { stateFp = makeFingerprint(state); diag.log("warn", "state", "saveState ran before the change baseline existed"); }
+    stateFp = stampChanges(state, stateFp);   // notice what changed since the last save
     await saveStateRaw(state, encryptionKey);
+    maybeAutoSnapshot();
     if (currentUser) await saveStateCloud();
   }
 
@@ -383,7 +493,7 @@
     el("cc-sticky-log-bar").hidden = name !== "calculator";
     if (name === "calculator") renderActivePanel();
     if (name === "library") renderLibrary();
-    if (name === "history") renderHistory();
+    if (name === "history") { historyLimit = PAGE_SIZE; renderHistory(); }
     if (name === "settings") renderSettings();
   }
   tabs.forEach(t => t.addEventListener("click", () => showView(t.dataset.target)));
@@ -406,11 +516,6 @@
     return list.find(r => inRange(minutes, r.start, r.end)) || list[0] || null;
   }
   function unitLabel(unit) { return (unit || state.settings.units) === "mmol" ? "mmol/L" : "mg/dL"; }
-  const MGDL_PER_MMOL = 18.0182;
-  function convertGlucose(value, fromUnit, toUnit) {
-    if (fromUnit === toUnit) return value;
-    return fromUnit === "mmol" ? value * MGDL_PER_MMOL : value / MGDL_PER_MMOL;
-  }
 
   function activeRatioEntry() {
     if (draft.manualRatioId) {
@@ -444,10 +549,6 @@
 
   let selectedPickId = null; // id of highlighted item in the pick list (format "food:ID" or "recipe:ID")
 
-  function roundDose(value) {
-    const step = parseFloat(state.settings.rounding);
-    return Math.round((Math.round(value / step) * step) * 100) / 100;
-  }
 
   function recipeTotals(recipe) {
     let carbs = 0, kcal = 0;
@@ -698,17 +799,8 @@
   mealItemsBox.addEventListener("pointerup", endSwipe);
   mealItemsBox.addEventListener("pointercancel", endSwipe);
 
-  function round1(n) { return Math.round(n * 10) / 10; }
-  function formatQty(n) { return n % 1 === 0 ? String(n) : String(round1(n)); }
 
   function totalCarbs() { return draft.items.reduce((s, i) => s + i.carbs, 0); }
-  function compoundGiInfo(items) {
-    const withGi = items.filter(i => i.gi != null && i.carbs > 0);
-    const totalCarbsWithGi = withGi.reduce((s, i) => s + i.carbs, 0);
-    if (withGi.length === 0 || totalCarbsWithGi === 0) return null;
-    const weightedSum = withGi.reduce((s, i) => s + i.gi * i.carbs, 0);
-    return { value: Math.round(weightedSum / totalCarbsWithGi), partial: withGi.length < items.filter(i => i.carbs > 0).length };
-  }
 
   // ================= Active Insulin & Carbs (IOB / COB) =================
   // IOB: the "scalable exponential" insulin activity model used by Loop,
@@ -719,40 +811,18 @@
   // after it was given. tau/a/S are derived (not tuned by hand) so the
   // curve is analytically exactly 1 (100%) at t=0 and exactly 0 at t=DIA,
   // with a smooth single peak in between.
-  function iobFraction(minutesAgo, peakMinutes, diaMinutes) {
-    if (minutesAgo <= 0) return 1;
-    if (minutesAgo >= diaMinutes) return 0;
-    const tp = peakMinutes, td = diaMinutes, t = minutesAgo;
-    const tau = tp * (1 - tp / td) / (1 - 2 * tp / td);
-    const a = 2 * tau / td;
-    const S = 1 / (1 - a + (1 + a) * Math.exp(-td / tau));
-    return 1 - S * (1 - a) * ((t * t / (tau * td * (1 - a)) - t / tau - 1) * Math.exp(-t / tau) + 1);
-  }
 
   // COB: a deliberately simple linear decay -- carbs remaining fall at a
   // constant rate from 100% of the meal's carbs at t=0 to 0% at the meal's
   // own absorption time. This trades physiological precision (real
   // absorption is closer to a bell curve) for a curve anyone can audit by
   // hand, which is what was asked for here.
-  function cobGrams(minutesAgo, carbs, absorptionMinutes) {
-    if (minutesAgo <= 0) return carbs;
-    if (minutesAgo >= absorptionMinutes) return 0;
-    return carbs * (1 - minutesAgo / absorptionMinutes);
-  }
 
   // Which absorption time applies to a given logged meal, based on its
   // snapshotted compound GI -- reusing the exact same high/medium/low bands
   // (>=70 / 56-69 / <=55) as the compound-GI indicator shown elsewhere in
   // the app, so a meal that reads "high GI" there uses the "high" time here
   // too. Meals with no GI data at all fall back to the "unknown" default.
-  function absorptionMinutesForEntry(entry) {
-    const m = state.settings.carbAbsorptionMinutes;
-    if (!entry.glycemicLoad) return m.unknown;
-    const gi = entry.glycemicLoad.value;
-    if (gi >= 70) return m.high;
-    if (gi >= 56) return m.medium;
-    return m.low;
-  }
 
   // Sums IOB across every logged dose in the last DIA minutes, and COB
   // across every logged meal still within its own absorption window
@@ -762,38 +832,6 @@
   // constructed to hit exactly zero at its own dose/meal's cutoff time --
   // the total therefore reaches zero exactly when the last-contributing
   // dose/meal does.
-  function calcActiveInsulinAndCarbs(atTime) {
-    const now = atTime != null ? atTime : Date.now();
-    const dia = state.settings.insulinModel.diaMinutes;
-    const peak = state.settings.insulinModel.peakMinutes;
-    const carbAbs = state.settings.carbAbsorptionMinutes;
-    const maxAbsorption = Math.max(carbAbs.high, carbAbs.medium, carbAbs.low, carbAbs.unknown);
-
-    let iob = 0, cob = 0, iobClearAt = 0, cobClearAt = 0;
-
-    state.history.forEach(entry => {
-      const minutesAgo = (now - entry.ts) / 60000;
-      const totalDose = (entry.mealDose || 0) + (entry.correctionDose || 0);
-      if (totalDose > 0 && minutesAgo >= 0 && minutesAgo < dia) {
-        iob += totalDose * iobFraction(minutesAgo, peak, dia);
-        iobClearAt = Math.max(iobClearAt, entry.ts + dia * 60000);
-      }
-      if (entry.totalCarbs > 0 && minutesAgo >= 0 && minutesAgo < maxAbsorption) {
-        const absorption = absorptionMinutesForEntry(entry);
-        if (minutesAgo < absorption) {
-          cob += cobGrams(minutesAgo, entry.totalCarbs, absorption);
-          cobClearAt = Math.max(cobClearAt, entry.ts + absorption * 60000);
-        }
-      }
-    });
-
-    return {
-      iob: Math.round(iob * 10) / 10,
-      cob: Math.round(cob),
-      iobClearAt: iob > 0.05 ? iobClearAt : null,
-      cobClearAt: cob > 0.5 ? cobClearAt : null
-    };
-  }
 
   function formatDuration(ms) {
     const totalMin = Math.max(0, Math.round(ms / 60000));
@@ -1340,21 +1378,116 @@
   // each logged meal to your own Nightscout site, as a standard "Meal Bolus"
   // treatment — the same format apps like Loop and xDrip already use, so it
   // shows up in Nightscout's normal treatment views/reports.
-  const NS_QUEUE_KEY = "insulinBuddy.nsQueue";
 
-  function nightscoutToken() {
-    const m = (state.settings.nightscoutUrl || "").match(/[?&]token=([^&]+)/);
-    return m ? decodeURIComponent(m[1]) : null;
+
+
+
+  function nightscoutToken() { return nsToken(state.settings.nightscoutUrl); }
+  function nightscoutBaseUrl() { return nsBaseUrl(state.settings.nightscoutUrl); }
+  function nightscoutConfigured() { return nsConfigured(state.settings.nightscoutUrl); }
+  function nsCfg() { return nightscoutConfigured() ? { baseUrl: nightscoutBaseUrl(), token: nightscoutToken() } : null; }
+  const nsFormat = () => (state.settings.nsFormat === "split" ? "split" : "combined");
+
+  // Human wording for a Nightscout failure.
+  function friendlyNsError(err) {
+    if (!err) return "Something went wrong talking to Nightscout.";
+    if (err.kind === "http") {
+      return (err.status === 401 || err.status === 403)
+        ? `Nightscout rejected the token (HTTP ${err.status}) — check it in Settings.`
+        : `Nightscout responded with an error (HTTP ${err.status}).`;
+    }
+    if (err.kind === "proxy") return err.message;
+    if (err.kind === "config") return "Nightscout isn't set up yet.";
+    return /not signed in/.test(err.message || "")
+      ? "Couldn't reach Nightscout directly (likely CORS) — sign in to Cloud Sync in Settings to fetch through Supabase instead."
+      : "Couldn't reach Nightscout — this usually means CORS is blocking it, and the Supabase proxy isn't available either. You can still enter your glucose manually.";
   }
 
-  function nightscoutConfigured() {
-    return !!(state.settings.nightscoutUrl && nightscoutToken());
+  // Recent glucose history for the trend graph.
+  async function fetchGlucoseHistory(count) {
+    const cfg = nsCfg();
+    if (!cfg) return { ok: false, reason: "Nightscout isn't set up yet." };
+    try { const r = await nsClient.read(cfg, count); return { ok: true, entries: r.entries }; }
+    catch (e) { return { ok: false, reason: friendlyNsError(e) }; }
   }
 
-  function nightscoutBaseUrl() {
-    // Accept a URL that already has a ?token=... on it (as pasted straight from
-    // Nightscout) as well as a bare URL with the token entered separately.
-    return state.settings.nightscoutUrl.split("?")[0].replace(/\/+$/, "");
+  async function fetchCurrentGlucoseFromNightscout() {
+    const statusEl = el("cc-fetch-glucose-status");
+    statusEl.hidden = false;
+    statusEl.className = "correction-row__fetch-status";
+    statusEl.textContent = "Fetching…";
+    const cfg = nsCfg();
+    if (!cfg) { statusEl.textContent = "Nightscout isn't set up yet."; statusEl.classList.add("correction-row__fetch-status--error"); return; }
+    try {
+      const r = await nsClient.read(cfg, 1);
+      applyFetchedGlucoseEntries(r.entries, statusEl);
+    } catch (e) {
+      statusEl.textContent = friendlyNsError(e);
+      statusEl.classList.add("correction-row__fetch-status--error");
+    }
+  }
+
+  // ---- delivery: everything goes through the outbox so it survives being offline ----
+  function syncEntryToNightscout(entry) {
+    if (!nightscoutConfigured()) return;
+    nsOutbox.enqueueCreate(entry, { format: nsFormat(), units: state.settings.units });
+    flushNightscoutQueue();
+  }
+  // Edits/deletes only follow a meal that has actually been (or is about to be) sent.
+  function queueNsUpdate(entry) {
+    if (!nightscoutConfigured() || state.settings.nsSyncEdits === false) return;
+    if (!entry.ns && !nsOutbox.pendingFor(entry.id)) return;
+    nsOutbox.enqueueUpdate(entry, { format: nsFormat(), units: state.settings.units });
+    flushNightscoutQueue();
+  }
+  function queueNsDelete(entry) {
+    if (!nightscoutConfigured() || state.settings.nsSyncEdits === false) return;
+    nsOutbox.enqueueDelete(entry.id, entry.ns && entry.ns.ids);
+    flushNightscoutQueue();
+  }
+  // Undo of a delete: cancel the pending removal, or re-send if it already went out.
+  function undoNsDelete(entry) {
+    if (!nightscoutConfigured()) return;
+    if (nsOutbox.cancelDelete(entry.id)) return;
+    if (entry.ns && entry.ns.ids && Object.values(entry.ns.ids).some(Boolean)) { delete entry.ns; syncEntryToNightscout(entry); }
+  }
+  // immediate = the user (or the network coming back) asked for a retry, so skip the back-off wait.
+  async function flushNightscoutQueue(immediate) {
+    const r = immediate === true ? await nsOutbox.retryAll() : await nsOutbox.flush();
+    refreshNsUi();
+    return r;
+  }
+  function refreshNsUi() {
+    try {
+      if (!state) return;
+      if (!el("view-settings").hidden) { renderNightscoutSection(); if (!el("panel-data").hidden) renderStatusPanel(); }
+      if (!el("view-history").hidden) renderHistoryBadges();
+    } catch (e) { /* UI not ready yet */ }
+  }
+
+  async function testNightscoutConnection() {
+    const cfg = nsCfg();
+    if (!cfg) { renderNsStatus("Enter a URL and token first.", true); return; }
+    renderNsStatus("Testing…");
+    let read, write, cleaned = false;
+    try { const r = await nsClient.read(cfg, 1); read = { ok: true, via: r.via }; }
+    catch (e) { read = { ok: false, msg: friendlyNsError(e) }; }
+    try {
+      const w = await nsClient.create(cfg, { eventType: "Note", notes: "Insulin Buddy — connection test (safe to delete)", created_at: new Date().toISOString(), enteredBy: "Insulin Buddy" });
+      write = { ok: true, via: w.via, id: w.id };
+      if (w.id) { try { await nsClient.remove(cfg, w.id); cleaned = true; } catch (e) { /* not all servers allow deletes */ } }
+    } catch (e) { write = { ok: false, msg: friendlyNsError(e) }; }
+
+    const how = v => (v === "proxy" ? "via the Supabase proxy" : "directly");
+    if (read.ok && write.ok) {
+      const note = cleaned ? " The test note was created and removed again."
+        : write.id ? ` A test note was created (record ${write.id}) — feel free to delete it.` : " A test note was created — feel free to delete it.";
+      renderNsStatus(`Read works ${how(read.via)} and write works ${how(write.via)}.${note}`);
+    } else if (read.ok || write.ok) {
+      renderNsStatus(`Read: ${read.ok ? "working " + how(read.via) : "failed — " + read.msg}. Write: ${write.ok ? "working " + how(write.via) : "failed — " + write.msg}.`, true);
+    } else {
+      renderNsStatus(`Nothing is reaching Nightscout right now. Read: ${read.msg} Write: ${write.msg}`, true);
+    }
   }
 
   function applyFetchedGlucoseEntries(data, statusEl) {
@@ -1381,36 +1514,9 @@
   // request server-side (Deno), sidestepping browser CORS entirely. Requires
   // the user to be signed in to Cloud Sync, since the function verifies a
   // Supabase session by default.
-  async function fetchGlucoseViaSupabaseProxy(count) {
-    if (!supabaseClient) return { ok: false, reason: "no-proxy" };
-    if (!currentUser) return { ok: false, reason: "not-signed-in" };
-    try {
-      const { data, error } = await supabaseClient.functions.invoke("fetch-nightscout-glucose", {
-        body: { baseUrl: nightscoutBaseUrl(), token: nightscoutToken(), count: count || 1 }
-      });
-      if (error) return { ok: false, reason: error.message || String(error) };
-      if (data && data.error) return { ok: false, reason: data.error };
-      return { ok: true, data: data.entries };
-    } catch (e) {
-      return { ok: false, reason: String(e) };
-    }
-  }
 
   // Fetches recent glucose history (proxy first, falling back to direct) for
   // the trend graph -- same priority as the single-reading fetch elsewhere.
-  async function fetchGlucoseHistory(count) {
-    const viaProxy = await fetchGlucoseViaSupabaseProxy(count);
-    if (viaProxy.ok) return { ok: true, entries: viaProxy.data };
-    try {
-      const base = nightscoutBaseUrl();
-      const res = await fetch(`${base}/api/v1/entries.json?count=${count}&token=${encodeURIComponent(nightscoutToken())}`);
-      if (!res.ok) return { ok: false, reason: `Nightscout responded with HTTP ${res.status}.` };
-      const data = await res.json();
-      return { ok: true, entries: data };
-    } catch (e) {
-      return { ok: false, reason: viaProxy.reason === "not-signed-in" ? "Sign in to Cloud Sync to load the glucose trend via Supabase, or check your connection." : "Couldn't reach Nightscout for glucose history." };
-    }
-  }
 
   function recordNightscoutStatus(kind, ok, via, message) {
     const rec = { ok, via, at: Date.now(), message };
@@ -1420,72 +1526,9 @@
     if (!el("view-settings").hidden && !el("panel-data").hidden) renderStatusPanel();
   }
 
-  async function fetchCurrentGlucoseFromNightscout() {
-    const statusEl = el("cc-fetch-glucose-status");
-    statusEl.hidden = false;
-    statusEl.className = "correction-row__fetch-status";
-    statusEl.textContent = "Fetching…";
-
-    const viaProxy = await fetchGlucoseViaSupabaseProxy();
-    if (viaProxy.ok) {
-      recordNightscoutStatus("read", true, "proxy", "Read succeeded via the Supabase proxy.");
-      applyFetchedGlucoseEntries(viaProxy.data, statusEl);
-      return;
-    }
-
-    // Proxy unavailable, not signed in, or it failed -- fall back to a direct
-    // browser request, which still works for any Nightscout instance that
-    // does allow CORS.
-    try {
-      const base = nightscoutBaseUrl();
-      const res = await fetch(`${base}/api/v1/entries.json?count=1&token=${encodeURIComponent(nightscoutToken())}`);
-      if (!res.ok) {
-        const msg = res.status === 401 || res.status === 403
-          ? `Nightscout rejected the token (HTTP ${res.status}) — check it in Settings.`
-          : `Nightscout responded with an error (HTTP ${res.status}).`;
-        recordNightscoutStatus("read", false, "direct", msg);
-        statusEl.textContent = msg;
-        statusEl.classList.add("correction-row__fetch-status--error");
-        return;
-      }
-      const data = await res.json();
-      recordNightscoutStatus("read", true, "direct", "Read succeeded via a direct request.");
-      applyFetchedGlucoseEntries(data, statusEl);
-    } catch (e) {
-      const msg = viaProxy.reason === "not-signed-in"
-        ? "Couldn't reach Nightscout directly (likely CORS) — sign in to Cloud Sync in Settings to fetch through Supabase instead."
-        : "Couldn't reach Nightscout — this usually means CORS is blocking it, and the Supabase proxy isn't available either. You can still enter your glucose manually.";
-      recordNightscoutStatus("read", false, "none", msg);
-      statusEl.textContent = msg;
-      statusEl.classList.add("correction-row__fetch-status--error");
-    }
-  }
   el("cc-fetch-glucose").addEventListener("click", fetchCurrentGlucoseFromNightscout);
 
-  function buildTreatmentFromEntry(entry) {
-    const totalInsulin = round1((entry.mealDose || 0) + (entry.correctionDose || 0));
-    const treatment = {
-      eventType: "Meal Bolus",
-      carbs: entry.totalCarbs,
-      insulin: totalInsulin,
-      created_at: new Date(entry.ts).toISOString(),
-      enteredBy: "Insulin Buddy",
-      notes: entry.items.map(i => i.name).join(", ")
-    };
-    if (entry.glucose != null) {
-      // Nightscout expects glucose in mg/dL regardless of the site's display unit.
-      treatment.glucose = state.settings.units === "mmol" ? round1(convertGlucose(entry.glucose, "mmol", "mgdl")) : entry.glucose;
-      treatment.glucoseType = "Finger";
-    }
-    return treatment;
-  }
 
-  function loadNsQueue() {
-    try { return JSON.parse(localStorage.getItem(NS_QUEUE_KEY)) || []; } catch (e) { return []; }
-  }
-  function saveNsQueue(queue) {
-    try { localStorage.setItem(NS_QUEUE_KEY, JSON.stringify(queue)); } catch (e) { /* non-fatal */ }
-  }
 
   function renderNsStatus(message, isError) {
     const box = el("ns-status");
@@ -1494,170 +1537,19 @@
     box.style.color = isError ? "var(--brick)" : "";
   }
 
-  let nightscoutLastWriteResponse = null; // raw body from Nightscout's own POST response, for diagnostics
 
-  async function sendTreatmentToNightscout(treatment) {
-    // Try the Supabase proxy first (bypasses browser CORS entirely, same as
-    // the glucose read); fall back to a direct POST if that's not available.
-    if (supabaseClient && currentUser) {
-      try {
-        const { data, error } = await supabaseClient.functions.invoke("write-nightscout-treatment", {
-          body: { baseUrl: nightscoutBaseUrl(), token: nightscoutToken(), treatment }
-        });
-        if (!error && data && data.ok) {
-          nightscoutLastWriteResponse = data.body;
-          const idNote = extractNightscoutId(data.body);
-          recordNightscoutStatus("write", true, "proxy", `Write succeeded via the Supabase proxy.${idNote}`);
-          return;
-        }
-        if (!error && data && data.error) throw new Error(data.error);
-        if (error) throw new Error(error.message || String(error));
-      } catch (e) {
-        // Proxy failed -- fall through to a direct attempt below rather than
-        // giving up, since it might still work for a CORS-friendly instance.
-      }
-    }
-    const url = `${nightscoutBaseUrl()}/api/v1/treatments?token=${encodeURIComponent(nightscoutToken())}`;
-    let res, rawText;
-    try {
-      res = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(treatment)
-      });
-      rawText = await res.text();
-    } catch (e) {
-      const msg = e && e.message ? e.message : "Could not reach Nightscout directly, and the Supabase proxy isn't available either.";
-      recordNightscoutStatus("write", false, "none", msg);
-      throw e;
-    }
-    let parsedBody = rawText;
-    try { parsedBody = JSON.parse(rawText); } catch (e) { /* leave as raw text */ }
-    nightscoutLastWriteResponse = parsedBody;
-    if (!res.ok) {
-      const msg = `Nightscout responded with HTTP ${res.status}.`;
-      recordNightscoutStatus("write", false, "direct", msg);
-      throw new Error("Nightscout responded with " + res.status);
-    }
-    const idNote = extractNightscoutId(parsedBody);
-    recordNightscoutStatus("write", true, "direct", `Write succeeded via a direct request.${idNote}`);
-  }
 
   // Nightscout's POST response normally echoes back the created document(s),
   // including the _id it assigned -- surfacing that here lets you search for
   // this exact record in the raw treatments.json data to confirm it actually
   // persisted, not just that the request returned success.
-  function extractNightscoutId(body) {
-    const doc = Array.isArray(body) ? body[0] : body;
-    if (doc && typeof doc === "object" && doc._id) return ` Nightscout returned id: ${doc._id}`;
-    return " (Nightscout's response didn't include the usual created-document id -- worth checking the raw response.)";
-  }
 
-  async function syncEntryToNightscout(entry) {
-    if (!nightscoutConfigured()) return;
-    await flushNightscoutQueue(); // send anything still pending first, oldest-first
-    const treatment = buildTreatmentFromEntry(entry);
-    try {
-      await sendTreatmentToNightscout(treatment);
-      renderNsStatus("Last meal synced to Nightscout.");
-    } catch (e) {
-      console.error("Nightscout sync failed, will retry:", e);
-      const queue = loadNsQueue();
-      queue.push(treatment);
-      saveNsQueue(queue);
-      const reason = e && e.message ? ` (${e.message})` : "";
-      renderNsStatus(`Couldn't reach Nightscout${reason} — ${queue.length} entr${queue.length === 1 ? "y" : "ies"} waiting to sync. Try "Test Connection" for details.`, true);
-    }
-  }
 
-  async function flushNightscoutQueue() {
-    if (!nightscoutConfigured()) return;
-    let queue = loadNsQueue();
-    if (queue.length === 0) return;
-    while (queue.length > 0) {
-      try {
-        await sendTreatmentToNightscout(queue[0]);
-        queue.shift();
-        saveNsQueue(queue);
-      } catch (e) {
-        break; // still failing — stop and leave the rest queued for next time
-      }
-    }
-    if (queue.length === 0) renderNsStatus("All entries synced to Nightscout.");
-    else renderNsStatus(`Couldn't reach Nightscout — ${queue.length} entr${queue.length === 1 ? "y" : "ies"} waiting to sync.`, true);
-  }
 
-  async function testNightscoutConnection() {
-    if (!nightscoutConfigured()) {
-      renderNsStatus("Enter a URL and token first.", true);
-      return;
-    }
-    renderNsStatus("Testing…");
 
-    // Read: reuses the exact same proxy-then-direct logic as a real fetch,
-    // so this genuinely reflects what happens when you tap "Fetch from
-    // Nightscout" -- not just a guess about what CORS might do.
-    const viaProxyRead = await fetchGlucoseViaSupabaseProxy();
-    let readOk = false, readVia = null, readMsg = "";
-    if (viaProxyRead.ok) {
-      readOk = true; readVia = "proxy"; readMsg = "Read succeeded via the Supabase proxy.";
-    } else {
-      try {
-        const base = nightscoutBaseUrl();
-        const res = await fetch(`${base}/api/v1/entries.json?count=1&token=${encodeURIComponent(nightscoutToken())}`);
-        if (res.ok) {
-          readOk = true; readVia = "direct"; readMsg = "Read succeeded via a direct request.";
-        } else {
-          readMsg = `Nightscout responded with HTTP ${res.status} when read directly.`;
-        }
-      } catch (e) {
-        readMsg = viaProxyRead.reason === "not-signed-in"
-          ? "Direct read blocked (likely CORS) — sign in to Cloud Sync to enable the Supabase proxy as a workaround."
-          : `Direct read blocked (likely CORS), and the Supabase proxy also failed: ${viaProxyRead.reason}`;
-      }
-    }
-    recordNightscoutStatus("read", readOk, readVia, readMsg);
+  window.addEventListener("online", () => flushNightscoutQueue(true));
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) flushNightscoutQueue(true); });
 
-    // Write: an actual write through the exact same function a real sync
-    // uses (proxy-then-direct), so write permission is tested for real.
-    // Uses a clearly-labeled Note (not a Meal Bolus) so it can't be mistaken
-    // for real meal data, and is safe to delete from Nightscout's Treatments view.
-    let writeOk = false;
-    try {
-      await sendTreatmentToNightscout({
-        eventType: "Note",
-        notes: "Insulin Buddy — connection test (safe to delete)",
-        created_at: new Date().toISOString(),
-        enteredBy: "Insulin Buddy"
-      });
-      writeOk = true;
-    } catch (e) {
-      // sendTreatmentToNightscout already recorded the specific failure.
-    }
-    const writeVia = nightscoutWriteStatus.via;
-    const writeMsg = nightscoutWriteStatus.message;
-
-    if (readOk && writeOk) {
-      if (readVia === "direct" && writeVia === "direct") {
-        renderNsStatus(`Connected directly! A test note was created in Nightscout — feel free to delete it. ${writeMsg}`);
-      } else if (readVia === "proxy" && writeVia === "proxy") {
-        renderNsStatus(`Direct requests are blocked (likely CORS), but the Supabase proxy handles both read and write fine — sync will use that automatically. ${writeMsg}`);
-      } else {
-        renderNsStatus(`Read works ${readVia === "proxy" ? "via the Supabase proxy" : "directly"}; write works ${writeVia === "proxy" ? "via the Supabase proxy" : "directly"}. ${writeMsg}`);
-      }
-    } else if (readOk || writeOk) {
-      renderNsStatus(`Read: ${readOk ? "working" : "failed — " + readMsg}. Write: ${writeOk ? "working" : "failed — " + writeMsg}.`, true);
-    } else {
-      renderNsStatus(`Nothing is reaching Nightscout right now. Read: ${readMsg} Write: ${writeMsg}`, true);
-    }
-  }
-
-  window.addEventListener("online", flushNightscoutQueue);
-  document.addEventListener("visibilitychange", () => { if (!document.hidden) flushNightscoutQueue(); });
-
-  function escapeHtml(s) {
-    return String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-  }
 
   // ================= Undo toast =================
   let undoTimer = null;
@@ -1799,6 +1691,28 @@
   // Newest first. version-badge-text/version-summary-text in the Settings
   // card are always drawn from CHANGELOG[0], so the two can never drift.
   const CHANGELOG = [
+    {
+      version: "2.0.0",
+      summary: "Multi-device sync no longer loses data; Nightscout sync now follows edits and deletes; big safety net added underneath everything.",
+      changes: [
+        "Fixed: using the app on two devices could silently overwrite meals logged on the other one — changes from both devices are now merged instead",
+        "Fixed: deleting a meal could come back if another device synced afterwards — deletes now stick",
+        "Editing or deleting a logged meal now updates or removes it in Nightscout too (previously only the first write ever reached Nightscout); this can be turned off in Settings",
+        "Nightscout can now send each meal as one combined entry or as separate carb/insulin entries — your choice in Settings",
+        "The Nightscout connection now goes through a rewritten, hardened proxy (no more open-URL risk) — old direct-URL fallback still works if you're briefly offline",
+        "Fixed a security issue where a food's saved name/unit could run code on the History screen",
+        "History now loads instantly regardless of how many meals you have (older meals load with a \"Show older\" button), and can be searched",
+        "Added a Nightscout sync status badge on each meal in History — tap it to see details or retry a failed one",
+        "Fixed: editing a \"treating a low\" entry could accidentally add back an insulin dose",
+        "Fixed: correction-only entries (no food) couldn't be saved from the edit sheet",
+        "Fixed: editing a meal's items didn't recompute how quickly its carbs are absorbed, leaving Active Insulin & Carbs slightly stale afterwards",
+        "This device now automatically keeps its last 10 backups (Settings → Data), so a bad sync or accidental import/delete can be undone",
+        "Added a Diagnostics report (Settings → Data) — a copyable, redacted summary to help track down sync or Nightscout problems",
+        "Alerts and confirmations now use the app's own style instead of the browser's plain pop-ups",
+        "Added offline caching (a service worker) that updates itself automatically on each new deploy, so you are never stuck on stale code",
+        "Internal: rebuilt on a tested module architecture (over 140 automated tests covering the sync/merge logic, Nightscout delivery, and the security proxy)"
+      ]
+    },
     {
       version: "1.12.1",
       summary: "The food list now uses the full window height on tablets and computers.",
@@ -2153,7 +2067,6 @@
     });
   }
 
-  function escapeAttr(s) { return escapeHtml(s).replace(/"/g, "&quot;"); }
 
   function renderRecipesLibrary() {
     const q = libSearch.value.trim().toLowerCase();
@@ -2373,6 +2286,10 @@
   const historyGroups = el("history-groups");
   const historyEmpty = el("history-empty");
   const histCountPill = el("hist-count-pill");
+  const historySearch = el("history-search");
+  const historyMore = el("history-more");
+  const historyNoMatch = el("history-nomatch");
+  let historyLimit = PAGE_SIZE;   // how many meals the Log shows before "Show older"
 
   function formatDateHeader(ts) {
     return new Date(ts).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" }).toUpperCase();
@@ -2387,23 +2304,26 @@
 
   let expandedHistoryId = null;
 
-  function renderHistory() {
+  function renderHistory(opts = {}) {
     histCountPill.textContent = `${state.history.length} meal${state.history.length === 1 ? "" : "s"}`;
     historyEmpty.hidden = state.history.length > 0;
     historyGroups.innerHTML = "";
-    if (state.history.length === 0) { renderTrends(trendsRange); return; }
+    if (state.history.length === 0) {
+      historyMore.hidden = true; historyNoMatch.hidden = true;
+      if (!opts.skipTrends) renderTrends(trendsRange);
+      return;
+    }
 
-    const groups = [];
-    let currentKey = null, currentGroup = null;
-    state.history.forEach(entry => {
-      const k = dateKey(entry.ts);
-      if (k !== currentKey) {
-        currentGroup = { key: k, ts: entry.ts, entries: [] };
-        groups.push(currentGroup);
-        currentKey = k;
-      }
-      currentGroup.entries.push(entry);
-    });
+    // Search, then page: only the newest days are drawn until "Show older" is tapped,
+    // so the list stays fast however long the history gets.
+    const query = historySearch.value.trim();
+    const filtered = query ? state.history.filter(e => matchesQuery(e, query, ts => formatDateHeader(ts))) : state.history;
+    if (query) histCountPill.textContent = `${filtered.length} of ${state.history.length}`;
+    historyNoMatch.hidden = filtered.length > 0;
+    const { visible, hidden } = takeEntries(filtered, historyLimit);
+    const groups = groupByDay(visible);
+    historyMore.hidden = hidden === 0;
+    historyMore.textContent = `Show older meals (${hidden} more)`;
 
     groups.forEach(group => {
       const groupEl = document.createElement("div");
@@ -2426,12 +2346,12 @@
         row.innerHTML = `
           <div class="history-entry__icon" style="background:${meal.color}">${meal.icon}</div>
           <div class="history-entry__main">
-            <p class="history-entry__title">${meal.label} <span class="muted">· ${formatTime(entry.ts)} · ${escapeHtml(entry.periodName || "")}</span></p>
+            <p class="history-entry__title">${meal.label} <span class="muted">· ${formatTime(entry.ts)} · ${escapeHtml(entry.periodName || "")}</span>${nsBadgeHtml(entry)}</p>
             <p class="history-entry__foods">${entry.items.length ? entry.items.map(i => escapeHtml(i.name)).join(", ") : "No food — correction only"}</p>
             <div class="history-entry__detail" hidden>
               ${entry.items.map(i => {
                 const isUnit = i.quantity != null && i.unitLabel;
-                const qtyLabel = isUnit ? `${formatQty(i.quantity)} ${i.unitLabel}${i.quantity === 1 ? "" : "s"}` : (i.grams ? i.grams + "g" : "");
+                const qtyLabel = isUnit ? `${formatQty(i.quantity)} ${escapeHtml(i.unitLabel)}${i.quantity === 1 ? "" : "s"}` : (i.grams ? escapeHtml(i.grams) + "g" : "");
                 return `<div class="history-entry__item"><span class="history-entry__item-name">${escapeHtml(i.name)}</span><span class="history-entry__item-qty">${qtyLabel}</span><span class="history-entry__item-carbs">${round1(i.carbs)}g</span></div>`;
               }).join("")}
               <div class="history-entry__row-actions">
@@ -2452,7 +2372,7 @@
       });
       historyGroups.appendChild(groupEl);
     });
-    renderTrends(trendsRange);
+    if (!opts.skipTrends) renderTrends(trendsRange);
   }
 
   // ---- Trends ----
@@ -2480,23 +2400,9 @@
     renderTrends(trendsRange);
   });
 
-  function dayKeyFromTs(ts) {
-    const d = new Date(ts);
-    d.setHours(0, 0, 0, 0);
-    return d.getTime();
-  }
 
   // "Nice" axis scale: picks a round step (1/2/5 x 10^k) so the gridlines land
   // on readable numbers, and rounds the max up to the next step.
-  function niceScale(maxVal, targetTicks) {
-    if (!(maxVal > 0)) return { max: 1, step: 1 };
-    const rough = maxVal / targetTicks;
-    const pow = Math.pow(10, Math.floor(Math.log10(rough)));
-    const frac = rough / pow;
-    const niceFrac = frac <= 1 ? 1 : frac <= 2 ? 2 : frac <= 5 ? 5 : 10;
-    const step = niceFrac * pow;
-    return { max: Math.ceil(maxVal / step - 1e-9) * step, step };
-  }
 
   function trendGeometry(n, maxVal, containerWidth) {
     const W = Math.max(containerWidth || 320, 220), H = 172;
@@ -2665,6 +2571,45 @@
     }).join("");
   }
 
+  // ---- Nightscout sync badge shown on each logged meal ----
+  function nsBadgeHtml(entry) {
+    if (!nightscoutConfigured()) return "";
+    const pending = nsOutbox.pendingFor(entry.id);
+    let cls, label, title;
+    if (pending) { cls = "pending"; label = "NS ↻"; title = pending.lastError ? `Waiting to sync — ${pending.lastError}` : "Waiting to sync to Nightscout"; }
+    else if (entry.ns && entry.ns.status === "failed") { cls = "failed"; label = "NS !"; title = `Couldn't sync: ${entry.ns.error || "unknown error"}. Tap to retry.`; }
+    else if (entry.ns && entry.ns.status === "synced") { cls = entry.ns.warn ? "warn" : "ok"; label = "NS ✓"; title = entry.ns.warn || "Synced to Nightscout"; }
+    else return "";
+    return `<button type="button" class="ns-badge ns-badge--${cls}" data-nsbadge="${escapeAttr(entry.id)}" title="${escapeAttr(title)}">${label}</button>`;
+  }
+  function renderHistoryBadges() {
+    historyGroups.querySelectorAll(".history-entry").forEach(row => {
+      const entry = state.history.find(h => h.id === row.dataset.id);
+      const title = row.querySelector(".history-entry__title");
+      if (!entry || !title) return;
+      const old = title.querySelector(".ns-badge");
+      if (old) old.remove();
+      const html = nsBadgeHtml(entry);
+      if (html) title.insertAdjacentHTML("beforeend", html);
+    });
+  }
+  async function onNsBadgeClick(entry) {
+    const pending = nsOutbox.pendingFor(entry.id);
+    if (!pending && entry.ns && entry.ns.status === "failed") {
+      const retry = await dialogs.confirm(`This meal couldn't be sent to Nightscout:\n${entry.ns.error || "unknown error"}\n\nTry again?`, { title: "Nightscout sync", confirmText: "Retry" });
+      if (!retry) return;
+      const hasIds = entry.ns.ids && Object.values(entry.ns.ids).some(Boolean);
+      if (hasIds) nsOutbox.enqueueUpdate(entry, { format: nsFormat(), units: state.settings.units });
+      else nsOutbox.enqueueCreate(entry, { format: nsFormat(), units: state.settings.units });
+      flushNightscoutQueue(true);
+      return;
+    }
+    if (pending) { await dialogs.alert(pending.lastError ? `Still waiting to sync.\nLast problem: ${pending.lastError}` : "Waiting to sync to Nightscout.", { title: "Nightscout sync" }); return; }
+    await dialogs.alert(entry.ns && entry.ns.warn ? entry.ns.warn : "This meal is in Nightscout.", { title: "Nightscout sync" });
+  }
+  historySearch.addEventListener("input", () => { historyLimit = PAGE_SIZE; renderHistory({ skipTrends: true }); });
+  historyMore.addEventListener("click", () => { historyLimit += PAGE_SIZE; renderHistory({ skipTrends: true }); });
+
   function renderTrends(days) {
     const chartCarbsBox = el("trend-chart-carbs");
     const chartDoseBox = el("trend-chart-dose");
@@ -2790,16 +2735,24 @@
   });
 
   historyGroups.addEventListener("click", e => {
+    const badgeBtn = e.target.closest("[data-nsbadge]");
+    if (badgeBtn) {
+      const entry = state.history.find(h => h.id === badgeBtn.dataset.nsbadge);
+      if (entry) onNsBadgeClick(entry);
+      return;
+    }
     const delBtn = e.target.closest("[data-del]");
     if (delBtn) {
       const idx = state.history.findIndex(h => h.id === delBtn.dataset.del);
       const [removed] = state.history.splice(idx, 1);
       saveState();
+      queueNsDelete(removed);
       renderHistory();
       renderActivePanel();
       showUndoToast("Meal deleted", () => {
         state.history.splice(idx, 0, removed);
         saveState();
+        undoNsDelete(removed);
         renderHistory();
         renderActivePanel();
       });
@@ -2983,16 +2936,18 @@
     renderItems();
     backdrop.addEventListener("click", e => { if (e.target === backdrop || e.target.id === "em-cancel" || e.target.closest("#em-close")) closeSheet(backdrop); });
     backdrop.querySelector("#em-save").addEventListener("click", () => {
-      if (items.length === 0) { alert("A meal needs at least one item — delete it instead if you want it gone."); return; }
+      if (items.length === 0 && entry.mealType !== "correction") { dialogs.alert("A meal needs at least one item — delete it instead if you want it gone."); return; }
       const totalCarbs = round1(items.reduce((s, i) => s + i.carbs, 0));
       const totalKcal = Math.round(items.reduce((s, i) => s + (i.kcal || 0), 0));
-      const mealDose = selectedRatioValue ? roundDose(totalCarbs / selectedRatioValue) : entry.mealDose;
-      let correctionDose = 0;
+      // "Treating a low" entries never carry insulin, however they're edited.
+      const mealDose = entry.noInsulin ? 0 : (selectedRatioValue ? roundDose(totalCarbs / selectedRatioValue) : entry.mealDose);
+      // Keep the logged correction unless a glucose reading is re-entered below.
+      let correctionDose = entry.noInsulin ? 0 : (entry.correctionDose || 0);
       const glucoseInputEl2 = backdrop.querySelector("#em-glucose");
       let newGlucose = entry.glucose;
       if (glucoseInputEl2) {
         newGlucose = parseFloat(glucoseInputEl2.value) || null;
-        if (newGlucose) correctionDose = roundDose(Math.max(0, (newGlucose - state.settings.target) / state.settings.isf));
+        if (!entry.noInsulin) correctionDose = newGlucose ? roundDose(Math.max(0, (newGlucose - state.settings.target) / state.settings.isf)) : 0;
       }
       entry.mealType = mealType;
       entry.items = items;
@@ -3003,6 +2958,7 @@
       entry.glucose = newGlucose;
       entry.ratioValue = selectedRatioValue;
       entry.ratioLabel = selectedRatioLabel;
+      entry.glycemicLoad = compoundGiInfo(items);   // was left stale, which skewed carb absorption after an edit
       const timeInputEl = backdrop.querySelector("#em-logged-time");
       if (timeInputEl && timeInputEl.value) {
         const newTs = new Date(timeInputEl.value).getTime();
@@ -3012,6 +2968,7 @@
         }
       }
       saveState();
+      queueNsUpdate(entry);
       renderHistory();
       renderActivePanel();
       closeSheet(backdrop);
@@ -3053,26 +3010,120 @@
     el("dark-mode-auto-toggle").checked = state.settings.darkModeAuto;
     renderAccountSection();
     renderNightscoutSection();
+    renderBackupsSection();
+    renderDiagSection();
     el("privacy-panel-card").hidden = !!currentUser;
     if (!currentUser) renderPrivacySection();
   }
 
   const BG_PRESETS = ["#F5F3EE", "#E1EDF7", "#EDE5F5", "#E5EFE7", "#F7E8E6", "#E7E9EC"];
 
-  function timeAgo(ms) {
-    if (!ms) return "";
-    const s = Math.floor((Date.now() - ms) / 1000);
-    if (s < 10) return "just now";
-    if (s < 60) return `${s}s ago`;
-    const m = Math.floor(s / 60);
-    if (m < 60) return `${m} min ago`;
-    const h = Math.floor(m / 60);
-    return `${h}h ago`;
-  }
 
   function statusRow(label, dotClass, detail) {
     return `<div class="status-row"><span class="status-dot status-dot--${dotClass}"></span><div><p class="status-row__title">${label}</p><p class="status-row__detail">${detail}</p></div></div>`;
   }
+
+  // ---- Automatic local backups ----
+  async function renderBackupsSection() {
+    const box = el("backups-list");
+    if (!box) return;
+    if (!backups.available()) { box.innerHTML = '<p class="panel-card__hint">Local backups aren\'t available in this browser.</p>'; return; }
+    let list = [];
+    try { list = await backups.list(); } catch (e) { box.innerHTML = '<p class="panel-card__hint">Couldn\'t read the backup store.</p>'; return; }
+    if (list.length === 0) { box.innerHTML = '<p class="panel-card__hint">No snapshots yet. One is taken automatically as you use the app.</p>'; return; }
+    const reasonText = { auto: "Automatic", manual: "Manual", "before-merge": "Before a sync merge", "before-sign-in-merge": "Before signing in", "before-restore": "Before a restore", "before-import": "Before an import", "before-delete": "Before delete-all" };
+    box.innerHTML = list.map(b => `
+      <div class="backup-row">
+        <div class="backup-row__main">
+          <p class="backup-row__title">${escapeHtml(new Date(b.ts).toLocaleString([], { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }))} · ${escapeHtml(reasonText[b.reason] || b.reason)}</p>
+          <p class="backup-row__sub">${b.meals} meals · ${b.foods} foods${b.encrypted ? " · encrypted" : ""}</p>
+        </div>
+        <button type="button" data-restore="${b.ts}">Restore</button>
+      </div>`).join("");
+  }
+  el("backups-list").addEventListener("click", e => {
+    const btn = e.target.closest("[data-restore]");
+    if (btn) restoreSnapshot(Number(btn.dataset.restore));
+  });
+  el("btn-backup-now").addEventListener("click", async () => {
+    await snapshotNow("manual");
+    renderBackupsSection();
+    dialogs.alert("Snapshot saved on this device.", { title: "Backed up" });
+  });
+  async function restoreSnapshot(ts) {
+    const snap = await backups.get(ts);
+    if (!snap) { await dialogs.alert("That snapshot is no longer available."); return; }
+    const when = new Date(ts).toLocaleString();
+    const ok = await dialogs.confirm(`Go back to how everything was on ${when}?\n\nMeals, foods and settings added or changed since then will be undone (a snapshot of the current state is taken first, so you can undo this).`, { title: "Restore backup", confirmText: "Restore", danger: true });
+    if (!ok) return;
+    let json = snap.data;
+    try {
+      if (snap.encrypted) {
+        if (!encryptionKey) { await dialogs.alert("That snapshot is encrypted with your passphrase, which isn't unlocked right now.", { title: "Can't restore" }); return; }
+        json = await decryptString(encryptionKey, JSON.parse(snap.data));
+      }
+      const parsed = JSON.parse(json);
+      await snapshotNow("before-restore");
+      state = prepareRestoredState(parsed, state, defaultState);
+      stateFp = makeFingerprint(state);
+      await saveStateRaw(state, encryptionKey);
+      if (currentUser) await saveStateCloud(true);
+      diag.log("info", "backup", `Restored snapshot from ${when}: ${state.history.length} meals`);
+      renderEverything();
+      await dialogs.alert(`Restored: ${state.history.length} meals, ${state.library.length} foods.`, { title: "Backup restored" });
+    } catch (e) {
+      diag.log("error", "backup", "Restore failed: " + ((e && e.message) || e));
+      await dialogs.alert("That snapshot couldn't be read, so nothing was changed.", { title: "Restore failed" });
+    }
+  }
+
+  // ---- Diagnostics ----
+  function diagContext() {
+    let nsHost = "not set up";
+    try { if (nightscoutConfigured()) nsHost = new URL(nightscoutBaseUrl()).host; } catch (e) { nsHost = "invalid URL"; }
+    const sw = "serviceWorker" in navigator ? (navigator.serviceWorker.controller ? "controlled" : "not controlling") : "unsupported";
+    return {
+      version: CHANGELOG[0].version,
+      "schema": SCHEMA_VERSION,
+      "user agent": navigator.userAgent,
+      "online": navigator.onLine,
+      "installed app": (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) || navigator.standalone === true,
+      "time zone offset (min)": new Date().getTimezoneOffset(),
+      "cloud": currentUser ? "signed in" : (supabaseClient ? "signed out" : "not configured"),
+      "cloud sync pending": cloudSyncPending,
+      "cloud row updated_at": lastKnownCloudUpdatedAt || "unknown",
+      "meals / foods / recipes": `${state.history.length} / ${state.library.length} / ${state.recipes.length}`,
+      "nightscout host": nsHost,
+      "nightscout format": nsFormat(),
+      "nightscout read": nightscoutReadStatus.at ? `${nightscoutReadStatus.ok ? "ok" : "failed"} via ${nightscoutReadStatus.via} - ${nightscoutReadStatus.message}` : "not checked",
+      "nightscout write": nightscoutWriteStatus.at ? `${nightscoutWriteStatus.ok ? "ok" : "failed"} via ${nightscoutWriteStatus.via} - ${nightscoutWriteStatus.message}` : "not checked",
+      "outbox jobs": nsOutbox.count(),
+      "outbox last error": nsOutbox.lastError() || "none",
+      "service worker": sw
+    };
+  }
+  function renderDiagSection() {
+    const n = diag.count(), errs = diag.errorCount();
+    el("diag-summary").textContent = n === 0 ? "Nothing logged yet." : `${n} recent events recorded${errs ? `, ${errs} of them errors` : ""}. The report never includes your meals, glucose or tokens.`;
+  }
+  async function copyText(text) {
+    try { if (navigator.clipboard && navigator.clipboard.writeText) { await navigator.clipboard.writeText(text); return true; } } catch (e) { /* fall through */ }
+    try {
+      const ta = document.createElement("textarea");
+      ta.value = text; ta.setAttribute("readonly", ""); ta.style.cssText = "position:fixed;top:0;left:0;opacity:0;";
+      document.body.appendChild(ta); ta.select();
+      const ok = document.execCommand("copy");
+      ta.remove();
+      return ok;
+    } catch (e) { return false; }
+  }
+  el("btn-diag-copy").addEventListener("click", async () => {
+    const ok = await copyText(diag.report(diagContext()));
+    dialogs.alert(ok ? "Copied. Paste it into a message to share it." : "Couldn't copy automatically on this device.", { title: ok ? "Report copied" : "Copy failed" });
+  });
+  el("btn-diag-clear").addEventListener("click", async () => {
+    if (await dialogs.confirm("Clear the diagnostics log?", { confirmText: "Clear" })) { diag.clear(); renderDiagSection(); }
+  });
 
   async function renderStatusPanel() {
     const rows = [];
@@ -3108,7 +3159,7 @@
         rows.push(statusRow("Nightscout Read", "error", `${escapeHtml(nightscoutReadStatus.message)} · checked ${timeAgo(nightscoutReadStatus.at)}`));
       }
 
-      const queueLen = loadNsQueue().length;
+      const queueLen = nsOutbox.count();
       if (!nightscoutWriteStatus.at) {
         rows.push(statusRow("Nightscout Write", "off", "Not checked yet — log a meal, or use Test Connection below."));
       } else if (queueLen > 0) {
@@ -3236,7 +3287,9 @@
   function renderNightscoutSection() {
     const urlInput = el("ns-url");
     if (document.activeElement !== urlInput) urlInput.value = state.settings.nightscoutUrl || "";
-    const queueLen = loadNsQueue().length;
+    el("ns-format").value = nsFormat();
+    el("ns-sync-edits").checked = state.settings.nsSyncEdits !== false;
+    const queueLen = nsOutbox.count();
     if (!state.settings.nightscoutUrl) {
       renderNsStatus("Paste your Nightscout URL above (including its ?token=...) to enable automatic sync.");
     } else if (!nightscoutConfigured()) {
@@ -3713,10 +3766,12 @@
     saveState();
     renderNightscoutSection();
   });
+  el("ns-format").addEventListener("change", e => { state.settings.nsFormat = e.target.value === "split" ? "split" : "combined"; saveState(); });
+  el("ns-sync-edits").addEventListener("change", e => { state.settings.nsSyncEdits = e.target.checked; saveState(); });
   el("btn-ns-test").addEventListener("click", () => { testNightscoutConnection(); });
   el("btn-ns-refresh").addEventListener("click", async () => {
     renderNsStatus("Checking…");
-    await flushNightscoutQueue();
+    await flushNightscoutQueue(true);
     renderNightscoutSection();
   });
 
@@ -3731,7 +3786,13 @@
       await supabaseClient.from("app_state").delete().eq("user_id", currentUser.id);
       await signOut();
     }
-    state = defaultState();
+    try { await backups.clear(); } catch (e) { /* none */ }
+    nsOutbox.jobs = []; nsOutbox._save();
+    [PENDING_SYNC_KEY, LAST_SNAPSHOT_KEY, "insulinBuddy.diag", "insulinBuddy.nsQueue"].forEach(k => localStorage.removeItem(k));
+    diag.clear();
+    cloudSyncPending = false; lastKnownCloudUpdatedAt = null; lastKnownCloudHistoryCount = null; lastKnownCloudHistoryIds = null;
+    state = normalizeState({});
+    stateFp = makeFingerprint(state);
     renderEverything();
     alert("All data has been deleted.");
   });
@@ -3790,6 +3851,7 @@
   async function finishInit() {
     document.documentElement.setAttribute("data-palette", state.settings.palette);
     applyTheme();
+    if (!stateFp) stateFp = makeFingerprint(state);
     applyGiSeedPatch();
     renderFoodPickList();
     renderMealItems();
@@ -3802,10 +3864,16 @@
 
     // Keep the auto-selected ratio (and the settings timeline's "now" marker) accurate
     // as real time passes, not just at page load.
+    nsOutbox.migrateLegacy();
+    flushNightscoutQueue();
+    diag.log("info", "boot", `App started (v${CHANGELOG[0].version}); ${state.history.length} meals; cloud ${currentUser ? "signed in" : "off"}`);
+    let tick = 0;
     setInterval(() => {
       if (!draft.manualRatioId) recompute();
       if (!el("view-settings").hidden && !panelRatios.hidden) renderTimeline();
       if (!el("view-calculator").hidden) renderActivePanel();
+      if (currentUser && !cloudSyncPending && !document.hidden && ++tick % 4 === 0) pullAndMerge("periodic").catch(() => {});
+      flushNightscoutQueue();
     }, 30000);
   }
 
@@ -3828,33 +3896,45 @@
       supabaseClient.auth.onAuthStateChange(async (_event, session) => {
         if (session && session.user) {
           currentUser = session.user;
-          if (cloudSyncPending) {
-            // We have unsynced local edits from a previous offline session —
-            // those are the freshest thing we know about. Push them up rather
-            // than pulling the (now-stale) cloud copy and silently losing them.
-            state = loadStatePlain();
-            await saveStateCloud();
-          } else {
-            const result = await loadStateCloud();
-            if (!result.ok) {
-              // Couldn't reach the cloud right now (network hiccup, etc.) — this is
-              // NOT the same as "no data exists yet". Fall back to whatever's saved
-              // locally and leave the cloud row completely untouched, so a bad
-              // network moment can never overwrite real data with an empty state.
-              cloudLoadStatus = { ok: false, message: "Couldn't load your data from the cloud — showing what's saved on this device instead.", at: Date.now() };
-              state = loadStatePlain();
-            } else if (result.state) {
-              cloudLoadStatus = { ok: true, message: "", at: Date.now() };
+          const local = loadStatePlain();
+          const localLegacy = localWasLegacy;
+          const result = await loadStateCloud();
+          if (!result.ok) {
+            // Couldn't reach the cloud right now (network hiccup, etc.) -- NOT the
+            // same as "no data exists yet". Use what's saved on this device and
+            // leave the cloud row completely untouched.
+            cloudLoadStatus = { ok: false, message: "Couldn't load your data from the cloud — showing what's saved on this device instead.", at: Date.now() };
+            state = local;
+          } else if (result.state) {
+            cloudLoadStatus = { ok: true, message: "", at: Date.now() };
+            lastKnownCloudUpdatedAt = result.updatedAt;
+            lastKnownCloudHistoryCount = result.state.history.length;
+            lastKnownCloudHistoryIds = new Set(result.state.history.map(h => h.id));
+            if (localLegacy && !cloudSyncPending) {
+              // First run after upgrading (or a brand-new device): the old local copy
+              // has no change markers, so the cloud copy is authoritative -- exactly
+              // what happened before merging existed.
               state = result.state;
-              lastKnownCloudHistoryCount = state.history.length;
             } else {
-              // Genuinely no cloud row yet for this account — safe to create one.
-              cloudLoadStatus = { ok: true, message: "", at: Date.now() };
-              state = defaultState();
-              lastKnownCloudHistoryCount = 0;
-              await saveStateCloud();
+              // Merge this device's edits (including any made offline) with the cloud's.
+              snapshotNow("before-sign-in-merge", local);
+              state = mergeStates(local, result.state, defaultState);
+              if (!statesEquivalent(state, result.state)) { stateFp = makeFingerprint(state); await saveStateCloud(); }
             }
+          } else {
+            // Genuinely no cloud row yet for this account: keep whatever is on this
+            // device (don't discard it) and create the row from it.
+            cloudLoadStatus = { ok: true, message: "", at: Date.now() };
+            state = local;
+            lastKnownCloudHistoryCount = 0;
+            lastKnownCloudHistoryIds = new Set();
+            stateFp = makeFingerprint(state);
+            await saveStateCloud();
           }
+          stateFp = makeFingerprint(state);
+          // Keep a local copy of what we just loaded/merged, so the app still shows
+          // your data if it's next opened offline (and the copy is marked as current-schema).
+          if (result.ok) await saveStateRaw(state, encryptionKey).catch(e => diag.log("warn", "storage", "Local save after sign-in failed: " + ((e && e.message) || e)));
         } else {
           currentUser = null;
           state = loadStatePlain();
@@ -3869,6 +3949,7 @@
         resolved = true;
         loading.hidden = true;
         state = loadStatePlain();
+        stateFp = makeFingerprint(state);
         await finishInit();
       }, 4000);
       return;
@@ -3904,4 +3985,3 @@
   }
 
   boot();
-})();

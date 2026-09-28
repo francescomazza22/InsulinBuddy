@@ -216,7 +216,14 @@
       </div>
 
       <div id="history-log-panel">
+        <div class="history-search">
+          <input type="search" id="history-search" placeholder="Search meals, foods, dates…" aria-label="Search meals" autocomplete="off" autocorrect="off">
+        </div>
         <div id="history-groups"></div>
+        <button class="dashed-btn" id="history-more" type="button" hidden style="margin-top:8px;">Show older meals</button>
+        <div class="empty-state" id="history-nomatch" hidden>
+          <p>No meals match that search.</p>
+        </div>
         <div class="empty-state" id="history-empty">
           <p>No meals logged yet.</p>
           <p class="empty-state__sub">Log one from the Calculator tab and it'll show up here.</p>
@@ -408,6 +415,20 @@
             <label>Nightscout URL</label>
             <input type="text" id="ns-url" placeholder="https://yoursite.ns.example.com?token=..." autocomplete="off" autocorrect="off">
           </div>
+          <div class="field">
+            <label for="ns-format">Send each meal as</label>
+            <select id="ns-format">
+              <option value="combined">One entry: Meal Bolus (carbs + insulin)</option>
+              <option value="split">Two entries: Carb Correction + Correction Bolus</option>
+            </select>
+          </div>
+          <div class="toggle-row">
+            <span>Also update or delete in Nightscout when I edit or delete a meal</span>
+            <label class="switch">
+              <input type="checkbox" id="ns-sync-edits">
+              <span class="switch__track"></span>
+            </label>
+          </div>
           <div id="ns-status" class="panel-card__hint"></div>
           <div style="display:flex; gap:8px; margin-top:10px;">
             <button class="dashed-btn" id="btn-ns-test" type="button" style="flex:1;">Test Connection</button>
@@ -459,6 +480,22 @@
             </span>
           </button>
           <input type="file" id="import-all-file-input" accept=".json" hidden>
+        </div>
+
+        <div class="panel-card" id="card-local-backups">
+          <h2 class="panel-card__title">Automatic local backups</h2>
+          <p class="panel-card__hint">This device keeps its last 10 snapshots, taken automatically and before any sync merge, import or delete. If something ever goes wrong, restore one here.</p>
+          <div id="backups-list"></div>
+          <button class="dashed-btn" id="btn-backup-now" type="button">Back up now</button>
+        </div>
+
+        <div class="panel-card" id="card-diagnostics">
+          <h2 class="panel-card__title">Diagnostics</h2>
+          <p class="panel-card__hint" id="diag-summary"></p>
+          <div style="display:flex; gap:8px; margin-top:10px;">
+            <button class="dashed-btn" id="btn-diag-copy" type="button" style="flex:1;">Copy report</button>
+            <button class="dashed-btn" id="btn-diag-clear" type="button" style="flex:1;">Clear log</button>
+          </div>
         </div>
       </div>
 
@@ -512,7 +549,7 @@
         <button class="version-card" id="btn-open-changelog" type="button">
           <div class="version-card__row">
             <span>App Version</span>
-            <span class="version-card__badge" id="version-badge-text">v1.12.1 <svg viewBox="0 0 24 24" fill="none" width="14" height="14"><path d="M9 6l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+            <span class="version-card__badge" id="version-badge-text">v2.0.0 <svg viewBox="0 0 24 24" fill="none" width="14" height="14"><path d="M9 6l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
           </div>
           <p id="version-summary-text">Cloud sync, glycemic index tracking, and stronger data-loss protection since the original rebuild. Tap to see what's changed.</p>
         </button>
@@ -555,11 +592,21 @@
 </div>
 
 <script src="foods_data.js"></script>
-<script src="app.js"></script>
+<script type="module" src="app.js"></script>
 <script>
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
       navigator.serviceWorker.register("sw.js").catch(err => console.error("Service worker registration failed:", err));
+    });
+    // A new deploy activates a new worker (see sw.js's CACHE_VERSION); reload
+    // once so the tab actually picks up the update instead of running the old
+    // code until the next manual refresh. The flag stops a reload loop if the
+    // controller changes more than once in a session.
+    let swReloaded = false;
+    navigator.serviceWorker.addEventListener("controllerchange", () => {
+      if (swReloaded) return;
+      swReloaded = true;
+      location.reload();
     });
   }
 </script>
