@@ -1800,6 +1800,14 @@
   // card are always drawn from CHANGELOG[0], so the two can never drift.
   const CHANGELOG = [
     {
+      version: "1.12.1",
+      summary: "The food list now uses the full window height on tablets and computers.",
+      changes: [
+        "On wider screens the Add Food list grows to fill the window instead of stopping at a fixed height, so you see many more foods at once",
+        "Phones are unchanged, and the list never gets shorter than before on small windows"
+      ]
+    },
+    {
       version: "1.12.0",
       summary: "Trends overhaul: real axes and averages, tap any day for exact numbers, meal vs correction insulin, and a per-meal breakdown.",
       changes: [
