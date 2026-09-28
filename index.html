@@ -231,14 +231,19 @@
         </div>
 
         <div class="trend-stats" id="trend-stats"></div>
+        <p class="trend-caption" id="trend-caption"></p>
 
-        <div class="panel-card">
+        <div class="panel-card" id="trend-card-carbs">
           <h2 class="panel-card__title">Daily carbs</h2>
           <div id="trend-chart-carbs"></div>
         </div>
-        <div class="panel-card">
+        <div class="panel-card" id="trend-card-dose">
           <h2 class="panel-card__title">Daily insulin dose</h2>
           <div id="trend-chart-dose"></div>
+        </div>
+        <div class="panel-card" id="trend-card-meals">
+          <h2 class="panel-card__title">By meal</h2>
+          <div id="trend-meal-breakdown"></div>
         </div>
         <div class="empty-state" id="trends-empty" hidden>
           <p>Not enough history yet.</p>
@@ -507,7 +512,7 @@
         <button class="version-card" id="btn-open-changelog" type="button">
           <div class="version-card__row">
             <span>App Version</span>
-            <span class="version-card__badge" id="version-badge-text">v1.11.1 <svg viewBox="0 0 24 24" fill="none" width="14" height="14"><path d="M9 6l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+            <span class="version-card__badge" id="version-badge-text">v1.12.0 <svg viewBox="0 0 24 24" fill="none" width="14" height="14"><path d="M9 6l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
           </div>
           <p id="version-summary-text">Cloud sync, glycemic index tracking, and stronger data-loss protection since the original rebuild. Tap to see what's changed.</p>
         </button>
