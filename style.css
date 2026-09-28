@@ -745,3 +745,39 @@ html[data-theme="dark"] .undo-toast { background: var(--surface); border: 1px so
 .meal-break-row__track { height: 6px; border-radius: 999px; background: var(--paper); overflow: hidden; }
 .meal-break-row__fill { display: block; height: 100%; border-radius: 999px; }
 .meal-break-row__sub { font-size: 0.74rem; color: var(--ink-soft); margin-top: 5px; }
+
+
+/* ================= History search, sync badges ================= */
+.history-search { margin-bottom: 12px; }
+.history-search input {
+  width: 100%; padding: 11px 14px; border: 1.5px solid var(--line); border-radius: var(--radius-s);
+  background: var(--surface); color: var(--ink); font-size: 16px; font-family: var(--font-ui);
+}
+.ns-badge {
+  display: inline-block; margin-left: 6px; padding: 1px 7px; border-radius: 999px; border: 1px solid var(--line);
+  background: none; font: 600 0.66rem var(--font-ui); vertical-align: 1px; cursor: pointer; color: var(--ink-soft);
+}
+.ns-badge--ok { color: #15803D; border-color: #15803D55; }
+.ns-badge--pending { color: #B45309; border-color: #B4530955; }
+.ns-badge--warn { color: #B45309; border-color: #B4530955; }
+.ns-badge--failed { color: #B91C1C; border-color: #B91C1C66; background: #B91C1C12; }
+
+/* ================= In-app dialogs (replace alert / confirm / prompt) ================= */
+.dialog-backdrop { position: fixed; inset: 0; z-index: 200; background: rgba(0,0,0,0.45); display: flex; align-items: center; justify-content: center; padding: 20px; }
+.dialog { background: var(--surface); color: var(--ink); width: 100%; max-width: 380px; border-radius: 18px; padding: 20px; box-shadow: 0 16px 48px rgba(0,0,0,0.3); }
+.dialog__title { margin: 0 0 8px; font-family: var(--font-display); font-size: 1.1rem; }
+.dialog__message { margin: 0 0 16px; font-size: 0.95rem; line-height: 1.45; white-space: pre-line; color: var(--ink); }
+.dialog__input { width: 100%; padding: 12px 14px; margin-bottom: 16px; border: 1.5px solid var(--line); border-radius: var(--radius-s); background: var(--paper); color: var(--ink); font-size: 16px; font-family: var(--font-ui); }
+.dialog__actions { display: flex; gap: 10px; justify-content: flex-end; }
+.dialog__btn { flex: 1; padding: 12px 14px; border-radius: var(--radius-s); border: 1.5px solid transparent; font: 600 0.95rem var(--font-ui); cursor: pointer; }
+.dialog__btn--primary { background: var(--acc-1); color: #fff; }
+.dialog__btn--danger { background: var(--brick); color: #fff; }
+.dialog__btn--ghost { background: none; border-color: var(--line); color: var(--ink-soft); }
+
+/* ================= Local backups list ================= */
+.backup-row { display: flex; align-items: center; gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--line); }
+.backup-row:last-of-type { border-bottom: none; }
+.backup-row__main { flex: 1; min-width: 0; }
+.backup-row__title { margin: 0; font-weight: 600; font-size: 0.88rem; }
+.backup-row__sub { margin: 2px 0 0; font-size: 0.74rem; color: var(--ink-soft); }
+.backup-row button { border: 1.5px solid var(--line); background: none; border-radius: var(--radius-s); padding: 6px 12px; font: 600 0.8rem var(--font-ui); color: var(--ink); cursor: pointer; }
