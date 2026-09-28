@@ -1800,6 +1800,19 @@
   // card are always drawn from CHANGELOG[0], so the two can never drift.
   const CHANGELOG = [
     {
+      version: "1.12.0",
+      summary: "Trends overhaul: real axes and averages, tap any day for exact numbers, meal vs correction insulin, and a per-meal breakdown.",
+      changes: [
+        "Charts now have proper axes, a dashed average line, weekend shading and weekday labels, with today highlighted",
+        "Tap any day to see its exact carbs and insulin -- the same day lights up in both charts so you can compare them",
+        "Insulin bars now split meal insulin from correction insulin, with the correction share shown underneath",
+        "New insight cards: carbs per unit, corrections, and lows treated",
+        "New 'By meal' card comparing average carbs, dose and g-per-unit for breakfast, lunch, dinner and snacks",
+        "Averages now use complete days only (today is left out until it's over) so a half-finished day no longer drags them down",
+        "Fixed day buckets breaking across clock changes, which would have blanked days in the charts after 25 October"
+      ]
+    },
+    {
       version: "1.11.1",
       summary: "Actually fixed the Active Insulin & Carbs panel's spacing this time -- the chevron was leaving ~100px of dead space after it.",
       changes: [
@@ -2465,81 +2478,308 @@
     return d.getTime();
   }
 
+  // "Nice" axis scale: picks a round step (1/2/5 x 10^k) so the gridlines land
+  // on readable numbers, and rounds the max up to the next step.
+  function niceScale(maxVal, targetTicks) {
+    if (!(maxVal > 0)) return { max: 1, step: 1 };
+    const rough = maxVal / targetTicks;
+    const pow = Math.pow(10, Math.floor(Math.log10(rough)));
+    const frac = rough / pow;
+    const niceFrac = frac <= 1 ? 1 : frac <= 2 ? 2 : frac <= 5 ? 5 : 10;
+    const step = niceFrac * pow;
+    return { max: Math.ceil(maxVal / step - 1e-9) * step, step };
+  }
+
+  function trendGeometry(n, maxVal, containerWidth) {
+    const W = Math.max(containerWidth || 320, 220), H = 172;
+    const padL = 30, padR = 6, padT = 10, padB = 30;
+    const plotW = W - padL - padR, plotH = H - padT - padB;
+    const slotW = plotW / n;
+    const barW = Math.min(26, Math.max(3, slotW * 0.68));
+    const { max, step } = niceScale(maxVal, 3);
+    return {
+      W, H, padL, padR, padT, padB, plotW, plotH, n, slotW, barW, max, step,
+      yFor: v => padT + plotH - (v / max) * plotH,
+      xSlot: i => padL + i * slotW,
+      xBar: i => padL + i * slotW + (slotW - barW) / 2
+    };
+  }
+
+  // Everything that isn't a bar: weekend shading, gridlines + value labels,
+  // the dashed average line, and the date / weekday labels.
+  function trendFrameSvg(g, buckets, avgValue, avgText) {
+    const fmtAxis = v => Number.isInteger(v) ? String(v) : v.toFixed(1);
+    let weekend = "", grid = "", labels = "";
+    const labelStep = g.n <= 14 ? 1 : 5; // anchored on today so it's always labeled
+    buckets.forEach((b, i) => {
+      const d = new Date(b.key);
+      const dow = d.getDay();
+      if (dow === 0 || dow === 6) {
+        weekend += `<rect class="trend-chart__weekend" x="${g.xSlot(i).toFixed(1)}" y="${g.padT}" width="${g.slotW.toFixed(1)}" height="${g.plotH}"></rect>`;
+      }
+      if ((g.n - 1 - i) % labelStep === 0) {
+        const isToday = i === g.n - 1;
+        const cx = (g.xSlot(i) + g.slotW / 2).toFixed(1);
+        const todayCls = isToday ? " trend-chart__axis-label--today" : "";
+        labels += `<text class="trend-chart__axis-label${todayCls}" x="${cx}" y="${g.H - 17}" text-anchor="middle">${d.getDate()}</text>`;
+        if (g.n <= 14) {
+          labels += `<text class="trend-chart__axis-label trend-chart__axis-label--dow${todayCls}" x="${cx}" y="${g.H - 6}" text-anchor="middle">${d.toLocaleDateString(undefined, { weekday: "narrow" })}</text>`;
+        }
+      }
+    });
+    const ticks = Math.round(g.max / g.step);
+    for (let k = 0; k <= ticks; k++) {
+      const v = k * g.step, y = g.yFor(v);
+      grid += `<line class="trend-chart__grid${k === 0 ? " is-base" : ""}" x1="${g.padL}" y1="${y.toFixed(1)}" x2="${g.W - g.padR}" y2="${y.toFixed(1)}"></line>`;
+      grid += `<text class="trend-chart__axis-label" x="${g.padL - 5}" y="${(y + 3).toFixed(1)}" text-anchor="end">${fmtAxis(v)}</text>`;
+    }
+    let avg = "";
+    if (avgValue > 0) {
+      const y = g.yFor(avgValue);
+      avg = `<line class="trend-chart__avg" x1="${g.padL}" y1="${y.toFixed(1)}" x2="${g.W - g.padR}" y2="${y.toFixed(1)}"></line>` +
+            `<text class="trend-chart__avg-label" x="${g.W - g.padR - 2}" y="${(y - 4).toFixed(1)}">${avgText}</text>`;
+    }
+    return { under: weekend + grid, over: avg + labels };
+  }
+
+  // Invisible full-height column per day, so a tap anywhere in the column
+  // selects that day (much easier than hitting a thin bar on a phone).
+  function trendHitAreas(g) {
+    let out = "";
+    for (let i = 0; i < g.n; i++) {
+      out += `<rect class="trend-chart__hit" data-idx="${i}" x="${g.xSlot(i).toFixed(1)}" y="${g.padT}" width="${g.slotW.toFixed(1)}" height="${g.plotH}"></rect>`;
+    }
+    return out;
+  }
+
+  function buildCarbsChartSvg(buckets, avg, width) {
+    const g = trendGeometry(buckets.length, Math.max(...buckets.map(b => b.carbs)), width);
+    const frame = trendFrameSvg(g, buckets, avg, `avg ${Math.round(avg)}g`);
+    const base = g.padT + g.plotH;
+    const bars = buckets.map((b, i) => {
+      const has = b.carbs > 0;
+      const h = has ? Math.max(2, (b.carbs / g.max) * g.plotH) : 1;
+      const cls = `trend-chart__bar${has ? "" : " trend-chart__bar--empty"}${i === g.n - 1 ? " trend-chart__bar--today" : ""}`;
+      return `<rect class="${cls}" data-idx="${i}" x="${g.xBar(i).toFixed(1)}" y="${(base - h).toFixed(1)}" width="${g.barW.toFixed(1)}" height="${h.toFixed(1)}" rx="2"></rect>`;
+    }).join("");
+    return `<svg class="trend-chart" viewBox="0 0 ${g.W} ${g.H}" style="width:100%;height:${g.H}px;display:block;">${frame.under}${bars}${frame.over}${trendHitAreas(g)}</svg>`;
+  }
+
+  // Stacked: meal insulin on the bottom, correction insulin on top.
+  function buildDoseChartSvg(buckets, avg, width) {
+    const g = trendGeometry(buckets.length, Math.max(...buckets.map(b => b.dose)), width);
+    const frame = trendFrameSvg(g, buckets, avg, `avg ${round1(avg)}u`);
+    const base = g.padT + g.plotH;
+    const bars = buckets.map((b, i) => {
+      const todayCls = i === g.n - 1 ? " trend-chart__bar--today" : "";
+      if (b.dose <= 0) {
+        return `<rect class="trend-chart__bar trend-chart__bar--empty${todayCls}" data-idx="${i}" x="${g.xBar(i).toFixed(1)}" y="${(base - 1).toFixed(1)}" width="${g.barW.toFixed(1)}" height="1" rx="2"></rect>`;
+      }
+      const hMeal = b.meal > 0 ? Math.max(2, (b.meal / g.max) * g.plotH) : 0;
+      const hCorr = b.corr > 0 ? Math.max(2, (b.corr / g.max) * g.plotH) : 0;
+      let out = "";
+      if (hMeal > 0) {
+        out += `<rect class="trend-chart__bar${todayCls}" data-idx="${i}" x="${g.xBar(i).toFixed(1)}" y="${(base - hMeal).toFixed(1)}" width="${g.barW.toFixed(1)}" height="${hMeal.toFixed(1)}" rx="${hCorr > 0 ? 0 : 2}"></rect>`;
+      }
+      if (hCorr > 0) {
+        out += `<rect class="trend-chart__bar trend-chart__bar--corr${todayCls}" data-idx="${i}" x="${g.xBar(i).toFixed(1)}" y="${(base - hMeal - hCorr).toFixed(1)}" width="${g.barW.toFixed(1)}" height="${hCorr.toFixed(1)}" rx="2"></rect>`;
+      }
+      return out;
+    }).join("");
+    return `<svg class="trend-chart" viewBox="0 0 ${g.W} ${g.H}" style="width:100%;height:${g.H}px;display:block;">${frame.under}${bars}${frame.over}${trendHitAreas(g)}</svg>`;
+  }
+
+  // Tapping a day highlights it in BOTH charts and shows its exact numbers,
+  // so carbs and insulin for the same day can be compared at a glance.
+  const trendChartCtx = {};   // container id -> { defaultText, describe(idx) }
+  let trendSelectedIdx = null;
+  function setTrendSelection(idx) {
+    trendSelectedIdx = idx;
+    Object.keys(trendChartCtx).forEach(id => {
+      const box = el(id);
+      const svg = box && box.querySelector("svg");
+      const readout = box && box.querySelector(".trend-readout");
+      if (!svg || !readout) return;
+      box.querySelectorAll(".is-selected").forEach(n => n.classList.remove("is-selected"));
+      if (idx == null) {
+        svg.classList.remove("has-selection");
+        readout.textContent = trendChartCtx[id].defaultText;
+        return;
+      }
+      svg.classList.add("has-selection");
+      box.querySelectorAll(`.trend-chart__bar[data-idx="${idx}"]`).forEach(n => n.classList.add("is-selected"));
+      readout.textContent = trendChartCtx[id].describe(idx);
+    });
+  }
+  ["trend-chart-carbs", "trend-chart-dose"].forEach(id => {
+    const box = el(id);
+    if (!box) return;
+    box.addEventListener("click", e => {
+      const hit = e.target.closest("[data-idx]");
+      if (!hit) return;
+      const idx = parseInt(hit.dataset.idx, 10);
+      setTrendSelection(idx === trendSelectedIdx ? null : idx);
+    });
+  });
+
+  function renderTrendMealBreakdown(entries) {
+    const box = el("trend-meal-breakdown");
+    if (!box) return;
+    const rows = ["breakfast", "lunch", "dinner", "snack"].map(type => {
+      const list = entries.filter(e => e.mealType === type && !e.noInsulin && (e.totalCarbs || 0) > 0);
+      if (!list.length) return null;
+      const carbs = list.reduce((s, e) => s + (e.totalCarbs || 0), 0);
+      const dose = list.reduce((s, e) => s + (e.mealDose || 0) + (e.correctionDose || 0), 0);
+      const dosed = list.filter(e => (e.mealDose || 0) > 0);
+      const gCarbs = dosed.reduce((s, e) => s + (e.totalCarbs || 0), 0);
+      const gUnits = dosed.reduce((s, e) => s + (e.mealDose || 0), 0);
+      return { type, count: list.length, avgCarbs: carbs / list.length, avgDose: dose / list.length, gPerU: gUnits > 0 ? gCarbs / gUnits : null };
+    }).filter(Boolean);
+    if (!rows.length) {
+      box.innerHTML = `<p class="panel-card__hint">No regular meals logged in this period.</p>`;
+      return;
+    }
+    const maxCarbs = Math.max(...rows.map(r => r.avgCarbs));
+    box.innerHTML = `<p class="panel-card__hint">Average per meal over this period.</p>` + rows.map(r => {
+      const m = MEAL_TYPES[r.type];
+      const pct = Math.max(4, Math.round((r.avgCarbs / maxCarbs) * 100));
+      return `
+        <div class="meal-break-row">
+          <div class="meal-break-row__head">
+            <span class="meal-break-row__dot" style="background:${m.color};"></span>
+            <span class="meal-break-row__name">${m.label}</span>
+            <span class="meal-break-row__count">${r.count} meal${r.count === 1 ? "" : "s"}</span>
+            <span class="meal-break-row__vals">${Math.round(r.avgCarbs)} g</span>
+          </div>
+          <div class="meal-break-row__track"><span class="meal-break-row__fill" style="width:${pct}%;background:${m.color};"></span></div>
+          <div class="meal-break-row__sub">${round1(r.avgDose)} u avg dose${r.gPerU ? ` &middot; ${round1(r.gPerU)} g per unit` : ""}</div>
+        </div>`;
+    }).join("");
+  }
+
   function renderTrends(days) {
     const chartCarbsBox = el("trend-chart-carbs");
     const chartDoseBox = el("trend-chart-dose");
     const statsBox = el("trend-stats");
     const emptyBox = el("trends-empty");
     if (!chartCarbsBox) return; // view not in the DOM yet on first boot
+    const cards = ["trend-card-carbs", "trend-card-dose", "trend-card-meals"].map(id => el(id));
+    const captionBox = el("trend-caption");
 
-    const now = new Date();
-    now.setHours(0, 0, 0, 0);
-    const dayMs = 24 * 60 * 60 * 1000;
-    const buckets = []; // oldest first
+    // Day buckets, oldest first. Built with setDate() rather than "now minus
+    // N x 24h" so they stay on true local midnights across clock changes.
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const buckets = [];
     for (let i = days - 1; i >= 0; i--) {
-      buckets.push({ key: now.getTime() - i * dayMs, carbs: 0, dose: 0, meals: 0 });
+      const d = new Date(today);
+      d.setDate(d.getDate() - i);
+      d.setHours(0, 0, 0, 0);
+      buckets.push({ key: d.getTime(), carbs: 0, meal: 0, corr: 0, dose: 0, entries: 0 });
     }
     const byKey = new Map(buckets.map(b => [b.key, b]));
-    const rangeStart = now.getTime() - (days - 1) * dayMs;
-
+    const inRange = [];
     state.history.forEach(entry => {
-      const key = dayKeyFromTs(entry.ts);
-      if (key < rangeStart) return;
-      const bucket = byKey.get(key);
-      if (!bucket) return;
-      bucket.carbs += entry.totalCarbs || 0;
-      bucket.dose += (entry.mealDose || 0) + (entry.correctionDose || 0);
-      bucket.meals += 1;
+      const b = byKey.get(dayKeyFromTs(entry.ts));
+      if (!b) return;
+      inRange.push(entry);
+      b.entries += 1;
+      b.carbs += entry.totalCarbs || 0;
+      b.meal += entry.mealDose || 0;
+      b.corr += entry.correctionDose || 0;
     });
+    buckets.forEach(b => { b.dose = b.meal + b.corr; });
 
-    const totalMeals = buckets.reduce((s, b) => s + b.meals, 0);
-    if (totalMeals === 0) {
+    trendSelectedIdx = null;
+    if (inRange.length === 0) {
       emptyBox.hidden = false;
+      cards.forEach(c => { if (c) c.hidden = true; });
       statsBox.innerHTML = "";
+      if (captionBox) captionBox.textContent = "";
       chartCarbsBox.innerHTML = "";
       chartDoseBox.innerHTML = "";
+      Object.keys(trendChartCtx).forEach(k => delete trendChartCtx[k]);
       return;
     }
     emptyBox.hidden = true;
+    cards.forEach(c => { if (c) c.hidden = false; });
 
-    const daysWithData = buckets.filter(b => b.meals > 0).length || 1;
-    const avgCarbs = round1(buckets.reduce((s, b) => s + b.carbs, 0) / daysWithData);
-    const avgDose = round1(buckets.reduce((s, b) => s + b.dose, 0) / daysWithData);
+    // Averages use complete days with logs: today is still in progress, so
+    // it would drag the average down until the day is over. (If today is the
+    // only day with data, use it so the numbers aren't blank.)
+    const todayKey = buckets[buckets.length - 1].key;
+    let avgBuckets = buckets.filter(b => b.entries > 0 && b.key !== todayKey);
+    const usingToday = avgBuckets.length === 0;
+    if (usingToday) avgBuckets = buckets.filter(b => b.entries > 0);
+    const avgCarbs = avgBuckets.reduce((s, b) => s + b.carbs, 0) / avgBuckets.length;
+    const avgDose = avgBuckets.reduce((s, b) => s + b.dose, 0) / avgBuckets.length;
 
-    statsBox.innerHTML = `
-      <div class="trend-stat-card"><div class="trend-stat-card__value">${totalMeals}</div><div class="trend-stat-card__label">Meals logged</div></div>
-      <div class="trend-stat-card"><div class="trend-stat-card__value">${avgCarbs}g</div><div class="trend-stat-card__label">Avg carbs / day</div></div>
-      <div class="trend-stat-card"><div class="trend-stat-card__value">${avgDose}u</div><div class="trend-stat-card__label">Avg dose / day</div></div>
-    `;
+    const regularMeals = inRange.filter(e => e.mealType !== "correction" && !e.noInsulin).length;
+    const corrections = inRange.filter(e => (e.correctionDose || 0) > 0).length;
+    const lows = inRange.filter(e => e.noInsulin).length;
+    const dosed = inRange.filter(e => !e.noInsulin && (e.mealDose || 0) > 0 && (e.totalCarbs || 0) > 0);
+    const gUnits = dosed.reduce((s, e) => s + e.mealDose, 0);
+    const gPerU = gUnits > 0 ? round1(dosed.reduce((s, e) => s + e.totalCarbs, 0) / gUnits) : null;
 
-    const chartWidth = chartCarbsBox.clientWidth || 320;
-    chartCarbsBox.innerHTML = buildBarChartSvg(buckets, "carbs", "g", chartWidth);
-    chartDoseBox.innerHTML = buildBarChartSvg(buckets, "dose", "u", chartWidth);
+    const card = (value, unit, label, warn) =>
+      `<div class="trend-stat-card${warn ? " trend-stat-card--warn" : ""}"><div class="trend-stat-card__value">${value}${unit ? `<span class="trend-stat-card__unit">${unit}</span>` : ""}</div><div class="trend-stat-card__label">${label}</div></div>`;
+    statsBox.innerHTML =
+      card(regularMeals, "", "Meals logged") +
+      card(round1(avgCarbs), "g", "Avg carbs / day") +
+      card(round1(avgDose), "u", "Avg dose / day") +
+      card(gPerU == null ? "&mdash;" : gPerU, gPerU == null ? "" : "g/u", "Carbs per unit") +
+      card(corrections, "", "Corrections") +
+      card(lows, "", "Lows treated", lows > 0);
+
+    const fmtShort = ts => new Date(ts).toLocaleDateString(undefined, { day: "numeric", month: "short" });
+    if (captionBox) {
+      captionBox.textContent = `${fmtShort(buckets[0].key)} \u2013 ${fmtShort(todayKey)} \u00b7 ` +
+        (usingToday ? "averages include today so far" : `averages use ${avgBuckets.length} full day${avgBuckets.length === 1 ? "" : "s"} with logs`);
+    }
+
+    const fmtDay = ts => new Date(ts).toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" });
+    const width = chartCarbsBox.clientWidth || 320;
+
+    trendChartCtx["trend-chart-carbs"] = {
+      defaultText: `Avg ${Math.round(avgCarbs)} g / day \u00b7 tap a day for details`,
+      describe: i => {
+        const b = buckets[i];
+        if (b.entries === 0) return `${fmtDay(b.key)} \u00b7 nothing logged`;
+        return `${fmtDay(b.key)} \u00b7 ${b.carbs > 0 ? Math.round(b.carbs) + " g carbs" : "no carbs"} \u00b7 ${b.entries} entr${b.entries === 1 ? "y" : "ies"}`;
+      }
+    };
+    trendChartCtx["trend-chart-dose"] = {
+      defaultText: `Avg ${round1(avgDose)} u / day \u00b7 tap a day for details`,
+      describe: i => {
+        const b = buckets[i];
+        if (b.entries === 0) return `${fmtDay(b.key)} \u00b7 nothing logged`;
+        if (b.dose <= 0) return `${fmtDay(b.key)} \u00b7 no insulin logged`;
+        return `${fmtDay(b.key)} \u00b7 ${round1(b.dose)} u ` + (b.corr > 0 ? `(meal ${round1(b.meal)} + correction ${round1(b.corr)})` : "(all meal insulin)");
+      }
+    };
+
+    const totalMealIns = inRange.reduce((s, e) => s + (e.mealDose || 0), 0);
+    const totalCorrIns = inRange.reduce((s, e) => s + (e.correctionDose || 0), 0);
+    const totalIns = totalMealIns + totalCorrIns;
+    const corrPct = totalIns > 0 ? Math.round((totalCorrIns / totalIns) * 100) : 0;
+
+    chartCarbsBox.innerHTML =
+      `<p class="trend-readout">${trendChartCtx["trend-chart-carbs"].defaultText}</p>` +
+      buildCarbsChartSvg(buckets, avgCarbs, width);
+    chartDoseBox.innerHTML =
+      `<p class="trend-readout">${trendChartCtx["trend-chart-dose"].defaultText}</p>` +
+      buildDoseChartSvg(buckets, avgDose, width) +
+      `<div class="trend-legend"><span><span class="trend-legend__dot" style="background:var(--acc-1);"></span>Meal insulin</span><span><span class="trend-legend__dot" style="background:#C0392B;"></span>Correction</span></div>` +
+      (totalIns > 0 ? `<p class="trend-caption trend-caption--tight">Corrections were ${corrPct}% of logged insulin (${round1(totalCorrIns)} of ${round1(totalIns)} u).</p>` : "");
+
+    renderTrendMealBreakdown(inRange);
   }
 
-  function buildBarChartSvg(buckets, field, unit, containerWidth) {
-    const W = Math.max(containerWidth || 320, 200), H = 140, padBottom = 18, padTop = 10;
-    const maxVal = Math.max(1, ...buckets.map(b => b[field]));
-    const barGap = 3;
-    const barWidth = (W - barGap * (buckets.length - 1)) / buckets.length;
-    const chartH = H - padBottom - padTop;
-
-    const bars = buckets.map((b, i) => {
-      const x = i * (barWidth + barGap);
-      const h = b.meals > 0 ? Math.max(2, (b[field] / maxVal) * chartH) : 1;
-      const y = padTop + (chartH - h);
-      const showLabel = buckets.length <= 14 || i % Math.ceil(buckets.length / 10) === 0;
-      const d = new Date(b.key);
-      const dayLabel = d.toLocaleDateString(undefined, { day: "numeric" });
-      const cls = b.meals > 0 ? "trend-chart__bar" : "trend-chart__bar trend-chart__bar--empty";
-      return `
-        <rect class="${cls}" x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barWidth.toFixed(1)}" height="${h.toFixed(1)}" rx="2"></rect>
-        ${showLabel ? `<text class="trend-chart__axis-label" x="${(x + barWidth / 2).toFixed(1)}" y="${H - 4}" text-anchor="middle">${dayLabel}</text>` : ""}
-      `;
-    }).join("");
-
-    return `<svg class="trend-chart" viewBox="0 0 ${W} ${H}" style="width:100%;height:140px;">${bars}</svg>`;
-  }
+  let trendResizeTimer = null;
+  window.addEventListener("resize", () => {
+    clearTimeout(trendResizeTimer);
+    trendResizeTimer = setTimeout(() => { if (!historyTrendsPanel.hidden) renderTrends(trendsRange); }, 150);
+  });
 
   historyGroups.addEventListener("click", e => {
     const delBtn = e.target.closest("[data-del]");
