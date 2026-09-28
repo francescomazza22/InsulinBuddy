@@ -297,6 +297,17 @@ input.meal-item__grams-input:focus { outline: none; }
 .add-row__btn svg { width: 16px; height: 16px; }
 
 .food-pick-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; max-height: 420px; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+/* Phones keep the fixed 420px above. On wider screens (tablet / computer) the
+   list grows to use the window height: viewport minus the two fixed bottom bars
+   minus ~300px for the dose card, panel and search row above it. Never shorter
+   than 420px, never taller than 1200px. svh (stable height, ignores the
+   collapsing browser toolbar) with a plain vh fallback for older browsers. */
+@media (min-width: 700px) {
+  .food-pick-list {
+    max-height: max(420px, min(1200px, calc(100vh - var(--tabbar-height, 68px) - var(--sticky-log-bar-height, 78px) - 300px)));
+    max-height: max(420px, min(1200px, calc(100svh - var(--tabbar-height, 68px) - var(--sticky-log-bar-height, 78px) - 300px)));
+  }
+}
 .food-pick-item {
   background: var(--surface); border: 1.5px solid var(--line); border-radius: var(--radius-m);
   padding: 10px 12px; display: flex; align-items: center; gap: 10px; cursor: pointer;
