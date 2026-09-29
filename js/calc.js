@@ -227,3 +227,19 @@ export function mealTypeBreakdown(entries, types = ["breakfast", "lunch", "dinne
     return { type, count: list.length, avgCarbs: carbs / list.length, avgDose: dose / list.length, gPerU: gUnits > 0 ? gCarbs / gUnits : null };
   }).filter(Boolean);
 }
+
+// Nightscout's trend arrows, and a simple in-range/low/high classification for
+// coloring the live-glucose pill (fixed clinical thresholds, not user-configurable
+// -- this is a cosmetic hint, not a dosing input).
+const TREND_ARROWS = {
+  DoubleUp: "⇈", SingleUp: "↑", FortyFiveUp: "↗", Flat: "→",
+  FortyFiveDown: "↘", SingleDown: "↓", DoubleDown: "⇊"
+};
+export function glucoseTrendArrow(direction) { return TREND_ARROWS[direction] || ""; }
+
+export function glucoseRangeClass(mgdl, low = 70, high = 180) {
+  if (mgdl == null || !Number.isFinite(mgdl)) return null;
+  if (mgdl < low) return "low";
+  if (mgdl > high) return "high";
+  return "in-range";
+}
