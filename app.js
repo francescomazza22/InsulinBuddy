@@ -1,5 +1,5 @@
 import { escapeHtml, escapeAttr, round1, formatQty, dayKeyFromTs, timeAgo, makeId, redact } from "./js/util.js";
-import { convertGlucose, roundDose as roundDoseWith, activeAt, compoundGiInfo, computeDose, giBand, niceScale, buildTrendBuckets, summarizeTrends, mealTypeBreakdown, absorptionMinutesForEntry as absorptionForEntry, iobFraction, cobGrams } from "./js/calc.js";
+import { convertGlucose, roundDose as roundDoseWith, activeAt, compoundGiInfo, computeDose, giBand, niceScale, buildTrendBuckets, summarizeTrends, mealTypeBreakdown, absorptionMinutesForEntry as absorptionForEntry, iobFraction, cobGrams, glucoseTrendArrow, glucoseRangeClass } from "./js/calc.js";
 import { SCHEMA_VERSION, normalizeState as normalizeStateWith, makeFingerprint, stampChanges, mergeStates, statesEquivalent, prepareRestoredState, unexplainedEmptying } from "./js/state.js";
 import { NightscoutClient, NsOutbox, nsToken, nsBaseUrl, nsConfigured, treatmentsForEntry } from "./js/nightscout.js";
 import { createDiag, hookGlobalErrors } from "./js/diag.js";
@@ -1411,6 +1411,46 @@ import { createDialogs } from "./js/dialogs.js";
     catch (e) { return { ok: false, reason: friendlyNsError(e) }; }
   }
 
+  // ---- live glucose pill on the dose card ----
+  const LIVE_GLUCOSE_CACHE_KEY = "insulinBuddy.liveGlucose";
+  const LIVE_GLUCOSE_STALE_MS = 15 * 60 * 1000;
+  let liveGlucose = null; // { mgdl, direction, at } -- cached across reloads so the pill isn't blank while the first fetch is in flight
+  try { liveGlucose = JSON.parse(localStorage.getItem(LIVE_GLUCOSE_CACHE_KEY)); } catch (e) { liveGlucose = null; }
+
+  async function refreshLiveGlucose() {
+    if (!nightscoutConfigured()) return;
+    try {
+      const r = await nsClient.read(nsCfg(), 1);
+      const entry = Array.isArray(r.entries) ? r.entries[0] : null;
+      if (entry && typeof entry.sgv === "number") {
+        liveGlucose = { mgdl: entry.sgv, direction: entry.direction || null, at: entry.date || Date.now() };
+        localStorage.setItem(LIVE_GLUCOSE_CACHE_KEY, JSON.stringify(liveGlucose));
+      }
+    } catch (e) {
+      // a background poll failing isn't worth interrupting anyone for -- just keep showing the last known reading
+    }
+    renderLiveGlucosePill();
+  }
+
+  function renderLiveGlucosePill() {
+    const pill = el("cc-live-glucose");
+    if (!pill) return;
+    if (!nightscoutConfigured() || !liveGlucose || typeof liveGlucose.mgdl !== "number") { pill.hidden = true; return; }
+    const stale = Date.now() - liveGlucose.at > LIVE_GLUCOSE_STALE_MS;
+    const value = round1(convertGlucose(liveGlucose.mgdl, "mgdl", state.settings.units));
+    const arrow = glucoseTrendArrow(liveGlucose.direction);
+    const rangeClass = glucoseRangeClass(liveGlucose.mgdl); // "low" | "high" | "in-range" | null
+    const classes = ["glucose-pill"];
+    if (rangeClass === "low" || rangeClass === "high") classes.push(`glucose-pill--${rangeClass}`);
+    if (stale) classes.push("glucose-pill--stale");
+    pill.className = classes.join(" ");
+    pill.textContent = arrow ? `${value} ${arrow}` : `${value}`;
+    pill.title = stale
+      ? "Last reading is more than 15 minutes old"
+      : "Latest glucose from Nightscout — always double-check before dosing";
+    pill.hidden = false;
+  }
+
   async function fetchCurrentGlucoseFromNightscout() {
     const statusEl = el("cc-fetch-glucose-status");
     statusEl.hidden = false;
@@ -1488,6 +1528,7 @@ import { createDialogs } from "./js/dialogs.js";
     } else {
       renderNsStatus(`Nothing is reaching Nightscout right now. Read: ${read.msg} Write: ${write.msg}`, true);
     }
+    if (read.ok) refreshLiveGlucose();
   }
 
   function applyFetchedGlucoseEntries(data, statusEl) {
@@ -1547,8 +1588,8 @@ import { createDialogs } from "./js/dialogs.js";
 
 
 
-  window.addEventListener("online", () => flushNightscoutQueue(true));
-  document.addEventListener("visibilitychange", () => { if (!document.hidden) flushNightscoutQueue(true); });
+  window.addEventListener("online", () => { flushNightscoutQueue(true); refreshLiveGlucose(); });
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) { flushNightscoutQueue(true); refreshLiveGlucose(); } });
 
 
   // ================= Undo toast =================
@@ -3765,6 +3806,12 @@ import { createDialogs } from "./js/dialogs.js";
     state.settings.nightscoutUrl = e.target.value.trim();
     saveState();
     renderNightscoutSection();
+    // The cached reading belongs to whatever server was configured before -- once the
+    // URL changes it may be stale or from a different site entirely, so drop it rather
+    // than show a number that looks live but isn't.
+    liveGlucose = null;
+    localStorage.removeItem(LIVE_GLUCOSE_CACHE_KEY);
+    renderLiveGlucosePill();
   });
   el("ns-format").addEventListener("change", e => { state.settings.nsFormat = e.target.value === "split" ? "split" : "combined"; saveState(); });
   el("ns-sync-edits").addEventListener("change", e => { state.settings.nsSyncEdits = e.target.checked; saveState(); });
@@ -3772,6 +3819,7 @@ import { createDialogs } from "./js/dialogs.js";
   el("btn-ns-refresh").addEventListener("click", async () => {
     renderNsStatus("Checking…");
     await flushNightscoutQueue(true);
+    await refreshLiveGlucose();
     renderNightscoutSection();
   });
 
@@ -3788,7 +3836,8 @@ import { createDialogs } from "./js/dialogs.js";
     }
     try { await backups.clear(); } catch (e) { /* none */ }
     nsOutbox.jobs = []; nsOutbox._save();
-    [PENDING_SYNC_KEY, LAST_SNAPSHOT_KEY, "insulinBuddy.diag", "insulinBuddy.nsQueue"].forEach(k => localStorage.removeItem(k));
+    [PENDING_SYNC_KEY, LAST_SNAPSHOT_KEY, "insulinBuddy.diag", "insulinBuddy.nsQueue", LIVE_GLUCOSE_CACHE_KEY].forEach(k => localStorage.removeItem(k));
+    liveGlucose = null;
     diag.clear();
     cloudSyncPending = false; lastKnownCloudUpdatedAt = null; lastKnownCloudHistoryCount = null; lastKnownCloudHistoryIds = null;
     state = normalizeState({});
@@ -3866,6 +3915,8 @@ import { createDialogs } from "./js/dialogs.js";
     // as real time passes, not just at page load.
     nsOutbox.migrateLegacy();
     flushNightscoutQueue();
+    renderLiveGlucosePill();   // show the cached reading immediately, don't wait on the network
+    refreshLiveGlucose();
     diag.log("info", "boot", `App started (v${CHANGELOG[0].version}); ${state.history.length} meals; cloud ${currentUser ? "signed in" : "off"}`);
     let tick = 0;
     setInterval(() => {
@@ -3874,6 +3925,7 @@ import { createDialogs } from "./js/dialogs.js";
       if (!el("view-calculator").hidden) renderActivePanel();
       if (currentUser && !cloudSyncPending && !document.hidden && ++tick % 4 === 0) pullAndMerge("periodic").catch(() => {});
       flushNightscoutQueue();
+      refreshLiveGlucose();
     }, 30000);
   }
 
