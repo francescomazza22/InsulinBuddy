@@ -243,3 +243,8 @@ export function glucoseRangeClass(mgdl, low = 70, high = 180) {
   if (mgdl > high) return "high";
   return "in-range";
 }
+
+// The label for a LibreLink-style banner, given a range class.
+export function glucoseRangeLabel(rangeClass) {
+  return rangeClass === "low" ? "GLUCOSE LOW" : rangeClass === "high" ? "GLUCOSE HIGH" : rangeClass === "in-range" ? "GLUCOSE IN RANGE" : "";
+}
