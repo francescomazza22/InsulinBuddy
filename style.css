@@ -203,6 +203,27 @@ input:focus-visible, select:focus-visible, button:focus-visible { outline: 2px s
 .glucose-pill--low { background: rgba(255,255,255,0.92); color: var(--brick); }
 .glucose-pill--high { background: rgba(255,196,60,0.95); color: #6b4a00; }
 .glucose-pill--stale { opacity: 0.55; }
+.glucose-pill { cursor: pointer; }
+
+/* ================= Glucose tab: FreeStyle-Libre-style banner + range picker ================= */
+.glucose-banner {
+  border-radius: var(--radius-m); padding: 14px 16px; margin-bottom: 12px; text-align: center;
+  color: #14331f;
+}
+.glucose-banner--in-range { background: #C6EFA8; }
+.glucose-banner--low { background: #F7C9C4; color: #5C1712; }
+.glucose-banner--high { background: #FCE49B; color: #5C4408; }
+.glucose-banner--unknown { background: var(--surface); border: 1.5px dashed var(--line); color: var(--ink-soft); }
+.glucose-banner__label { font-size: 0.76rem; font-weight: 800; letter-spacing: 0.04em; margin-bottom: 4px; }
+.glucose-banner__value { font-family: var(--font-display); font-size: 2.6rem; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; }
+.glucose-banner__arrow { font-size: 1.6rem; vertical-align: 2px; }
+.glucose-banner__meta { font-size: 0.78rem; font-weight: 600; opacity: 0.8; margin-top: 4px; }
+.glucose-range-picker { display: flex; gap: 6px; justify-content: center; margin-bottom: 10px; }
+.glucose-range-btn {
+  border: 1.5px solid var(--line); background: var(--surface); color: var(--ink-soft);
+  padding: 5px 14px; border-radius: 999px; font: 600 0.8rem var(--font-ui); cursor: pointer;
+}
+.glucose-range-btn.is-active { background: var(--acc-1); border-color: var(--acc-1); color: #fff; }
 .carbs-pill--muted { background: var(--surface); color: var(--ink-soft); border: 1px solid var(--line); }
 .dose-card__value { display: flex; align-items: baseline; gap: 6px; font-family: var(--font-display); font-size: 1.55rem; line-height: 1; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; margin-bottom: 6px; }
 .dose-card__unit { font-family: var(--font-ui); font-size: 0.82rem; font-weight: 500; color: rgba(255,255,255,0.82); }
