@@ -1,5 +1,5 @@
 import { escapeHtml, escapeAttr, round1, formatQty, dayKeyFromTs, timeAgo, makeId, redact } from "./js/util.js";
-import { convertGlucose, roundDose as roundDoseWith, activeAt, compoundGiInfo, computeDose, giBand, niceScale, buildTrendBuckets, summarizeTrends, mealTypeBreakdown, absorptionMinutesForEntry as absorptionForEntry, iobFraction, cobGrams, glucoseTrendArrow, glucoseRangeClass } from "./js/calc.js";
+import { convertGlucose, roundDose as roundDoseWith, activeAt, compoundGiInfo, computeDose, giBand, niceScale, buildTrendBuckets, summarizeTrends, mealTypeBreakdown, absorptionMinutesForEntry as absorptionForEntry, iobFraction, cobGrams, glucoseTrendArrow, glucoseRangeClass, glucoseRangeLabel } from "./js/calc.js";
 import { SCHEMA_VERSION, normalizeState as normalizeStateWith, makeFingerprint, stampChanges, mergeStates, statesEquivalent, prepareRestoredState, unexplainedEmptying } from "./js/state.js";
 import { NightscoutClient, NsOutbox, nsToken, nsBaseUrl, nsConfigured, treatmentsForEntry } from "./js/nightscout.js";
 import { createDiag, hookGlobalErrors } from "./js/diag.js";
@@ -989,10 +989,11 @@ import { createDialogs } from "./js/dialogs.js";
     { key: "glucose", label: "Glucose" }
   ];
 
-  function openActiveDetailSheet() {
+  function openActiveDetailSheet(initialTab) {
     const backdrop = document.createElement("div");
     backdrop.className = "sheet-backdrop";
     const tabs = nightscoutConfigured() ? AIOG_TABS : AIOG_TABS.filter(t => t.key !== "glucose");
+    const startTab = tabs.some(t => t.key === initialTab) ? initialTab : "now";
     backdrop.innerHTML = `
       <div class="sheet">
         <div class="sheet-head">
@@ -1002,7 +1003,7 @@ import { createDialogs } from "./js/dialogs.js";
           </button>
         </div>
         <div class="graph-tabs" id="aiog-tabs">
-          ${tabs.map((t, i) => `<button class="graph-tab${i === 0 ? " is-active" : ""}" data-tab="${t.key}" type="button">${t.label}</button>`).join("")}
+          ${tabs.map(t => `<button class="graph-tab${t.key === startTab ? " is-active" : ""}" data-tab="${t.key}" type="button">${t.label}</button>`).join("")}
         </div>
         <div id="aiog-content"></div>
       </div>
@@ -1018,7 +1019,7 @@ import { createDialogs } from "./js/dialogs.js";
         renderAiogTab(backdrop, btn.dataset.tab);
       });
     });
-    renderAiogTab(backdrop, "now");
+    renderAiogTab(backdrop, startTab);
   }
 
   function aiogLegendHtml() {
@@ -1026,6 +1027,29 @@ import { createDialogs } from "./js/dialogs.js";
       <div style="display:flex; gap:16px; justify-content:center; margin-top:8px;">
         <span style="display:flex; align-items:center; gap:6px; font-size:0.8rem; color:var(--ink-soft);"><span style="width:10px; height:10px; border-radius:50%; background:#3B82F6; display:inline-block;"></span>Insulin (u)</span>
         <span style="display:flex; align-items:center; gap:6px; font-size:0.8rem; color:var(--ink-soft);"><span style="width:10px; height:10px; border-radius:50%; background:#D97706; display:inline-block;"></span>Carbs (g)</span>
+      </div>
+    `;
+  }
+
+  const GLUCOSE_WINDOWS_HOURS = [3, 6, 12, 24];
+  let glucoseWindowHours = 6; // remembered for as long as the app stays open, not persisted
+
+  // A FreeStyle-Libre-style colored banner: big number, trend arrow, how old the reading is.
+  function renderGlucoseBannerHtml(entry) {
+    if (!entry || typeof entry.sgv !== "number") {
+      return `<div class="glucose-banner glucose-banner--unknown"><div class="glucose-banner__label">NO RECENT GLUCOSE</div></div>`;
+    }
+    const unit = state.settings.units;
+    const value = unit === "mmol" ? round1(convertGlucose(entry.sgv, "mgdl", "mmol")) : Math.round(entry.sgv);
+    const rangeClass = glucoseRangeClass(entry.sgv);
+    const arrow = glucoseTrendArrow(entry.direction);
+    const ageMin = Math.round((Date.now() - entry.date) / 60000);
+    const ageText = ageMin <= 0 ? "Just now" : ageMin === 1 ? "1 minute ago" : ageMin < 60 ? `${ageMin} minutes ago` : "Over an hour ago";
+    return `
+      <div class="glucose-banner glucose-banner--${rangeClass}">
+        <div class="glucose-banner__label">${escapeHtml(glucoseRangeLabel(rangeClass))}</div>
+        <div class="glucose-banner__value">${value}${arrow ? ` <span class="glucose-banner__arrow">${arrow}</span>` : ""}</div>
+        <div class="glucose-banner__meta">${unit === "mmol" ? "mmol/L" : "mg/dL"} &middot; ${ageText}</div>
       </div>
     `;
   }
@@ -1048,24 +1072,37 @@ import { createDialogs } from "./js/dialogs.js";
       `;
     } else if (tab === "glucose") {
       content.innerHTML = `<p class="panel-card__hint">Loading recent glucose…</p>`;
-      const result = await fetchGlucoseHistory(72); // ~6 hours at typical 5-minute CGM intervals
+      const count = glucoseWindowHours * 12; // ~5-minute CGM interval
+      const result = await fetchGlucoseHistory(count);
       if (!content.isConnected) return; // sheet was closed while this was loading
-      if (!result.ok) {
-        content.innerHTML = `<p class="panel-card__hint" style="color:#B91C1C;">Couldn't load glucose: ${escapeHtml(result.reason)}</p>`;
-        return;
-      }
-      const svg = renderGlucoseGraphSVG(result.entries);
-      if (!svg) {
-        content.innerHTML = `<p class="panel-card__hint">No recent glucose data found.</p>`;
-        return;
-      }
-      content.innerHTML = `
-        <p class="panel-card__hint">Last ~6 hours from Nightscout. Dashed lines mark the standard 70&ndash;180 range.</p>
-        ${svg}
+      const picker = `
+        <div class="glucose-range-picker">
+          ${GLUCOSE_WINDOWS_HOURS.map(h => `<button type="button" class="glucose-range-btn${h === glucoseWindowHours ? " is-active" : ""}" data-hours="${h}">${h}h</button>`).join("")}
+        </div>
       `;
+      if (!result.ok) {
+        content.innerHTML = `${picker}<p class="panel-card__hint" style="color:#B91C1C;">Couldn't load glucose: ${escapeHtml(result.reason)}</p>`;
+      } else {
+        const entries = result.entries.filter(e => typeof e.sgv === "number").sort((a, b) => a.date - b.date);
+        const latest = entries[entries.length - 1];
+        const svg = renderGlucoseGraphSVG(result.entries);
+        content.innerHTML = `
+          ${renderGlucoseBannerHtml(latest)}
+          ${picker}
+          ${svg ? svg : `<p class="panel-card__hint">No recent glucose data found.</p>`}
+          ${svg ? `<p class="panel-card__hint">Dashed lines mark the standard 70&ndash;180 range.</p>` : ""}
+        `;
+      }
+      content.querySelectorAll(".glucose-range-btn").forEach(btn => {
+        btn.addEventListener("click", () => {
+          glucoseWindowHours = Number(btn.dataset.hours);
+          renderAiogTab(backdrop, "glucose");
+        });
+      });
     }
   }
-  el("active-panel").addEventListener("click", openActiveDetailSheet);
+  el("active-panel").addEventListener("click", () => openActiveDetailSheet("now"));
+  el("cc-live-glucose").addEventListener("click", () => openActiveDetailSheet("glucose"));
 
   function renderActivePanel() {
     const panel = el("active-panel");
