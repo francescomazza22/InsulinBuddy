@@ -207,17 +207,17 @@ input:focus-visible, select:focus-visible, button:focus-visible { outline: 2px s
 
 /* ================= Glucose tab: FreeStyle-Libre-style banner + range picker ================= */
 .glucose-banner {
-  border-radius: var(--radius-m); padding: 14px 16px; margin-bottom: 12px; text-align: center;
+  border-radius: var(--radius-m); padding: 8px 14px; margin-bottom: 12px; text-align: center;
   color: #14331f;
 }
 .glucose-banner--in-range { background: #C6EFA8; }
 .glucose-banner--low { background: #F7C9C4; color: #5C1712; }
 .glucose-banner--high { background: #FCE49B; color: #5C4408; }
 .glucose-banner--unknown { background: var(--surface); border: 1.5px dashed var(--line); color: var(--ink-soft); }
-.glucose-banner__label { font-size: 0.76rem; font-weight: 800; letter-spacing: 0.04em; margin-bottom: 4px; }
-.glucose-banner__value { font-family: var(--font-display); font-size: 2.6rem; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; }
-.glucose-banner__arrow { font-size: 1.6rem; vertical-align: 2px; }
-.glucose-banner__meta { font-size: 0.78rem; font-weight: 600; opacity: 0.8; margin-top: 4px; }
+.glucose-banner__label { font-size: 0.66rem; font-weight: 800; letter-spacing: 0.04em; margin-bottom: 2px; }
+.glucose-banner__value { font-family: var(--font-display); font-size: 1.7rem; font-weight: 700; line-height: 1.1; font-variant-numeric: tabular-nums; display: flex; align-items: baseline; justify-content: center; gap: 6px; }
+.glucose-banner__arrow { font-size: 1.1rem; }
+.glucose-banner__meta { font-size: 0.7rem; font-weight: 600; opacity: 0.8; margin-top: 2px; }
 .glucose-range-picker { display: flex; gap: 6px; justify-content: center; margin-bottom: 10px; }
 .glucose-range-btn {
   border: 1.5px solid var(--line); background: var(--surface); color: var(--ink-soft);
