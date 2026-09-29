@@ -129,6 +129,13 @@ input[type="text"], input[type="number"], input[type="password"], input[type="ti
   font-family: var(--font-ui); color: var(--ink); background: var(--surface);
   border: 1.5px solid var(--line); border-radius: var(--radius-s);
 }
+/* A bare <select> sizes itself to its widest <option> text rather than its
+   container, so a long option (like Nightscout's format choices) can push it
+   past the edge of its card. Pin it to the container instead. */
+select { width: 100%; max-width: 100%; }
+/* ...except the compact Library filter row, where the select sits beside its
+   label rather than stacked full-width underneath it. */
+.filter-panel__row select { width: auto; max-width: none; }
 select {
   background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none'><path d='M6 9l6 6 6-6' stroke='%236B7A89' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/></svg>");
   background-repeat: no-repeat; background-position: right 12px center; background-size: 16px;
