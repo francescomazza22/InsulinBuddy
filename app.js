@@ -1100,7 +1100,7 @@ import { createDialogs } from "./js/dialogs.js";
           ${renderGlucoseBannerHtml(latest)}
           ${picker}
           ${svg ? svg : `<p class="panel-card__hint">No recent glucose data found.</p>`}
-          ${svg ? `<p class="panel-card__hint">Dashed lines mark the standard 70&ndash;180 range.</p>` : ""}
+          ${svg ? `<p class="panel-card__hint" style="margin-top:10px;">Dashed lines mark the standard 70&ndash;180 range.</p>` : ""}
         `;
       }
       content.querySelectorAll(".glucose-range-btn").forEach(btn => {
