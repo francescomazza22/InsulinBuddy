@@ -100,8 +100,10 @@ export class NightscoutClient {
   _log(level, msg) { if (this.diag) this.diag.log(level, "nightscout", msg); }
   _status(op, ok, via, message) { if (this.onStatus) this.onStatus(op === "read" ? "read" : "write", ok, via, message); }
 
-  async read(cfg, count = 1) {
-    const r = await this._run("read", cfg, { count });
+  /** opts: { before } pages backward through history (backfill); { after } asks for
+   * everything newer than a known point (catching up). At most one of the two. */
+  async read(cfg, count = 1, opts = {}) {
+    const r = await this._run("read", cfg, { count, before: opts.before, after: opts.after });
     return { entries: Array.isArray(r.body) ? r.body : (r.body && r.body.entries) || [], via: r.via };
   }
   async create(cfg, treatment) {
@@ -188,7 +190,11 @@ export class NightscoutClient {
     if (!this.fetchImpl) throw new NsError("network", "No network available");
     const tok = encodeURIComponent(cfg.token);
     let url, init;
-    if (op === "read") { url = `${cfg.baseUrl}/api/v1/entries.json?count=${payload.count || 1}&token=${tok}`; init = { method: "GET" }; }
+    if (op === "read") {
+      const find = payload.before !== undefined ? `&find[date][$lt]=${payload.before}` : payload.after !== undefined ? `&find[date][$gte]=${payload.after}` : "";
+      url = `${cfg.baseUrl}/api/v1/entries.json?count=${payload.count || 1}${find}&token=${tok}`;
+      init = { method: "GET" };
+    }
     else if (op === "create") { url = `${cfg.baseUrl}/api/v1/treatments?token=${tok}`; init = { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload.treatment) }; }
     else if (op === "update") { url = `${cfg.baseUrl}/api/v1/treatments?token=${tok}`; init = { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload.treatment) }; }
     else if (op === "delete") { url = `${cfg.baseUrl}/api/v1/treatments/${encodeURIComponent(payload.id)}?token=${tok}`; init = { method: "DELETE" }; }
@@ -385,4 +391,24 @@ export class NsOutbox {
       } });
     }
   }
+}
+
+/** Nightscout /entries.json rows -> the shape our own glucose_readings table stores.
+ * Filters out anything without a usable numeric glucose value or timestamp, and drops
+ * duplicate timestamps within one batch (upsert on the server handles duplicates across
+ * separate fetches; this just keeps one fetched batch itself clean). */
+export function entriesToGlucoseRows(entries, userId) {
+  const rows = [];
+  const seen = new Set();
+  for (const e of entries || []) {
+    if (!e) continue;
+    const mgdl = typeof e.sgv === "number" ? e.sgv : typeof e.mbg === "number" ? e.mbg : null;
+    const at = typeof e.date === "number" ? e.date : null;
+    if (mgdl == null || at == null || !Number.isFinite(mgdl) || mgdl <= 0 || !Number.isFinite(at)) continue;
+    const iso = new Date(at).toISOString();
+    if (seen.has(iso)) continue;
+    seen.add(iso);
+    rows.push({ user_id: userId, at: iso, mgdl: Math.round(mgdl), direction: e.direction || null });
+  }
+  return rows;
 }
