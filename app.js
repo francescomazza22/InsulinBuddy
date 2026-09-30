@@ -1666,7 +1666,7 @@ import { createDialogs } from "./js/dialogs.js";
       await ensureGlucoseCoverage(hours);
       try {
         const sinceISO = new Date(Date.now() - hours * 3600_000).toISOString();
-        const { data, error } = await supabaseClient.from("glucose_readings").select("at, mgdl, direction").eq("user_id", currentUser.id).gte("at", sinceISO).order("at");
+        const { data, error } = await supabaseClient.from("glucose_readings").select("at, mgdl, direction").eq("user_id", currentUser.id).gte("at", sinceISO).order("at").limit(2000);
         if (error) throw error;
         return { ok: true, entries: (data || []).map(row => ({ sgv: row.mgdl, date: new Date(row.at).getTime(), direction: row.direction })) };
       } catch (e) { return { ok: false, reason: "Couldn't load your glucose history." }; }
@@ -1693,7 +1693,11 @@ import { createDialogs } from "./js/dialogs.js";
     await ensureGlucoseCoverage(days * 24);
     try {
       const sinceISO = new Date(Date.now() - days * 86400_000).toISOString();
-      const { data, error } = await supabaseClient.from("glucose_readings").select("at, mgdl").eq("user_id", currentUser.id).gte("at", sinceISO).order("at");
+      // Explicit, generous limit: Supabase caps an unbounded select at 1000 rows by default,
+      // which -- combined with the default oldest-first order -- would silently return only
+      // the OLDEST slice of the window instead of the whole thing. 90 days at a 5-minute CGM
+      // interval is ~26,000 readings; this comfortably covers that with room to spare.
+      const { data, error } = await supabaseClient.from("glucose_readings").select("at, mgdl").eq("user_id", currentUser.id).gte("at", sinceISO).order("at").limit(30000);
       if (error) throw error;
       return { ok: true, readings: (data || []).map(row => ({ at: new Date(row.at).getTime(), mgdl: row.mgdl })) };
     } catch (e) { return { ok: false, reason: "Couldn't load your glucose history." }; }
