@@ -503,6 +503,7 @@ html[data-theme="dark"] .cat-snacks, html[data-theme="dark"] .cat-other { filter
 .ratio-row__edit .ratio-x input { width: 60px; padding: 8px; text-align: center; }
 
 .dashed-btn { width: 100%; padding: 12px; border: 1.5px dashed var(--line); background: none; border-radius: var(--radius-s); color: var(--ink-soft); font-weight: 600; font-size: 0.88rem; display: flex; align-items: center; justify-content: center; gap: 6px; cursor: pointer; font-family: var(--font-ui); }
+.link-btn { display: block; margin: -6px 0 14px; padding: 4px 0; border: none; background: none; color: var(--acc-1); font-weight: 600; font-size: 0.82rem; text-decoration: underline; cursor: pointer; font-family: var(--font-ui); }
 .dashed-btn svg { width: 15px; height: 15px; }
 
 .bg-swatch-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; }
