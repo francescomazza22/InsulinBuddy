@@ -1588,13 +1588,18 @@ import { createDialogs } from "./js/dialogs.js";
   // Persist whatever Nightscout hands back, so graphs and future stats read from data we
   // control instead of re-fetching (and re-trusting) Nightscout every single time.
   async function saveGlucoseReadings(entries) {
-    if (!supabaseClient || !currentUser) return; // this table only exists for signed-in accounts
+    if (!supabaseClient || !currentUser) return { ok: true, saved: 0 }; // this table only exists for signed-in accounts
     const rows = entriesToGlucoseRows(entries, currentUser.id);
-    if (rows.length === 0) return;
+    if (rows.length === 0) return { ok: true, saved: 0 };
     try {
       const { error } = await supabaseClient.from("glucose_readings").upsert(rows, { onConflict: "user_id,at" });
-      if (error) diag.log("warn", "glucose-db", "Couldn't save glucose readings: " + (error.message || error));
-    } catch (e) { diag.log("warn", "glucose-db", "Couldn't save glucose readings: " + ((e && e.message) || e)); }
+      if (error) { diag.log("warn", "glucose-db", "Couldn't save glucose readings: " + (error.message || error)); return { ok: false, saved: 0, error: error.message || String(error) }; }
+      return { ok: true, saved: rows.length };
+    } catch (e) {
+      const msg = (e && e.message) || String(e);
+      diag.log("warn", "glucose-db", "Couldn't save glucose readings: " + msg);
+      return { ok: false, saved: 0, error: msg };
+    }
   }
   async function getLatestStoredGlucoseAt() {
     try {
@@ -1614,21 +1619,30 @@ import { createDialogs } from "./js/dialogs.js";
    * backfill button (always runs) and ensureGlucoseCoverage (only runs when actually needed). */
   async function pageBackwardImporting(cfg, cutoffMs) {
     let before = Date.now() + 60_000;
-    let total = 0;
+    let fetched = 0, saved = 0, saveFailures = 0, lastSaveError = null;
     for (let i = 0; i < 200; i++) { // safety cap -- 200 batches of 1000 is 200k readings, far beyond any realistic need
       let r;
       try { r = await nsClient.read(cfg, 1000, { before }); }
-      catch (e) { return { total, reason: friendlyNsError(e) }; }
+      catch (e) { return { fetched, saved, reason: friendlyNsError(e) }; }
       if (!r.entries.length) break; // Nightscout has nothing older than `before` -- history exhausted
-      await saveGlucoseReadings(r.entries);
-      total += r.entries.length;
+      fetched += r.entries.length;
+      const result = await saveGlucoseReadings(r.entries);
+      if (result.ok) saved += result.saved;
+      else {
+        saveFailures++;
+        lastSaveError = result.error;
+        // A couple of failures could be transient; a run of them means something is
+        // fundamentally broken (the table doesn't exist, a bad RLS policy, etc.) -- stop
+        // rather than "successfully" fetching thousands more readings we can't actually store.
+        if (saveFailures >= 3) return { fetched, saved, reason: `Couldn't save to the database: ${lastSaveError}` };
+      }
       const dates = r.entries.map(e => e.date).filter(d => typeof d === "number");
       const oldest = dates.length ? Math.min(...dates) : null;
       if (oldest == null || oldest >= before) break; // no progress -- stop rather than loop forever
       before = oldest;
       if (before <= cutoffMs || r.entries.length < 1000) break;
     }
-    return { total };
+    return { fetched, saved, reason: saveFailures > 0 ? `${saveFailures} batch(es) failed to save: ${lastSaveError}` : undefined };
   }
 
   /** Makes sure our database has at least `hours` worth of recent history for this account,
@@ -1681,8 +1695,9 @@ import { createDialogs } from "./js/dialogs.js";
   async function backfillGlucoseHistory(days = 90) {
     if (!supabaseClient || !currentUser) return { ok: false, reason: "Sign in to Cloud Sync first." };
     if (!nightscoutConfigured()) return { ok: false, reason: "Set up Nightscout first." };
-    const { total, reason } = await pageBackwardImporting(nsCfg(), Date.now() - days * 86400_000);
-    return reason ? { ok: total > 0, imported: total, reason } : { ok: true, imported: total };
+    const { fetched, saved, reason } = await pageBackwardImporting(nsCfg(), Date.now() - days * 86400_000);
+    if (reason) return { ok: saved > 0, imported: saved, fetched, reason };
+    return { ok: true, imported: saved, fetched };
   }
 
   /** Readings for the History > Glucose tab: ensures coverage, then reads the window straight
@@ -3427,10 +3442,17 @@ import { createDialogs } from "./js/dialogs.js";
   }
 
   // ---- Diagnostics ----
-  function diagContext() {
+  async function diagContext() {
     let nsHost = "not set up";
     try { if (nightscoutConfigured()) nsHost = new URL(nightscoutBaseUrl()).host; } catch (e) { nsHost = "invalid URL"; }
     const sw = "serviceWorker" in navigator ? (navigator.serviceWorker.controller ? "controlled" : "not controlling") : "unsupported";
+    let glucoseRows = "n/a (signed out)";
+    if (supabaseClient && currentUser) {
+      try {
+        const { count, error } = await supabaseClient.from("glucose_readings").select("*", { count: "exact", head: true }).eq("user_id", currentUser.id);
+        glucoseRows = error ? `error: ${error.message}` : String(count);
+      } catch (e) { glucoseRows = `error: ${(e && e.message) || e}`; }
+    }
     return {
       version: CHANGELOG[0].version,
       "schema": SCHEMA_VERSION,
@@ -3448,6 +3470,7 @@ import { createDialogs } from "./js/dialogs.js";
       "nightscout write": nightscoutWriteStatus.at ? `${nightscoutWriteStatus.ok ? "ok" : "failed"} via ${nightscoutWriteStatus.via} - ${nightscoutWriteStatus.message}` : "not checked",
       "outbox jobs": nsOutbox.count(),
       "outbox last error": nsOutbox.lastError() || "none",
+      "glucose readings stored": glucoseRows,
       "service worker": sw
     };
   }
@@ -3467,7 +3490,7 @@ import { createDialogs } from "./js/dialogs.js";
     } catch (e) { return false; }
   }
   el("btn-diag-copy").addEventListener("click", async () => {
-    const ok = await copyText(diag.report(diagContext()));
+    const ok = await copyText(diag.report(await diagContext()));
     dialogs.alert(ok ? "Copied. Paste it into a message to share it." : "Couldn't copy automatically on this device.", { title: ok ? "Report copied" : "Copy failed" });
   });
   el("btn-diag-clear").addEventListener("click", async () => {
@@ -3658,8 +3681,9 @@ import { createDialogs } from "./js/dialogs.js";
     el("btn-ns-backfill").disabled = true;
     const r = await backfillGlucoseHistory();
     el("btn-ns-backfill").disabled = false;
-    if (r.ok) statusEl.textContent = `Imported ${r.imported} reading${r.imported === 1 ? "" : "s"}` + (r.reason ? ` (stopped early: ${r.reason})` : ".");
-    else statusEl.textContent = `Couldn't import: ${r.reason}`;
+    if (r.ok && !r.reason) statusEl.textContent = `Saved ${r.imported} reading${r.imported === 1 ? "" : "s"} to the database.`;
+    else if (r.ok) statusEl.textContent = `Saved ${r.imported} of ${r.fetched} fetched from Nightscout (stopped early: ${r.reason}).`;
+    else statusEl.textContent = `Fetched ${r.fetched || 0} from Nightscout, but couldn't save them: ${r.reason}`;
   });
 
   function renderAccountSection() {
