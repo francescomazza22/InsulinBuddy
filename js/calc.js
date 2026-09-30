@@ -128,22 +128,27 @@ export function computeDose({ carbs, ratio, correctionOn, glucose, glucoseUnit, 
     }
   }
 
-  let total = mealPart + correctionPart;
-  const totalBeforeCap = total;
-  let capped = false;
-  if (settings.maxDose > 0 && total > settings.maxDose) { total = settings.maxDose; capped = true; }
-  let finalDose = Math.max(0, roundDose(total, settings.rounding));
+  const totalBeforeCap = mealPart + correctionPart;
+  // Round each part first, then add the already-rounded numbers together. Rounding the raw
+  // (unrounded) sum instead can disagree with what the meal and correction lines actually show --
+  // e.g. a 3.15u meal (shown as "3u") plus a 0.7u correction (shown as "0.5u") sum to 3.5u, but
+  // rounding 3.85 on its own lands on 4u. The displayed breakdown must always add up to the total.
   let loggedMeal = roundDose(mealPart, settings.rounding);
   let loggedCorrection = roundDose(correctionPart, settings.rounding);
+  let finalDose = Math.max(0, loggedMeal + loggedCorrection);
+  let capped = false;
+  if (settings.maxDose > 0 && finalDose > settings.maxDose) { finalDose = settings.maxDose; capped = true; }
 
   if (noInsulin) {
     finalDose = 0; loggedMeal = 0; loggedCorrection = 0;
     lines.length = 0;
     lines.push("Treating a low: carbs are logged but no insulin is recorded");
   } else {
-    if (mealPart > 0 && correctionPart > 0) lines.push(`Sum: ${fmtU(mealPart)} + ${fmtU(correctionPart)} = ${fmtU(totalBeforeCap)} u`);
+    if (mealPart > 0 && correctionPart > 0) lines.push(`Raw sum before rounding: ${fmtU(mealPart)} + ${fmtU(correctionPart)} = ${fmtU(totalBeforeCap)} u`);
     if (capped) lines.push(`Capped at your ${settings.maxDose} u maximum dose`);
-    lines.push(`Rounded to the nearest ${settings.rounding} u: ${finalDose.toFixed(1)} u`);
+    lines.push(mealPart > 0 && correctionPart > 0
+      ? `Meal and correction are each rounded to the nearest ${settings.rounding} u first, then added: ${fmtU(loggedMeal)} + ${fmtU(loggedCorrection)} = ${finalDose.toFixed(1)} u`
+      : `Rounded to the nearest ${settings.rounding} u: ${finalDose.toFixed(1)} u`);
   }
 
   return { mealPart, rawCorrection, iobSubtracted, correctionPart, correctionApplied, totalBeforeCap, capped, finalDose, loggedMeal, loggedCorrection, lines };
