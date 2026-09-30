@@ -187,7 +187,11 @@ import { createDialogs } from "./js/dialogs.js";
         rp: { name: "Insulin Buddy" },
         user: { id: randomBytes(16), name: "insulin-buddy", displayName: "Insulin Buddy" },
         pubKeyCredParams: [{ type: "public-key", alg: -7 }],
-        authenticatorSelection: { authenticatorAttachment: "platform", userVerification: "required", residentKey: "preferred" },
+        // discouraged, not preferred: this app always looks the credential up by its exact
+        // stored ID (see unlockWithFaceId's allowCredentials below) rather than a discoverable/
+        // usernameless lookup, so there's no reason to let iOS offer to sync this via iCloud
+        // Keychain -- it's meant to be a plain, device-bound credential.
+        authenticatorSelection: { authenticatorAttachment: "platform", userVerification: "required", residentKey: "discouraged" },
         timeout: 60000
       }
     });
@@ -4451,6 +4455,7 @@ import { createDialogs } from "./js/dialogs.js";
       const loading = el("loading-screen");
       loading.hidden = false;
       let resolved = false;
+      let lockAttempted = false; // guards against onAuthStateChange firing more than once before the first attempt finishes (see below)
       supabaseClient.auth.onAuthStateChange(async (_event, session) => {
         if (_event === "PASSWORD_RECOVERY") {
           // They've just clicked the emailed reset link -- this session is real but its only
@@ -4474,7 +4479,15 @@ import { createDialogs } from "./js/dialogs.js";
           // cross-device source of truth) over whatever this device happens to know locally.
           const lockCheck = await checkCloudLockConfig();
           const requiredLock = (lockCheck.ok && lockCheck.lock) || getLockConfig();
-          if (requiredLock && !encryptionKey) {
+          // Supabase can legitimately fire onAuthStateChange more than once during a normal
+          // sign-in (an initial session restore followed by a SIGNED_IN event, for instance).
+          // Without this guard, a second firing while the first lock/Face ID attempt is still
+          // pending (encryptionKey not set yet) would trigger a second, overlapping prompt --
+          // exactly the "asks twice" symptom this closes off. Once truly unlocked, encryptionKey
+          // being set is what keeps later firings from re-prompting; this only needs to cover
+          // the brief race before that.
+          if (requiredLock && !encryptionKey && !lockAttempted) {
+            lockAttempted = true;
             const localCfg = getLockConfig();
             if (!localCfg || localCfg.salt !== requiredLock.salt) {
               // Either this device has never seen a passphrase before, or another device set
