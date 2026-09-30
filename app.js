@@ -1708,13 +1708,22 @@ import { createDialogs } from "./js/dialogs.js";
     await ensureGlucoseCoverage(days * 24);
     try {
       const sinceISO = new Date(Date.now() - days * 86400_000).toISOString();
-      // Explicit, generous limit: Supabase caps an unbounded select at 1000 rows by default,
-      // which -- combined with the default oldest-first order -- would silently return only
-      // the OLDEST slice of the window instead of the whole thing. 90 days at a 5-minute CGM
-      // interval is ~26,000 readings; this comfortably covers that with room to spare.
-      const { data, error } = await supabaseClient.from("glucose_readings").select("at, mgdl").eq("user_id", currentUser.id).gte("at", sinceISO).order("at").limit(30000);
-      if (error) throw error;
-      return { ok: true, readings: (data || []).map(row => ({ at: new Date(row.at).getTime(), mgdl: row.mgdl })) };
+      // A Supabase project enforces its own server-side max-rows cap (Project Settings > API >
+      // "Max Rows", 1000 by default) that a client .limit() can request FEWER rows than but
+      // never override -- a single large .limit() silently gets clamped back down. The only
+      // way to actually get more than that cap is genuine pagination: fetch bounded pages with
+      // .range() and stitch them together here. 90 days at a 5-minute CGM interval is ~26,000
+      // readings, so this pages well past any default cap.
+      const PAGE = 1000, HARD_CAP = 30000;
+      let readings = [];
+      for (let offset = 0; offset < HARD_CAP; offset += PAGE) {
+        const { data, error } = await supabaseClient.from("glucose_readings").select("at, mgdl").eq("user_id", currentUser.id).gte("at", sinceISO).order("at").range(offset, offset + PAGE - 1);
+        if (error) throw error;
+        if (!data || data.length === 0) break;
+        readings = readings.concat(data);
+        if (data.length < PAGE) break; // fewer than a full page back -- that's everything there is
+      }
+      return { ok: true, readings: readings.map(row => ({ at: new Date(row.at).getTime(), mgdl: row.mgdl })) };
     } catch (e) { return { ok: false, reason: "Couldn't load your glucose history." }; }
   }
 
