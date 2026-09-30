@@ -158,12 +158,78 @@ import { createDialogs } from "./js/dialogs.js";
     } catch (e) { clearSessionKey(); return false; }
   }
 
+  // ---- Face ID / Touch ID unlock (a convenience gate, not a cryptographic replacement for the
+  // passphrase -- see the settings copy for the honest trade-off this makes) ----
+  const FACEID_CRED_KEY = "insulinBuddy.faceIdCredentialId";
+  const DURABLE_KEY_STORAGE = "insulinBuddy.durableKey"; // localStorage, not sessionStorage: survives a real close, gated by a fresh WebAuthn check each time rather than by encryption of the value itself
+  // window.PublicKeyCredential existing only means the browser HAS a WebAuthn implementation --
+  // Chrome exposes it unconditionally, with or without any actual Face ID/Touch ID/Windows
+  // Hello hardware behind it. The real check is isUserVerifyingPlatformAuthenticatorAvailable(),
+  // which is async, so it's checked once at boot and cached rather than re-checked on every
+  // render (the result can't meaningfully change while the app is running).
+  let faceIdHardwareAvailable = false;
+  const faceIdHardwareCheck = (async () => {
+    try { faceIdHardwareAvailable = !!(window.PublicKeyCredential && await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable()); }
+    catch (e) { faceIdHardwareAvailable = false; }
+  })();
+  function faceIdSupported() { return faceIdHardwareAvailable; }
+  faceIdHardwareCheck.then(() => { if (state && !el("view-settings").hidden) renderPrivacySection(); });
+  function isFaceIdEnabled() { return !!localStorage.getItem(FACEID_CRED_KEY); }
+
+  /** Registers a new platform-authenticator (Face ID / Touch ID) credential, then stashes the
+   * *already-unlocked* key so a future WebAuthn success can reveal it without retyping the
+   * passphrase. Must be called while already unlocked this session. */
+  async function enrollFaceId() {
+    if (!encryptionKey) throw new Error("Unlock with your passphrase first.");
+    const cred = await navigator.credentials.create({
+      publicKey: {
+        challenge: randomBytes(32),
+        rp: { name: "Insulin Buddy" },
+        user: { id: randomBytes(16), name: "insulin-buddy", displayName: "Insulin Buddy" },
+        pubKeyCredParams: [{ type: "public-key", alg: -7 }],
+        authenticatorSelection: { authenticatorAttachment: "platform", userVerification: "required", residentKey: "preferred" },
+        timeout: 60000
+      }
+    });
+    localStorage.setItem(FACEID_CRED_KEY, toB64(new Uint8Array(cred.rawId)));
+    localStorage.setItem(DURABLE_KEY_STORAGE, await exportKeyRaw(encryptionKey));
+  }
+  function disableFaceId() {
+    localStorage.removeItem(FACEID_CRED_KEY);
+    localStorage.removeItem(DURABLE_KEY_STORAGE);
+  }
+  /** Prompts Face ID / Touch ID; on success, reveals the stashed key and re-verifies it against
+   * the account's own check value before trusting it (same defensive pattern as
+   * tryRestoreSessionKey -- a stale or mismatched entry safely falls through rather than
+   * misbehaving). Returns false on any failure, cancellation, or unavailability -- callers
+   * always keep the plain passphrase field as a fallback, never Face-ID-only. */
+  async function unlockWithFaceId(lockCfg) {
+    const credId = localStorage.getItem(FACEID_CRED_KEY);
+    if (!credId || !lockCfg) return false;
+    try {
+      await navigator.credentials.get({
+        publicKey: { challenge: randomBytes(32), allowCredentials: [{ id: fromB64(credId), type: "public-key" }], userVerification: "required", timeout: 60000 }
+      });
+      const raw = localStorage.getItem(DURABLE_KEY_STORAGE);
+      if (!raw) return false;
+      const key = await importKeyRaw(raw);
+      const check = await decryptString(key, lockCfg.verifier);
+      if (check !== "insulin-buddy-unlock-check") { disableFaceId(); return false; }
+      encryptionKey = key;
+      await persistSessionKey(key);
+      return true;
+    } catch (e) {
+      return false; // cancelled, no match, hardware unavailable, etc.
+    }
+  }
+
   async function setPassphrase(passphrase) {
     const salt = randomBytes(16);
     const key = await deriveKey(passphrase, salt);
     const verifier = await encryptString(key, "insulin-buddy-unlock-check");
     localStorage.setItem(LOCK_KEY, JSON.stringify({ salt: toB64(salt), verifier }));
     encryptionKey = key;
+    disableFaceId(); // any previously-enrolled Face ID unlock was tied to the old passphrase's key
     await persistSessionKey(key);
     await saveState(); // re-save current data encrypted immediately
   }
@@ -187,6 +253,7 @@ import { createDialogs } from "./js/dialogs.js";
     localStorage.removeItem(LOCK_KEY);
     encryptionKey = null;
     clearSessionKey();
+    disableFaceId();
     if (currentUser) await saveStateCloud(); // push the plaintext copy + lock:null immediately, don't wait
   }
 
@@ -3756,13 +3823,34 @@ import { createDialogs } from "./js/dialogs.js";
     const box = el("privacy-lock-section");
     const cloudNote = currentUser ? " and what's synced to the cloud" : "";
     if (isLockEnabled()) {
+      const faceIdRow = faceIdSupported() ? `
+        <div class="toggle-row">
+          <span>Unlock with Face ID / Touch ID</span>
+          <label class="switch">
+            <input type="checkbox" id="faceid-toggle" ${isFaceIdEnabled() ? "checked" : ""}>
+            <span class="switch__track"></span>
+          </label>
+        </div>
+        <p class="panel-card__hint" style="margin-top:0;">A convenience shortcut, not a cryptographic replacement — it stores your unlocked key on this device, gated behind a fresh Face ID check each time. Your passphrase still works as a fallback, always.</p>
+      ` : "";
       box.innerHTML = `
         <p class="panel-card__hint" style="margin-top:-4px;">This device is locked with a passphrase. Your data${cloudNote} is encrypted at rest — forgetting it means it can't be recovered. Once unlocked, this device stays unlocked until you lock it again or fully close the app.</p>
+        ${faceIdRow}
         <button class="dashed-btn" id="btn-lock-now" type="button" style="margin-bottom:8px;">Lock now</button>
         <button class="dashed-btn" id="btn-change-pass" type="button" style="margin-bottom:8px;">Change passphrase</button>
         <button class="dashed-btn" id="btn-remove-pass" type="button" style="color:var(--brick); border-color:var(--brick-soft);">Remove passphrase</button>
       `;
       el("btn-lock-now").addEventListener("click", () => { clearSessionKey(); encryptionKey = null; location.reload(); });
+      if (faceIdSupported()) {
+        el("faceid-toggle").addEventListener("change", async e => {
+          if (e.target.checked) {
+            try { await enrollFaceId(); }
+            catch (err) { e.target.checked = false; await dialogs.alert("Couldn't set up Face ID: " + ((err && err.message) || err)); }
+          } else {
+            disableFaceId();
+          }
+        });
+      }
       el("btn-change-pass").addEventListener("click", onChangePassphrase);
       el("btn-remove-pass").addEventListener("click", onRemovePassphrase);
     } else {
@@ -4312,25 +4400,49 @@ import { createDialogs } from "./js/dialogs.js";
   // cloud sign-in on a device that either already knows about the account's passphrase
   // or has just learned about it (see checkCloudLockConfig / the sign-in flow below).
   // Resolves once successfully unlocked; never resolves if the user just sits there.
-  function showLockScreen() {
+  async function showLockScreen() {
+    await faceIdHardwareCheck; // make sure faceIdSupported() below reflects a resolved answer, not the false default
     return new Promise(resolve => {
       const overlay = el("lock-screen");
       const input = el("lock-passphrase");
       const errorEl = el("lock-error");
       const form = el("lock-form");
+      const faceIdBtn = el("btn-faceid-unlock");
       overlay.hidden = false;
-      input.focus();
+      const lockCfg = getLockConfig();
+      const canFaceId = faceIdSupported() && isFaceIdEnabled();
+      faceIdBtn.hidden = !canFaceId;
+      let settled = false;
+      const finish = () => {
+        if (settled) return;
+        settled = true;
+        overlay.hidden = true;
+        input.value = "";
+        form.removeEventListener("submit", onSubmit);
+        faceIdBtn.removeEventListener("click", onFaceIdClick);
+        resolve();
+      };
       const onSubmit = async e => {
         e.preventDefault();
         errorEl.hidden = true;
         const ok = await tryUnlock(input.value);
-        if (!ok) { errorEl.hidden = false; input.value = ""; input.focus(); return; }
-        overlay.hidden = true;
-        input.value = "";
-        form.removeEventListener("submit", onSubmit);
-        resolve();
+        if (!ok) { errorEl.textContent = "That passphrase doesn't match. Try again."; errorEl.hidden = false; input.value = ""; input.focus(); return; }
+        finish();
+      };
+      const onFaceIdClick = async () => {
+        errorEl.hidden = true;
+        faceIdBtn.disabled = true;
+        const ok = await unlockWithFaceId(lockCfg);
+        faceIdBtn.disabled = false;
+        if (ok) { finish(); return; }
+        errorEl.textContent = "Face ID didn't work — enter your passphrase instead.";
+        errorEl.hidden = false;
+        input.focus();
       };
       form.addEventListener("submit", onSubmit);
+      faceIdBtn.addEventListener("click", onFaceIdClick);
+      if (canFaceId) onFaceIdClick(); // try right away; a decline or failure falls back to the button/passphrase field
+      else input.focus();
     });
   }
 

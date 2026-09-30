@@ -37,6 +37,7 @@
       </div>
       <h1>Enter your passphrase</h1>
       <p>Your data is encrypted with this passphrase — including anything synced to the cloud, if that's turned on. The passphrase itself never leaves this browser.</p>
+      <button class="btn btn--primary" id="btn-faceid-unlock" type="button" style="margin-bottom:12px;" hidden>Unlock with Face ID / Touch ID</button>
       <form id="lock-form">
         <input type="password" id="lock-passphrase" placeholder="Passphrase" autocomplete="current-password" autofocus>
         <p class="lock-screen__error" id="lock-error" hidden>That passphrase doesn't match. Try again.</p>
