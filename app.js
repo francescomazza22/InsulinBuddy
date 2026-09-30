@@ -3418,6 +3418,7 @@ import { createDialogs } from "./js/dialogs.js";
           <div class="field"><label>Email</label><input type="email" id="acct-email" autocomplete="email" required></div>
           <div class="field"><label>Password</label><input type="password" id="acct-password" autocomplete="current-password" required></div>
           <p class="lock-screen__error" id="acct-error" hidden></p>
+          <button type="button" id="btn-forgot-password" class="link-btn">Forgot password?</button>
           <div class="sheet-actions">
             <button class="btn btn--secondary" id="btn-sign-up" type="button">Create account</button>
             <button class="btn btn--primary" id="btn-sign-in" type="submit">Sign in</button>
@@ -3432,11 +3433,22 @@ import { createDialogs } from "./js/dialogs.js";
         try { await signIn(emailEl.value.trim(), passEl.value); }
         catch (err) { showErr(err.message || "Couldn't sign in."); }
       });
+      el("btn-forgot-password").addEventListener("click", async () => {
+        errEl.hidden = true;
+        let email = emailEl.value.trim();
+        if (!email) { email = (await dialogs.prompt("Enter the email for your account:", { title: "Reset password", type: "email" }) || "").trim(); }
+        if (!email) return;
+        try {
+          const { error } = await supabaseClient.auth.resetPasswordForEmail(email, { redirectTo: window.location.href.split("#")[0].split("?")[0] });
+          if (error) throw error;
+          await dialogs.alert(`If an account exists for ${email}, a reset link has been sent. Open it on this device to choose a new password.`, { title: "Check your email" });
+        } catch (e) { showErr(e.message || "Couldn't send the reset email."); }
+      });
       el("btn-sign-up").addEventListener("click", async () => {
         errEl.hidden = true;
         try {
           await signUp(emailEl.value.trim(), passEl.value);
-          alert("Account created. Check your email to confirm it, then sign in.");
+          await dialogs.alert("Account created. Check your email to confirm it, then sign in.");
         } catch (e) { showErr(e.message || "Couldn't create an account."); }
       });
     }
@@ -4028,6 +4040,21 @@ import { createDialogs } from "./js/dialogs.js";
       loading.hidden = false;
       let resolved = false;
       supabaseClient.auth.onAuthStateChange(async (_event, session) => {
+        if (_event === "PASSWORD_RECOVERY") {
+          // They've just clicked the emailed reset link -- this session is real but its only
+          // purpose right now is letting them choose a new password before anything else happens.
+          const p1 = await dialogs.prompt("Choose a new password for your account:", { title: "Set a new password", type: "password" });
+          if (p1) {
+            const p2 = await dialogs.prompt("Enter it again to confirm:", { title: "Confirm new password", type: "password" });
+            if (p1 !== p2) await dialogs.alert("Those didn't match — nothing was changed. Use the emailed link again to retry.");
+            else {
+              const { error } = await supabaseClient.auth.updateUser({ password: p1 });
+              if (error) await dialogs.alert("Couldn't update your password: " + (error.message || error));
+              else await dialogs.alert("Password updated. You're signed in.");
+            }
+          }
+          // Either way, fall through to the normal sign-in flow below with this same session.
+        }
         if (session && session.user) {
           currentUser = session.user;
 
