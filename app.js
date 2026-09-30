@@ -3,6 +3,7 @@ import { convertGlucose, roundDose as roundDoseWith, activeAt, compoundGiInfo, c
 import { SCHEMA_VERSION, normalizeState as normalizeStateWith, makeFingerprint, stampChanges, mergeStates, statesEquivalent, prepareRestoredState, unexplainedEmptying } from "./js/state.js";
 import { NightscoutClient, NsOutbox, nsToken, nsBaseUrl, nsConfigured, treatmentsForEntry } from "./js/nightscout.js";
 import { createDiag, hookGlobalErrors } from "./js/diag.js";
+import { randomBytes, toB64, fromB64, deriveKey, encryptString, decryptString, isEncryptedPayload } from "./js/crypto.js";
 import { LocalBackups, shouldAutoSnapshot } from "./js/backup.js";
 import { groupByDay, takeEntries, matchesQuery, recentDistinctMeals, mealLabel, PAGE_SIZE } from "./js/history.js";
 import { createDialogs } from "./js/dialogs.js";
@@ -125,42 +126,6 @@ import { createDialogs } from "./js/dialogs.js";
   const LOCK_KEY = "insulinBuddy.lock";
   let encryptionKey = null; // the derived CryptoKey, kept in memory only while unlocked this session
 
-  function randomBytes(n) {
-    const arr = new Uint8Array(n);
-    crypto.getRandomValues(arr);
-    return arr;
-  }
-  function toB64(bytes) {
-    let binary = "";
-    bytes.forEach(b => { binary += String.fromCharCode(b); });
-    return btoa(binary);
-  }
-  function fromB64(b64) {
-    const binary = atob(b64);
-    const bytes = new Uint8Array(binary.length);
-    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-    return bytes;
-  }
-  async function deriveKey(passphrase, saltBytes) {
-    const enc = new TextEncoder();
-    const keyMaterial = await crypto.subtle.importKey("raw", enc.encode(passphrase), "PBKDF2", false, ["deriveKey"]);
-    return crypto.subtle.deriveKey(
-      { name: "PBKDF2", salt: saltBytes, iterations: 150000, hash: "SHA-256" },
-      keyMaterial, { name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"]
-    );
-  }
-  async function encryptString(key, plaintext) {
-    const iv = randomBytes(12);
-    const enc = new TextEncoder();
-    const ciphertext = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, enc.encode(plaintext));
-    return { iv: toB64(iv), data: toB64(new Uint8Array(ciphertext)) };
-  }
-  async function decryptString(key, payload) {
-    const iv = fromB64(payload.iv);
-    const data = fromB64(payload.data);
-    const buf = await crypto.subtle.decrypt({ name: "AES-GCM", iv }, key, data);
-    return new TextDecoder().decode(buf);
-  }
   function getLockConfig() {
     try { return JSON.parse(localStorage.getItem(LOCK_KEY) || "null"); } catch { return null; }
   }
@@ -189,9 +154,10 @@ import { createDialogs } from "./js/dialogs.js";
     }
   }
   async function removePassphrase() {
-    await saveStateRaw(state, null); // force a plaintext write while we still have the key
+    await saveStateRaw(state, null); // force a plaintext local write while we still have the key
     localStorage.removeItem(LOCK_KEY);
     encryptionKey = null;
+    if (currentUser) await saveStateCloud(); // push the plaintext copy + lock:null immediately, don't wait
   }
 
   let localWasLegacy = false; // true when the saved copy predates the versioned schema (or doesn't exist)
@@ -211,10 +177,22 @@ import { createDialogs } from "./js/dialogs.js";
   }
   async function loadStateEncrypted(key) {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return normalizeState({});
+    if (!raw) { localWasLegacy = true; return normalizeState({}); }
     const payload = JSON.parse(raw);
     const json = await decryptString(key, payload);
-    return normalizeState(JSON.parse(json));
+    const parsed = JSON.parse(json);
+    localWasLegacy = parsed.schemaVersion !== SCHEMA_VERSION;
+    return normalizeState(parsed);
+  }
+
+  /** The local baseline, whichever form it's actually in. A device can have plaintext local
+   * storage from before it ever knew about a passphrase (e.g. it used cloud sync, then later
+   * adopted a passphrase set on another device) -- so even with a key in hand, fall back to a
+   * plain read if what's stored isn't actually encrypted. */
+  async function loadLocalState() {
+    if (!encryptionKey) return loadStatePlain();
+    try { return await loadStateEncrypted(encryptionKey); }
+    catch (e) { return loadStatePlain(); }
   }
 
   let state; // populated by boot() below, once (and if) the lock screen is cleared
@@ -284,14 +262,35 @@ import { createDialogs } from "./js/dialogs.js";
 
   async function loadStateCloud() {
     const { data, error } = await supabaseClient
-      .from("app_state").select("data, updated_at").eq("user_id", currentUser.id).maybeSingle();
+      .from("app_state").select("data, updated_at, lock").eq("user_id", currentUser.id).maybeSingle();
     if (error) {
       console.error("Cloud load failed:", error);
       diag.log("error", "sync", "Cloud load failed: " + (error.message || error));
       return { ok: false }; // couldn't reach the cloud -- NOT the same as "no data exists yet"
     }
     if (!data) return { ok: true, state: null }; // first sign-in, no row yet -- safe to initialize
-    return { ok: true, state: normalizeState(data.data), updatedAt: data.updated_at };
+    let raw = data.data;
+    if (isEncryptedPayload(raw)) {
+      // The account is passphrase-protected. By the time we get here boot()'s sign-in
+      // flow should already have made sure encryptionKey is set (adopting this device
+      // to the account's lock config and prompting to unlock first) -- but if it isn't,
+      // fail gracefully rather than trying to treat ciphertext as a state object.
+      if (!encryptionKey) { diag.log("warn", "sync", "Cloud data is encrypted but this device hasn't unlocked yet"); return { ok: false }; }
+      try { raw = JSON.parse(await decryptString(encryptionKey, raw)); }
+      catch (e) { diag.log("error", "sync", "Couldn't decrypt cloud data: " + ((e && e.message) || e)); return { ok: false }; }
+    }
+    return { ok: true, state: normalizeState(raw), updatedAt: data.updated_at };
+  }
+
+  /** Cheap check, alongside the updated_at check: does this account require a passphrase
+   * on this device? Only the salt + a verifier travel here -- never the passphrase itself. */
+  async function checkCloudLockConfig() {
+    if (!supabaseClient || !currentUser) return { ok: false, lock: null };
+    try {
+      const { data, error } = await supabaseClient.from("app_state").select("lock").eq("user_id", currentUser.id).maybeSingle();
+      if (error) return { ok: false, lock: null };
+      return { ok: true, lock: (data && data.lock) || null };
+    } catch (e) { return { ok: false, lock: null }; }
   }
   let cloudSaveTimer = null;
   async function saveStateCloud(force) {
@@ -321,8 +320,12 @@ import { createDialogs } from "./js/dialogs.js";
           // Merge first: if another device wrote since we last synced, fold its
           // changes in BEFORE uploading, so nothing it saved can be overwritten.
           await pullAndMerge("before save");
+          // When a passphrase is set, upload the encrypted blob, not the raw data -- and carry
+          // the (non-secret) lock config along so any other device signing into this account
+          // knows a passphrase is required, without either of them ever transmitting it.
+          const payloadData = encryptionKey ? await encryptString(encryptionKey, JSON.stringify(state)) : state;
           const { data: up, error } = await supabaseClient.from("app_state")
-            .upsert({ user_id: currentUser.id, data: state, updated_at: new Date().toISOString() })
+            .upsert({ user_id: currentUser.id, data: payloadData, lock: getLockConfig(), updated_at: new Date().toISOString() })
             .select("updated_at").maybeSingle();
           if (error) throw error;
           lastKnownCloudUpdatedAt = up ? up.updated_at : null;   // unknown => next save re-checks (safe)
@@ -3105,8 +3108,8 @@ import { createDialogs } from "./js/dialogs.js";
     renderNightscoutSection();
     renderBackupsSection();
     renderDiagSection();
-    el("privacy-panel-card").hidden = !!currentUser;
-    if (!currentUser) renderPrivacySection();
+
+    renderPrivacySection();
   }
 
   const BG_PRESETS = ["#F5F3EE", "#E1EDF7", "#EDE5F5", "#E5EFE7", "#F7E8E6", "#E7E9EC"];
@@ -3441,9 +3444,10 @@ import { createDialogs } from "./js/dialogs.js";
 
   function renderPrivacySection() {
     const box = el("privacy-lock-section");
+    const cloudNote = currentUser ? " and what's synced to the cloud" : "";
     if (isLockEnabled()) {
       box.innerHTML = `
-        <p class="panel-card__hint" style="margin-top:-4px;">This device is locked with a passphrase. Your data is encrypted at rest — forgetting it means your data can't be recovered.</p>
+        <p class="panel-card__hint" style="margin-top:-4px;">This device is locked with a passphrase. Your data${cloudNote} is encrypted at rest — forgetting it means it can't be recovered.</p>
         <button class="dashed-btn" id="btn-change-pass" type="button" style="margin-bottom:8px;">Change passphrase</button>
         <button class="dashed-btn" id="btn-remove-pass" type="button" style="color:var(--brick); border-color:var(--brick-soft);">Remove passphrase</button>
       `;
@@ -3451,7 +3455,7 @@ import { createDialogs } from "./js/dialogs.js";
       el("btn-remove-pass").addEventListener("click", onRemovePassphrase);
     } else {
       box.innerHTML = `
-        <p class="panel-card__hint" style="margin-top:-4px;">Encrypt your library, ratios, and history on this device with a passphrase. This never leaves your browser — there's no account and no way to recover a forgotten passphrase.</p>
+        <p class="panel-card__hint" style="margin-top:-4px;">Encrypt your library, ratios, and history${cloudNote} with a passphrase. It never leaves your browser — there's no account for it and no way to recover a forgotten passphrase.</p>
         <button class="dashed-btn" id="btn-set-pass" type="button">Set a passphrase</button>
       `;
       el("btn-set-pass").addEventListener("click", onSetPassphrase);
@@ -3459,34 +3463,34 @@ import { createDialogs } from "./js/dialogs.js";
   }
 
   async function onSetPassphrase() {
-    const p1 = prompt("Choose a passphrase:");
+    const p1 = await dialogs.prompt("Choose a passphrase:", { title: "Set a passphrase", type: "password" });
     if (!p1) return;
-    const p2 = prompt("Enter it again to confirm:");
-    if (p1 !== p2) { alert("Those didn't match — nothing was changed."); return; }
+    const p2 = await dialogs.prompt("Enter it again to confirm:", { title: "Confirm passphrase", type: "password" });
+    if (p1 !== p2) { await dialogs.alert("Those didn't match — nothing was changed."); return; }
     await setPassphrase(p1);
     renderPrivacySection();
-    alert("Your data is now encrypted on this device.");
+    await dialogs.alert(currentUser ? "Your data is now encrypted, on this device and in the cloud." : "Your data is now encrypted on this device.");
   }
   async function onChangePassphrase() {
-    const current = prompt("Enter your current passphrase:");
+    const current = await dialogs.prompt("Enter your current passphrase:", { title: "Change passphrase", type: "password" });
     if (!current) return;
     const ok = await tryUnlock(current);
-    if (!ok) { alert("That passphrase doesn't match."); return; }
-    const p1 = prompt("Choose a new passphrase:");
+    if (!ok) { await dialogs.alert("That passphrase doesn't match."); return; }
+    const p1 = await dialogs.prompt("Choose a new passphrase:", { title: "Change passphrase", type: "password" });
     if (!p1) return;
-    const p2 = prompt("Enter it again to confirm:");
-    if (p1 !== p2) { alert("Those didn't match — nothing was changed."); return; }
+    const p2 = await dialogs.prompt("Enter it again to confirm:", { title: "Confirm passphrase", type: "password" });
+    if (p1 !== p2) { await dialogs.alert("Those didn't match — nothing was changed."); return; }
     await setPassphrase(p1);
-    alert("Passphrase updated.");
+    await dialogs.alert("Passphrase updated.");
   }
   async function onRemovePassphrase() {
-    const current = prompt("Enter your current passphrase to remove it:");
+    const current = await dialogs.prompt("Enter your current passphrase to remove it:", { title: "Remove passphrase", type: "password" });
     if (!current) return;
     const ok = await tryUnlock(current);
-    if (!ok) { alert("That passphrase doesn't match."); return; }
+    if (!ok) { await dialogs.alert("That passphrase doesn't match."); return; }
     await removePassphrase();
     renderPrivacySection();
-    alert("Passphrase removed. Your data is stored unencrypted on this device again.");
+    await dialogs.alert(currentUser ? "Passphrase removed. Your data is stored unencrypted again, on this device and in the cloud." : "Passphrase removed. Your data is stored unencrypted on this device again.");
   }
 
   function renderTimeline() {
@@ -3992,6 +3996,32 @@ import { createDialogs } from "./js/dialogs.js";
     renderLibrary(); renderHistory(); renderSettings();
   }
 
+  // Shown whenever a passphrase is required before proceeding -- local-only mode, or
+  // cloud sign-in on a device that either already knows about the account's passphrase
+  // or has just learned about it (see checkCloudLockConfig / the sign-in flow below).
+  // Resolves once successfully unlocked; never resolves if the user just sits there.
+  function showLockScreen() {
+    return new Promise(resolve => {
+      const overlay = el("lock-screen");
+      const input = el("lock-passphrase");
+      const errorEl = el("lock-error");
+      const form = el("lock-form");
+      overlay.hidden = false;
+      input.focus();
+      const onSubmit = async e => {
+        e.preventDefault();
+        errorEl.hidden = true;
+        const ok = await tryUnlock(input.value);
+        if (!ok) { errorEl.hidden = false; input.value = ""; input.focus(); return; }
+        overlay.hidden = true;
+        input.value = "";
+        form.removeEventListener("submit", onSubmit);
+        resolve();
+      };
+      form.addEventListener("submit", onSubmit);
+    });
+  }
+
   async function boot() {
     if (supabaseClient) {
       const loading = el("loading-screen");
@@ -4000,7 +4030,24 @@ import { createDialogs } from "./js/dialogs.js";
       supabaseClient.auth.onAuthStateChange(async (_event, session) => {
         if (session && session.user) {
           currentUser = session.user;
-          const local = loadStatePlain();
+
+          // Does this ACCOUNT require a passphrase? Prefer the cloud's record of it (the
+          // cross-device source of truth) over whatever this device happens to know locally.
+          const lockCheck = await checkCloudLockConfig();
+          const requiredLock = (lockCheck.ok && lockCheck.lock) || getLockConfig();
+          if (requiredLock && !encryptionKey) {
+            const localCfg = getLockConfig();
+            if (!localCfg || localCfg.salt !== requiredLock.salt) {
+              // Either this device has never seen a passphrase before, or another device set
+              // a different one since -- either way, adopt the account's config so this
+              // device can be unlocked with the same passphrase (never the passphrase itself,
+              // just the salt and a verifier that proves a guess right or wrong).
+              localStorage.setItem(LOCK_KEY, JSON.stringify(requiredLock));
+            }
+            await showLockScreen();
+          }
+
+          const local = await loadLocalState();
           const localLegacy = localWasLegacy;
           const result = await loadStateCloud();
           if (!result.ok) {
@@ -4064,28 +4111,9 @@ import { createDialogs } from "./js/dialogs.js";
       await finishInit();
       return;
     }
-    const overlay = el("lock-screen");
-    const input = el("lock-passphrase");
-    const errorEl = el("lock-error");
-    const form = el("lock-form");
-    overlay.hidden = false;
-    input.focus();
-
-    form.addEventListener("submit", async e => {
-      e.preventDefault();
-      errorEl.hidden = true;
-      const ok = await tryUnlock(input.value);
-      if (!ok) {
-        errorEl.hidden = false;
-        input.value = "";
-        input.focus();
-        return;
-      }
-      state = await loadStateEncrypted(encryptionKey);
-      overlay.hidden = true;
-      input.value = "";
-      await finishInit();
-    });
+    await showLockScreen();
+    state = await loadStateEncrypted(encryptionKey);
+    await finishInit();
   }
 
   boot();
