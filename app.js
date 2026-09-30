@@ -1,7 +1,7 @@
 import { escapeHtml, escapeAttr, round1, formatQty, dayKeyFromTs, timeAgo, makeId, redact } from "./js/util.js";
 import { convertGlucose, roundDose as roundDoseWith, activeAt, compoundGiInfo, computeDose, giBand, niceScale, buildTrendBuckets, summarizeTrends, mealTypeBreakdown, absorptionMinutesForEntry as absorptionForEntry, iobFraction, cobGrams, glucoseTrendArrow, glucoseRangeClass, glucoseRangeLabel } from "./js/calc.js";
 import { SCHEMA_VERSION, normalizeState as normalizeStateWith, makeFingerprint, stampChanges, mergeStates, statesEquivalent, prepareRestoredState, unexplainedEmptying } from "./js/state.js";
-import { NightscoutClient, NsOutbox, nsToken, nsBaseUrl, nsConfigured, treatmentsForEntry } from "./js/nightscout.js";
+import { NightscoutClient, NsOutbox, nsToken, nsBaseUrl, nsConfigured, treatmentsForEntry, entriesToGlucoseRows } from "./js/nightscout.js";
 import { createDiag, hookGlobalErrors } from "./js/diag.js";
 import { randomBytes, toB64, fromB64, deriveKey, encryptString, decryptString, isEncryptedPayload } from "./js/crypto.js";
 import { LocalBackups, shouldAutoSnapshot } from "./js/backup.js";
@@ -1085,8 +1085,7 @@ import { createDialogs } from "./js/dialogs.js";
       `;
     } else if (tab === "glucose") {
       content.innerHTML = `<p class="panel-card__hint">Loading recent glucose…</p>`;
-      const count = glucoseWindowHours * 12; // ~5-minute CGM interval
-      const result = await fetchGlucoseHistory(count);
+      const result = await fetchGlucoseHistory(glucoseWindowHours);
       if (!content.isConnected) return; // sheet was closed while this was loading
       const picker = `
         <div class="glucose-range-picker">
@@ -1457,11 +1456,90 @@ import { createDialogs } from "./js/dialogs.js";
   }
 
   // Recent glucose history for the trend graph.
-  async function fetchGlucoseHistory(count) {
+  // ---- our own glucose history, backed by Supabase when signed in ----
+  // Persist whatever Nightscout hands back, so graphs and future stats read from data we
+  // control instead of re-fetching (and re-trusting) Nightscout every single time.
+  async function saveGlucoseReadings(entries) {
+    if (!supabaseClient || !currentUser) return; // this table only exists for signed-in accounts
+    const rows = entriesToGlucoseRows(entries, currentUser.id);
+    if (rows.length === 0) return;
+    try {
+      const { error } = await supabaseClient.from("glucose_readings").upsert(rows, { onConflict: "user_id,at" });
+      if (error) diag.log("warn", "glucose-db", "Couldn't save glucose readings: " + (error.message || error));
+    } catch (e) { diag.log("warn", "glucose-db", "Couldn't save glucose readings: " + ((e && e.message) || e)); }
+  }
+  async function getLatestStoredGlucoseAt() {
+    try {
+      const { data, error } = await supabaseClient.from("glucose_readings").select("at").eq("user_id", currentUser.id).order("at", { ascending: false }).limit(1).maybeSingle();
+      return error || !data ? null : data.at;
+    } catch (e) { return null; }
+  }
+  async function getOldestStoredGlucoseAt() {
+    try {
+      const { data, error } = await supabaseClient.from("glucose_readings").select("at").eq("user_id", currentUser.id).order("at", { ascending: true }).limit(1).maybeSingle();
+      return error || !data ? null : data.at;
+    } catch (e) { return null; }
+  }
+
+  /** hours: how far back the caller wants to show. When signed in, this reads from our own
+   * database (fast, robust, works even if Nightscout is briefly down) after a best-effort
+   * "catch up" fetch for anything newer than what we already have stored. In local-only mode
+   * (no cloud sign-in -- there's nowhere to store a history) it falls back to asking
+   * Nightscout directly for the window, same as before this existed. */
+  async function fetchGlucoseHistory(hours) {
+    if (!nightscoutConfigured()) return { ok: false, reason: "Nightscout isn't set up yet." };
     const cfg = nsCfg();
-    if (!cfg) return { ok: false, reason: "Nightscout isn't set up yet." };
-    try { const r = await nsClient.read(cfg, count); return { ok: true, entries: r.entries }; }
+    if (supabaseClient && currentUser) {
+      try {
+        const sinceMs = Date.now() - hours * 3600_000;
+        const [latestAt, oldestAt] = await Promise.all([getLatestStoredGlucoseAt(), getOldestStoredGlucoseAt()]);
+        const haveWindowCovered = oldestAt && new Date(oldestAt).getTime() <= sinceMs;
+        let r;
+        if (haveWindowCovered && latestAt) {
+          // We already have enough depth stored -- just catch up anything newer than our latest point.
+          r = await nsClient.read(cfg, 1000, { after: new Date(latestAt).getTime() + 1000 });
+        } else {
+          // Not enough history yet for this window (e.g. right after signing in, before a
+          // backfill has run) -- fetch the whole requested window instead of just the delta.
+          r = await nsClient.read(cfg, hours * 12);
+        }
+        if (r.entries.length) await saveGlucoseReadings(r.entries);
+      } catch (e) { /* catch-up is best-effort -- the DB read below still returns whatever we already have */ }
+      try {
+        const sinceISO = new Date(Date.now() - hours * 3600_000).toISOString();
+        const { data, error } = await supabaseClient.from("glucose_readings").select("at, mgdl, direction").eq("user_id", currentUser.id).gte("at", sinceISO).order("at");
+        if (error) throw error;
+        return { ok: true, entries: (data || []).map(row => ({ sgv: row.mgdl, date: new Date(row.at).getTime(), direction: row.direction })) };
+      } catch (e) { return { ok: false, reason: "Couldn't load your glucose history." }; }
+    }
+    try { const r = await nsClient.read(cfg, hours * 12); return { ok: true, entries: r.entries }; }
     catch (e) { return { ok: false, reason: friendlyNsError(e) }; }
+  }
+
+  /** One-time (or occasionally re-run) pull of as much history as Nightscout will give,
+   * paging backward in time. Best-effort: stops on the first error rather than looping forever,
+   * and reports how much it managed to import either way. */
+  async function backfillGlucoseHistory(days = 90) {
+    if (!supabaseClient || !currentUser) return { ok: false, reason: "Sign in to Cloud Sync first." };
+    if (!nightscoutConfigured()) return { ok: false, reason: "Set up Nightscout first." };
+    const cfg = nsCfg();
+    const cutoff = Date.now() - days * 86400_000;
+    let before = Date.now() + 60_000;
+    let total = 0;
+    for (let i = 0; i < 200; i++) { // safety cap -- 200 batches of 1000 is 200k readings, far beyond any realistic need
+      let r;
+      try { r = await nsClient.read(cfg, 1000, { before }); }
+      catch (e) { return { ok: total > 0, imported: total, reason: friendlyNsError(e) }; }
+      if (!r.entries.length) break; // Nightscout has nothing older than `before` -- history exhausted
+      await saveGlucoseReadings(r.entries);
+      total += r.entries.length;
+      const dates = r.entries.map(e => e.date).filter(d => typeof d === "number");
+      const oldest = dates.length ? Math.min(...dates) : null;
+      if (oldest == null || oldest >= before) break; // no progress -- stop rather than loop forever
+      before = oldest;
+      if (before <= cutoff || r.entries.length < 1000) break;
+    }
+    return { ok: true, imported: total };
   }
 
   // ---- live glucose pill on the dose card ----
@@ -1478,6 +1556,7 @@ import { createDialogs } from "./js/dialogs.js";
       if (entry && typeof entry.sgv === "number") {
         liveGlucose = { mgdl: entry.sgv, direction: entry.direction || null, at: entry.date || Date.now() };
         localStorage.setItem(LIVE_GLUCOSE_CACHE_KEY, JSON.stringify(liveGlucose));
+        saveGlucoseReadings(r.entries); // fire-and-forget: don't hold up the pill on a DB write
       }
     } catch (e) {
       // a background poll failing isn't worth interrupting anyone for -- just keep showing the last known reading
@@ -1514,6 +1593,7 @@ import { createDialogs } from "./js/dialogs.js";
     try {
       const r = await nsClient.read(cfg, 1);
       applyFetchedGlucoseEntries(r.entries, statusEl);
+      saveGlucoseReadings(r.entries);
     } catch (e) {
       statusEl.textContent = friendlyNsError(e);
       statusEl.classList.add("correction-row__fetch-status--error");
@@ -3395,7 +3475,19 @@ import { createDialogs } from "./js/dialogs.js";
     } else {
       renderNsStatus("Connected — meals will sync automatically when logged.");
     }
+    el("btn-ns-backfill").hidden = !(currentUser && nightscoutConfigured());
   }
+
+  el("btn-ns-backfill").addEventListener("click", async () => {
+    const statusEl = el("ns-backfill-status");
+    statusEl.hidden = false;
+    statusEl.textContent = "Importing… this can take a little while for a lot of history.";
+    el("btn-ns-backfill").disabled = true;
+    const r = await backfillGlucoseHistory();
+    el("btn-ns-backfill").disabled = false;
+    if (r.ok) statusEl.textContent = `Imported ${r.imported} reading${r.imported === 1 ? "" : "s"}` + (r.reason ? ` (stopped early: ${r.reason})` : ".");
+    else statusEl.textContent = `Couldn't import: ${r.reason}`;
+  });
 
   function renderAccountSection() {
     const box = el("account-section");
