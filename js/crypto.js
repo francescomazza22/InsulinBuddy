@@ -26,10 +26,26 @@ export function fromB64(b64) {
 export async function deriveKey(passphrase, saltBytes) {
   const enc = new TextEncoder();
   const keyMaterial = await crypto.subtle.importKey("raw", enc.encode(passphrase), "PBKDF2", false, ["deriveKey"]);
+  // extractable: true -- a freshly-verified key can be exported into sessionStorage so this
+  // browsing session doesn't have to re-ask for the passphrase on every reload (see
+  // exportKeyRaw/importKeyRaw). This is a deliberate, disclosed trade-off: the key exists
+  // outside pure JS memory for as long as the tab/app stays open, cleared when it's closed.
   return crypto.subtle.deriveKey(
     { name: "PBKDF2", salt: saltBytes, iterations: 150000, hash: "SHA-256" },
-    keyMaterial, { name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"]
+    keyMaterial, { name: "AES-GCM", length: 256 }, true, ["encrypt", "decrypt"]
   );
+}
+
+/** Export a derived key's raw bytes as base64, for session-only persistence. */
+export async function exportKeyRaw(key) {
+  const raw = await crypto.subtle.exportKey("raw", key);
+  return toB64(new Uint8Array(raw));
+}
+
+/** Re-import bytes previously produced by exportKeyRaw. The restored key is non-extractable --
+ * it never needs exporting a second time, so there's no reason to widen its exposure further. */
+export async function importKeyRaw(b64) {
+  return crypto.subtle.importKey("raw", fromB64(b64), { name: "AES-GCM" }, false, ["encrypt", "decrypt"]);
 }
 
 export async function encryptString(key, plaintext) {
