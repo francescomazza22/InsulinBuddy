@@ -3,7 +3,8 @@ import { convertGlucose, roundDose as roundDoseWith, activeAt, compoundGiInfo, c
 import { SCHEMA_VERSION, normalizeState as normalizeStateWith, makeFingerprint, stampChanges, mergeStates, statesEquivalent, prepareRestoredState, unexplainedEmptying } from "./js/state.js";
 import { NightscoutClient, NsOutbox, nsToken, nsBaseUrl, nsConfigured, treatmentsForEntry, entriesToGlucoseRows } from "./js/nightscout.js";
 import { createDiag, hookGlobalErrors } from "./js/diag.js";
-import { randomBytes, toB64, fromB64, deriveKey, encryptString, decryptString, isEncryptedPayload } from "./js/crypto.js";
+import { percentile, dailyPatternBuckets, daysSpanned, estimatedA1c, glucoseSummaryStats } from "./js/glucose-stats.js";
+import { randomBytes, toB64, fromB64, deriveKey, encryptString, decryptString, isEncryptedPayload, exportKeyRaw, importKeyRaw } from "./js/crypto.js";
 import { LocalBackups, shouldAutoSnapshot } from "./js/backup.js";
 import { groupByDay, takeEntries, matchesQuery, recentDistinctMeals, mealLabel, PAGE_SIZE } from "./js/history.js";
 import { createDialogs } from "./js/dialogs.js";
@@ -124,12 +125,38 @@ import { createDialogs } from "./js/dialogs.js";
   // account, nothing syncs, and forgetting the passphrase means the data is
   // unrecoverable by design (there's no backdoor to build on a static site).
   const LOCK_KEY = "insulinBuddy.lock";
-  let encryptionKey = null; // the derived CryptoKey, kept in memory only while unlocked this session
+  const SESSION_KEY_STORAGE = "insulinBuddy.sessionKey"; // sessionStorage: survives a reload, cleared when the tab/app actually closes
+  let encryptionKey = null; // the derived CryptoKey, kept in memory (plus sessionStorage, see above) only while unlocked
 
   function getLockConfig() {
     try { return JSON.parse(localStorage.getItem(LOCK_KEY) || "null"); } catch { return null; }
   }
   function isLockEnabled() { return !!getLockConfig(); }
+
+  async function persistSessionKey(key) {
+    try { sessionStorage.setItem(SESSION_KEY_STORAGE, await exportKeyRaw(key)); }
+    catch (e) { /* private browsing or similar -- non-fatal, this session just asks again next reload */ }
+  }
+  function clearSessionKey() {
+    try { sessionStorage.removeItem(SESSION_KEY_STORAGE); } catch (e) { /* nothing to do */ }
+  }
+  /** True if this browsing session already had a verified passphrase entered -- restores
+   * encryptionKey from sessionStorage without re-prompting. Re-verifies against the current
+   * lock config's own verifier rather than trusting the stored key blindly, so a stale or
+   * corrupted entry (or a passphrase changed elsewhere) safely falls through to a fresh prompt
+   * instead of silently misbehaving. */
+  async function tryRestoreSessionKey(lockCfg) {
+    if (!lockCfg) return false;
+    try {
+      const raw = sessionStorage.getItem(SESSION_KEY_STORAGE);
+      if (!raw) return false;
+      const key = await importKeyRaw(raw);
+      const check = await decryptString(key, lockCfg.verifier);
+      if (check !== "insulin-buddy-unlock-check") { clearSessionKey(); return false; }
+      encryptionKey = key;
+      return true;
+    } catch (e) { clearSessionKey(); return false; }
+  }
 
   async function setPassphrase(passphrase) {
     const salt = randomBytes(16);
@@ -137,6 +164,7 @@ import { createDialogs } from "./js/dialogs.js";
     const verifier = await encryptString(key, "insulin-buddy-unlock-check");
     localStorage.setItem(LOCK_KEY, JSON.stringify({ salt: toB64(salt), verifier }));
     encryptionKey = key;
+    await persistSessionKey(key);
     await saveState(); // re-save current data encrypted immediately
   }
   async function tryUnlock(passphrase) {
@@ -148,6 +176,7 @@ import { createDialogs } from "./js/dialogs.js";
       const check = await decryptString(key, cfg.verifier);
       if (check !== "insulin-buddy-unlock-check") return false;
       encryptionKey = key;
+      await persistSessionKey(key);
       return true;
     } catch {
       return false;
@@ -157,6 +186,7 @@ import { createDialogs } from "./js/dialogs.js";
     await saveStateRaw(state, null); // force a plaintext local write while we still have the key
     localStorage.removeItem(LOCK_KEY);
     encryptionKey = null;
+    clearSessionKey();
     if (currentUser) await saveStateCloud(); // push the plaintext copy + lock:null immediately, don't wait
   }
 
@@ -938,6 +968,104 @@ import { createDialogs } from "./js/dialogs.js";
     `;
   }
 
+  // A "daily pattern" band chart: every day in the selected range folded into one 24h view,
+  // showing the median (bold line) and the 25-75 / 10-90 percentile spread (shaded bands) at
+  // each time of day -- the shape of a typical day, not just one line through raw points.
+  const MIN_PATTERN_DAYS = 5; // matches the convention CGM reports use (needs a real spread of days to mean anything)
+
+  async function renderGlucoseTab(days) {
+    const box = el("glucose-tab-content");
+    box.innerHTML = `<p class="panel-card__hint">Loading…</p>`;
+    const result = await fetchStoredGlucoseReadings(days);
+    if (!box.isConnected) return; // left the tab while this was loading
+    if (!result.ok) { box.innerHTML = `<p class="panel-card__hint" style="color:#B91C1C;">${escapeHtml(result.reason)}</p>`; return; }
+
+    const readings = result.readings;
+    const spanDays = daysSpanned(readings);
+    if (readings.length === 0 || spanDays < MIN_PATTERN_DAYS) {
+      box.innerHTML = `
+        <div class="empty-state">
+          <p>Not enough data yet for a daily pattern.</p>
+          <p class="empty-state__sub">This needs at least ${MIN_PATTERN_DAYS} days of glucose history — you have ${spanDays}. It'll fill in automatically as you use the app, or use "Import history from Nightscout" in Settings → Nightscout Sync to backfill it right away.</p>
+        </div>
+      `;
+      return;
+    }
+
+    const stats = glucoseSummaryStats(readings);
+    const unit = state.settings.units;
+    const fmtG = v => unit === "mmol" ? round1(convertGlucose(v, "mgdl", "mmol")) : Math.round(v);
+    const statCard = (value, unitLabel, label, warn) => `
+      <div class="trend-stat-card${warn ? " trend-stat-card--warn" : ""}">
+        <div class="trend-stat-card__value">${value}<span class="trend-stat-card__unit">${unitLabel}</span></div>
+        <div class="trend-stat-card__label">${label}</div>
+      </div>
+    `;
+    const buckets = dailyPatternBuckets(readings, 30);
+    const svg = renderDailyPatternSVG(buckets);
+
+    box.innerHTML = `
+      <div class="trend-stats glucose-stats">
+        ${statCard(fmtG(stats.avgMgdl), unit === "mmol" ? "mmol/L" : "mg/dL", "Average glucose")}
+        ${statCard(stats.gmi.toFixed(1), "%", "Est. A1c (GMI)")}
+        ${statCard(Math.round(stats.timeInRangePct), "%", "Time in range (70–180)")}
+        ${statCard(Math.round(stats.timeLowPct + stats.timeHighPct), "%", "Time low or high", stats.timeLowPct + stats.timeHighPct > 30)}
+      </div>
+      <div class="panel-card">
+        <h2 class="panel-card__title">Daily pattern</h2>
+        <p class="panel-card__hint" style="margin-top:-4px;">Every day over the last ${days} days folded into one — the line is the median, the bands show the middle 50% and 10–90% spread.</p>
+        ${svg}
+      </div>
+      <p class="panel-card__hint">Based on ${stats.count.toLocaleString()} readings. Estimated A1c (GMI) is informational only — not a lab result.</p>
+    `;
+  }
+
+  function renderDailyPatternSVG(buckets) {
+    if (buckets.length === 0) return null;
+    const sorted = buckets.slice().sort((a, b) => a.minute - b.minute);
+    const W = 340, H = 220, padL = 32, padR = 10, padT = 10, padB = 26;
+    const plotW = W - padL - padR, plotH = H - padT - padB;
+    const unit = state.settings.units;
+    const toDisplay = v => unit === "mmol" ? convertGlucose(v, "mgdl", "mmol") : v;
+    const fmtVal = v => unit === "mmol" ? round1(toDisplay(v)) : Math.round(toDisplay(v));
+    const maxVal = Math.max(220, ...sorted.map(b => b.p90));
+
+    const xFor = min => padL + (min / 1440) * plotW;
+    const yFor = v => padT + plotH - (v / maxVal) * plotH;
+    const band = (hi, lo) => {
+      const top = sorted.map(b => `${xFor(b.minute).toFixed(1)},${yFor(b[hi]).toFixed(1)}`).join(" L");
+      const bottom = sorted.slice().reverse().map(b => `${xFor(b.minute).toFixed(1)},${yFor(b[lo]).toFixed(1)}`).join(" L");
+      return `M${top} L${bottom} Z`;
+    };
+    const line = key => sorted.map((b, i) => `${i === 0 ? "M" : "L"}${xFor(b.minute).toFixed(1)},${yFor(b[key]).toFixed(1)}`).join(" ");
+    const lowY = yFor(70).toFixed(1), highY = yFor(180).toFixed(1);
+
+    const fmtHour = h => h === 0 || h === 24 ? "12 AM" : h === 12 ? "12 PM" : h < 12 ? `${h} AM` : `${h - 12} PM`;
+    let xTicks = "", xLabels = "";
+    for (let h = 0; h <= 24; h += 3) {
+      const x = xFor(h * 60).toFixed(1);
+      xTicks += `<line x1="${x}" y1="${padT + plotH}" x2="${x}" y2="${padT + plotH + 3}" stroke="var(--ink-soft)" stroke-width="1"/>`;
+      const anchor = h === 0 ? "start" : h === 24 ? "end" : "middle";
+      xLabels += `<text x="${x}" y="${H - 6}" font-size="9" fill="var(--ink-soft)" text-anchor="${anchor}">${fmtHour(h)}</text>`;
+    }
+
+    return `
+      <svg viewBox="0 0 ${W} ${H}" style="width:100%; height:auto; display:block;">
+        <rect x="${padL}" y="${highY}" width="${plotW}" height="${(parseFloat(lowY) - parseFloat(highY)).toFixed(1)}" fill="#22C55E" opacity="0.07"/>
+        <line x1="${padL}" y1="${lowY}" x2="${padL + plotW}" y2="${lowY}" stroke="#EF4444" stroke-width="1" stroke-dasharray="2,3" opacity="0.6"/>
+        <line x1="${padL}" y1="${highY}" x2="${padL + plotW}" y2="${highY}" stroke="#F59E0B" stroke-width="1" stroke-dasharray="2,3" opacity="0.6"/>
+        <text x="${padL - 4}" y="${(parseFloat(lowY) + 3).toFixed(1)}" font-size="8" fill="#EF4444" text-anchor="end">${fmtVal(70)}</text>
+        <text x="${padL - 4}" y="${(parseFloat(highY) + 3).toFixed(1)}" font-size="8" fill="#F59E0B" text-anchor="end">${fmtVal(180)}</text>
+        <path d="${band("p90", "p10")}" fill="#3B82F6" opacity="0.14"/>
+        <path d="${band("p75", "p25")}" fill="#3B82F6" opacity="0.28"/>
+        <path d="${line("p50")}" fill="none" stroke="#2563EB" stroke-width="2.25" stroke-linejoin="round" stroke-linecap="round"/>
+        <line x1="${padL}" y1="${padT + plotH}" x2="${padL + plotW}" y2="${padT + plotH}" stroke="var(--line)" stroke-width="1"/>
+        ${xTicks}
+        ${xLabels}
+      </svg>
+    `;
+  }
+
   function renderGlucoseGraphSVG(entries) {
     const points = entries
       .filter(e => typeof e.sgv === "number")
@@ -1481,30 +1609,61 @@ import { createDialogs } from "./js/dialogs.js";
     } catch (e) { return null; }
   }
 
+  /** Pages backward through Nightscout history from `before`, saving as it goes, until either
+   * `cutoffMs` is reached, history is exhausted, or the safety cap kicks in. Shared by the
+   * backfill button (always runs) and ensureGlucoseCoverage (only runs when actually needed). */
+  async function pageBackwardImporting(cfg, cutoffMs) {
+    let before = Date.now() + 60_000;
+    let total = 0;
+    for (let i = 0; i < 200; i++) { // safety cap -- 200 batches of 1000 is 200k readings, far beyond any realistic need
+      let r;
+      try { r = await nsClient.read(cfg, 1000, { before }); }
+      catch (e) { return { total, reason: friendlyNsError(e) }; }
+      if (!r.entries.length) break; // Nightscout has nothing older than `before` -- history exhausted
+      await saveGlucoseReadings(r.entries);
+      total += r.entries.length;
+      const dates = r.entries.map(e => e.date).filter(d => typeof d === "number");
+      const oldest = dates.length ? Math.min(...dates) : null;
+      if (oldest == null || oldest >= before) break; // no progress -- stop rather than loop forever
+      before = oldest;
+      if (before <= cutoffMs || r.entries.length < 1000) break;
+    }
+    return { total };
+  }
+
+  /** Makes sure our database has at least `hours` worth of recent history for this account,
+   * doing as little work as possible: a cheap "catch up since our latest point" when we
+   * already have enough depth, or a full paginated pull when we don't (e.g. right after
+   * signing in, before any backfill). Silent/best-effort -- callers read the DB afterward
+   * regardless of whether this fully succeeded. */
+  async function ensureGlucoseCoverage(hours) {
+    if (!supabaseClient || !currentUser || !nightscoutConfigured()) return;
+    const cfg = nsCfg();
+    const sinceMs = Date.now() - hours * 3600_000;
+    try {
+      const [latestAt, oldestAt] = await Promise.all([getLatestStoredGlucoseAt(), getOldestStoredGlucoseAt()]);
+      if (oldestAt && new Date(oldestAt).getTime() <= sinceMs) {
+        // Already covered -- just catch up anything newer than our latest stored point.
+        const r = latestAt
+          ? await nsClient.read(cfg, 1000, { after: new Date(latestAt).getTime() + 1000 })
+          : await nsClient.read(cfg, Math.min(hours * 12, 1000));
+        if (r.entries.length) await saveGlucoseReadings(r.entries);
+        return;
+      }
+    } catch (e) { /* fall through to a full paginated pull below */ }
+    await pageBackwardImporting(cfg, sinceMs);
+  }
+
   /** hours: how far back the caller wants to show. When signed in, this reads from our own
-   * database (fast, robust, works even if Nightscout is briefly down) after a best-effort
-   * "catch up" fetch for anything newer than what we already have stored. In local-only mode
-   * (no cloud sign-in -- there's nowhere to store a history) it falls back to asking
-   * Nightscout directly for the window, same as before this existed. */
+   * database (fast, robust, works even if Nightscout is briefly down) after ensuring that
+   * database actually covers the requested window. In local-only mode (no cloud sign-in --
+   * there's nowhere to store a history) it falls back to asking Nightscout directly, same as
+   * before this existed. */
   async function fetchGlucoseHistory(hours) {
     if (!nightscoutConfigured()) return { ok: false, reason: "Nightscout isn't set up yet." };
     const cfg = nsCfg();
     if (supabaseClient && currentUser) {
-      try {
-        const sinceMs = Date.now() - hours * 3600_000;
-        const [latestAt, oldestAt] = await Promise.all([getLatestStoredGlucoseAt(), getOldestStoredGlucoseAt()]);
-        const haveWindowCovered = oldestAt && new Date(oldestAt).getTime() <= sinceMs;
-        let r;
-        if (haveWindowCovered && latestAt) {
-          // We already have enough depth stored -- just catch up anything newer than our latest point.
-          r = await nsClient.read(cfg, 1000, { after: new Date(latestAt).getTime() + 1000 });
-        } else {
-          // Not enough history yet for this window (e.g. right after signing in, before a
-          // backfill has run) -- fetch the whole requested window instead of just the delta.
-          r = await nsClient.read(cfg, hours * 12);
-        }
-        if (r.entries.length) await saveGlucoseReadings(r.entries);
-      } catch (e) { /* catch-up is best-effort -- the DB read below still returns whatever we already have */ }
+      await ensureGlucoseCoverage(hours);
       try {
         const sinceISO = new Date(Date.now() - hours * 3600_000).toISOString();
         const { data, error } = await supabaseClient.from("glucose_readings").select("at, mgdl, direction").eq("user_id", currentUser.id).gte("at", sinceISO).order("at");
@@ -1516,30 +1675,28 @@ import { createDialogs } from "./js/dialogs.js";
     catch (e) { return { ok: false, reason: friendlyNsError(e) }; }
   }
 
-  /** One-time (or occasionally re-run) pull of as much history as Nightscout will give,
-   * paging backward in time. Best-effort: stops on the first error rather than looping forever,
-   * and reports how much it managed to import either way. */
+  /** Explicit, always-runs pull of as much history as Nightscout will give (the Settings
+   * button) -- as opposed to ensureGlucoseCoverage, which skips the work when we already
+   * have enough. Reports how much it actually imported. */
   async function backfillGlucoseHistory(days = 90) {
     if (!supabaseClient || !currentUser) return { ok: false, reason: "Sign in to Cloud Sync first." };
     if (!nightscoutConfigured()) return { ok: false, reason: "Set up Nightscout first." };
-    const cfg = nsCfg();
-    const cutoff = Date.now() - days * 86400_000;
-    let before = Date.now() + 60_000;
-    let total = 0;
-    for (let i = 0; i < 200; i++) { // safety cap -- 200 batches of 1000 is 200k readings, far beyond any realistic need
-      let r;
-      try { r = await nsClient.read(cfg, 1000, { before }); }
-      catch (e) { return { ok: total > 0, imported: total, reason: friendlyNsError(e) }; }
-      if (!r.entries.length) break; // Nightscout has nothing older than `before` -- history exhausted
-      await saveGlucoseReadings(r.entries);
-      total += r.entries.length;
-      const dates = r.entries.map(e => e.date).filter(d => typeof d === "number");
-      const oldest = dates.length ? Math.min(...dates) : null;
-      if (oldest == null || oldest >= before) break; // no progress -- stop rather than loop forever
-      before = oldest;
-      if (before <= cutoff || r.entries.length < 1000) break;
-    }
-    return { ok: true, imported: total };
+    const { total, reason } = await pageBackwardImporting(nsCfg(), Date.now() - days * 86400_000);
+    return reason ? { ok: total > 0, imported: total, reason } : { ok: true, imported: total };
+  }
+
+  /** Readings for the History > Glucose tab: ensures coverage, then reads the window straight
+   * from our database as { at (ms), mgdl } pairs -- the shape js/glucose-stats.js expects. */
+  async function fetchStoredGlucoseReadings(days) {
+    if (!supabaseClient || !currentUser) return { ok: false, reason: "Sign in to Cloud Sync to build up glucose history." };
+    if (!nightscoutConfigured()) return { ok: false, reason: "Set up Nightscout Sync first." };
+    await ensureGlucoseCoverage(days * 24);
+    try {
+      const sinceISO = new Date(Date.now() - days * 86400_000).toISOString();
+      const { data, error } = await supabaseClient.from("glucose_readings").select("at, mgdl").eq("user_id", currentUser.id).gte("at", sinceISO).order("at");
+      if (error) throw error;
+      return { ok: true, readings: (data || []).map(row => ({ at: new Date(row.at).getTime(), mgdl: row.mgdl })) };
+    } catch (e) { return { ok: false, reason: "Couldn't load your glucose history." }; }
   }
 
   // ---- live glucose pill on the dose card ----
@@ -2550,12 +2707,15 @@ import { createDialogs } from "./js/dialogs.js";
   }
 
   // ---- Trends ----
-  let historySeg = "log"; // 'log' | 'trends'
+  let historySeg = "log"; // 'log' | 'trends' | 'glucose'
   let trendsRange = 14;
+  let glucoseRange = 14;
   const historySegmented = el("history-segmented");
   const historyLogPanel = el("history-log-panel");
   const historyTrendsPanel = el("history-trends-panel");
+  const historyGlucosePanel = el("history-glucose-panel");
   const trendsRangeSegmented = el("trends-range-segmented");
+  const glucoseRangeSegmented = el("glucose-range-segmented");
 
   historySegmented.addEventListener("click", e => {
     const btn = e.target.closest(".segmented__btn");
@@ -2564,7 +2724,16 @@ import { createDialogs } from "./js/dialogs.js";
     historySegmented.querySelectorAll(".segmented__btn").forEach(b => b.classList.toggle("is-active", b === btn));
     historyLogPanel.hidden = historySeg !== "log";
     historyTrendsPanel.hidden = historySeg !== "trends";
+    historyGlucosePanel.hidden = historySeg !== "glucose";
     if (historySeg === "trends") renderTrends(trendsRange);
+    if (historySeg === "glucose") renderGlucoseTab(glucoseRange);
+  });
+  glucoseRangeSegmented.addEventListener("click", e => {
+    const btn = e.target.closest(".segmented__btn");
+    if (!btn) return;
+    glucoseRange = parseInt(btn.dataset.range, 10);
+    glucoseRangeSegmented.querySelectorAll(".segmented__btn").forEach(b => b.classList.toggle("is-active", b === btn));
+    renderGlucoseTab(glucoseRange);
   });
   trendsRangeSegmented.addEventListener("click", e => {
     const btn = e.target.closest(".segmented__btn");
@@ -3551,10 +3720,12 @@ import { createDialogs } from "./js/dialogs.js";
     const cloudNote = currentUser ? " and what's synced to the cloud" : "";
     if (isLockEnabled()) {
       box.innerHTML = `
-        <p class="panel-card__hint" style="margin-top:-4px;">This device is locked with a passphrase. Your data${cloudNote} is encrypted at rest — forgetting it means it can't be recovered.</p>
+        <p class="panel-card__hint" style="margin-top:-4px;">This device is locked with a passphrase. Your data${cloudNote} is encrypted at rest — forgetting it means it can't be recovered. Once unlocked, this device stays unlocked until you lock it again or fully close the app.</p>
+        <button class="dashed-btn" id="btn-lock-now" type="button" style="margin-bottom:8px;">Lock now</button>
         <button class="dashed-btn" id="btn-change-pass" type="button" style="margin-bottom:8px;">Change passphrase</button>
         <button class="dashed-btn" id="btn-remove-pass" type="button" style="color:var(--brick); border-color:var(--brick-soft);">Remove passphrase</button>
       `;
+      el("btn-lock-now").addEventListener("click", () => { clearSessionKey(); encryptionKey = null; location.reload(); });
       el("btn-change-pass").addEventListener("click", onChangePassphrase);
       el("btn-remove-pass").addEventListener("click", onRemovePassphrase);
     } else {
@@ -4163,7 +4334,7 @@ import { createDialogs } from "./js/dialogs.js";
               // just the salt and a verifier that proves a guess right or wrong).
               localStorage.setItem(LOCK_KEY, JSON.stringify(requiredLock));
             }
-            await showLockScreen();
+            if (!(await tryRestoreSessionKey(requiredLock))) await showLockScreen();
           }
 
           const local = await loadLocalState();
@@ -4230,7 +4401,7 @@ import { createDialogs } from "./js/dialogs.js";
       await finishInit();
       return;
     }
-    await showLockScreen();
+    if (!(await tryRestoreSessionKey(getLockConfig()))) await showLockScreen();
     state = await loadStateEncrypted(encryptionKey);
     await finishInit();
   }

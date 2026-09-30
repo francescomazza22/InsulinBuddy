@@ -739,6 +739,7 @@ html[data-theme="dark"] .undo-toast { background: var(--surface); border: 1px so
 
 /* ================= Trends ================= */
 .trend-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 8px; }
+.glucose-stats { grid-template-columns: repeat(2, 1fr); margin-bottom: 14px; }
 .trend-stat-card {
   background: var(--surface); border: 1.5px solid var(--line); border-radius: var(--radius-m);
   padding: 11px 8px; text-align: center;

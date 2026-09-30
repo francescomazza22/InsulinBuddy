@@ -216,6 +216,7 @@
       <div class="segmented" id="history-segmented">
         <button class="segmented__btn is-active" data-seg="log" type="button">Log</button>
         <button class="segmented__btn" data-seg="trends" type="button">Trends</button>
+        <button class="segmented__btn" data-seg="glucose" type="button">Glucose</button>
       </div>
 
       <div id="history-log-panel">
@@ -259,6 +260,17 @@
           <p>Not enough history yet.</p>
           <p class="empty-state__sub">Log a few meals and trends will show up here.</p>
         </div>
+      </div>
+
+      <div id="history-glucose-panel" hidden>
+        <div class="segmented" id="glucose-range-segmented">
+          <button class="segmented__btn" data-range="7" type="button">7 days</button>
+          <button class="segmented__btn is-active" data-range="14" type="button">14 days</button>
+          <button class="segmented__btn" data-range="30" type="button">30 days</button>
+          <button class="segmented__btn" data-range="90" type="button">90 days</button>
+        </div>
+
+        <div id="glucose-tab-content"></div>
       </div>
     </section>
 
