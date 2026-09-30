@@ -1160,11 +1160,14 @@ import { createDialogs } from "./js/dialogs.js";
       iobNote.hidden = true;
     }
 
-    let total = mealPart + correctionPart;
-    if (state.settings.maxDose > 0 && total > state.settings.maxDose) total = state.settings.maxDose;
-    let finalDose = Math.max(0, roundDose(total));
+    // Round each part first, then add the already-rounded numbers -- rounding the raw (unrounded)
+    // sum instead can disagree with what the meal and correction pills actually show (e.g. a
+    // 3.15u meal shown as "3u" plus a 0.7u correction shown as "0.5u" should total 3.5u, not the
+    // 4u you'd get by rounding 3.85 on its own).
     let loggedMealDose = roundDose(mealPart);
     let loggedCorrectionDose = roundDose(correctionPart);
+    let finalDose = Math.max(0, loggedMealDose + loggedCorrectionDose);
+    if (state.settings.maxDose > 0 && finalDose > state.settings.maxDose) finalDose = state.settings.maxDose;
     if (draft.noInsulinOn) {
       finalDose = 0;
       loggedMealDose = 0;
@@ -2974,10 +2977,12 @@ import { createDialogs } from "./js/dialogs.js";
         if (!isNaN(g) && g > 0) correctionDose = Math.max(0, (g - state.settings.target) / state.settings.isf);
       }
       const mealDose = selectedRatioValue ? totalCarbs / selectedRatioValue : 0;
-      let total = mealDose + correctionDose;
+      // Round each part first, then add -- matches computeDose()/recompute(), so this preview
+      // can't show a total that disagrees with what logging or the main calculator would show.
+      let total = roundDose(mealDose) + roundDose(correctionDose);
       if (state.settings.maxDose > 0 && total > state.settings.maxDose) total = state.settings.maxDose;
       backdrop.querySelector("#em-preview").textContent =
-        `New total: ${round1(totalCarbs)}g carbs → ${roundDose(total).toFixed(1)} units` +
+        `New total: ${round1(totalCarbs)}g carbs → ${total.toFixed(1)} units` +
         (selectedRatioValue ? ` (using ${selectedRatioLabel ? escapeHtml(selectedRatioLabel) + " " : ""}1:${selectedRatioValue})` : "");
     }
 
