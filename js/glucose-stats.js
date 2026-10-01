@@ -35,8 +35,8 @@ export function dailyPatternBuckets(readings, bucketMinutes = 30) {
     out.push({
       minute: i * bucketMinutes,
       count: sorted.length,
-      p10: percentile(sorted, 10), p25: percentile(sorted, 25), p50: percentile(sorted, 50),
-      p75: percentile(sorted, 75), p90: percentile(sorted, 90)
+      p5: percentile(sorted, 5), p10: percentile(sorted, 10), p25: percentile(sorted, 25), p50: percentile(sorted, 50),
+      p75: percentile(sorted, 75), p90: percentile(sorted, 90), p95: percentile(sorted, 95)
     });
   });
   return out;
@@ -59,6 +59,28 @@ export function daysSpanned(readings) {
 export function estimatedA1c(meanMgdl) {
   if (meanMgdl == null || !Number.isFinite(meanMgdl)) return null;
   return 3.31 + 0.02392 * meanMgdl;
+}
+
+// The standard ADA/ATTD consensus "time in ranges" bands (Battelino et al. 2019), the same
+// breakdown Dexcom Clarity and FreeStyle LibreLink reports use. Ordered high-to-low to match
+// how those reports are conventionally displayed (very high at the top).
+export const TIME_IN_RANGE_BANDS = [
+  { key: "veryHigh", label: "Very High", low: 251, high: Infinity },
+  { key: "high", label: "High", low: 181, high: 250 },
+  { key: "target", label: "Target", low: 70, high: 180 },
+  { key: "low", label: "Low", low: 54, high: 69 },
+  { key: "veryLow", label: "Very Low", low: -Infinity, high: 53 }
+];
+
+/** What % of readings fall in each standard band. `bands` defaults to the ADA consensus bands
+ * above, but accepts a custom list (same shape) for a different breakdown. */
+export function timeInRangeBreakdown(readings, bands = TIME_IN_RANGE_BANDS) {
+  const values = (readings || []).filter(r => r && typeof r.mgdl === "number").map(r => r.mgdl);
+  const count = values.length;
+  return bands.map(b => {
+    const n = values.filter(v => v >= b.low && v <= b.high).length;
+    return { key: b.key, label: b.label, low: b.low, high: b.high, count: n, pct: count === 0 ? 0 : (n / count) * 100 };
+  });
 }
 
 /** Summary stats for a stretch of readings: average, estimated A1c, and time in/below/above
