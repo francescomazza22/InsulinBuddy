@@ -1831,20 +1831,20 @@ import { createDialogs } from "./js/dialogs.js";
    * database actually covers the requested window. In local-only mode (no cloud sign-in --
    * there's nowhere to store a history) it falls back to asking Nightscout directly, same as
    * before this existed. */
+  /** Always fetches this window fresh, directly from Nightscout, rather than asking "do we
+   * already have enough stored?" -- that coverage question is exactly what could let a stale,
+   * sparse database win over what Nightscout actually has right now. This viewer only ever
+   * shows up to 24 hours, which Nightscout returns in a single request anyway, so there's no
+   * real pagination/speed reason to prefer the database here the way the much bigger History
+   * tab needs to. Still saves what it gets (fire-and-forget) so the database that DOES benefit
+   * from density -- the History tab -- keeps accumulating real readings over time. */
   async function fetchGlucoseHistory(hours) {
     if (!nightscoutConfigured()) return { ok: false, reason: "Nightscout isn't set up yet." };
-    const cfg = nsCfg();
-    if (supabaseClient && currentUser) {
-      await ensureGlucoseCoverage(hours);
-      try {
-        const sinceISO = new Date(Date.now() - hours * 3600_000).toISOString();
-        const { data, error } = await supabaseClient.from("glucose_readings").select("at, mgdl, direction").eq("user_id", currentUser.id).gte("at", sinceISO).order("at").limit(2000);
-        if (error) throw error;
-        return { ok: true, entries: (data || []).map(row => ({ sgv: row.mgdl, date: new Date(row.at).getTime(), direction: row.direction })) };
-      } catch (e) { return { ok: false, reason: "Couldn't load your glucose history." }; }
-    }
-    try { const r = await nsClient.read(cfg, hours * 12); return { ok: true, entries: r.entries }; }
-    catch (e) { return { ok: false, reason: friendlyNsError(e) }; }
+    try {
+      const r = await nsClient.read(nsCfg(), Math.min(hours * 12 + 12, 1000)); // +12 is a small safety margin, not load-bearing -- 24h at a 5-min interval is ~288, nowhere near Nightscout's own 1000 cap
+      if (r.entries.length) saveGlucoseReadings(r.entries);
+      return { ok: true, entries: r.entries };
+    } catch (e) { return { ok: false, reason: friendlyNsError(e) }; }
   }
 
   /** Explicit, always-runs pull of as much history as Nightscout will give (the Settings
