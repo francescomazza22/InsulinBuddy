@@ -3,7 +3,7 @@ import { convertGlucose, roundDose as roundDoseWith, activeAt, compoundGiInfo, c
 import { SCHEMA_VERSION, normalizeState as normalizeStateWith, makeFingerprint, stampChanges, mergeStates, statesEquivalent, prepareRestoredState, unexplainedEmptying } from "./js/state.js";
 import { NightscoutClient, NsOutbox, nsToken, nsBaseUrl, nsConfigured, treatmentsForEntry, entriesToGlucoseRows } from "./js/nightscout.js";
 import { createDiag, hookGlobalErrors } from "./js/diag.js";
-import { percentile, dailyPatternBuckets, daysSpanned, estimatedA1c, glucoseSummaryStats } from "./js/glucose-stats.js";
+import { percentile, dailyPatternBuckets, daysSpanned, estimatedA1c, glucoseSummaryStats, timeInRangeBreakdown, TIME_IN_RANGE_BANDS } from "./js/glucose-stats.js";
 import { randomBytes, toB64, fromB64, deriveKey, encryptString, decryptString, isEncryptedPayload, exportKeyRaw, importKeyRaw } from "./js/crypto.js";
 import { LocalBackups, shouldAutoSnapshot } from "./js/backup.js";
 import { groupByDay, takeEntries, matchesQuery, recentDistinctMeals, mealLabel, PAGE_SIZE } from "./js/history.js";
@@ -1044,6 +1044,17 @@ import { createDialogs } from "./js/dialogs.js";
   // each time of day -- the shape of a typical day, not just one line through raw points.
   const MIN_PATTERN_DAYS = 5; // matches the convention CGM reports use (needs a real spread of days to mean anything)
 
+  // ---- Daily Pattern band presets: which percentiles to shade. All of these are already
+  // computed by dailyPatternBuckets (p5/p10/p25/p50/p75/p90/p95), so switching presets never
+  // needs a re-fetch -- just a re-render with different keys. ----
+  const GLUCOSE_BAND_PRESETS = {
+    narrow: { label: "25–75 / 10–90", outer: ["p10", "p90"], inner: ["p25", "p75"] },
+    wide: { label: "5–95 / 25–75", outer: ["p5", "p95"], inner: ["p25", "p75"] },
+    median: { label: "Median only", outer: null, inner: null }
+  };
+  let glucoseView = "pattern"; // 'pattern' | 'tir'
+  let glucoseBandPreset = "narrow";
+
   async function renderGlucoseTab(days) {
     const box = el("glucose-tab-content");
     box.innerHTML = `<p class="panel-card__hint">Loading…</p>`;
@@ -1072,26 +1083,84 @@ import { createDialogs } from "./js/dialogs.js";
         <div class="trend-stat-card__label">${label}</div>
       </div>
     `;
-    const buckets = dailyPatternBuckets(readings, 30);
-    const svg = renderDailyPatternSVG(buckets);
-
-    box.innerHTML = `
+    const statsHtml = `
       <div class="trend-stats glucose-stats">
         ${statCard(fmtG(stats.avgMgdl), unit === "mmol" ? "mmol/L" : "mg/dL", "Average glucose")}
         ${statCard(stats.gmi.toFixed(1), "%", "Est. A1c (GMI)")}
         ${statCard(Math.round(stats.timeInRangePct), "%", "Time in range (70–180)")}
         ${statCard(Math.round(stats.timeLowPct + stats.timeHighPct), "%", "Time low or high", stats.timeLowPct + stats.timeHighPct > 30)}
       </div>
+    `;
+    const footerHtml = `<p class="panel-card__hint">Based on ${stats.count.toLocaleString()} readings over ${spanDays} days. Estimated A1c (GMI) is informational only — not a lab result.</p>`;
+
+    if (glucoseView === "tir") {
+      box.innerHTML = `${statsHtml}<div class="panel-card">${renderTimeInRangeHtml(readings, unit)}</div>${footerHtml}`;
+      return;
+    }
+
+    const preset = GLUCOSE_BAND_PRESETS[glucoseBandPreset];
+    const buckets = dailyPatternBuckets(readings, 30);
+    const svg = renderDailyPatternSVG(buckets, preset);
+    const bandPicker = `
+      <div class="band-preset-row">
+        <span class="band-preset-row__label">Bands:</span>
+        <select id="band-preset-select">
+          ${Object.entries(GLUCOSE_BAND_PRESETS).map(([key, p]) => `<option value="${key}"${key === glucoseBandPreset ? " selected" : ""}>${p.label}</option>`).join("")}
+        </select>
+      </div>
+    `;
+    box.innerHTML = `
+      ${statsHtml}
       <div class="panel-card">
         <h2 class="panel-card__title">Daily pattern</h2>
-        <p class="panel-card__hint" style="margin-top:-4px;">Every day over the last ${days} days folded into one — the line is the median, the bands show the middle 50% and 10–90% spread.</p>
+        <p class="panel-card__hint" style="margin-top:-4px;">Every day over the last ${days} days folded into one.</p>
+        ${bandPicker}
         ${svg}
+        ${renderGlucoseLegend(preset)}
       </div>
-      <p class="panel-card__hint">Based on ${stats.count.toLocaleString()} readings. Estimated A1c (GMI) is informational only — not a lab result.</p>
+      ${footerHtml}
+    `;
+    el("band-preset-select").addEventListener("change", e => {
+      glucoseBandPreset = e.target.value;
+      renderGlucoseTab(days); // re-render only -- readings are already cached, so this is instant
+    });
+  }
+
+  function renderGlucoseLegend(preset) {
+    const items = [`<span class="glucose-legend__item"><span class="glucose-legend__swatch glucose-legend__swatch--line"></span>Median</span>`];
+    if (preset.inner) items.push(`<span class="glucose-legend__item"><span class="glucose-legend__swatch glucose-legend__swatch--inner"></span>${preset.inner[0].slice(1)}–${preset.inner[1].slice(1)}th percentile</span>`);
+    if (preset.outer) items.push(`<span class="glucose-legend__item"><span class="glucose-legend__swatch glucose-legend__swatch--outer"></span>${preset.outer[0].slice(1)}–${preset.outer[1].slice(1)}th percentile</span>`);
+    items.push(`<span class="glucose-legend__item"><span class="glucose-legend__swatch glucose-legend__swatch--threshold"></span>70–180 range</span>`);
+    return `<div class="glucose-legend">${items.join("")}</div>`;
+  }
+
+  // The same Time-in-Range breakdown screenshot you shared -- horizontal bars, high to low,
+  // using the standard ADA/ATTD consensus bands (the same ones Dexcom Clarity and LibreLink use).
+  function renderTimeInRangeHtml(readings, unit) {
+    const breakdown = timeInRangeBreakdown(readings);
+    const colors = { veryHigh: "#D97706", high: "#FBBF24", target: "#22C55E", low: "#FCA5A5", veryLow: "#DC2626" };
+    const fmtB = v => unit === "mmol" ? round1(convertGlucose(v, "mgdl", "mmol")) : Math.round(v);
+    const rangeLabel = b => {
+      if (b.key === "veryHigh") return `&gt; ${fmtB(b.low - 1)}`;
+      if (b.key === "veryLow") return `&lt; ${fmtB(b.high + 1)}`;
+      return `${fmtB(b.low)}&ndash;${fmtB(b.high)}`;
+    };
+    const rows = breakdown.map(b => `
+      <div class="tir-row">
+        <div class="tir-row__range">${rangeLabel(b)}</div>
+        <div class="tir-row__track"><div class="tir-row__fill" style="width:${Math.max(b.pct, b.pct > 0 ? 2 : 0)}%; background:${colors[b.key]};"></div></div>
+        <div class="tir-row__pct">${Math.round(b.pct)}%</div>
+      </div>
+    `).join("");
+    return `
+      <h2 class="panel-card__title">Time in Range</h2>
+      <p class="panel-card__hint" style="margin-top:-4px;">${unit === "mmol" ? "mmol/L" : "mg/dL"}</p>
+      <div class="tir-bars">${rows}</div>
+      <p class="panel-card__hint" style="margin-top:10px;">Target range: ${fmtB(70)}&ndash;${fmtB(180)} ${unit === "mmol" ? "mmol/L" : "mg/dL"}</p>
     `;
   }
 
-  function renderDailyPatternSVG(buckets) {
+  function renderDailyPatternSVG(buckets, preset) {
     if (buckets.length === 0) return null;
     const sorted = buckets.slice().sort((a, b) => a.minute - b.minute);
     const W = 340, H = 220, padL = 32, padR = 10, padT = 10, padB = 26;
@@ -1099,7 +1168,10 @@ import { createDialogs } from "./js/dialogs.js";
     const unit = state.settings.units;
     const toDisplay = v => unit === "mmol" ? convertGlucose(v, "mgdl", "mmol") : v;
     const fmtVal = v => unit === "mmol" ? round1(toDisplay(v)) : Math.round(toDisplay(v));
-    const maxVal = Math.max(220, ...sorted.map(b => b.p90));
+    // Always scale against p95 (the widest band ever computed), regardless of which preset is
+    // showing -- so switching presets never rescales the y-axis and makes the chart feel like
+    // it's jumping around.
+    const maxVal = Math.max(220, ...sorted.map(b => b.p95));
 
     const xFor = min => padL + (min / 1440) * plotW;
     const yFor = v => padT + plotH - (v / maxVal) * plotH;
@@ -1127,8 +1199,8 @@ import { createDialogs } from "./js/dialogs.js";
         <line x1="${padL}" y1="${highY}" x2="${padL + plotW}" y2="${highY}" stroke="#F59E0B" stroke-width="1" stroke-dasharray="2,3" opacity="0.6"/>
         <text x="${padL - 4}" y="${(parseFloat(lowY) + 3).toFixed(1)}" font-size="8" fill="#EF4444" text-anchor="end">${fmtVal(70)}</text>
         <text x="${padL - 4}" y="${(parseFloat(highY) + 3).toFixed(1)}" font-size="8" fill="#F59E0B" text-anchor="end">${fmtVal(180)}</text>
-        <path d="${band("p90", "p10")}" fill="#3B82F6" opacity="0.14"/>
-        <path d="${band("p75", "p25")}" fill="#3B82F6" opacity="0.28"/>
+        ${preset.outer ? `<path d="${band(preset.outer[1], preset.outer[0])}" fill="#3B82F6" opacity="0.14"/>` : ""}
+        ${preset.inner ? `<path d="${band(preset.inner[1], preset.inner[0])}" fill="#3B82F6" opacity="0.28"/>` : ""}
         <path d="${line("p50")}" fill="none" stroke="#2563EB" stroke-width="2.25" stroke-linejoin="round" stroke-linecap="round"/>
         <line x1="${padL}" y1="${padT + plotH}" x2="${padL + plotW}" y2="${padT + plotH}" stroke="var(--line)" stroke-width="1"/>
         ${xTicks}
@@ -1665,6 +1737,7 @@ import { createDialogs } from "./js/dialogs.js";
     try {
       const { error } = await supabaseClient.from("glucose_readings").upsert(rows, { onConflict: "user_id,at" });
       if (error) { diag.log("warn", "glucose-db", "Couldn't save glucose readings: " + (error.message || error)); return { ok: false, saved: 0, error: error.message || String(error) }; }
+      glucoseReadingsCache.clear(); // new data invalidates every cached window
       return { ok: true, saved: rows.length };
     } catch (e) {
       const msg = (e && e.message) || String(e);
@@ -1773,9 +1846,17 @@ import { createDialogs } from "./js/dialogs.js";
 
   /** Readings for the History > Glucose tab: ensures coverage, then reads the window straight
    * from our database as { at (ms), mgdl } pairs -- the shape js/glucose-stats.js expects. */
+  // In-memory only (never persisted): avoids re-fetching + re-paginating the same window
+  // repeatedly when switching between tabs/views/band presets within one visit. Cleared
+  // whenever a fresh reading is saved, so it can never show stale data as if it were current.
+  const glucoseReadingsCache = new Map(); // days -> { readings, at }
+  const GLUCOSE_CACHE_TTL_MS = 60_000;
+
   async function fetchStoredGlucoseReadings(days) {
     if (!supabaseClient || !currentUser) return { ok: false, reason: "Sign in to Cloud Sync to build up glucose history." };
     if (!nightscoutConfigured()) return { ok: false, reason: "Set up Nightscout Sync first." };
+    const cached = glucoseReadingsCache.get(days);
+    if (cached && Date.now() - cached.at < GLUCOSE_CACHE_TTL_MS) return { ok: true, readings: cached.readings };
     await ensureGlucoseCoverage(days * 24);
     try {
       const sinceISO = new Date(Date.now() - days * 86400_000).toISOString();
@@ -1783,18 +1864,27 @@ import { createDialogs } from "./js/dialogs.js";
       // "Max Rows", 1000 by default) that a client .limit() can request FEWER rows than but
       // never override -- a single large .limit() silently gets clamped back down. The only
       // way to actually get more than that cap is genuine pagination: fetch bounded pages with
-      // .range() and stitch them together here. 90 days at a 5-minute CGM interval is ~26,000
-      // readings, so this pages well past any default cap.
+      // .range(). 90 days at a 5-minute CGM interval is ~26,000 readings, so a large window
+      // can mean dozens of pages -- fetch them all CONCURRENTLY (we know the page boundaries
+      // upfront from the count) rather than one at a time, which is the main thing that made
+      // opening a 30/90-day view feel slow.
       const PAGE = 1000, HARD_CAP = 30000;
-      let readings = [];
-      for (let offset = 0; offset < HARD_CAP; offset += PAGE) {
-        const { data, error } = await supabaseClient.from("glucose_readings").select("at, mgdl").eq("user_id", currentUser.id).gte("at", sinceISO).order("at").range(offset, offset + PAGE - 1);
-        if (error) throw error;
-        if (!data || data.length === 0) break;
-        readings = readings.concat(data);
-        if (data.length < PAGE) break; // fewer than a full page back -- that's everything there is
-      }
-      return { ok: true, readings: readings.map(row => ({ at: new Date(row.at).getTime(), mgdl: row.mgdl })) };
+      const { count, error: countErr } = await supabaseClient.from("glucose_readings").select("at", { count: "exact", head: true }).eq("user_id", currentUser.id).gte("at", sinceISO);
+      if (countErr) throw countErr;
+      const total = Math.min(count || 0, HARD_CAP);
+      const pageCount = Math.max(1, Math.ceil(total / PAGE)) || 1;
+      const pages = await Promise.all(Array.from({ length: total === 0 ? 0 : pageCount }, (_, i) => {
+        const offset = i * PAGE;
+        return supabaseClient.from("glucose_readings").select("at, mgdl").eq("user_id", currentUser.id).gte("at", sinceISO).order("at").range(offset, offset + PAGE - 1);
+      }));
+      const firstError = pages.find(p => p.error);
+      if (firstError) throw firstError.error;
+      const readings = pages.flatMap(p => p.data || []).map(row => ({ at: new Date(row.at).getTime(), mgdl: row.mgdl }));
+      // Don't cache an empty result: it's most often a transient state (a write just failed, or
+      // coverage hasn't caught up yet) rather than a durable "there's truly nothing here" fact,
+      // and caching it would block the self-healing retry-on-reopen behavior from ever helping.
+      if (readings.length > 0) glucoseReadingsCache.set(days, { readings, at: Date.now() });
+      return { ok: true, readings };
     } catch (e) { return { ok: false, reason: "Couldn't load your glucose history." }; }
   }
 
@@ -2833,6 +2923,14 @@ import { createDialogs } from "./js/dialogs.js";
     glucoseRange = parseInt(btn.dataset.range, 10);
     glucoseRangeSegmented.querySelectorAll(".segmented__btn").forEach(b => b.classList.toggle("is-active", b === btn));
     renderGlucoseTab(glucoseRange);
+  });
+  const glucoseViewSegmented = el("glucose-view-segmented");
+  glucoseViewSegmented.addEventListener("click", e => {
+    const btn = e.target.closest(".segmented__btn");
+    if (!btn) return;
+    glucoseView = btn.dataset.glview;
+    glucoseViewSegmented.querySelectorAll(".segmented__btn").forEach(b => b.classList.toggle("is-active", b === btn));
+    renderGlucoseTab(glucoseRange); // readings are cached -- this re-render is instant, no re-fetch
   });
   trendsRangeSegmented.addEventListener("click", e => {
     const btn = e.target.closest(".segmented__btn");
