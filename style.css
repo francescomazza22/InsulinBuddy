@@ -740,6 +740,26 @@ html[data-theme="dark"] .undo-toast { background: var(--surface); border: 1px so
 /* ================= Trends ================= */
 .trend-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 8px; }
 .glucose-stats { grid-template-columns: repeat(2, 1fr); margin-bottom: 14px; }
+
+/* ================= Daily Pattern: band picker + legend ================= */
+.band-preset-row { display: flex; align-items: center; gap: 8px; margin: 8px 0 10px; }
+.band-preset-row__label { font-size: 0.82rem; font-weight: 600; color: var(--ink-soft); }
+.band-preset-row select { width: auto; flex: 1; padding: 7px 10px; font-size: 0.85rem; }
+.glucose-legend { display: flex; flex-wrap: wrap; gap: 10px 14px; margin-top: 10px; }
+.glucose-legend__item { display: inline-flex; align-items: center; gap: 5px; font-size: 0.74rem; color: var(--ink-soft); }
+.glucose-legend__swatch { width: 14px; height: 10px; border-radius: 2px; display: inline-block; flex-shrink: 0; }
+.glucose-legend__swatch--line { background: #2563EB; height: 2.5px; border-radius: 2px; }
+.glucose-legend__swatch--inner { background: #3B82F6; opacity: 0.5; }
+.glucose-legend__swatch--outer { background: #3B82F6; opacity: 0.22; }
+.glucose-legend__swatch--threshold { background: none; border-top: 1.5px dashed #F59E0B; height: 0; }
+
+/* ================= Time in Range bars ================= */
+.tir-bars { display: flex; flex-direction: column; gap: 10px; margin-top: 10px; }
+.tir-row { display: grid; grid-template-columns: 62px 1fr 38px; align-items: center; gap: 8px; }
+.tir-row__range { font-size: 0.74rem; color: var(--ink-soft); text-align: right; white-space: nowrap; }
+.tir-row__track { background: var(--line); border-radius: 999px; height: 16px; overflow: hidden; }
+.tir-row__fill { height: 100%; border-radius: 999px; transition: width 0.2s; }
+.tir-row__pct { font-size: 0.82rem; font-weight: 700; }
 .trend-stat-card {
   background: var(--surface); border: 1.5px solid var(--line); border-radius: var(--radius-m);
   padding: 11px 8px; text-align: center;
