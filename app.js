@@ -1160,6 +1160,20 @@ import { createDialogs } from "./js/dialogs.js";
     `;
   }
 
+  // A shared y-axis range for the glucose charts: scaling from 0 (as both charts used to)
+  // wastes the bottom ~30-40% of the chart on a 0-70 band real glucose is essentially never
+  // in, which visually compresses genuine variation in the 70-180 range most readings actually
+  // occupy. This scales tightly around the actual data instead (with the 70-180 band always
+  // guaranteed visible, never cropped out, plus a little breathing room), the same way
+  // LibreLink/Dexcom-style charts do.
+  function glucoseAxisRange(values) {
+    const finite = (values || []).filter(v => typeof v === "number" && Number.isFinite(v));
+    const dataMin = finite.length ? Math.min(70, ...finite) : 70;
+    const dataMax = finite.length ? Math.max(180, ...finite) : 180;
+    const pad = Math.max(10, (dataMax - dataMin) * 0.12);
+    return { min: Math.max(0, Math.floor((dataMin - pad) / 10) * 10), max: Math.ceil((dataMax + pad) / 10) * 10 };
+  }
+
   function renderDailyPatternSVG(buckets, preset) {
     if (buckets.length === 0) return null;
     const sorted = buckets.slice().sort((a, b) => a.minute - b.minute);
@@ -1168,13 +1182,13 @@ import { createDialogs } from "./js/dialogs.js";
     const unit = state.settings.units;
     const toDisplay = v => unit === "mmol" ? convertGlucose(v, "mgdl", "mmol") : v;
     const fmtVal = v => unit === "mmol" ? round1(toDisplay(v)) : Math.round(toDisplay(v));
-    // Always scale against p95 (the widest band ever computed), regardless of which preset is
-    // showing -- so switching presets never rescales the y-axis and makes the chart feel like
-    // it's jumping around.
-    const maxVal = Math.max(220, ...sorted.map(b => b.p95));
+    // Always scale against p5/p95 (the widest band ever computed), regardless of which preset
+    // is showing -- so switching presets never rescales the y-axis and makes the chart feel
+    // like it's jumping around.
+    const { min: axisMin, max: axisMax } = glucoseAxisRange(sorted.flatMap(b => [b.p5, b.p95]));
 
     const xFor = min => padL + (min / 1440) * plotW;
-    const yFor = v => padT + plotH - (v / maxVal) * plotH;
+    const yFor = v => padT + plotH - ((v - axisMin) / (axisMax - axisMin)) * plotH;
     const band = (hi, lo) => {
       const top = sorted.map(b => `${xFor(b.minute).toFixed(1)},${yFor(b[hi]).toFixed(1)}`).join(" L");
       const bottom = sorted.slice().reverse().map(b => `${xFor(b.minute).toFixed(1)},${yFor(b[lo]).toFixed(1)}`).join(" L");
@@ -1220,13 +1234,13 @@ import { createDialogs } from "./js/dialogs.js";
     const plotW = W - padL - padR, plotH = H - padT - padB;
     const startTime = points[0].t, endTime = points[points.length - 1].t;
     const span = Math.max(1, endTime - startTime);
-    const maxVal = Math.max(220, ...points.map(p => p.sgv));
+    const { min: axisMin, max: axisMax } = glucoseAxisRange(points.map(p => p.sgv));
     const unit = state.settings.units;
     const toDisplay = v => unit === "mmol" ? convertGlucose(v, "mgdl", "mmol") : v;
     const fmtVal = v => unit === "mmol" ? round1(toDisplay(v)) : Math.round(toDisplay(v));
 
     const xFor = t => padL + ((t - startTime) / span) * plotW;
-    const yFor = v => padT + plotH - (v / maxVal) * plotH;
+    const yFor = v => padT + plotH - ((v - axisMin) / (axisMax - axisMin)) * plotH;
 
     const path = points.map((p, i) => `${i === 0 ? "M" : "L"}${xFor(p.t).toFixed(1)},${yFor(p.sgv).toFixed(1)}`).join(" ");
     const lowY = yFor(70).toFixed(1), highY = yFor(180).toFixed(1);
