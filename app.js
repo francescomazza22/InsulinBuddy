@@ -97,6 +97,7 @@ import { createDialogs } from "./js/dialogs.js";
         palette: "blueViolet",
         darkMode: false,
         darkModeAuto: false,
+        showRecentMeals: true,
         insulinModel: { preset: "rapid", peakMinutes: 75, diaMinutes: 360 },
         carbAbsorptionMinutes: { high: 120, medium: 180, low: 240, unknown: 180 },
         iobAwareCorrection: false,
@@ -488,6 +489,7 @@ import { createDialogs } from "./js/dialogs.js";
     document.documentElement.setAttribute("data-palette", state.settings.palette);
     applyTheme();
     renderFoodPickList(); renderMealItems(); recompute(); renderActivePanel();
+    renderRecentMeals();
     renderLibrary(); renderHistory();
     if (!el("view-settings").hidden) renderSettings();
   }
@@ -3529,7 +3531,7 @@ import { createDialogs } from "./js/dialogs.js";
   // (the same handful of breakfasts/snacks over and over) -- reuses useMealAgain below,
   // the same path History's own "repeat this meal" button already takes.
   function renderRecentMeals() {
-    const meals = recentDistinctMeals(state.history, 6);
+    const meals = state.settings.showRecentMeals === false ? [] : recentDistinctMeals(state.history, 6);
     el("recent-meals-header").hidden = meals.length === 0;
     el("recent-meals-row").hidden = meals.length === 0;
     el("recent-meals-row").innerHTML = meals.map(entry => `
@@ -3778,6 +3780,7 @@ import { createDialogs } from "./js/dialogs.js";
     renderInsulinCarbSettings();
     el("dark-mode-toggle").checked = state.settings.darkMode;
     el("dark-mode-toggle").disabled = state.settings.darkModeAuto;
+    el("show-recent-meals-toggle").checked = state.settings.showRecentMeals !== false;
     el("dark-mode-auto-toggle").checked = state.settings.darkModeAuto;
     renderAccountSection();
     renderNightscoutSection();
@@ -4539,7 +4542,7 @@ import { createDialogs } from "./js/dialogs.js";
         state.history.sort((a, b) => b.ts - a.ts);
 
         saveState();
-        renderLibrary(); renderHistory(); renderSettings();
+        renderLibrary(); renderHistory(); renderSettings(); renderRecentMeals();
         alert(`Import complete.\nFoods: ${foodsAdded} added, ${foodsUpdated} updated.\nRecipes: ${recipesAdded} added, ${recipesUpdated} updated.\nHistory: ${historyAdded} added.\n\nSettings were left untouched.`);
       } catch (err) {
         console.error(err);
@@ -4575,6 +4578,11 @@ import { createDialogs } from "./js/dialogs.js";
     applyTheme();
     renderBackgroundSection();
     saveState();
+  });
+  el("show-recent-meals-toggle").addEventListener("change", e => {
+    state.settings.showRecentMeals = e.target.checked;
+    saveState();
+    renderRecentMeals();
   });
   el("dark-mode-auto-toggle").addEventListener("change", e => {
     state.settings.darkModeAuto = e.target.checked;
@@ -4694,6 +4702,7 @@ import { createDialogs } from "./js/dialogs.js";
     recompute();
     restoreDraftIfAny();
     renderActivePanel();
+    renderRecentMeals();
     showView("calculator");
     syncTabbarHeightVar();
     window.addEventListener("resize", syncTabbarHeightVar);
