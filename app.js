@@ -6,7 +6,7 @@ import { createDiag, hookGlobalErrors } from "./js/diag.js";
 import { percentile, dailyPatternBuckets, daysSpanned, estimatedA1c, glucoseSummaryStats, timeInRangeBreakdown, TIME_IN_RANGE_BANDS } from "./js/glucose-stats.js";
 import { randomBytes, toB64, fromB64, deriveKey, encryptString, decryptString, isEncryptedPayload, exportKeyRaw, importKeyRaw } from "./js/crypto.js";
 import { LocalBackups, shouldAutoSnapshot } from "./js/backup.js";
-import { groupByDay, takeEntries, matchesQuery, recentDistinctMeals, mealLabel, PAGE_SIZE } from "./js/history.js";
+import { groupByDay, takeEntries, matchesQuery, recentDistinctMeals, mealLabel, dosingSummary, PAGE_SIZE } from "./js/history.js";
 import { createDialogs } from "./js/dialogs.js";
 
 
@@ -792,6 +792,23 @@ import { createDialogs } from "./js/dialogs.js";
   addBtn.addEventListener("click", addSelectedToMeal);
   gramsInput.addEventListener("keydown", e => { if (e.key === "Enter") addSelectedToMeal(); });
 
+  // Quick-carb chips (Treating a Low): one tap to log a fixed amount of fast carbs, no food
+  // search needed. carbsPer100g: 100 is a deliberate trick, not an approximation -- it makes
+  // "grams entered" exactly equal "carbs", so this plugs into the normal item-editing flow
+  // (the grams input, recompute, etc.) with no special-casing needed anywhere else.
+  el("quick-carb-row").addEventListener("click", e => {
+    const chip = e.target.closest(".quick-carb-chip");
+    if (!chip) return;
+    const grams = parseFloat(chip.dataset.grams);
+    draft.items.push({
+      refType: "quick", refId: null, name: "Fast carbs", grams, quantity: null, unitLabel: null,
+      gramsPerUnit: null, carbsPer100g: 100, kcalPer100g: 0, gi: null, carbs: grams, kcal: null
+    });
+    renderMealItems();
+    recompute();
+    saveDraftLocal();
+  });
+
   function renderMealItems() {
     el("cc-current-meal-header").hidden = draft.items.length === 0;
     mealItemsBox.innerHTML = "";
@@ -1055,6 +1072,81 @@ import { createDialogs } from "./js/dialogs.js";
   let glucoseView = "pattern"; // 'pattern' | 'tir'
   let glucoseBandPreset = "narrow";
 
+  // A clinic-visit summary: glucose stats + dosing patterns over the same period as the
+  // Glucose tab currently showing, laid out for printing (or Save as PDF via the browser's
+  // own print sheet) rather than a new PDF-generation dependency. Reuses the same stats
+  // functions already built and tested for the Daily Pattern / Time in Range views, plus
+  // buildTrendBuckets/summarizeTrends/mealTypeBreakdown, which existed but were never wired
+  // into anything until now.
+  async function renderClinicReport(days) {
+    const overlay = el("report-overlay");
+    const content = el("report-content");
+    overlay.hidden = false;
+    content.innerHTML = `<p class="panel-card__hint">Preparing report…</p>`;
+
+    const unit = state.settings.units;
+    const fmtG = v => unit === "mmol" ? round1(convertGlucose(v, "mgdl", "mmol")) : Math.round(v);
+    const unitLabel = unit === "mmol" ? "mmol/L" : "mg/dL";
+    const periodStart = new Date(Date.now() - days * 86400_000);
+    const fmtDate = d => d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+
+    let glucoseHtml = `<p class="panel-card__hint">Sign in to Cloud Sync and set up Nightscout to include glucose stats in this report.</p>`;
+    if (supabaseClient && currentUser && nightscoutConfigured()) {
+      const result = await fetchStoredGlucoseReadings(days);
+      if (result.ok && result.readings.length > 0 && daysSpanned(result.readings) >= MIN_PATTERN_DAYS) {
+        const stats = glucoseSummaryStats(result.readings);
+        const tir = timeInRangeBreakdown(result.readings);
+        const buckets = dailyPatternBuckets(result.readings, 30);
+        const svg = renderDailyPatternSVG(buckets, GLUCOSE_BAND_PRESETS.narrow);
+        glucoseHtml = `
+          <div class="report-stat-grid">
+            <div class="report-stat-grid__cell"><div class="report-stat-grid__value">${fmtG(stats.avgMgdl)}</div><div class="report-stat-grid__label">Avg glucose (${unitLabel})</div></div>
+            <div class="report-stat-grid__cell"><div class="report-stat-grid__value">${stats.gmi.toFixed(1)}%</div><div class="report-stat-grid__label">Est. A1c (GMI)</div></div>
+            <div class="report-stat-grid__cell"><div class="report-stat-grid__value">${Math.round(stats.timeInRangePct)}%</div><div class="report-stat-grid__label">Time in range</div></div>
+          </div>
+          <table class="report-table" style="margin-top:14px;">
+            <thead><tr><th>Range</th><th>Band (${unitLabel})</th><th>% of readings</th></tr></thead>
+            <tbody>${tir.map(b => `<tr><td>${b.label}</td><td>${b.key === "veryHigh" ? "&gt; " + fmtG(b.low - 1) : b.key === "veryLow" ? "&lt; " + fmtG(b.high + 1) : `${fmtG(b.low)}\u2013${fmtG(b.high)}`}</td><td>${Math.round(b.pct)}%</td></tr>`).join("")}</tbody>
+          </table>
+          <div style="margin-top:14px;">${svg}</div>
+          <p class="panel-card__hint">Based on ${stats.count.toLocaleString()} readings over ${daysSpanned(result.readings)} days.</p>
+        `;
+      } else {
+        glucoseHtml = `<p class="panel-card__hint">Not enough stored glucose history yet for this period (needs at least ${MIN_PATTERN_DAYS} days).</p>`;
+      }
+    }
+
+    const { buckets, inRange, todayKey } = buildTrendBuckets(state.history, days);
+    const trend = summarizeTrends(buckets, inRange, todayKey);
+    const byType = mealTypeBreakdown(inRange);
+    const dosingHtml = `
+      <div class="report-stat-grid">
+        <div class="report-stat-grid__cell"><div class="report-stat-grid__value">${inRange.length}</div><div class="report-stat-grid__label">Entries logged</div></div>
+        <div class="report-stat-grid__cell"><div class="report-stat-grid__value">${round1(trend.avgCarbs)}g</div><div class="report-stat-grid__label">Avg daily carbs</div></div>
+        <div class="report-stat-grid__cell"><div class="report-stat-grid__value">${round1(trend.avgDose)}u</div><div class="report-stat-grid__label">Avg daily insulin</div></div>
+      </div>
+      <table class="report-table" style="margin-top:14px;">
+        <thead><tr><th>Type</th><th>Count</th><th>Avg carbs</th><th>Avg dose</th></tr></thead>
+        <tbody>
+          ${byType.map(t => `<tr><td style="text-transform:capitalize;">${t.type}</td><td>${t.count}</td><td>${round1(t.avgCarbs)}g</td><td>${round1(t.avgDose)}u</td></tr>`).join("")}
+          <tr><td>Corrections</td><td>${trend.corrections}</td><td colspan="2"></td></tr>
+          <tr><td>Treated lows</td><td>${trend.lows}</td><td colspan="2"></td></tr>
+        </tbody>
+      </table>
+    `;
+
+    content.innerHTML = `
+      <div class="report-content__header">
+        <h1>Insulin Buddy — Summary Report</h1>
+        <p>Period: ${fmtDate(periodStart)} \u2013 ${fmtDate(new Date())} (${days} days)</p>
+        <p>Generated ${fmtDate(new Date())}</p>
+      </div>
+      <div class="report-section"><h2>Glucose</h2>${glucoseHtml}</div>
+      <div class="report-section"><h2>Meals &amp; Dosing</h2>${dosingHtml}</div>
+      <p class="report-footer">Generated by Insulin Buddy. Informational only — not a substitute for professional medical advice. Estimated A1c (GMI) is not a lab result.</p>
+    `;
+  }
+
   async function renderGlucoseTab(days) {
     const box = el("glucose-tab-content");
     box.innerHTML = `<p class="panel-card__hint">Loading…</p>`;
@@ -1070,7 +1162,9 @@ import { createDialogs } from "./js/dialogs.js";
           <p>Not enough data yet for a daily pattern.</p>
           <p class="empty-state__sub">This needs at least ${MIN_PATTERN_DAYS} days of glucose history — you have ${spanDays}. It'll fill in automatically as you use the app, or use "Import history from Nightscout" in Settings → Nightscout Sync to backfill it right away.</p>
         </div>
+        <button class="dashed-btn" id="btn-clinic-report" type="button">Generate clinic report</button>
       `;
+      el("btn-clinic-report").addEventListener("click", () => openClinicReport(days));
       return;
     }
 
@@ -1091,10 +1185,15 @@ import { createDialogs } from "./js/dialogs.js";
         ${statCard(Math.round(stats.timeLowPct + stats.timeHighPct), "%", "Time low or high", stats.timeLowPct + stats.timeHighPct > 30)}
       </div>
     `;
-    const footerHtml = `<p class="panel-card__hint">Based on ${stats.count.toLocaleString()} readings over ${spanDays} days. Estimated A1c (GMI) is informational only — not a lab result.</p>`;
+    const footerHtml = `
+      <p class="panel-card__hint">Based on ${stats.count.toLocaleString()} readings over ${spanDays} days. Estimated A1c (GMI) is informational only — not a lab result.</p>
+      <button class="dashed-btn" id="btn-clinic-report" type="button" style="margin-top:4px;">Generate clinic report</button>
+    `;
+    const wireReportButton = () => el("btn-clinic-report").addEventListener("click", () => openClinicReport(days));
 
     if (glucoseView === "tir") {
       box.innerHTML = `${statsHtml}<div class="panel-card">${renderTimeInRangeHtml(readings, unit)}</div>${footerHtml}`;
+      wireReportButton();
       return;
     }
 
@@ -1120,11 +1219,79 @@ import { createDialogs } from "./js/dialogs.js";
       </div>
       ${footerHtml}
     `;
+    wireReportButton();
     el("band-preset-select").addEventListener("change", e => {
       glucoseBandPreset = e.target.value;
       renderGlucoseTab(days); // re-render only -- readings are already cached, so this is instant
     });
   }
+
+  // A print-optimized summary for a doctor visit: glucose control + what was actually logged,
+  // over the same period/data already on screen. Delivered via the browser's own print-to-PDF
+  // (Share Sheet -> Save PDF on iOS) rather than a bundled PDF library -- this app has no build
+  // step or dependencies today, and print-to-PDF needs neither.
+  async function openClinicReport(days) {
+    const overlay = el("clinic-report-overlay");
+    const content = el("clinic-report-content");
+    content.innerHTML = `<p class="panel-card__hint">Preparing report…</p>`;
+    overlay.hidden = false;
+
+    const result = await fetchStoredGlucoseReadings(days); // already cached from the tab itself -- instant
+    const unit = state.settings.units;
+    const fmtG = v => unit === "mmol" ? round1(convertGlucose(v, "mgdl", "mmol")) : Math.round(v);
+    const unitLbl = unit === "mmol" ? "mmol/L" : "mg/dL";
+    const sinceMs = Date.now() - days * 86400_000;
+    const dosing = dosingSummary(state.history, sinceMs);
+    const periodLabel = `${new Date(sinceMs).toLocaleDateString()} – ${new Date().toLocaleDateString()}`;
+
+    let glucoseSectionHtml;
+    if (result.ok && result.readings.length > 0 && daysSpanned(result.readings) >= MIN_PATTERN_DAYS) {
+      const stats = glucoseSummaryStats(result.readings);
+      const tir = timeInRangeBreakdown(result.readings);
+      const buckets = dailyPatternBuckets(result.readings, 30);
+      const svg = renderDailyPatternSVG(buckets, GLUCOSE_BAND_PRESETS.narrow);
+      glucoseSectionHtml = `
+        <h2>Glucose</h2>
+        <table class="clinic-report__table">
+          <tr><td>Average glucose</td><td>${fmtG(stats.avgMgdl)} ${unitLbl}</td></tr>
+          <tr><td>Estimated A1c (GMI)</td><td>${stats.gmi.toFixed(1)}%</td></tr>
+          <tr><td>Time in range (70–180 mg/dL)</td><td>${Math.round(stats.timeInRangePct)}%</td></tr>
+          <tr><td>Readings analyzed</td><td>${stats.count.toLocaleString()}</td></tr>
+        </table>
+        <h3>Time in Range breakdown</h3>
+        <table class="clinic-report__table">
+          ${tir.map(b => `<tr><td>${escapeHtml(b.label)} (${b.key === "veryHigh" ? ">250" : b.key === "veryLow" ? "<54" : b.low + "–" + b.high} mg/dL)</td><td>${Math.round(b.pct)}%</td></tr>`).join("")}
+        </table>
+        <h3>Daily pattern</h3>
+        ${svg}
+      `;
+    } else {
+      glucoseSectionHtml = `<h2>Glucose</h2><p>No glucose history available for this period.</p>`;
+    }
+
+    content.innerHTML = `
+      <div class="clinic-report">
+        <h1>Insulin Buddy — Glucose &amp; Dosing Summary</h1>
+        <p class="clinic-report__meta">Period: last ${days} days (${periodLabel}) · Generated ${new Date().toLocaleString()}</p>
+        ${glucoseSectionHtml}
+        <h2>Dosing &amp; Food</h2>
+        <table class="clinic-report__table">
+          <tr><td>Meals logged</td><td>${dosing.mealsLogged} over ${dosing.days} day${dosing.days === 1 ? "" : "s"}</td></tr>
+          <tr><td>Average daily carbs</td><td>${round1(dosing.avgDailyCarbs)} g</td></tr>
+          <tr><td>Average daily insulin</td><td>${round1(dosing.avgDailyInsulin)} u</td></tr>
+          <tr><td>Lows treated</td><td>${dosing.lowsTreated}</td></tr>
+          <tr><td>Correction-only entries</td><td>${dosing.correctionsOnly}</td></tr>
+        </table>
+        ${dosing.topFoods.length ? `
+          <h3>Most frequently logged</h3>
+          <ul>${dosing.topFoods.map(f => `<li>${escapeHtml(f.name)} (${f.count}×)</li>`).join("")}</ul>
+        ` : ""}
+        <p class="clinic-report__disclaimer">Generated from self-reported data logged in Insulin Buddy. Informational only — not a substitute for clinical judgment.</p>
+      </div>
+    `;
+  }
+  el("clinic-report-close").addEventListener("click", () => { el("clinic-report-overlay").hidden = true; });
+  el("clinic-report-print").addEventListener("click", () => window.print());
 
   function renderGlucoseLegend(preset) {
     const items = [`<span class="glucose-legend__item"><span class="glucose-legend__swatch glucose-legend__swatch--line"></span>Median</span>`];
@@ -1492,6 +1659,7 @@ import { createDialogs } from "./js/dialogs.js";
       draft.noInsulinOn = false;
       el("cc-no-insulin-toggle").classList.remove("is-active");
       el("cc-no-insulin-note").hidden = true;
+      el("quick-carb-row").hidden = true;
     }
     if (!draft.glucoseUnit) draft.glucoseUnit = state.settings.units;
     glucoseUnitLabel.textContent = unitLabel(draft.glucoseUnit);
@@ -1504,6 +1672,7 @@ import { createDialogs } from "./js/dialogs.js";
     draft.noInsulinOn = !draft.noInsulinOn;
     el("cc-no-insulin-toggle").classList.toggle("is-active", draft.noInsulinOn);
     el("cc-no-insulin-note").hidden = !draft.noInsulinOn;
+    el("quick-carb-row").hidden = !draft.noInsulinOn;
     if (draft.noInsulinOn && draft.correctionOn) {
       draft.correctionOn = false;
       correctionToggle.classList.remove("is-active");
@@ -1602,6 +1771,7 @@ import { createDialogs } from "./js/dialogs.js";
       draft.noInsulinOn = true;
       el("cc-no-insulin-toggle").classList.add("is-active");
       el("cc-no-insulin-note").hidden = false;
+      el("quick-carb-row").hidden = false;
     }
     renderMealItems();
     recompute();
@@ -1627,6 +1797,7 @@ import { createDialogs } from "./js/dialogs.js";
     correctionRow.hidden = true;
     el("cc-no-insulin-toggle").classList.remove("is-active");
     el("cc-no-insulin-note").hidden = true;
+    el("quick-carb-row").hidden = true;
     ratioPicker.hidden = true;
     selectedPickId = null;
     clearDraftLocal();
@@ -1708,6 +1879,7 @@ import { createDialogs } from "./js/dialogs.js";
     syncEntryToNightscout(entry);
     resetDraft();
     renderActivePanel();
+    renderRecentMeals();
   }
 
   // ================= Nightscout sync =================
@@ -2953,6 +3125,10 @@ import { createDialogs } from "./js/dialogs.js";
     glucoseRangeSegmented.querySelectorAll(".segmented__btn").forEach(b => b.classList.toggle("is-active", b === btn));
     renderGlucoseTab(glucoseRange);
   });
+  el("btn-generate-report").addEventListener("click", () => renderClinicReport(glucoseRange));
+  el("btn-report-close").addEventListener("click", () => { el("report-overlay").hidden = true; });
+  el("btn-report-print").addEventListener("click", () => window.print());
+
   const glucoseViewSegmented = el("glucose-view-segmented");
   glucoseViewSegmented.addEventListener("click", e => {
     const btn = e.target.closest(".segmented__btn");
@@ -3318,12 +3494,14 @@ import { createDialogs } from "./js/dialogs.js";
       queueNsDelete(removed);
       renderHistory();
       renderActivePanel();
+      renderRecentMeals();
       showUndoToast("Meal deleted", () => {
         state.history.splice(idx, 0, removed);
         saveState();
         undoNsDelete(removed);
         renderHistory();
         renderActivePanel();
+        renderRecentMeals();
       });
       return;
     }
@@ -3345,6 +3523,27 @@ import { createDialogs } from "./js/dialogs.js";
     const summary = row.querySelector(".history-entry__foods");
     detail.hidden = !detail.hidden;
     summary.hidden = !detail.hidden;
+  });
+
+  // Recently logged meals: one-tap re-add for the repeats that make up most real usage
+  // (the same handful of breakfasts/snacks over and over) -- reuses useMealAgain below,
+  // the same path History's own "repeat this meal" button already takes.
+  function renderRecentMeals() {
+    const meals = recentDistinctMeals(state.history, 6);
+    el("recent-meals-header").hidden = meals.length === 0;
+    el("recent-meals-row").hidden = meals.length === 0;
+    el("recent-meals-row").innerHTML = meals.map(entry => `
+      <button class="recent-meal-chip" data-id="${entry.id}" type="button">
+        <span class="recent-meal-chip__name">${escapeHtml(mealLabel(entry))}</span>
+        <span class="recent-meal-chip__meta">${round1(entry.totalCarbs)}g carbs</span>
+      </button>
+    `).join("");
+  }
+  el("recent-meals-row").addEventListener("click", e => {
+    const chip = e.target.closest(".recent-meal-chip");
+    if (!chip) return;
+    const entry = state.history.find(h => h.id === chip.dataset.id);
+    if (entry) useMealAgain(entry);
   });
 
   function useMealAgain(entry) {
@@ -3542,6 +3741,7 @@ import { createDialogs } from "./js/dialogs.js";
       queueNsUpdate(entry);
       renderHistory();
       renderActivePanel();
+      renderRecentMeals();
       closeSheet(backdrop);
     });
   }
@@ -4524,6 +4724,7 @@ import { createDialogs } from "./js/dialogs.js";
     renderFoodPickList(); renderMealItems(); recompute();
     restoreDraftIfAny();
     renderActivePanel();
+    renderRecentMeals();
     renderLibrary(); renderHistory(); renderSettings();
   }
 
