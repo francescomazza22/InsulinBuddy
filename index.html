@@ -30,6 +30,14 @@
     </div>
   </div>
 
+  <div class="clinic-report-overlay" id="clinic-report-overlay" hidden>
+    <div class="clinic-report-toolbar no-print">
+      <button class="btn btn--primary" id="clinic-report-print" type="button">Print / Save as PDF</button>
+      <button class="dashed-btn" id="clinic-report-close" type="button">Close</button>
+    </div>
+    <div class="clinic-report-content" id="clinic-report-content"></div>
+  </div>
+
   <div class="lock-screen" id="lock-screen" hidden>
     <div class="lock-screen__card">
       <div class="lock-screen__icon">
@@ -82,6 +90,12 @@
         </div>
 
         <p class="dose-card__no-insulin-note" id="cc-no-insulin-note" hidden>Logging carbs only — no insulin will be recorded for this entry.</p>
+        <div class="quick-carb-row" id="quick-carb-row" hidden>
+          <span class="quick-carb-row__label">Quick add:</span>
+          <button class="quick-carb-chip" data-grams="15" type="button">15g</button>
+          <button class="quick-carb-chip" data-grams="20" type="button">20g</button>
+          <button class="quick-carb-chip" data-grams="30" type="button">30g</button>
+        </div>
 
         <div class="correction-row" id="cc-correction-row" hidden>
           <label for="cc-glucose">Current glucose</label>
@@ -122,6 +136,9 @@
         <span id="cc-gl-indicator" class="gl-indicator" hidden></span>
       </div>
       <div class="meal-items" id="cc-meal-items"></div>
+
+      <div class="section-header" id="recent-meals-header" hidden>RECENTLY LOGGED</div>
+      <div class="recent-meals-row" id="recent-meals-row" hidden></div>
 
       <div class="section-header">ADD FOOD ITEM</div>
 
@@ -276,8 +293,17 @@
         </div>
 
         <div id="glucose-tab-content"></div>
+        <button class="dashed-btn" id="btn-generate-report" type="button" style="margin-top:4px;">Generate Report for Doctor</button>
       </div>
     </section>
+
+    <div class="report-overlay" id="report-overlay" hidden>
+      <div class="report-overlay__bar">
+        <button class="dashed-btn" id="btn-report-close" type="button">Close</button>
+        <button class="btn btn--primary" id="btn-report-print" type="button">Print / Save as PDF</button>
+      </div>
+      <div class="report-overlay__content" id="report-content"></div>
+    </div>
 
     <!-- ======================= SETTINGS ======================= -->
     <section class="view" id="view-settings" data-view hidden>
