@@ -2226,6 +2226,21 @@ import { createDialogs } from "./js/dialogs.js";
   // card are always drawn from CHANGELOG[0], so the two can never drift.
   const CHANGELOG = [
     {
+      version: "2.1.0",
+      summary: "Added a real glucose history (not just live readings), a Daily Pattern/Time in Range tab, Face ID unlock, and an Apple Health export.",
+      changes: [
+        "Glucose readings are now saved to your own database as they're fetched, not just shown live — this is what makes everything below possible",
+        "New History → Glucose tab: a daily pattern chart (median + percentile bands, adjustable), a Time in Range breakdown, and real stats (average, estimated A1c, time in range) over 7/14/30/90 days",
+        "Added a one-time \"Import history from Nightscout\" backfill (Settings → Nightscout Sync) to seed that history from what Nightscout already has",
+        "Fixed glucose charts silently truncating to Supabase's row-return cap on large windows, and sped up loading by fetching in parallel instead of one page at a time",
+        "Fixed the glucose charts' vertical scale wasting space on the 0–70 range, which made real variation look flatter than it was",
+        "Passphrase-locked devices now stay unlocked until you lock them again or fully close the app, instead of re-prompting on every reload",
+        "Added optional Face ID / Touch ID unlock as a faster alternative to retyping your passphrase (the passphrase itself still exists and still matters)",
+        "Added a read-only Health export endpoint so an iOS Shortcut can pull recent insulin doses and carbs into Apple Health automatically",
+        "Internal: another ~250 automated tests added across this work"
+      ]
+    },
+    {
       version: "2.0.0",
       summary: "Multi-device sync no longer loses data; Nightscout sync now follows edits and deletes; big safety net added underneath everything.",
       changes: [
