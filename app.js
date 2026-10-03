@@ -2393,6 +2393,17 @@ import { createDialogs } from "./js/dialogs.js";
   // card are always drawn from CHANGELOG[0], so the two can never drift.
   const CHANGELOG = [
     {
+      version: "2.2.1",
+      summary: "Boot speed improvements: fewer network round-trips at startup, and static files load instantly from cache instead of re-fetching every time.",
+      changes: [
+        "Merged two separate startup database checks (passphrase lookup + loading your data) into one",
+        "A background local backup no longer makes the first screen wait on it",
+        "App files now load instantly from cache and quietly check for updates in the background, instead of re-downloading everything fresh on every single open",
+        "The food database file no longer blocks the rest of the app from starting to load alongside it",
+        "Fixed two app files (Face ID, glucose charts) missing from the offline cache list"
+      ]
+    },
+    {
       version: "2.2.0",
       summary: "Quick-carb chips for treating lows, a \"Recently Logged\" row for one-tap repeat meals, and a clinic report you can generate and save as a PDF.",
       changes: [
