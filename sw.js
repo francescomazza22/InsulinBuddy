@@ -12,7 +12,7 @@
 // update quickly (network-first, see below) — only the offline fallback copy
 // stays old until the version changes.
 
-const CACHE_VERSION = "2.1.0";
+const CACHE_VERSION = "2.2.0";
 const CACHE_NAME = `insulin-buddy-${CACHE_VERSION}`;
 
 // Everything needed to open the app with no network. A missing file here just
@@ -35,7 +35,9 @@ const PRECACHE_URLS = [
   "js/diag.js",
   "js/backup.js",
   "js/history.js",
-  "js/dialogs.js"
+  "js/dialogs.js",
+  "js/crypto.js",
+  "js/glucose-stats.js"
 ];
 
 self.addEventListener("install", event => {
@@ -84,21 +86,29 @@ self.addEventListener("fetch", event => {
   const isAppCode = /\.(?:js|css|html)$/.test(url.pathname) || url.pathname === "/" || url.pathname.endsWith("/");
 
   if (isAppCode) {
-    // Network-first: whatever is actually deployed wins whenever the network
-    // is reachable, so a normal reload always gets the latest code. The cache
-    // is only the offline fallback, not the source of truth.
+    // Stale-while-revalidate: the cached copy answers immediately (this is most of what
+    // made boot feel slow -- every single load was waiting on a fresh network round-trip
+    // for ~13 files before the app could even start). A real update still reaches you
+    // promptly: bumping CACHE_VERSION changes sw.js itself, which the browser always
+    // re-checks on navigation regardless of this strategy, which installs a new cache and
+    // reloads the open tab automatically (see the controllerchange listener in index.html)
+    // -- so you still get new code within one reload, same as before, you just aren't
+    // paying for a network round-trip on every single load to get it.
+    // `cache: "no-store"` on the revalidation fetch is deliberate: it bypasses the browser's
+    // own HTTP cache, not just this service worker's -- otherwise a host's cache-control
+    // headers could serve a stale response even though this code's intent is "always check".
     event.respondWith(
       (async () => {
-        try {
-          const fresh = await fetch(req);
-          if (fresh.ok) { const cache = await caches.open(CACHE_NAME); cache.put(req, fresh.clone()); }
-          return fresh;
-        } catch (e) {
-          const cached = await caches.match(req, { ignoreSearch: true });
-          if (cached) return cached;
-          if (req.mode === "navigate") { const shell = await caches.match("index.html"); if (shell) return shell; }
-          throw e;
-        }
+        const cache = await caches.open(CACHE_NAME);
+        const cached = await caches.match(req, { ignoreSearch: true });
+        const revalidate = fetch(req, { cache: "no-store" })
+          .then(fresh => { if (fresh.ok) cache.put(req, fresh.clone()); return fresh; })
+          .catch(() => null);
+        if (cached) { event.waitUntil(revalidate); return cached; }
+        const fresh = await revalidate;
+        if (fresh) return fresh;
+        if (req.mode === "navigate") { const shell = await caches.match("index.html"); if (shell) return shell; }
+        return Response.error();
       })()
     );
     return;
