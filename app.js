@@ -362,8 +362,11 @@ import { createDialogs } from "./js/dialogs.js";
     await supabaseClient.auth.signOut();
   }
 
-  async function loadStateCloud() {
-    const { data, error } = await supabaseClient
+  // `prefetched`, when given, is a { data, error } already fetched by the caller (boot() merges
+  // this with its own lock-config check into one round-trip, since both need the same row) --
+  // skips the query entirely rather than fetching the same row twice.
+  async function loadStateCloud(prefetched) {
+    const { data, error } = prefetched || await supabaseClient
       .from("app_state").select("data, updated_at, lock").eq("user_id", currentUser.id).maybeSingle();
     if (error) {
       console.error("Cloud load failed:", error);
@@ -384,16 +387,6 @@ import { createDialogs } from "./js/dialogs.js";
     return { ok: true, state: normalizeState(raw), updatedAt: data.updated_at };
   }
 
-  /** Cheap check, alongside the updated_at check: does this account require a passphrase
-   * on this device? Only the salt + a verifier travel here -- never the passphrase itself. */
-  async function checkCloudLockConfig() {
-    if (!supabaseClient || !currentUser) return { ok: false, lock: null };
-    try {
-      const { data, error } = await supabaseClient.from("app_state").select("lock").eq("user_id", currentUser.id).maybeSingle();
-      if (error) return { ok: false, lock: null };
-      return { ok: true, lock: (data && data.lock) || null };
-    } catch (e) { return { ok: false, lock: null }; }
-  }
   let cloudSaveTimer = null;
   async function saveStateCloud(force) {
     if (!supabaseClient || !currentUser) return;
@@ -2399,6 +2392,16 @@ import { createDialogs } from "./js/dialogs.js";
   // Newest first. version-badge-text/version-summary-text in the Settings
   // card are always drawn from CHANGELOG[0], so the two can never drift.
   const CHANGELOG = [
+    {
+      version: "2.2.0",
+      summary: "Quick-carb chips for treating lows, a \"Recently Logged\" row for one-tap repeat meals, and a clinic report you can generate and save as a PDF.",
+      changes: [
+        "Treating a Low now has 15g/20g/30g quick-add buttons — one tap logs carbs only, no food search needed",
+        "Added a \"Recently Logged\" row above food search showing your last few distinct meals, one tap to log the same thing again — can be turned off in Settings → General if you'd rather not see it",
+        "Added \"Generate clinic report\" in History → Glucose: a printable summary (glucose stats, time in range, daily pattern, and what you've actually been logging) you can save as a PDF for a doctor visit — works even without much glucose history",
+        "Fixed the Recently Logged row not showing up right after signing in"
+      ]
+    },
     {
       version: "2.1.0",
       summary: "Added a real glucose history (not just live readings), a Daily Pattern/Time in Range tab, Face ID unlock, and an Apple Health export.",
@@ -4739,7 +4742,7 @@ import { createDialogs } from "./js/dialogs.js";
 
   // Shown whenever a passphrase is required before proceeding -- local-only mode, or
   // cloud sign-in on a device that either already knows about the account's passphrase
-  // or has just learned about it (see checkCloudLockConfig / the sign-in flow below).
+  // or has just learned about it (see the cloud row fetch in the sign-in flow below).
   // Resolves once successfully unlocked; never resolves if the user just sits there.
   async function showLockScreen() {
     await faceIdHardwareCheck; // make sure faceIdSupported() below reflects a resolved answer, not the false default
@@ -4814,8 +4817,13 @@ import { createDialogs } from "./js/dialogs.js";
 
           // Does this ACCOUNT require a passphrase? Prefer the cloud's record of it (the
           // cross-device source of truth) over whatever this device happens to know locally.
-          const lockCheck = await checkCloudLockConfig();
-          const requiredLock = (lockCheck.ok && lockCheck.lock) || getLockConfig();
+          // This also fetches `data`/`updated_at` in the same round-trip, reused by
+          // loadStateCloud() below instead of querying the same row a second time --
+          // one less network trip blocking every single boot.
+          let cloudRowFetch;
+          try { cloudRowFetch = await supabaseClient.from("app_state").select("data, updated_at, lock").eq("user_id", currentUser.id).maybeSingle(); }
+          catch (e) { cloudRowFetch = { data: null, error: e }; }
+          const requiredLock = (!cloudRowFetch.error && cloudRowFetch.data && cloudRowFetch.data.lock) || getLockConfig();
           // Supabase can legitimately fire onAuthStateChange more than once during a normal
           // sign-in (an initial session restore followed by a SIGNED_IN event, for instance).
           // Without this guard, a second firing while the first lock/Face ID attempt is still
@@ -4838,7 +4846,7 @@ import { createDialogs } from "./js/dialogs.js";
 
           const local = await loadLocalState();
           const localLegacy = localWasLegacy;
-          const result = await loadStateCloud();
+          const result = await loadStateCloud(cloudRowFetch);
           if (!result.ok) {
             // Couldn't reach the cloud right now (network hiccup, etc.) -- NOT the
             // same as "no data exists yet". Use what's saved on this device and
@@ -4874,7 +4882,11 @@ import { createDialogs } from "./js/dialogs.js";
           stateFp = makeFingerprint(state);
           // Keep a local copy of what we just loaded/merged, so the app still shows
           // your data if it's next opened offline (and the copy is marked as current-schema).
-          if (result.ok) await saveStateRaw(state, encryptionKey).catch(e => diag.log("warn", "storage", "Local save after sign-in failed: " + ((e && e.message) || e)));
+          // Not awaited: this is just a local offline-cache backup of what was already
+          // loaded above, so it shouldn't make the first render wait on it -- the state
+          // snapshot it saves is captured immediately either way, before the async work
+          // inside it (encryption, if this account has a passphrase) even begins.
+          if (result.ok) saveStateRaw(state, encryptionKey).catch(e => diag.log("warn", "storage", "Local save after sign-in failed: " + ((e && e.message) || e)));
         } else {
           currentUser = null;
           state = loadStatePlain();
