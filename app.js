@@ -1589,7 +1589,11 @@ import { createDialogs } from "./js/dialogs.js";
     let correctionPart = 0;
     let iobSubtracted = 0;
     let rawCorrectionPart = 0;
-    if (draft.correctionOn) {
+    let correctionIsManual = false;
+    if (draft.correctionOn && draft.correctionManual) {
+      const manual = parseFloat(el("cc-correction-manual-input").value);
+      if (!isNaN(manual) && manual > 0) { correctionPart = manual; correctionIsManual = true; }
+    } else if (draft.correctionOn) {
       const bg = parseFloat(glucoseInput.value);
       if (!isNaN(bg) && bg > 0 && state.settings.isf > 0) {
         const bgInSettingsUnit = convertGlucose(bg, draft.glucoseUnit, state.settings.units);
@@ -1614,7 +1618,10 @@ import { createDialogs } from "./js/dialogs.js";
     // 3.15u meal shown as "3u" plus a 0.7u correction shown as "0.5u" should total 3.5u, not the
     // 4u you'd get by rounding 3.85 on its own).
     let loggedMealDose = roundDose(mealPart);
-    let loggedCorrectionDose = roundDose(correctionPart);
+    // Manual entries are used exactly as typed, not rounded to the usual dose step -- the
+    // point of typing a number directly is precise control, so silently rounding "1.3" to
+    // "1.5" would work against the reason someone chose manual in the first place.
+    let loggedCorrectionDose = correctionIsManual ? Math.round(correctionPart * 100) / 100 : roundDose(correctionPart);
     let finalDose = Math.max(0, loggedMealDose + loggedCorrectionDose);
     if (state.settings.maxDose > 0 && finalDose > state.settings.maxDose) finalDose = state.settings.maxDose;
     if (draft.noInsulinOn) {
@@ -1644,10 +1651,33 @@ import { createDialogs } from "./js/dialogs.js";
     draft._computed = { carbs, mealDose: loggedMealDose, correctionDose: loggedCorrectionDose, finalDose, ratioEntry };
   }
 
+  // Manual correction mode: lets a dose be entered directly, skipping the glucose/ISF formula
+  // for cases where the automatic calculation isn't what's wanted right now (illness, exercise,
+  // a clinician's instruction for the day, etc.). Starts fresh in automatic mode every time
+  // correction is turned on for a new meal -- deliberately not sticky across meals, since a
+  // silent manual override carrying into an unrelated future dose would be an easy way to end
+  // up giving an unintended dose.
+  function setCorrectionManualMode(manual) {
+    draft.correctionManual = manual;
+    el("cc-correction-auto-wrap").hidden = manual;
+    el("cc-correction-manual-wrap").hidden = !manual;
+    if (manual) { el("cc-correction-manual-input").focus(); }
+    else { if (!draft.glucoseUnit) draft.glucoseUnit = state.settings.units; glucoseUnitLabel.textContent = unitLabel(draft.glucoseUnit); glucoseInput.focus(); }
+    recompute();
+    saveDraftLocal();
+  }
+  el("cc-correction-manual-link").addEventListener("click", () => setCorrectionManualMode(true));
+  el("cc-correction-auto-link").addEventListener("click", () => setCorrectionManualMode(false));
+  el("cc-correction-manual-input").addEventListener("input", () => { recompute(); saveDraftLocal(); });
+
   correctionToggle.addEventListener("click", () => {
     draft.correctionOn = !draft.correctionOn;
     correctionToggle.classList.toggle("is-active", draft.correctionOn);
     correctionRow.hidden = !draft.correctionOn;
+    draft.correctionManual = false;
+    el("cc-correction-auto-wrap").hidden = false;
+    el("cc-correction-manual-wrap").hidden = true;
+    el("cc-correction-manual-input").value = "";
     el("cc-fetch-glucose").hidden = !(draft.correctionOn && nightscoutConfigured());
     el("cc-fetch-glucose-status").hidden = true;
     if (draft.correctionOn && draft.noInsulinOn) {
@@ -1734,6 +1764,8 @@ import { createDialogs } from "./js/dialogs.js";
       localStorage.setItem(DRAFT_KEY, JSON.stringify({
         items: draft.items,
         correctionOn: draft.correctionOn,
+        correctionManual: draft.correctionManual,
+        correctionManualValue: el("cc-correction-manual-input").value || "",
         noInsulinOn: draft.noInsulinOn,
         glucose: glucoseInput.value || "",
         glucoseUnit: draft.glucoseUnit,
@@ -1761,6 +1793,12 @@ import { createDialogs } from "./js/dialogs.js";
       correctionToggle.classList.add("is-active");
       correctionRow.hidden = false;
       glucoseUnitLabel.textContent = unitLabel(draft.glucoseUnit);
+      if (saved.correctionManual) {
+        draft.correctionManual = true;
+        el("cc-correction-auto-wrap").hidden = true;
+        el("cc-correction-manual-wrap").hidden = false;
+        if (saved.correctionManualValue) el("cc-correction-manual-input").value = saved.correctionManualValue;
+      }
     }
     if (saved.noInsulinOn) {
       draft.noInsulinOn = true;
@@ -1785,7 +1823,7 @@ import { createDialogs } from "./js/dialogs.js";
   window.addEventListener("pageshow", e => { if (e.persisted) restoreDraftIfAny(); });
 
   function resetDraft() {
-    draft = { items: [], correctionOn: false, noInsulinOn: false, glucose: "", glucoseUnit: null, manualRatioId: null };
+    draft = { items: [], correctionOn: false, correctionManual: false, noInsulinOn: false, glucose: "", glucoseUnit: null, manualRatioId: null };
     searchInput.value = ""; searchClearBtn.hidden = true; gramsInput.value = ""; gramsInput.disabled = false;
     glucoseInput.value = "";
     correctionToggle.classList.remove("is-active");
@@ -1836,7 +1874,9 @@ import { createDialogs } from "./js/dialogs.js";
     const ratioEntry = draft._computed.ratioEntry;
     const now = new Date();
     const periodEntry = currentTimeRatio(now);
-    const glucoseRaw = draft.correctionOn ? parseFloat(glucoseInput.value) : NaN;
+    // Never save a glucose reading for a manual correction, even if one is still sitting in the
+    // (now hidden) field from before switching modes -- it wasn't what the logged dose came from.
+    const glucoseRaw = (draft.correctionOn && !draft.correctionManual) ? parseFloat(glucoseInput.value) : NaN;
     const glucoseVal = !isNaN(glucoseRaw) ? round1(convertGlucose(glucoseRaw, draft.glucoseUnit || state.settings.units, state.settings.units)) : null;
     const entry = {
       id: "h-" + Date.now(),
@@ -2392,6 +2432,16 @@ import { createDialogs } from "./js/dialogs.js";
   // Newest first. version-badge-text/version-summary-text in the Settings
   // card are always drawn from CHANGELOG[0], so the two can never drift.
   const CHANGELOG = [
+    {
+      version: "2.3.0",
+      summary: "Correction can now be entered manually, skipping the glucose/ISF calculation when you'd rather set the dose yourself.",
+      changes: [
+        "Added \"Enter dose manually\" under Correction — type a units amount directly instead of a glucose reading, for days the automatic calculation isn't what you want",
+        "A manual dose is used exactly as typed, not rounded to your usual dose step",
+        "Starts fresh in automatic mode for every new meal, rather than carrying a manual override into an unrelated future dose",
+        "Fixed: editing a manually-corrected meal afterward could show a misleading preview as if the correction had been dropped — the dose itself was always saved correctly, this was a display-only issue"
+      ]
+    },
     {
       version: "2.2.1",
       summary: "Boot speed improvements: fewer network round-trips at startup, and static files load instantly from cache instead of re-fetching every time.",
@@ -3570,7 +3620,7 @@ import { createDialogs } from "./js/dialogs.js";
         quantity: i.quantity ?? null, unitLabel: i.unitLabel ?? null, gramsPerUnit: i.gramsPerUnit ?? null,
         carbsPer100g: i.carbsPer100g, kcalPer100g: i.kcalPer100g, gi: i.gi ?? null, carbs: i.carbs, kcal: i.kcal
       })),
-      correctionOn: false, noInsulinOn: false, glucose: "", glucoseUnit: null, manualRatioId: null
+      correctionOn: false, correctionManual: false, noInsulinOn: false, glucose: "", glucoseUnit: null, manualRatioId: null
     };
     searchInput.value = ""; searchClearBtn.hidden = true; gramsInput.value = ""; gramsInput.disabled = false;
     glucoseInput.value = ""; correctionToggle.classList.remove("is-active"); correctionRow.hidden = true;
@@ -3663,11 +3713,15 @@ import { createDialogs } from "./js/dialogs.js";
 
     function updatePreview() {
       const totalCarbs = round1(items.reduce((s, i) => s + i.carbs, 0));
-      let correctionDose = 0;
+      // Matches the save handler just below: a meal with no glucose field (no reading was ever
+      // recorded -- including a manually-entered correction, which never saves one) keeps its
+      // original correction dose here too, rather than the preview misleadingly showing it as
+      // dropped to 0 before anything has actually been saved.
+      let correctionDose = entry.noInsulin ? 0 : (entry.correctionDose || 0);
       const glucoseInputEl = backdrop.querySelector("#em-glucose");
       if (glucoseInputEl) {
         const g = parseFloat(glucoseInputEl.value);
-        if (!isNaN(g) && g > 0) correctionDose = Math.max(0, (g - state.settings.target) / state.settings.isf);
+        correctionDose = (!isNaN(g) && g > 0) ? Math.max(0, (g - state.settings.target) / state.settings.isf) : 0;
       }
       const mealDose = selectedRatioValue ? totalCarbs / selectedRatioValue : 0;
       // Round each part first, then add -- matches computeDose()/recompute(), so this preview
@@ -4743,7 +4797,7 @@ import { createDialogs } from "./js/dialogs.js";
     document.documentElement.setAttribute("data-palette", state.settings.palette);
     applyTheme();
     applyGiSeedPatch();
-    draft = { items: [], correctionOn: false, noInsulinOn: false, glucose: "", glucoseUnit: null, manualRatioId: null };
+    draft = { items: [], correctionOn: false, correctionManual: false, noInsulinOn: false, glucose: "", glucoseUnit: null, manualRatioId: null };
     renderFoodPickList(); renderMealItems(); recompute();
     restoreDraftIfAny();
     renderActivePanel();

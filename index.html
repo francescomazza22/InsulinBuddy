@@ -98,14 +98,26 @@
         </div>
 
         <div class="correction-row" id="cc-correction-row" hidden>
-          <label for="cc-glucose">Current glucose</label>
-          <div class="correction-row__input">
-            <input type="number" id="cc-glucose" inputmode="decimal" min="0" step="0.1" placeholder="0">
-            <button type="button" id="cc-glucose-unit" class="correction-row__unit-toggle">mg/dL</button>
+          <div id="cc-correction-auto-wrap">
+            <label for="cc-glucose">Current glucose</label>
+            <div class="correction-row__input">
+              <input type="number" id="cc-glucose" inputmode="decimal" min="0" step="0.1" placeholder="0">
+              <button type="button" id="cc-glucose-unit" class="correction-row__unit-toggle">mg/dL</button>
+            </div>
+            <button type="button" id="cc-fetch-glucose" class="correction-row__fetch-btn" hidden>Fetch from Nightscout</button>
+            <p class="correction-row__fetch-status" id="cc-fetch-glucose-status" hidden></p>
+            <p class="correction-row__iob-note" id="cc-iob-adjust-note" hidden></p>
+            <button type="button" id="cc-correction-manual-link" class="correction-mode-link">Enter dose manually</button>
           </div>
-          <button type="button" id="cc-fetch-glucose" class="correction-row__fetch-btn" hidden>Fetch from Nightscout</button>
-          <p class="correction-row__fetch-status" id="cc-fetch-glucose-status" hidden></p>
-          <p class="correction-row__iob-note" id="cc-iob-adjust-note" hidden></p>
+          <div id="cc-correction-manual-wrap" hidden>
+            <label for="cc-correction-manual-input">Correction dose</label>
+            <div class="correction-row__input">
+              <input type="number" id="cc-correction-manual-input" inputmode="decimal" min="0" step="0.1" placeholder="0">
+              <span class="correction-row__unit-label">units</span>
+            </div>
+            <p class="correction-row__manual-note">Entered directly — this skips the glucose/ISF calculation for this dose.</p>
+            <button type="button" id="cc-correction-auto-link" class="correction-mode-link">Use glucose reading instead</button>
+          </div>
         </div>
       </div>
 
