@@ -354,7 +354,7 @@ input.meal-item__grams-input:focus { outline: none; }
 .add-row__btn { width: 40px; flex-shrink: 0; border: none; border-radius: var(--radius-s); background: var(--acc-1); color: #fff; cursor: pointer; display: flex; align-items: center; justify-content: center; }
 .add-row__btn svg { width: 16px; height: 16px; }
 
-.food-pick-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; max-height: 420px; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+.food-pick-list { display: flex; flex-direction: column; gap: 5px; margin-bottom: 16px; max-height: 420px; overflow-y: auto; -webkit-overflow-scrolling: touch; }
 /* Phones keep the fixed 420px above. On wider screens (tablet / computer) the
    list grows to use the window height: viewport minus the two fixed bottom bars
    minus ~300px for the dose card, panel and search row above it. Never shorter
@@ -368,15 +368,16 @@ input.meal-item__grams-input:focus { outline: none; }
 }
 .food-pick-item {
   background: var(--surface); border: 1.5px solid var(--line); border-radius: var(--radius-m);
-  padding: 10px 12px; display: flex; align-items: center; gap: 10px; cursor: pointer;
+  padding: 8px 12px; display: flex; align-items: center; gap: 10px; cursor: pointer;
 }
 .food-pick-item.is-selected { border-color: var(--acc-1); }
 .food-pick-item__main { flex: 1; min-width: 0; }
-.food-pick-item__name { font-weight: 600; font-size: 0.88rem; margin: 0; }
-.food-pick-item__meta { font-size: 0.76rem; margin: 2px 0 0; }
+.food-pick-item__row { display: flex; align-items: baseline; gap: 7px; margin: 0; white-space: nowrap; }
+.food-pick-item__name { font-weight: 600; font-size: 0.86rem; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.food-pick-item__meta { font-size: 0.72rem; color: var(--ink-soft); flex-shrink: 0; }
 .food-pick-item__meta .c-carbs { color: var(--green); font-weight: 600; }
 .food-pick-item__meta .c-kcal { color: var(--amber); }
-.food-pick-item__note { font-size: 0.74rem; font-style: italic; color: var(--ink-soft); margin: 3px 0 0; }
+.food-pick-item__note { font-size: 0.72rem; font-style: italic; color: var(--ink-soft); margin: 2px 0 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .food-pick-item__badge { font-size: 0.68rem; color: var(--ink-soft); background: var(--paper); padding: 2px 7px; border-radius: 999px; flex-shrink: 0; }
 
 /* ================= LIBRARY ================= */
