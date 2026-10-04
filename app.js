@@ -703,12 +703,14 @@ import { createDialogs } from "./js/dialogs.js";
       const row = document.createElement("div");
       row.className = "food-pick-item" + (selectedPickId === item.id ? " is-selected" : "");
       row.dataset.id = item.id;
-      const unitSuffix = item.unitBased ? `/ ${escapeHtml(item.unitLabel)} (${item.gramsPerUnit}g)` : "/ 100g";
-      const meta = `<span class="c-carbs">${item.carbsPer100g ?? "?"}g carbs</span>${item.kcalPer100g ? ` · <span class="c-kcal">~${item.kcalPer100g} kcal</span> ${unitSuffix}` : ` ${unitSuffix}`}`;
+      const unitSuffix = item.unitBased ? `/${escapeHtml(item.unitLabel)}` : "/100g";
+      const meta = `<span class="c-carbs">${item.carbsPer100g ?? "?"}g</span>${item.kcalPer100g ? ` · <span class="c-kcal">~${item.kcalPer100g}kcal</span>` : ""} ${unitSuffix}`;
       row.innerHTML = `
         <div class="food-pick-item__main">
-          <p class="food-pick-item__name">${escapeHtml(item.name)}</p>
-          <p class="food-pick-item__meta">${meta}</p>
+          <p class="food-pick-item__row">
+            <span class="food-pick-item__name">${escapeHtml(item.name)}</span>
+            <span class="food-pick-item__meta">${meta}</span>
+          </p>
           ${item.notes ? `<p class="food-pick-item__note">${escapeHtml(item.notes)}</p>` : ""}
         </div>
         ${item.refType === "recipe" ? '<span class="food-pick-item__badge">Recipe</span>' : (item.usageCount ? `<span class="food-pick-item__badge">${item.usageCount}×</span>` : "")}
@@ -1272,11 +1274,13 @@ import { createDialogs } from "./js/dialogs.js";
         <h2>Dosing &amp; Food</h2>
         <table class="clinic-report__table">
           <tr><td>Meals logged</td><td>${dosing.mealsLogged} over ${dosing.days} day${dosing.days === 1 ? "" : "s"}</td></tr>
-          <tr><td>Average daily carbs</td><td>${round1(dosing.avgDailyCarbs)} g</td></tr>
+          <tr><td>Average daily carbs${dosing.eatingOutCount ? "*" : ""}</td><td>${round1(dosing.avgDailyCarbs)} g</td></tr>
           <tr><td>Average daily insulin</td><td>${round1(dosing.avgDailyInsulin)} u</td></tr>
           <tr><td>Lows treated</td><td>${dosing.lowsTreated}</td></tr>
           <tr><td>Correction-only entries</td><td>${dosing.correctionsOnly}</td></tr>
+          ${dosing.eatingOutCount ? `<tr><td>Eating out (carbs not tracked)</td><td>${dosing.eatingOutCount}</td></tr>` : ""}
         </table>
+        ${dosing.eatingOutCount ? `<p class="clinic-report__disclaimer" style="margin-top:4px;border-top:none;padding-top:0;">*Excludes ${dosing.eatingOutCount} meal${dosing.eatingOutCount === 1 ? "" : "s"} eaten out without a carb count.</p>` : ""}
         ${dosing.topFoods.length ? `
           <h3>Most frequently logged</h3>
           <ul>${dosing.topFoods.map(f => `<li>${escapeHtml(f.name)} (${f.count}×)</li>`).join("")}</ul>
@@ -1578,13 +1582,23 @@ import { createDialogs } from "./js/dialogs.js";
   }
 
   function recompute() {
-    const carbs = totalCarbs();
-    carbsPill.textContent = `${round1(carbs)}g Carbs`;
+    // Eating Out: carbs aren't being tracked for this entry at all, so the carbs pill and the
+    // ratio-based formula are both bypassed in favor of the insulin dose entered directly.
+    const carbs = draft.eatingOutOn ? 0 : totalCarbs();
+    carbsPill.textContent = draft.eatingOutOn ? "Carbs not logged" : `${round1(carbs)}g Carbs`;
 
     const ratioEntry = activeRatioEntry();
     ratioValueLabel.textContent = ratioEntry ? `1:${ratioEntry.ratio}` : "—";
 
-    const mealPart = ratioEntry && ratioEntry.ratio > 0 ? carbs / ratioEntry.ratio : 0;
+    // Used exactly as entered, not rounded to the dose step -- like manual correction, this is
+    // a precise record of a decision already made, not a formula's suggestion.
+    let mealPart = ratioEntry && ratioEntry.ratio > 0 ? carbs / ratioEntry.ratio : 0;
+    let mealPartIsManual = false;
+    if (draft.eatingOutOn) {
+      const manualMeal = parseFloat(el("cc-eating-out-dose").value);
+      mealPart = !isNaN(manualMeal) && manualMeal > 0 ? manualMeal : 0;
+      mealPartIsManual = true;
+    }
 
     let correctionPart = 0;
     let iobSubtracted = 0;
@@ -1617,7 +1631,7 @@ import { createDialogs } from "./js/dialogs.js";
     // sum instead can disagree with what the meal and correction pills actually show (e.g. a
     // 3.15u meal shown as "3u" plus a 0.7u correction shown as "0.5u" should total 3.5u, not the
     // 4u you'd get by rounding 3.85 on its own).
-    let loggedMealDose = roundDose(mealPart);
+    let loggedMealDose = mealPartIsManual ? Math.round(mealPart * 100) / 100 : roundDose(mealPart);
     // Manual entries are used exactly as typed, not rounded to the usual dose step -- the
     // point of typing a number directly is precise control, so silently rounding "1.3" to
     // "1.5" would work against the reason someone chose manual in the first place.
@@ -1631,7 +1645,7 @@ import { createDialogs } from "./js/dialogs.js";
     }
     doseNumber.textContent = finalDose.toFixed(1);
 
-    const hasSomethingToLog = draft.noInsulinOn ? carbs > 0 : (carbs > 0 || correctionPart > 0);
+    const hasSomethingToLog = draft.noInsulinOn ? carbs > 0 : (carbs > 0 || correctionPart > 0 || mealPart > 0);
     logBtn.disabled = !hasSomethingToLog;
     logBtn.classList.toggle("btn--pulse", hasSomethingToLog);
     clearAllBtn.hidden = !hasSomethingToLog;
@@ -1703,9 +1717,35 @@ import { createDialogs } from "./js/dialogs.js";
       correctionToggle.classList.remove("is-active");
       correctionRow.hidden = true;
     }
+    if (draft.noInsulinOn && draft.eatingOutOn) setEatingOutMode(false);
     recompute();
     saveDraftLocal();
   });
+
+  // Eating Out: the opposite of Treating a Low -- insulin is known exactly (already decided or
+  // already taken) but carbs aren't worth estimating precisely, so skip food entry entirely and
+  // log just the insulin dose. Mutually exclusive with Treating a Low (can't simultaneously be
+  // "no insulin" and "insulin only"); independent of Correction, which can still stack on top.
+  function setEatingOutMode(on) {
+    draft.eatingOutOn = on;
+    el("cc-eating-out-toggle").classList.toggle("is-active", on);
+    el("cc-eating-out-note").hidden = !on;
+    el("cc-eating-out-row").hidden = !on;
+    el("cc-food-section").hidden = on;
+    if (on) el("cc-eating-out-dose").focus();
+  }
+  el("cc-eating-out-toggle").addEventListener("click", () => {
+    setEatingOutMode(!draft.eatingOutOn);
+    if (draft.eatingOutOn && draft.noInsulinOn) {
+      draft.noInsulinOn = false;
+      el("cc-no-insulin-toggle").classList.remove("is-active");
+      el("cc-no-insulin-note").hidden = true;
+      el("quick-carb-row").hidden = true;
+    }
+    recompute();
+    saveDraftLocal();
+  });
+  el("cc-eating-out-dose").addEventListener("input", () => { recompute(); saveDraftLocal(); });
   glucoseInput.addEventListener("input", () => { recompute(); saveDraftLocal(); });
   glucoseUnitLabel.addEventListener("click", () => {
     const newUnit = draft.glucoseUnit === "mmol" ? "mgdl" : "mmol";
@@ -1767,6 +1807,8 @@ import { createDialogs } from "./js/dialogs.js";
         correctionManual: draft.correctionManual,
         correctionManualValue: el("cc-correction-manual-input").value || "",
         noInsulinOn: draft.noInsulinOn,
+        eatingOutOn: draft.eatingOutOn,
+        eatingOutValue: el("cc-eating-out-dose").value || "",
         glucose: glucoseInput.value || "",
         glucoseUnit: draft.glucoseUnit,
         manualRatioId: draft.manualRatioId
@@ -1783,8 +1825,11 @@ import { createDialogs } from "./js/dialogs.js";
 
   function restoreDraftIfAny() {
     const saved = loadDraftLocal();
-    if (!saved || !Array.isArray(saved.items) || saved.items.length === 0) return;
-    draft.items = saved.items;
+    // Eating Out drafts have no items at all (that's the point), so they'd never pass an
+    // items-only guard here -- the eatingOutOn flag is itself evidence of a real in-progress
+    // entry worth restoring (a typed insulin dose), same as a non-empty item list is otherwise.
+    if (!saved || (!Array.isArray(saved.items) || saved.items.length === 0) && !saved.eatingOutOn) return;
+    draft.items = saved.items || [];
     draft.manualRatioId = saved.manualRatioId || null;
     draft.glucoseUnit = saved.glucoseUnit || state.settings.units;
     if (saved.glucose) glucoseInput.value = saved.glucose;
@@ -1806,6 +1851,14 @@ import { createDialogs } from "./js/dialogs.js";
       el("cc-no-insulin-note").hidden = false;
       el("quick-carb-row").hidden = false;
     }
+    if (saved.eatingOutOn) {
+      draft.eatingOutOn = true;
+      el("cc-eating-out-toggle").classList.add("is-active");
+      el("cc-eating-out-note").hidden = false;
+      el("cc-eating-out-row").hidden = false;
+      el("cc-food-section").hidden = true;
+      if (saved.eatingOutValue) el("cc-eating-out-dose").value = saved.eatingOutValue;
+    }
     renderMealItems();
     recompute();
   }
@@ -1823,7 +1876,7 @@ import { createDialogs } from "./js/dialogs.js";
   window.addEventListener("pageshow", e => { if (e.persisted) restoreDraftIfAny(); });
 
   function resetDraft() {
-    draft = { items: [], correctionOn: false, correctionManual: false, noInsulinOn: false, glucose: "", glucoseUnit: null, manualRatioId: null };
+    draft = { items: [], correctionOn: false, correctionManual: false, noInsulinOn: false, eatingOutOn: false, glucose: "", glucoseUnit: null, manualRatioId: null };
     searchInput.value = ""; searchClearBtn.hidden = true; gramsInput.value = ""; gramsInput.disabled = false;
     glucoseInput.value = "";
     correctionToggle.classList.remove("is-active");
@@ -1831,6 +1884,11 @@ import { createDialogs } from "./js/dialogs.js";
     el("cc-no-insulin-toggle").classList.remove("is-active");
     el("cc-no-insulin-note").hidden = true;
     el("quick-carb-row").hidden = true;
+    el("cc-eating-out-toggle").classList.remove("is-active");
+    el("cc-eating-out-note").hidden = true;
+    el("cc-eating-out-row").hidden = true;
+    el("cc-eating-out-dose").value = "";
+    el("cc-food-section").hidden = false;
     ratioPicker.hidden = true;
     selectedPickId = null;
     clearDraftLocal();
@@ -1853,8 +1911,9 @@ import { createDialogs } from "./js/dialogs.js";
 
   logBtn.addEventListener("click", () => {
     const hasCorrection = draft._computed && draft._computed.correctionDose > 0;
-    if (totalCarbs() <= 0 && !hasCorrection) return;
-    logMeal(totalCarbs() > 0 ? autoMealType(new Date()) : "correction");
+    const hasEatingOutDose = draft.eatingOutOn && draft._computed && draft._computed.mealDose > 0;
+    if (totalCarbs() <= 0 && !hasCorrection && !hasEatingOutDose) return;
+    logMeal(totalCarbs() > 0 || hasEatingOutDose ? autoMealType(new Date()) : "correction");
   });
 
   // ---- Bottom-sheet helpers: lock background scroll on mobile while a sheet is open ----
@@ -1883,16 +1942,20 @@ import { createDialogs } from "./js/dialogs.js";
       ts: now.getTime(),
       mealType,
       periodName: periodEntry ? periodEntry.name.toLowerCase() : "",
-      items: draft.items.map(i => ({
+      // Eating Out: items aren't saved even if some were added before switching modes -- the
+      // whole point of this entry is that carbs weren't counted, so a saved item list with real
+      // carb numbers would contradict that.
+      items: draft.eatingOutOn ? [] : draft.items.map(i => ({
         refType: i.refType, refId: i.refId, name: i.name, grams: i.grams,
         quantity: i.quantity ?? null, unitLabel: i.unitLabel ?? null, gramsPerUnit: i.gramsPerUnit ?? null,
         gi: i.gi ?? null,
         carbsPer100g: i.carbsPer100g, kcalPer100g: i.kcalPer100g,
         carbs: i.carbs, kcal: i.kcal
       })),
-      totalCarbs: round1(totalCarbs()),
-      totalKcal: Math.round(draft.items.reduce((s, i) => s + (i.kcal || 0), 0)),
-      glycemicLoad: compoundGiInfo(draft.items),
+      totalCarbs: draft.eatingOutOn ? 0 : round1(totalCarbs()),
+      totalKcal: draft.eatingOutOn ? 0 : Math.round(draft.items.reduce((s, i) => s + (i.kcal || 0), 0)),
+      glycemicLoad: draft.eatingOutOn ? null : compoundGiInfo(draft.items),
+      carbsUnknown: draft.eatingOutOn,
       mealDose: draft._computed.mealDose,
       correctionDose: draft._computed.correctionDose,
       noInsulin: draft.noInsulinOn,
@@ -1901,7 +1964,7 @@ import { createDialogs } from "./js/dialogs.js";
       ratioValue: ratioEntry ? ratioEntry.ratio : null
     };
     state.history.unshift(entry);
-    draft.items.forEach(i => {
+    if (!draft.eatingOutOn) draft.items.forEach(i => {
       if (i.refType === "food") {
         const f = state.library.find(x => x.id === i.refId);
         if (f) f.usageCount = (f.usageCount || 0) + 1;
@@ -2432,6 +2495,16 @@ import { createDialogs } from "./js/dialogs.js";
   // Newest first. version-badge-text/version-summary-text in the Settings
   // card are always drawn from CHANGELOG[0], so the two can never drift.
   const CHANGELOG = [
+    {
+      version: "2.4.0",
+      summary: "Added Eating Out mode for logging insulin without a precise carb count, and condensed the food list to show more at a glance.",
+      changes: [
+        "New \"Eating Out\" button next to Correction and Treating a Low — skips food search entirely and lets you log the insulin dose you're giving directly, for meals where counting carbs precisely isn't realistic",
+        "An Eating Out entry is clearly marked in History (\"Eating out — carbs not logged\") rather than looking like a correction-only entry",
+        "The clinic report now counts Eating Out meals in your meal total and insulin average, and lists how many meals had no carb count, instead of silently excluding them",
+        "Food list items are now condensed onto a single line each — noticeably more fit on screen at once"
+      ]
+    },
     {
       version: "2.3.0",
       summary: "Correction can now be entered manually, skipping the glucose/ISF calculation when you'd rather set the dose yourself.",
@@ -3134,7 +3207,7 @@ import { createDialogs } from "./js/dialogs.js";
           <div class="history-entry__icon" style="background:${meal.color}">${meal.icon}</div>
           <div class="history-entry__main">
             <p class="history-entry__title">${meal.label} <span class="muted">· ${formatTime(entry.ts)} · ${escapeHtml(entry.periodName || "")}</span>${nsBadgeHtml(entry)}</p>
-            <p class="history-entry__foods">${entry.items.length ? entry.items.map(i => escapeHtml(i.name)).join(", ") : "No food — correction only"}</p>
+            <p class="history-entry__foods">${entry.items.length ? entry.items.map(i => escapeHtml(i.name)).join(", ") : (entry.carbsUnknown ? "Eating out — carbs not logged" : "No food — correction only")}</p>
             <div class="history-entry__detail" hidden>
               ${entry.items.map(i => {
                 const isUnit = i.quantity != null && i.unitLabel;
@@ -3149,8 +3222,10 @@ import { createDialogs } from "./js/dialogs.js";
             </div>
           </div>
           <div class="history-entry__stats">
-            <span class="stat-kcal">${entry.totalKcal || 0} kcal</span>
-            <span class="stat-grams">${entry.totalCarbs}g</span>
+            ${entry.carbsUnknown ? `<span class="stat-grams">Carbs not logged</span>` : `
+              <span class="stat-kcal">${entry.totalKcal || 0} kcal</span>
+              <span class="stat-grams">${entry.totalCarbs}g</span>
+            `}
             ${entry.glycemicLoad ? `<span class="gl-indicator gl-indicator--${entry.glycemicLoad.value >= 70 ? "high" : entry.glycemicLoad.value >= 56 ? "medium" : "low"} gl-indicator--compact">GI ${entry.glycemicLoad.value}${entry.glycemicLoad.partial ? "*" : ""}</span>` : ""}
             ${dosePillHtml}
           </div>
@@ -3620,10 +3695,16 @@ import { createDialogs } from "./js/dialogs.js";
         quantity: i.quantity ?? null, unitLabel: i.unitLabel ?? null, gramsPerUnit: i.gramsPerUnit ?? null,
         carbsPer100g: i.carbsPer100g, kcalPer100g: i.kcalPer100g, gi: i.gi ?? null, carbs: i.carbs, kcal: i.kcal
       })),
-      correctionOn: false, correctionManual: false, noInsulinOn: false, glucose: "", glucoseUnit: null, manualRatioId: null
+      correctionOn: false, correctionManual: false, noInsulinOn: false, eatingOutOn: false, glucose: "", glucoseUnit: null, manualRatioId: null
     };
     searchInput.value = ""; searchClearBtn.hidden = true; gramsInput.value = ""; gramsInput.disabled = false;
     glucoseInput.value = ""; correctionToggle.classList.remove("is-active"); correctionRow.hidden = true;
+    // These two weren't being reset here before (a pre-existing gap, not new): switching to a
+    // past meal while Treating a Low was active left its pill looking on even though the fresh
+    // draft had already turned it off underneath.
+    el("cc-no-insulin-toggle").classList.remove("is-active"); el("cc-no-insulin-note").hidden = true; el("quick-carb-row").hidden = true;
+    el("cc-eating-out-toggle").classList.remove("is-active"); el("cc-eating-out-note").hidden = true;
+    el("cc-eating-out-row").hidden = true; el("cc-eating-out-dose").value = ""; el("cc-food-section").hidden = false;
     ratioPicker.hidden = true; selectedPickId = null;
     renderFoodPickList(); renderMealItems(); recompute();
     showView("calculator");
@@ -4797,7 +4878,7 @@ import { createDialogs } from "./js/dialogs.js";
     document.documentElement.setAttribute("data-palette", state.settings.palette);
     applyTheme();
     applyGiSeedPatch();
-    draft = { items: [], correctionOn: false, correctionManual: false, noInsulinOn: false, glucose: "", glucoseUnit: null, manualRatioId: null };
+    draft = { items: [], correctionOn: false, correctionManual: false, noInsulinOn: false, eatingOutOn: false, glucose: "", glucoseUnit: null, manualRatioId: null };
     renderFoodPickList(); renderMealItems(); recompute();
     restoreDraftIfAny();
     renderActivePanel();
