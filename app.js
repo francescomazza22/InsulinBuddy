@@ -2496,6 +2496,14 @@ import { createDialogs } from "./js/dialogs.js";
   // card are always drawn from CHANGELOG[0], so the two can never drift.
   const CHANGELOG = [
     {
+      version: "2.4.3",
+      summary: "Rebuilt the dose card's layout: Correction, Treating a Low and Eating Out now fill the full bar edge to edge, and Ratio moved into the top row as a compact badge.",
+      changes: [
+        "Correction, Treating a Low and Eating Out now stretch to fill the whole width of the bar, instead of sitting at their natural size with empty space left over",
+        "Ratio moved out of its own row entirely and into the top row next to the carbs badge, as a small dark badge rather than a full-size pill"
+      ]
+    },
+    {
       version: "2.4.2",
       summary: "Correction, Treating a Low and Eating Out now sit together on one line, with Ratio moved above them to the right in a darker shade.",
       changes: ["Ratio pill moved to its own row above the three toggles, right-aligned, with darker shading to set it apart from the on/off pills below it"]
