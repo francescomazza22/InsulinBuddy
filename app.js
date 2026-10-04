@@ -2496,6 +2496,14 @@ import { createDialogs } from "./js/dialogs.js";
   // card are always drawn from CHANGELOG[0], so the two can never drift.
   const CHANGELOG = [
     {
+      version: "2.4.4",
+      summary: "Fixed real crowding in the dose card's top row when a live glucose reading, Eating Out, and Ratio all showed at once, and fixed the Meal insulin dose label rendering oversized.",
+      changes: [
+        "The top row (live glucose, carbs status, reset) was overflowing and wrapping badly when a live Nightscout reading was showing at the same time as Eating Out -- Ratio moved back next to the dose value, which has consistent free space for it regardless of what else is showing",
+        "Fixed the \"Meal insulin dose\" label rendering at browser-default size instead of matching \"Current glucose\" next to it"
+      ]
+    },
+    {
       version: "2.4.3",
       summary: "Rebuilt the dose card's layout: Correction, Treating a Low and Eating Out now fill the full bar edge to edge, and Ratio moved into the top row as a compact badge.",
       changes: [
