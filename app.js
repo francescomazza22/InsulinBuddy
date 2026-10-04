@@ -2496,6 +2496,11 @@ import { createDialogs } from "./js/dialogs.js";
   // card are always drawn from CHANGELOG[0], so the two can never drift.
   const CHANGELOG = [
     {
+      version: "2.4.2",
+      summary: "Correction, Treating a Low and Eating Out now sit together on one line, with Ratio moved above them to the right in a darker shade.",
+      changes: ["Ratio pill moved to its own row above the three toggles, right-aligned, with darker shading to set it apart from the on/off pills below it"]
+    },
+    {
       version: "2.4.1",
       summary: "Small layout tweak: Ratio now sits before Eating Out, with a slightly different shade since it isn't a toggle like the others.",
       changes: ["Ratio pill reordered and given a distinct shade from the on/off toggles next to it"]

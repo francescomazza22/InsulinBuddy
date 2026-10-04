@@ -235,19 +235,20 @@ input:focus-visible, select:focus-visible, button:focus-visible { outline: 2px s
 }
 .glucose-range-btn.is-active { background: var(--acc-1); border-color: var(--acc-1); color: #fff; }
 .carbs-pill--muted { background: var(--surface); color: var(--ink-soft); border: 1px solid var(--line); }
-.dose-card__value { display: flex; align-items: baseline; gap: 6px; font-family: var(--font-display); font-size: 1.55rem; line-height: 1; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; margin-bottom: 6px; }
+.dose-card__value-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
+.dose-card__value { display: flex; align-items: baseline; gap: 6px; font-family: var(--font-display); font-size: 1.55rem; line-height: 1; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
 .dose-card__unit { font-family: var(--font-ui); font-size: 0.82rem; font-weight: 500; color: rgba(255,255,255,0.82); }
-.dose-card__controls { display: flex; gap: 5px; flex-wrap: wrap; }
+.dose-card__controls { display: flex; gap: 4px; flex-wrap: wrap; }
 .pill-btn {
   display: inline-flex; align-items: center; gap: 4px; background: rgba(255,255,255,0.16);
-  border: 1px solid rgba(255,255,255,0.3); color: #fff; padding: 5px 10px; border-radius: 999px;
-  font-size: 0.74rem; font-weight: 600; cursor: pointer; font-family: var(--font-ui);
+  border: 1px solid rgba(255,255,255,0.3); color: #fff; padding: 5px 8px; border-radius: 999px;
+  font-size: 0.72rem; font-weight: 600; cursor: pointer; font-family: var(--font-ui); white-space: nowrap;
 }
 .pill-btn svg { width: 12px; height: 12px; }
 .pill-btn.is-active { background: #fff; color: var(--acc-1); border-color: #fff; }
 .pill-btn--warn.is-active { background: #FBBF24; color: #7C2D12; border-color: #FBBF24; }
 .pill-btn--icon { padding: 5px; }
-.pill-btn--ratio { background: rgba(255,255,255,0.28); border-color: rgba(255,255,255,0.45); }
+.pill-btn--ratio { background: rgba(0,0,0,0.22); border-color: rgba(0,0,0,0.12); flex-shrink: 0; }
 .dose-card__no-insulin-note { font-size: 0.76rem; color: rgba(255,255,255,0.95); background: rgba(0,0,0,0.15); padding: 6px 9px; border-radius: var(--radius-s); margin: 8px 0 0; }
 .quick-carb-row { display: flex; align-items: center; gap: 8px; margin: 8px 0 0; flex-wrap: wrap; }
 .quick-carb-row__label { font-size: 0.74rem; font-weight: 600; color: rgba(255,255,255,0.85); }
