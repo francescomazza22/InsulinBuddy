@@ -2496,6 +2496,11 @@ import { createDialogs } from "./js/dialogs.js";
   // card are always drawn from CHANGELOG[0], so the two can never drift.
   const CHANGELOG = [
     {
+      version: "2.4.1",
+      summary: "Small layout tweak: Ratio now sits before Eating Out, with a slightly different shade since it isn't a toggle like the others.",
+      changes: ["Ratio pill reordered and given a distinct shade from the on/off toggles next to it"]
+    },
+    {
       version: "2.4.0",
       summary: "Added Eating Out mode for logging insulin without a precise carb count, and condensed the food list to show more at a glance.",
       changes: [
