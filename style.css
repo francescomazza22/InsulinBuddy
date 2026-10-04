@@ -247,6 +247,7 @@ input:focus-visible, select:focus-visible, button:focus-visible { outline: 2px s
 .pill-btn.is-active { background: #fff; color: var(--acc-1); border-color: #fff; }
 .pill-btn--warn.is-active { background: #FBBF24; color: #7C2D12; border-color: #FBBF24; }
 .pill-btn--icon { padding: 5px; }
+.pill-btn--ratio { background: rgba(255,255,255,0.28); border-color: rgba(255,255,255,0.45); }
 .dose-card__no-insulin-note { font-size: 0.76rem; color: rgba(255,255,255,0.95); background: rgba(0,0,0,0.15); padding: 6px 9px; border-radius: var(--radius-s); margin: 8px 0 0; }
 .quick-carb-row { display: flex; align-items: center; gap: 8px; margin: 8px 0 0; flex-wrap: wrap; }
 .quick-carb-row__label { font-size: 0.74rem; font-weight: 600; color: rgba(255,255,255,0.85); }
