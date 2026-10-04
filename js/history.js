@@ -74,7 +74,10 @@ export function dosingSummary(history, sinceMs) {
   const inRange = (history || []).filter(e => e && typeof e.ts === "number" && e.ts >= sinceMs);
   const dayKeys = new Set(inRange.map(e => { const d = new Date(e.ts); return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`; }));
   const days = dayKeys.size || 1;
-  const meals = inRange.filter(e => e.mealType !== "correction" && !e.noInsulin && (e.totalCarbs || 0) > 0);
+  // A carbsUnknown (Eating Out) entry is still a real meal with real insulin -- it just has no
+  // carb count, so it wouldn't pass a totalCarbs > 0 filter the way a normal meal would.
+  const meals = inRange.filter(e => e.mealType !== "correction" && !e.noInsulin && ((e.totalCarbs || 0) > 0 || e.carbsUnknown));
+  const eatingOutCount = inRange.filter(e => e.carbsUnknown).length;
   const lowsTreated = inRange.filter(e => e.noInsulin).length;
   const correctionsOnly = inRange.filter(e => e.mealType === "correction").length;
   const totalCarbs = inRange.reduce((s, e) => s + (e.totalCarbs || 0), 0);
@@ -86,7 +89,7 @@ export function dosingSummary(history, sinceMs) {
   }
   const topFoods = [...foodCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5).map(([name, count]) => ({ name, count }));
   return {
-    days, mealsLogged: meals.length, lowsTreated, correctionsOnly,
+    days, mealsLogged: meals.length, lowsTreated, correctionsOnly, eatingOutCount,
     avgDailyCarbs: totalCarbs / days, avgDailyInsulin: totalInsulin / days,
     totalCarbs, totalInsulin, topFoods
   };
