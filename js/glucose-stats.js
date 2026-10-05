@@ -1,3 +1,5 @@
+import { MGDL_PER_MMOL } from "./calc.js";
+
 // Pure glucose statistics for the History > Glucose tab. Takes plain readings
 // ({ at: epoch-ms, mgdl }) so it's fully testable without any DOM, network, or Date-object
 // pitfalls -- callers own the actual data fetching.
@@ -71,6 +73,20 @@ export const TIME_IN_RANGE_BANDS = [
   { key: "low", label: "Low", low: 54, high: 69 },
   { key: "veryLow", label: "Very Low", low: -Infinity, high: 53 }
 ];
+
+/** Rows for a mg/dL <-> mmol/L reference table (default 40..400 in steps of 10). Each row carries the
+ * standard band it falls in -- the same bands Time in Range uses -- so the table can colour-code itself
+ * without re-deriving them, and always agrees with the charts. mmol/L uses the app's own conversion
+ * constant, rounded to one decimal. Index-based rather than accumulating, so steps never drift. */
+export function glucoseGuideRows(fromMgdl = 40, toMgdl = 400, step = 10) {
+  if (!(step > 0) || toMgdl < fromMgdl) return [];
+  const count = Math.floor((toMgdl - fromMgdl) / step + 1e-9) + 1;
+  return Array.from({ length: count }, (_, i) => {
+    const mgdl = fromMgdl + i * step;
+    const band = TIME_IN_RANGE_BANDS.find(b => mgdl >= b.low && mgdl <= b.high);
+    return { mgdl, mmol: Math.round((mgdl / MGDL_PER_MMOL) * 10) / 10, band: band ? band.key : null };
+  });
+}
 
 /** What % of readings fall in each standard band. `bands` defaults to the ADA consensus bands
  * above, but accepts a custom list (same shape) for a different breakdown. */
