@@ -2496,6 +2496,14 @@ import { createDialogs } from "./js/dialogs.js";
   // card are always drawn from CHANGELOG[0], so the two can never drift.
   const CHANGELOG = [
     {
+      version: "2.4.6",
+      summary: "The Ratio pill is now exactly centred between the carbs pill and Eating Out, and the gap under the Active Insulin banner is much tighter.",
+      changes: [
+        "Ratio pill vertically centred between the carbs pill above and the Eating Out pill below -- it was sitting about 3px too high, and the three pills were different heights",
+        "Space between the Active Insulin banner and the next section (Recently Logged / Add Food Item) cut from 28px to 12px -- an empty, invisible container was adding 12px on its own"
+      ]
+    },
+    {
       version: "2.4.5",
       summary: "Fixed both reports printing as a blank page, plus several accessibility and styling fixes found in a CSS review.",
       changes: [

@@ -203,7 +203,7 @@ input:focus-visible, select:focus-visible, button:focus-visible { outline: 2px s
   background: linear-gradient(155deg, var(--acc-1) 0%, var(--acc-2) 100%);
   color: #fff; border-radius: var(--radius-l); padding: 11px 14px 10px; margin-bottom: 14px;
 }
-.dose-card__top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1px; }
+.dose-card__top { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--dose-gap); }
 .dose-card__top-right { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
 .dose-card__label { font-size: 0.66rem; font-weight: 700; letter-spacing: 0.06em; color: rgba(255,255,255,0.85); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .carbs-pill { background: rgba(255,255,255,0.22); padding: 3px 10px; border-radius: 999px; font-size: 0.74rem; font-weight: 600; border: none; color: #fff; font-family: var(--font-ui); cursor: default; white-space: nowrap; }
@@ -239,11 +239,20 @@ input:focus-visible, select:focus-visible, button:focus-visible { outline: 2px s
 }
 .glucose-range-btn.is-active { background: var(--acc-1); border-color: var(--acc-1); color: #fff; }
 .carbs-pill--muted { background: var(--surface); color: var(--ink-soft); border: 1px solid var(--line); }
-.dose-card__value-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
+.dose-card__value-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: var(--dose-gap); }
 .dose-card__value { display: flex; align-items: baseline; gap: 6px; font-family: var(--font-display); font-size: 1.55rem; line-height: 1; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
 .dose-card__unit { font-family: var(--font-ui); font-size: 0.82rem; font-weight: 500; color: rgba(255,255,255,0.82); }
 .dose-card__controls { display: flex; gap: 4px; }
 .dose-card__controls .pill-btn { flex: 1; justify-content: center; }
+/* The Ratio pill sits between the carbs pill (top row) and the Eating Out pill (toggle row), and
+   should be exactly centred between them. That only holds if the pills above and below it are the
+   same height and the gaps are the same, so both are fixed here rather than left to font metrics
+   (they used to be 20px / 20px / 24px with 5px above and 8px below, which left it visibly high). */
+.dose-card { --dose-pill-h: 24px; --dose-gap: 4px; }
+.dose-card .pill-btn, .dose-card .carbs-pill { height: var(--dose-pill-h); padding-top: 0; padding-bottom: 0; line-height: 1; }
+/* gap: as a flex container the pill's text and the value <span> become separate flex items, and the
+   space between them is collapsed away ("Ratio1:15"), so the spacing has to be explicit. */
+.dose-card .carbs-pill { display: inline-flex; align-items: center; gap: 0.3em; }
 .pill-btn {
   display: inline-flex; align-items: center; gap: 4px; background: rgba(255,255,255,0.16);
   border: 1px solid rgba(255,255,255,0.3); color: #fff; padding: 5px 8px; border-radius: 999px;
@@ -266,7 +275,7 @@ input:focus-visible, select:focus-visible, button:focus-visible { outline: 2px s
 
 .active-panel {
   background: var(--surface); border: 1.5px solid var(--line); border-radius: var(--radius-m);
-  padding: 9px 12px; margin-bottom: 16px; width: 100%; text-align: left; cursor: pointer;
+  padding: 9px 12px; margin-bottom: 12px; width: 100%; text-align: left; cursor: pointer;
   font-family: var(--font-ui); display: block;
 }
 .active-panel:active { background: var(--paper); }
@@ -315,6 +324,10 @@ input:focus-visible, select:focus-visible, button:focus-visible { outline: 2px s
 .ratio-picker__value { font-size: 0.86rem; color: var(--ink-soft); font-weight: 600; }
 
 .meal-items { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
+/* Empty, this is a zero-height box that still carried its 12px bottom margin (a flex container's
+   margins don't collapse away), which silently added 12px between the Active Insulin banner and
+   whatever came next. Nothing in it means nothing to space. */
+.meal-items:empty { display: none; }
 .meal-item {
   position: relative; overflow: hidden; border-radius: var(--radius-s);
   border: 1.5px solid var(--line);
