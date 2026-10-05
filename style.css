@@ -54,7 +54,10 @@ body {
 body.sheet-open { overflow: hidden; }
 button, .tab, .segmented__btn { touch-action: manipulation; }
 @media (prefers-reduced-motion: reduce) {
-  * { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
+  /* Shortening the duration alone doesn't stop an infinite animation -- it just repeats
+     near-instantly, forever. Limiting it to one iteration is what actually stops the
+     log-button pulse and the loading spinner from running. */
+  * { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; }
 }
 
 .app {
@@ -114,7 +117,7 @@ button, .tab, .segmented__btn { touch-action: manipulation; }
 .recent-meals-row::-webkit-scrollbar { display: none; }
 .recent-meal-chip {
   flex-shrink: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 2px;
-  background: var(--card); border: 1px solid var(--line); border-radius: var(--radius-s);
+  background: var(--card, var(--surface)); border: 1px solid var(--line); border-radius: var(--radius-s);
   padding: 8px 12px; font-family: var(--font-ui); cursor: pointer; max-width: 150px;
 }
 .recent-meal-chip__name { font-size: 0.8rem; font-weight: 700; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
@@ -285,6 +288,11 @@ input:focus-visible, select:focus-visible, button:focus-visible { outline: 2px s
 .correction-row__input input { flex: 1; background: transparent; border: none; padding: 11px 12px; color: #fff; font-size: 1rem; font-family: var(--font-ui); }
 .correction-row__input input::placeholder { color: rgba(255,255,255,0.6); }
 .correction-row__input input:focus { outline: none; }
+/* The input's own outline is removed above (it would be clipped by the wrapper's overflow and
+   hug the text, not the box), so the focus indicator lives on the wrapper instead. White rather
+   than the accent colour: this sits on the dose card's gradient, where blue would disappear.
+   Shared by the glucose, manual-correction and eating-out inputs. */
+.correction-row__input:focus-within { outline: 2px solid #fff; outline-offset: 2px; background: rgba(255,255,255,0.22); }
 .correction-row__input span { padding: 0 12px; font-size: 0.82rem; color: rgba(255,255,255,0.85); }
 .correction-row__unit-toggle {
   padding: 0 12px; align-self: stretch; font-size: 0.8rem; font-weight: 700; color: #fff;
@@ -582,6 +590,8 @@ html[data-theme="dark"] .cat-snacks, html[data-theme="dark"] .cat-other { filter
 .switch__track::before { content: ""; position: absolute; width: 20px; height: 20px; left: 3px; top: 3px; background: #fff; border-radius: 50%; transition: transform 0.15s; }
 .switch input:checked + .switch__track { background: var(--acc-1); }
 .switch input:checked + .switch__track::before { transform: translateX(18px); }
+/* The real checkbox is 0x0 and transparent, so its own focus ring is invisible -- show it on the track. */
+.switch input:focus-visible + .switch__track { outline: 2px solid var(--acc-1); outline-offset: 2px; }
 
 .version-card { background: var(--surface); border: 1.5px solid var(--line); border-radius: var(--radius-m); padding: 14px; margin: 14px 0; width: 100%; text-align: left; font-family: var(--font-ui); cursor: pointer; display: block; }
 .version-card__row { display: flex; justify-content: space-between; align-items: center; font-weight: 600; font-size: 0.92rem; margin-bottom: 6px; color: var(--ink); }
@@ -742,22 +752,22 @@ input[type="number"]::-webkit-inner-spin-button {
 .report-stat-grid__label { font-size: 0.68rem; color: var(--ink-soft); margin-top: 2px; }
 .report-footer { font-size: 0.72rem; color: var(--ink-soft); margin-top: 24px; border-top: 1px solid var(--line); padding-top: 10px; }
 
-@media print {
-  body * { visibility: hidden; }
-  .report-overlay, .report-overlay * { visibility: visible; }
-  .report-overlay { position: absolute; inset: 0; overflow: visible; padding: 0; }
-  .report-overlay__bar { display: none; }
-  .report-stat-grid__cell, .report-table th, .report-table td { border-color: #999 !important; }
-}
+/* (Printing for both report overlays is handled by the single block further down.) */
 
 /* ================= Clinic report ================= */
 .clinic-report-overlay {
-  position: fixed; inset: 0; z-index: 500; background: #fff; overflow-y: auto;
+  position: fixed; inset: 0; z-index: 500; overflow-y: auto;
   -webkit-overflow-scrolling: touch;
+  /* A report is a document headed for paper, so it keeps one light palette whatever the app
+     theme is. Without this the page stayed white while text inherited the dark theme's pale
+     colours (pale on white). Re-declaring the variables here means everything inside can keep
+     using var(--ink), var(--line) etc. and simply get the light values. */
+  --ink: #1B2A3A; --ink-soft: #6B7A89; --line: #E4E1D8; --surface: #FFFFFF; --paper: #F5F3EE;
+  background: #fff; color: var(--ink);
 }
 .clinic-report-toolbar {
   position: sticky; top: 0; z-index: 1; display: flex; gap: 10px; padding: 12px 16px;
-  background: var(--bg); border-bottom: 1px solid var(--line);
+  background: var(--bg, var(--paper)); border-bottom: 1px solid var(--line);
 }
 .clinic-report-toolbar .btn, .clinic-report-toolbar .dashed-btn { flex: 1; }
 .clinic-report-content { padding: 20px; max-width: 720px; margin: 0 auto; }
@@ -771,11 +781,42 @@ input[type="number"]::-webkit-inner-spin-button {
 .clinic-report ul { font-size: 0.88rem; padding-left: 20px; margin: 4px 0; }
 .clinic-report__disclaimer { font-size: 0.74rem; color: var(--ink-soft); margin-top: 24px; border-top: 1px solid var(--line); padding-top: 10px; }
 
+/* ================= Printing a report =================
+   One block for both report overlays (#report-overlay and #clinic-report-overlay). They used to
+   have a print block each, and the two fought: both overlays sit INSIDE div.app (the older one
+   inside .app > .views as well), so "hide every child of body except the report" hid the
+   report along with its own parent and printed a blank page, and "visibility: hidden on
+   everything" blanked whichever report the other rule was meant to show.
+   Instead this hides each *sibling along the path* to the open report, which leaves that path
+   intact and also takes the hidden app out of the page flow (so no stray blank pages). It is
+   scoped with :has() to whichever report is actually open, so printing anything else is left
+   alone. Where :has() isn't supported the block is simply ignored, and the page prints
+   normally rather than blank. */
 @media print {
-  body > *:not(#clinic-report-overlay) { display: none !important; }
-  .clinic-report-overlay { position: static !important; overflow: visible !important; }
-  .no-print { display: none !important; }
+  .no-print, .report-overlay__bar { display: none !important; }
+
+  body:has(#report-overlay:not([hidden])) > :not(.app),
+  body:has(#report-overlay:not([hidden])) .app > :not(.views),
+  body:has(#report-overlay:not([hidden])) .views > :not(#report-overlay),
+  body:has(#clinic-report-overlay:not([hidden])) > :not(.app),
+  body:has(#clinic-report-overlay:not([hidden])) .app > :not(#clinic-report-overlay) { display: none !important; }
+
+  /* The app shell is sized for a phone screen; let the printed page set the width instead. */
+  body:has(.report-overlay:not([hidden]), .clinic-report-overlay:not([hidden])) { background: #fff; min-height: 0; }
+  body:has(.report-overlay:not([hidden]), .clinic-report-overlay:not([hidden])) .app,
+  body:has(.report-overlay:not([hidden]), .clinic-report-overlay:not([hidden])) .views {
+    display: block; max-width: none; min-height: 0; margin: 0; padding: 0; border: 0; box-shadow: none;
+  }
+
+  /* The open report itself: normal flow, so it paginates (a fixed overlay would clip and repeat),
+     and always dark-on-light, because paper is white whatever theme the app is using. */
+  .report-overlay:not([hidden]), .clinic-report-overlay:not([hidden]) {
+    position: static; overflow: visible; padding: 0;
+    --ink: #1B2A3A; --ink-soft: #55616D; --line: #CFCFCF; --surface: #FFFFFF; --paper: #FFFFFF;
+    background: #fff; color: var(--ink);
+  }
   .clinic-report-content { padding: 0; max-width: none; }
+  .report-stat-grid__cell, .report-table th, .report-table td { border-color: #999 !important; }
 }
 
 .lock-screen {

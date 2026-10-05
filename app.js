@@ -2496,6 +2496,17 @@ import { createDialogs } from "./js/dialogs.js";
   // card are always drawn from CHANGELOG[0], so the two can never drift.
   const CHANGELOG = [
     {
+      version: "2.4.5",
+      summary: "Fixed both reports printing as a blank page, plus several accessibility and styling fixes found in a CSS review.",
+      changes: [
+        "Printing a report (Save as PDF) gave a blank page for both the Summary Report and the clinic report -- fixed, and reports now always print dark-on-white even when the app is in dark mode",
+        "The clinic report keeps a light palette on screen too, instead of pale text on a white page in dark mode",
+        "Keyboard focus is now visible on the glucose, manual correction and Eating Out inputs, and on settings switches",
+        "Recently Logged chips and the clinic report toolbar had no background colour (they referenced theme variables that didn't exist) -- they now match the rest of the app",
+        "With Reduce Motion turned on, the pulsing log button and loading spinner now actually stop instead of repeating rapidly"
+      ]
+    },
+    {
       version: "2.4.4",
       summary: "Fixed real crowding in the dose card's top row when a live glucose reading, Eating Out, and Ratio all showed at once, and fixed the Meal insulin dose label rendering oversized.",
       changes: [
