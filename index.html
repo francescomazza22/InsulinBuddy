@@ -111,7 +111,13 @@
 
         <div class="correction-row" id="cc-correction-row" hidden>
           <div id="cc-correction-auto-wrap">
-            <label for="cc-glucose">Current glucose</label>
+            <div class="correction-row__labelrow">
+              <label for="cc-glucose">Current glucose</label>
+              <button type="button" class="glucose-guide-btn" id="btn-glucose-guide" aria-haspopup="dialog" aria-label="Open the mg/dL and mmol/L conversion guide">
+                <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M7 7h11l-3-3M17 17H6l3 3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                mg/dL &middot; mmol/L
+              </button>
+            </div>
             <div class="correction-row__input">
               <input type="number" id="cc-glucose" inputmode="decimal" min="0" step="0.1" placeholder="0">
               <button type="button" id="cc-glucose-unit" class="correction-row__unit-toggle">mg/dL</button>

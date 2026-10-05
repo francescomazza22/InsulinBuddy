@@ -292,6 +292,18 @@ input:focus-visible, select:focus-visible, button:focus-visible { outline: 2px s
 .correction-mode-link { display: block; background: none; border: none; padding: 0; margin: 8px 0 0; font-family: var(--font-ui); font-size: 0.76rem; font-weight: 600; color: rgba(255,255,255,0.9); text-decoration: underline; cursor: pointer; }
 .correction-row__unit-label { padding: 0 12px; font-size: 0.82rem; color: rgba(255,255,255,0.85); }
 .correction-row__manual-note { font-size: 0.74rem; color: rgba(255,255,255,0.8); margin: 6px 0 0; }
+/* The glucose-guide button shares the "Current glucose" label's line, so it costs no vertical space. */
+.correction-row__labelrow { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
+.correction-row__labelrow label { margin-bottom: 0; }
+.glucose-guide-btn {
+  display: inline-flex; align-items: center; gap: 5px; height: 22px; padding: 0 9px; flex-shrink: 0; white-space: nowrap;
+  background: rgba(255,255,255,0.16); border: 1px solid rgba(255,255,255,0.3); color: #fff; border-radius: 999px;
+  font: 600 0.7rem var(--font-ui); cursor: pointer;
+}
+.glucose-guide-btn svg { width: 12px; height: 12px; }
+.glucose-guide-btn:active { background: rgba(255,255,255,0.3); }
+/* the global focus ring is the blue accent, which vanishes on the dose card's gradient */
+.glucose-guide-btn:focus-visible { outline-color: #fff; }
 .correction-row__iob-note { font-size: 0.78rem; color: rgba(255,255,255,0.9); margin: 8px 0 0; }
 .correction-row__input { display: flex; align-items: center; background: rgba(255,255,255,0.16); border-radius: var(--radius-s); overflow: hidden; }
 .correction-row__input input { flex: 1; background: transparent; border: none; padding: 11px 12px; color: #fff; font-size: 1rem; font-family: var(--font-ui); }
@@ -479,6 +491,27 @@ html[data-theme="dark"] .cat-snacks, html[data-theme="dark"] .cat-other { filter
 .sheet-actions { display: flex; gap: 10px; margin-top: 6px; }
 .sheet-actions .btn { flex: 1; }
 .sheet-actions .btn--secondary { background: var(--surface); border: 1.5px solid var(--line); color: var(--ink); }
+
+/* ================= Glucose guide (mg/dL <-> mmol/L) =================
+   Two halves side by side so 40-400 fits on a phone without scrolling. Rows are tinted with the same
+   hues the Time in Range chart uses (--band is an r,g,b triplet so it can be used at any opacity). */
+.glucose-guide .sheet-head { margin-bottom: 10px; }
+.glucose-guide__tables { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.glucose-guide__table { width: 100%; border-collapse: separate; border-spacing: 0 2px; font-variant-numeric: tabular-nums; }
+.glucose-guide__table th { font-size: 0.66rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--ink-soft); padding: 0 0 4px; text-align: center; }
+.glucose-guide__table td { padding: 3px 4px; text-align: center; font-size: 0.86rem; color: var(--ink); background: rgba(var(--band), var(--tint)); }
+.glucose-guide__table td:first-child { font-weight: 700; border-left: 3px solid rgb(var(--band)); border-radius: 5px 0 0 5px; }
+.glucose-guide__table td:last-child { border-radius: 0 5px 5px 0; }
+.glucose-guide__row--veryLow  { --band: 220, 38, 38;   --tint: 0.16; }
+.glucose-guide__row--low      { --band: 252, 165, 165; --tint: 0.34; }
+.glucose-guide__row--target   { --band: 34, 197, 94;   --tint: 0.14; }
+.glucose-guide__row--high     { --band: 251, 191, 36;  --tint: 0.24; }
+.glucose-guide__row--veryHigh { --band: 217, 119, 6;   --tint: 0.20; }
+.glucose-guide__legend { list-style: none; display: flex; flex-wrap: wrap; gap: 4px 12px; padding: 0; margin: 12px 0 0; font-size: 0.74rem; color: var(--ink-soft); }
+.glucose-guide__legend li { display: flex; align-items: center; gap: 5px; }
+.glucose-guide__legend b { color: var(--ink); font-weight: 600; }
+.glucose-guide__swatch { width: 10px; height: 10px; border-radius: 50%; background: rgb(var(--band)); display: inline-block; flex-shrink: 0; }
+.glucose-guide__foot { font-size: 0.72rem; color: var(--ink-soft); margin: 8px 0 0; }
 
 .checkbox-row { display: flex; align-items: center; gap: 8px; margin-bottom: 16px; font-size: 0.9rem; font-weight: 600; }
 
