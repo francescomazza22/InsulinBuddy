@@ -3,7 +3,7 @@ import { convertGlucose, roundDose as roundDoseWith, activeAt, compoundGiInfo, c
 import { SCHEMA_VERSION, normalizeState as normalizeStateWith, makeFingerprint, stampChanges, mergeStates, statesEquivalent, prepareRestoredState, unexplainedEmptying } from "./js/state.js";
 import { NightscoutClient, NsOutbox, nsToken, nsBaseUrl, nsConfigured, treatmentsForEntry, entriesToGlucoseRows } from "./js/nightscout.js";
 import { createDiag, hookGlobalErrors } from "./js/diag.js";
-import { percentile, dailyPatternBuckets, daysSpanned, estimatedA1c, glucoseSummaryStats, timeInRangeBreakdown, TIME_IN_RANGE_BANDS } from "./js/glucose-stats.js";
+import { percentile, dailyPatternBuckets, daysSpanned, estimatedA1c, glucoseSummaryStats, timeInRangeBreakdown, glucoseGuideRows, TIME_IN_RANGE_BANDS } from "./js/glucose-stats.js";
 import { randomBytes, toB64, fromB64, deriveKey, encryptString, decryptString, isEncryptedPayload, exportKeyRaw, importKeyRaw } from "./js/crypto.js";
 import { LocalBackups, shouldAutoSnapshot } from "./js/backup.js";
 import { groupByDay, takeEntries, matchesQuery, recentDistinctMeals, mealLabel, dosingSummary, PAGE_SIZE } from "./js/history.js";
@@ -1486,6 +1486,53 @@ import { createDialogs } from "./js/dialogs.js";
     renderAiogTab(backdrop, startTab);
   }
 
+  // Quick-reference panel: mg/dL and mmol/L side by side, 40-400 in steps of 10. Split into two halves
+  // shown next to each other (rather than one long list) so the whole range fits on a phone screen at a
+  // glance with no scrolling. Rows are tinted by the same bands the Time in Range chart uses.
+  function openGlucoseGuide() {
+    const trigger = el("btn-glucose-guide");
+    const rows = glucoseGuideRows(40, 400, 10);
+    const half = Math.ceil(rows.length / 2);
+    const tableHtml = list => `
+      <table class="glucose-guide__table" aria-label="Conversion table, ${list[0].mgdl} to ${list[list.length - 1].mgdl} mg/dL">
+        <thead><tr><th scope="col">mg/dL</th><th scope="col">mmol/L</th></tr></thead>
+        <tbody>${list.map(r => `<tr class="glucose-guide__row glucose-guide__row--${r.band}"><td>${r.mgdl}</td><td>${r.mmol.toFixed(1)}</td></tr>`).join("")}</tbody>
+      </table>`;
+    // Legend ranges are stated in mg/dL (the bands' native unit); the table itself gives every mmol/L equivalent.
+    const legend = [
+      ["veryLow", "Very low", "<54"], ["low", "Low", "54–69"], ["target", "Target", "70–180"],
+      ["high", "High", "181–250"], ["veryHigh", "Very high", ">250"]
+    ];
+    const backdrop = document.createElement("div");
+    backdrop.className = "sheet-backdrop";
+    backdrop.innerHTML = `
+      <div class="sheet glucose-guide" role="dialog" aria-modal="true" aria-labelledby="glucose-guide-title">
+        <div class="sheet-head">
+          <h2 id="glucose-guide-title">Glucose guide</h2>
+          <button class="sheet-close" id="glucose-guide-close" type="button" aria-label="Close">
+            <svg viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+          </button>
+        </div>
+        <div class="glucose-guide__tables">${tableHtml(rows.slice(0, half))}${tableHtml(rows.slice(half))}</div>
+        <ul class="glucose-guide__legend">
+          ${legend.map(([key, name, range]) => `<li class="glucose-guide__row--${key}"><i class="glucose-guide__swatch"></i>${name} <b>${range}</b></li>`).join("")}
+        </ul>
+        <p class="glucose-guide__foot">mmol/L = mg/dL &divide; 18. Colours match the Time in Range chart.</p>
+      </div>
+    `;
+    const close = () => {
+      document.removeEventListener("keydown", onKey);
+      closeSheet(backdrop);
+      if (trigger && trigger.isConnected) trigger.focus();
+    };
+    const onKey = e => { if (e.key === "Escape") close(); };
+    backdrop.addEventListener("click", e => { if (e.target === backdrop || e.target.closest("#glucose-guide-close")) close(); });
+    document.addEventListener("keydown", onKey);
+    openSheet(backdrop);
+    backdrop.querySelector("#glucose-guide-close").focus();
+  }
+  el("btn-glucose-guide").addEventListener("click", openGlucoseGuide);
+
   function aiogLegendHtml() {
     return `
       <div style="display:flex; gap:16px; justify-content:center; margin-top:8px;">
@@ -2495,6 +2542,16 @@ import { createDialogs } from "./js/dialogs.js";
   // Newest first. version-badge-text/version-summary-text in the Settings
   // card are always drawn from CHANGELOG[0], so the two can never drift.
   const CHANGELOG = [
+    {
+      version: "2.5.0",
+      summary: "Added a mg/dL and mmol/L conversion guide you can open from the Correction section.",
+      changes: [
+        "New glucose guide: tap \"mg/dL · mmol/L\" next to Current glucose (in Correction) to see both units side by side, 40 to 400 mg/dL in steps of 10",
+        "The whole range fits on one screen without scrolling on a normal phone, split into two tables sitting next to each other",
+        "Rows are colour-coded with the same bands as the Time in Range chart (very low, low, target, high, very high)",
+        "Works the same whichever unit the app is set to; close it with the X, by tapping outside it, or with Escape"
+      ]
+    },
     {
       version: "2.4.6",
       summary: "The Ratio pill is now exactly centred between the carbs pill and Eating Out, and the gap under the Active Insulin banner is much tighter.",
