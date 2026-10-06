@@ -46,6 +46,16 @@ export function treatmentsForEntry(entry, { units = "mgdl", format = "combined" 
   const insulin = round1((entry.mealDose || 0) + (entry.correctionDose || 0));
   const notes = (entry.items || []).map(i => i.name).join(", ");
   const base = { created_at: new Date(entry.ts).toISOString(), enteredBy: "Insulin Buddy" };
+  // A basal (long-acting) dose goes to Nightscout as a plain Note with the dose written in the text and
+  // NO `insulin` field. Nightscout's IOB plugin runs `treatment.insulin` through a rapid-acting curve for
+  // every treatment that has one, whatever its eventType, so sending basal as insulin would make
+  // Nightscout (and anything built on its IOB: bolus wizard preview, alarms) believe rapid-acting
+  // insulin is on board. A Note still shows on its chart and in its reports.
+  if (entry.entryType === "basal") {
+    const units = Math.round((entry.basalDose || 0) * 100) / 100;
+    const slot = entry.basalSlot === "am" ? " (morning)" : entry.basalSlot === "pm" ? " (evening)" : "";
+    return [{ key: "main", treatment: { eventType: "Note", notes: `Basal insulin: ${units}u${slot}`, ...base } }];
+  }
   const glucose = entry.glucose != null
     ? { glucose: units === "mmol" ? round1(convertGlucose(entry.glucose, "mmol", "mgdl")) : entry.glucose, glucoseType: "Finger", units: "mg/dl" }
     : {};
