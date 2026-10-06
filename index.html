@@ -92,6 +92,7 @@
           </button>
         </div>
 
+        <p class="dose-card__no-insulin-note dose-card__cap-note" id="cc-cap-note" role="status" hidden></p>
         <p class="dose-card__no-insulin-note" id="cc-no-insulin-note" hidden>Logging carbs only — no insulin will be recorded for this entry.</p>
         <div class="quick-carb-row" id="quick-carb-row" hidden>
           <span class="quick-carb-row__label">Quick add:</span>
@@ -270,8 +271,12 @@
       </div>
 
       <div id="history-log-panel">
-        <div class="history-search">
+        <div class="history-search history-search--row">
           <input type="search" id="history-search" placeholder="Search meals, foods, dates…" aria-label="Search meals" autocomplete="off" autocorrect="off">
+          <button type="button" class="basal-add-btn" id="btn-log-basal" aria-haspopup="dialog" aria-label="Log a basal insulin dose">
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+            Basal
+          </button>
         </div>
         <div id="history-groups"></div>
         <button class="dashed-btn" id="history-more" type="button" hidden style="margin-top:8px;">Show older meals</button>
