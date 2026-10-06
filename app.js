@@ -2147,15 +2147,47 @@ import { createDialogs } from "./js/dialogs.js";
 
   // ---- Bottom-sheet helpers: lock background scroll on mobile while a sheet is open ----
   let openSheetCount = 0;
+  // On iPhone the on-screen keyboard does NOT shrink the page: the layout stays full-height and the keyboard just
+  // sits on top of its bottom edge. A sheet anchored to the bottom of the page therefore ends up underneath it,
+  // with the field being typed into half hidden. The "visual viewport" is the part you can actually see, so while
+  // any sheet is open its position and height are mirrored into CSS variables (--vv-top / --vv-height) that the
+  // sheet's backdrop uses to sit exactly in the visible area, above the keyboard; `kb-open` is set while the
+  // keyboard is up so the sheet can drop its non-essential parts. The field being typed into is scrolled into view.
+  let stopTrackingViewport = null;
+  function trackVisualViewport() {
+    const vv = window.visualViewport;
+    if (!vv) return null;                                   // an older browser: sheets just behave as they always did
+    const root = document.documentElement;
+    const clear = () => { root.style.removeProperty("--vv-top"); root.style.removeProperty("--vv-height"); root.classList.remove("kb-open"); };
+    const sync = () => {
+      if (vv.scale > 1.01) { clear(); return; }             // pinch-zoomed: the visible area says nothing about a keyboard
+      root.style.setProperty("--vv-top", vv.offsetTop + "px");
+      root.style.setProperty("--vv-height", vv.height + "px");
+      root.classList.toggle("kb-open", window.innerHeight - vv.height > 120);
+    };
+    const onFocusIn = e => {
+      const t = e.target;
+      if (!t || !t.closest || !t.closest(".sheet") || !/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName)) return;
+      setTimeout(() => { try { t.scrollIntoView({ block: "center", behavior: "smooth" }); } catch { /* not worth failing over */ } }, 350);   // after the keyboard has finished sliding up
+    };
+    vv.addEventListener("resize", sync); vv.addEventListener("scroll", sync);
+    document.addEventListener("focusin", onFocusIn);
+    sync();
+    return () => { vv.removeEventListener("resize", sync); vv.removeEventListener("scroll", sync); document.removeEventListener("focusin", onFocusIn); clear(); };
+  }
   function openSheet(backdrop) {
     document.body.appendChild(backdrop);
     openSheetCount++;
     document.body.classList.add("sheet-open");
+    if (openSheetCount === 1 && !stopTrackingViewport) stopTrackingViewport = trackVisualViewport();
   }
   function closeSheet(backdrop) {
     backdrop.remove();
     openSheetCount = Math.max(0, openSheetCount - 1);
-    if (openSheetCount === 0) document.body.classList.remove("sheet-open");
+    if (openSheetCount === 0) {
+      document.body.classList.remove("sheet-open");
+      if (stopTrackingViewport) { stopTrackingViewport(); stopTrackingViewport = null; }
+    }
   }
 
   function logMeal(mealType) {
@@ -2725,6 +2757,15 @@ import { createDialogs } from "./js/dialogs.js";
   // Newest first. version-badge-text/version-summary-text in the Settings
   // card are always drawn from CHANGELOG[0], so the two can never drift.
   const CHANGELOG = [
+    {
+      version: "2.6.2",
+      summary: "The basal sheet (and other pop-up sheets) now sit above the iPhone keyboard instead of underneath it, and its buttons and spacing are tidied.",
+      changes: [
+        "Fixed: on iPhone the keyboard covered the bottom of the Log basal sheet, hiding the dose field you were typing into. Pop-up sheets now sit in the visible area above the keyboard, and scroll if there is very little room",
+        "Morning and Evening now look right on iPhone: the selected one is clearly outlined in the app colour and the other is in normal text (they were showing in Safari's own grey and blue)",
+        "The basal sheet is more compact, and drops its reminder line while the keyboard is up so everything fits"
+      ]
+    },
     {
       version: "2.6.1",
       summary: "Fixed a meal being logged with a bigger dose than the one the calculator showed when your maximum dose applied.",

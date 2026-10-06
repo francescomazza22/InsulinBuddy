@@ -473,8 +473,10 @@ html[data-theme="dark"] .cat-protein, html[data-theme="dark"] .cat-dairy, html[d
 html[data-theme="dark"] .cat-snacks, html[data-theme="dark"] .cat-other { filter: brightness(0.85) saturate(1.1); }
 
 /* Add/edit food form (used as inline sheet) */
-.sheet-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 40; display: flex; align-items: flex-end; justify-content: center; }
-.sheet { background: var(--surface); width: 100%; max-width: 480px; border-radius: 20px 20px 0 0; padding: 20px 20px calc(20px + env(safe-area-inset-bottom)); max-height: 85vh; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+/* top/height follow the VISIBLE area (see trackVisualViewport in app.js), so with the keyboard up the sheet sits above it
+   instead of underneath. Without that script's variables they fall back to the whole screen, exactly as before. */
+.sheet-backdrop { position: fixed; left: 0; right: 0; top: var(--vv-top, 0px); height: var(--vv-height, 100%); background: rgba(0,0,0,0.4); z-index: 40; display: flex; align-items: flex-end; justify-content: center; }
+.sheet { background: var(--surface); width: 100%; max-width: 480px; border-radius: 20px 20px 0 0; padding: 20px 20px calc(20px + env(safe-area-inset-bottom)); max-height: min(85vh, calc(var(--vv-height, 100vh) - 16px)); overflow-y: auto; -webkit-overflow-scrolling: touch; }
 .sheet h2 { font-family: var(--font-display); font-size: 1.15rem; font-weight: 700; margin: 0; }
 .sheet-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; }
 .sheet-close { background: none; border: none; color: var(--ink-soft); cursor: pointer; padding: 4px; }
@@ -999,7 +1001,14 @@ html[data-theme="dark"] .undo-toast { background: var(--surface); border: 1px so
    #356E9C rather than a lighter blue: white text on it clears the 4.5:1 contrast minimum (about 5.4:1). */
 .history-entry--basal { border-left-color: #356E9C; }
 .dose-pill--basal { background: #356E9C; }
-.basal-sheet .basal-slots { margin-bottom: 14px; }
+/* Tighter than the generic sheet, so more of it fits above the keyboard. */
+.basal-sheet .sheet-head { margin-bottom: 12px; }
+.basal-sheet .field { margin-bottom: 12px; }
+.basal-sheet .basal-slots { margin-bottom: 12px; }
+/* Fully styled rather than left to the browser: .btn sets no text colour and .btn--secondary only exists inside the
+   bottom action row, so on iPhone these came out in Safari's own grey with link-blue text, and only the selected
+   one picked up the app colour. */
+.basal-sheet .basal-slots .btn { padding: 12px 10px; background: var(--surface); color: var(--ink); border: 2px solid var(--line); }
 .basal-sheet .basal-slots .btn.is-active { border-color: var(--acc-1); color: var(--acc-1); }
 .basal-dose-row { display: flex; gap: 8px; align-items: stretch; }
 .basal-dose-row .field__row { flex: 1; min-width: 0; }
@@ -1011,9 +1020,13 @@ html[data-theme="dark"] .undo-toast { background: var(--surface); border: 1px so
   background: var(--surface); color: var(--ink); font: 700 1.3rem var(--font-ui); cursor: pointer;
 }
 .basal-step:active { background: var(--paper); }
-.basal-hint { font-size: 0.8rem; color: var(--ink-soft); margin: 6px 0 0; min-height: 1.2em; }
+.basal-hint { font-size: 0.8rem; color: var(--ink-soft); margin: 5px 0 0; }
 .basal-error { font-size: 0.84rem; font-weight: 600; color: var(--brick); margin: 6px 0 0; }
-.basal-note { font-size: 0.76rem; color: var(--ink-soft); margin: 2px 0 14px; }
+.basal-note { font-size: 0.76rem; color: var(--ink-soft); margin: 0 0 12px; }
+/* With the keyboard up there is little room, so a sheet drops the bottom safe-area padding (it is under the keyboard
+   anyway) and this reminder, which is still there the moment the keyboard goes away. */
+.kb-open .sheet { padding-bottom: 16px; }
+.kb-open .basal-note { display: none; }
 .ns-badge {
   display: inline-block; margin-left: 6px; padding: 1px 7px; border-radius: 999px; border: 1px solid var(--line);
   background: none; font: 600 0.66rem var(--font-ui); vertical-align: 1px; cursor: pointer; color: var(--ink-soft);
