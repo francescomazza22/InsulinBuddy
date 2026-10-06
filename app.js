@@ -1,12 +1,12 @@
 import { escapeHtml, escapeAttr, round1, formatQty, dayKeyFromTs, timeAgo, makeId, redact } from "./js/util.js";
-import { convertGlucose, roundDose as roundDoseWith, activeAt, compoundGiInfo, computeDose, giBand, niceScale, buildTrendBuckets, summarizeTrends, mealTypeBreakdown, absorptionMinutesForEntry as absorptionForEntry, iobFraction, cobGrams, glucoseTrendArrow, glucoseRangeClass, glucoseRangeLabel } from "./js/calc.js";
+import { convertGlucose, roundDose as roundDoseWith, activeAt, compoundGiInfo, computeDose, capDoseParts, giBand, niceScale, buildTrendBuckets, summarizeTrends, mealTypeBreakdown, absorptionMinutesForEntry as absorptionForEntry, iobFraction, cobGrams, glucoseTrendArrow, glucoseRangeClass, glucoseRangeLabel } from "./js/calc.js";
 import { SCHEMA_VERSION, normalizeState as normalizeStateWith, makeFingerprint, stampChanges, mergeStates, statesEquivalent, prepareRestoredState, unexplainedEmptying } from "./js/state.js";
 import { NightscoutClient, NsOutbox, nsToken, nsBaseUrl, nsConfigured, treatmentsForEntry, entriesToGlucoseRows } from "./js/nightscout.js";
 import { createDiag, hookGlobalErrors } from "./js/diag.js";
 import { percentile, dailyPatternBuckets, daysSpanned, estimatedA1c, glucoseSummaryStats, timeInRangeBreakdown, glucoseGuideRows, TIME_IN_RANGE_BANDS } from "./js/glucose-stats.js";
 import { randomBytes, toB64, fromB64, deriveKey, encryptString, decryptString, isEncryptedPayload, exportKeyRaw, importKeyRaw } from "./js/crypto.js";
 import { LocalBackups, shouldAutoSnapshot } from "./js/backup.js";
-import { groupByDay, takeEntries, matchesQuery, recentDistinctMeals, mealLabel, dosingSummary, PAGE_SIZE } from "./js/history.js";
+import { groupByDay, takeEntries, matchesQuery, recentDistinctMeals, mealLabel, dosingSummary, isBasalEntry, basalSlotForTime, basalSlotLabel, lastBasalDose, basalDoseCheck, makeBasalEntry, PAGE_SIZE } from "./js/history.js";
 import { createDialogs } from "./js/dialogs.js";
 
 
@@ -66,7 +66,9 @@ import { createDialogs } from "./js/dialogs.js";
     snack:     { label: "Snack",     color: "#4C9A6A", icon: iconApple() },
     correction: { label: "Correction", color: "#C0392B", icon: iconPulse() }
   };
+  const BASAL_COLOR = "#356E9C";
 
+  function iconBasal() { return '<svg viewBox="0 0 24 24" fill="none"><path d="M9 3h6v3H9zM8 6h8v11a4 4 0 01-8 0V6zM12 21v-1" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>'; }
   function iconPulse() { return '<svg viewBox="0 0 24 24" fill="none"><path d="M3 12h4l2-7 4 14 2-7h6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>'; }
 
   function iconSun() { return '<svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="4" stroke="currentColor" stroke-width="1.8"/><path d="M12 3v2M12 19v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M3 12h2M19 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>'; }
@@ -1279,6 +1281,10 @@ import { createDialogs } from "./js/dialogs.js";
           <tr><td>Lows treated</td><td>${dosing.lowsTreated}</td></tr>
           <tr><td>Correction-only entries</td><td>${dosing.correctionsOnly}</td></tr>
           ${dosing.eatingOutCount ? `<tr><td>Eating out (carbs not tracked)</td><td>${dosing.eatingOutCount}</td></tr>` : ""}
+          ${dosing.basalDoses ? `
+            <tr><td>Basal doses logged</td><td>${dosing.basalDoses}</td></tr>
+            <tr><td>Average daily basal</td><td>${round1(dosing.avgDailyBasal)} u</td></tr>
+            <tr><td>Average total daily insulin (basal + bolus)</td><td>${round1(dosing.avgDailyTotalInsulin)} u</td></tr>` : ""}
         </table>
         ${dosing.eatingOutCount ? `<p class="clinic-report__disclaimer" style="margin-top:4px;border-top:none;padding-top:0;">*Excludes ${dosing.eatingOutCount} meal${dosing.eatingOutCount === 1 ? "" : "s"} eaten out without a carb count.</p>` : ""}
         ${dosing.topFoods.length ? `
@@ -1486,6 +1492,168 @@ import { createDialogs } from "./js/dialogs.js";
     renderAiogTab(backdrop, startTab);
   }
 
+  // ---- Basal insulin (History tab) ----
+  // Records a long-acting dose. It deliberately never suggests one: it logs what was taken, nothing more.
+  // Entries live in the normal history (so sync, undo, backup and Nightscout just work) but are kept out of
+  // active insulin, corrections, trends and meal stats -- see isBasalEntry in js/history.js.
+  function buildBasalRow(entry) {
+    const row = document.createElement("div");
+    row.className = "history-entry history-entry--basal";
+    row.dataset.id = entry.id;
+    const slotLabel = basalSlotLabel(entry.basalSlot);
+    const units = Math.round((entry.basalDose || 0) * 100) / 100;
+    row.innerHTML = `
+      <div class="history-entry__icon" style="background:${BASAL_COLOR}">${iconBasal()}</div>
+      <div class="history-entry__main">
+        <p class="history-entry__title">Basal <span class="muted">· ${formatTime(entry.ts)}${slotLabel ? ` · ${slotLabel}` : ""}</span>${nsBadgeHtml(entry)}</p>
+        <p class="history-entry__foods">Long-acting insulin</p>
+        <div class="history-entry__detail" hidden>
+          <div class="history-entry__row-actions">
+            <button data-edit="${entry.id}" type="button">Edit</button>
+            <button class="danger" data-del="${entry.id}" type="button">Delete</button>
+          </div>
+        </div>
+      </div>
+      <div class="history-entry__stats">
+        <span class="dose-pill dose-pill--basal"><svg viewBox="0 0 24 24" fill="none"><path d="M12 2C12 2 5 10.5 5 15.5C5 19.6 8.13 22 12 22C15.87 22 19 19.6 19 15.5C19 10.5 12 2 12 2Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>${units}u</span>
+      </div>
+    `;
+    return row;
+  }
+
+  function openBasalSheet(existing = null) {
+    const editing = !!existing;
+    const trigger = el("btn-log-basal");
+    const startTs = editing ? existing.ts : Date.now();
+    let slot = editing ? (existing.basalSlot || basalSlotForTime(startTs)) : basalSlotForTime(startTs);
+    let slotChosenByHand = editing;   // until the person picks one, the time of day decides the slot
+    let prefilled = null;             // what we put in the dose field ourselves, so we never overwrite typing
+    let busy = false;
+    const others = () => state.history.filter(e => e !== existing);   // an edit shouldn't compare against itself
+    const fieldStyle = "padding:12px 14px; border:1.5px solid var(--line); border-radius:var(--radius-s); font-size:16px; background:var(--surface); color:var(--ink); font-family:var(--font-ui);";
+    const when = ts => `${new Date(ts).toLocaleDateString(undefined, { weekday: "short" })} ${formatTime(ts)}`;
+
+    const backdrop = document.createElement("div");
+    backdrop.className = "sheet-backdrop";
+    backdrop.innerHTML = `
+      <div class="sheet basal-sheet" role="dialog" aria-modal="true" aria-labelledby="basal-title">
+        <div class="sheet-head">
+          <h2 id="basal-title">${editing ? "Edit basal dose" : "Log basal insulin"}</h2>
+          <button class="sheet-close" id="basal-close" type="button" aria-label="Close">
+            <svg viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+          </button>
+        </div>
+        <div class="field-grid basal-slots" role="group" aria-label="Which dose">
+          <button class="btn btn--secondary" data-slot="am" type="button">Morning</button>
+          <button class="btn btn--secondary" data-slot="pm" type="button">Evening</button>
+        </div>
+        <div class="field">
+          <label for="basal-units">Dose</label>
+          <div class="basal-dose-row">
+            <button class="basal-step" data-step="-1" type="button" aria-label="One unit less">&minus;</button>
+            <div class="field__row"><input type="number" id="basal-units" inputmode="decimal" step="any" min="0" placeholder="0" value="${editing ? existing.basalDose : ""}"><span>units</span></div>
+            <button class="basal-step" data-step="1" type="button" aria-label="One unit more">+</button>
+          </div>
+          <p class="basal-hint" id="basal-hint"></p>
+          <p class="basal-error" id="basal-error" role="alert" hidden></p>
+        </div>
+        <div class="field">
+          <label for="basal-time">Taken at</label>
+          <input type="datetime-local" id="basal-time" value="${toDatetimeLocalValue(startTs)}" style="${fieldStyle}">
+        </div>
+        <p class="basal-note">Logged only. Insulin Buddy never suggests a basal dose, and it isn't counted in active insulin.</p>
+        <div class="sheet-actions">
+          <button class="btn btn--secondary" id="basal-cancel" type="button">Cancel</button>
+          <button class="btn btn--primary" id="basal-save" type="button">${editing ? "Save Changes" : "Log dose"}</button>
+        </div>
+      </div>
+    `;
+    const $ = sel => backdrop.querySelector(sel);
+    const unitsInput = $("#basal-units"), timeInput = $("#basal-time"), hintEl = $("#basal-hint"), errEl = $("#basal-error"), saveBtn = $("#basal-save");
+
+    const refreshSlot = () => {
+      backdrop.querySelectorAll("[data-slot]").forEach(b => {
+        const on = b.dataset.slot === slot;
+        b.classList.toggle("is-active", on);
+        b.setAttribute("aria-pressed", String(on));
+      });
+      const last = lastBasalDose(others(), slot);
+      const name = basalSlotLabel(slot).toLowerCase();
+      hintEl.textContent = last ? `Last ${name} dose: ${last.units}u · ${when(last.ts)}. Change it if today's differs.` : `No ${name} dose logged yet.`;
+      // Start from the last dose in this slot, but only ever replace a value we put there ourselves.
+      const untouched = unitsInput.value === "" || unitsInput.value === String(prefilled);
+      if (!editing && untouched) {
+        if (last) { unitsInput.value = last.units; prefilled = last.units; }
+        else { unitsInput.value = ""; prefilled = null; }
+      }
+    };
+
+    const close = () => {
+      document.removeEventListener("keydown", onKey);
+      closeSheet(backdrop);
+      if (!editing && trigger && trigger.isConnected) trigger.focus();
+    };
+    // Escape closes the sheet, unless a confirm dialog is open on top of it (that one handles its own Escape).
+    const onKey = e => { if (e.key === "Escape" && !document.querySelector(".dialog-backdrop")) close(); };
+
+    const save = async () => {
+      if (busy) return;
+      busy = true; saveBtn.disabled = true;
+      try {
+        errEl.hidden = true;
+        const fail = msg => { errEl.textContent = msg; errEl.hidden = false; };
+        const units = parseFloat(unitsInput.value);
+        const ts = new Date(timeInput.value).getTime();
+        if (isNaN(ts)) return fail("Choose when you took it.");
+        if (ts > Date.now() + 5 * 60000) return fail("That time is in the future.");
+        const check = basalDoseCheck(units, lastBasalDose(others(), slot));
+        if (check.level === "block") return fail(check.message);
+        if (check.level === "confirm" && !(await dialogs.confirm(`${check.message} Log it anyway?`, { title: "Check this dose", confirmText: "Log it", danger: true }))) return;
+
+        const dose = Math.round(units * 100) / 100;
+        if (editing) {
+          existing.basalDose = dose; existing.basalSlot = slot; existing.periodName = slot === "am" ? "morning" : "evening"; existing.ts = ts;
+          state.history.sort((a, b) => b.ts - a.ts);
+          saveState(); queueNsUpdate(existing); renderHistory();
+          close();
+        } else {
+          const entry = makeBasalEntry({ units: dose, ts, slot });
+          state.history.unshift(entry);
+          state.history.sort((a, b) => b.ts - a.ts);
+          saveState(); syncEntryToNightscout(entry); renderHistory();
+          close();
+          showUndoToast(`Basal ${entry.basalDose}u logged`, () => {
+            const i = state.history.findIndex(h => h.id === entry.id);
+            if (i >= 0) state.history.splice(i, 1);
+            saveState(); queueNsDelete(entry); renderHistory();
+          });
+        }
+      } finally { busy = false; saveBtn.disabled = false; }
+    };
+
+    backdrop.addEventListener("click", e => {
+      if (e.target === backdrop || e.target.closest("#basal-close") || e.target.closest("#basal-cancel")) return close();
+      const slotBtn = e.target.closest("[data-slot]");
+      if (slotBtn) { slot = slotBtn.dataset.slot; slotChosenByHand = true; return refreshSlot(); }
+      const stepBtn = e.target.closest("[data-step]");
+      if (stepBtn) {
+        const next = Math.max(0, Math.round(((parseFloat(unitsInput.value) || 0) + Number(stepBtn.dataset.step)) * 100) / 100);
+        unitsInput.value = next; prefilled = null;   // a hand-set value is the person's, not a prefill
+      }
+    });
+    unitsInput.addEventListener("input", () => { errEl.hidden = true; });
+    timeInput.addEventListener("change", () => {
+      const t = new Date(timeInput.value).getTime();
+      if (!slotChosenByHand && !isNaN(t)) { slot = basalSlotForTime(t); refreshSlot(); }
+    });
+    saveBtn.addEventListener("click", save);
+    document.addEventListener("keydown", onKey);
+
+    refreshSlot();
+    openSheet(backdrop);
+    unitsInput.focus(); unitsInput.select();   // so typing today's dose replaces the prefilled one
+  }
+
   // Quick-reference panel: mg/dL and mmol/L side by side, 40-400 in steps of 10. Split into two halves
   // shown next to each other (rather than one long list) so the whole range fits on a phone screen at a
   // glance with no scrolling. Rows are tinted by the same bands the Time in Range chart uses.
@@ -1532,6 +1700,7 @@ import { createDialogs } from "./js/dialogs.js";
     backdrop.querySelector("#glucose-guide-close").focus();
   }
   el("btn-glucose-guide").addEventListener("click", openGlucoseGuide);
+  el("btn-log-basal").addEventListener("click", () => openBasalSheet());
 
   function aiogLegendHtml() {
     return `
@@ -1683,14 +1852,27 @@ import { createDialogs } from "./js/dialogs.js";
     // point of typing a number directly is precise control, so silently rounding "1.3" to
     // "1.5" would work against the reason someone chose manual in the first place.
     let loggedCorrectionDose = correctionIsManual ? Math.round(correctionPart * 100) / 100 : roundDose(correctionPart);
-    let finalDose = Math.max(0, loggedMealDose + loggedCorrectionDose);
-    if (state.settings.maxDose > 0 && finalDose > state.settings.maxDose) finalDose = state.settings.maxDose;
+    // The maximum-dose cap has to reduce the PARTS, not just the number on screen: the entry is saved from these
+    // parts, and capping only the display is how a card showing 15.0 produced a 19.5u log. A dose the person
+    // typed (Eating Out, manual correction) is never altered -- it warns instead.
+    const cap = capDoseParts({ meal: loggedMealDose, correction: loggedCorrectionDose, maxDose: state.settings.maxDose, typed: mealPartIsManual || correctionIsManual });
+    loggedMealDose = cap.meal;
+    loggedCorrectionDose = cap.correction;
+    let finalDose = Math.max(0, cap.total);
     if (draft.noInsulinOn) {
       finalDose = 0;
       loggedMealDose = 0;
       loggedCorrectionDose = 0;
     }
     doseNumber.textContent = finalDose.toFixed(1);
+    const capNote = el("cc-cap-note");
+    const showCapNote = !draft.noInsulinOn && (cap.capped || cap.overMax);
+    capNote.hidden = !showCapNote;
+    if (showCapNote) {
+      capNote.textContent = cap.capped
+        ? `Capped at your ${state.settings.maxDose} u maximum. The calculation came to ${cap.requested} u.`
+        : `${cap.total} u is above your ${state.settings.maxDose} u maximum dose. You typed it, so it hasn't been changed. Check it is right.`;
+    }
 
     const hasSomethingToLog = draft.noInsulinOn ? carbs > 0 : (carbs > 0 || correctionPart > 0 || mealPart > 0);
     logBtn.disabled = !hasSomethingToLog;
@@ -1709,7 +1891,7 @@ import { createDialogs } from "./js/dialogs.js";
       glIndicator.hidden = true;
     }
 
-    draft._computed = { carbs, mealDose: loggedMealDose, correctionDose: loggedCorrectionDose, finalDose, ratioEntry };
+    draft._computed = { carbs, mealDose: loggedMealDose, correctionDose: loggedCorrectionDose, finalDose, ratioEntry, requested: cap.requested, capped: cap.capped && !draft.noInsulinOn };
   }
 
   // Manual correction mode: lets a dose be entered directly, skipping the glucose/ISF formula
@@ -2005,6 +2187,7 @@ import { createDialogs } from "./js/dialogs.js";
       carbsUnknown: draft.eatingOutOn,
       mealDose: draft._computed.mealDose,
       correctionDose: draft._computed.correctionDose,
+      ...(draft._computed.capped ? { cappedFrom: draft._computed.requested } : {}),   // what it calculated before the cap
       noInsulin: draft.noInsulinOn,
       glucose: glucoseVal,
       ratioLabel: ratioEntry ? ratioEntry.name : "",
@@ -2542,6 +2725,27 @@ import { createDialogs } from "./js/dialogs.js";
   // Newest first. version-badge-text/version-summary-text in the Settings
   // card are always drawn from CHANGELOG[0], so the two can never drift.
   const CHANGELOG = [
+    {
+      version: "2.6.1",
+      summary: "Fixed a meal being logged with a bigger dose than the one the calculator showed when your maximum dose applied.",
+      changes: [
+        "Fixed: when a meal calculated to more than your maximum dose, the card showed the capped dose (say 15u) but the log saved the uncapped one (say 19.5u). The logged dose now always matches the dose shown, and so does what is sent to Nightscout and Apple Health",
+        "The dose card now says when the cap applies (\"Capped at your 15 u maximum. The calculation came to 19.5 u.\"), and History notes it when you expand a capped meal",
+        "A dose you type yourself (Eating Out, or a manual correction) is never changed: if it is above your maximum you get a warning instead of a silent change",
+        "Editing a meal now uses the same calculation as its preview, so re-saving a capped meal can no longer push its dose back up. To repair a meal that was already logged too high, open it in History, tap Edit, then Save Changes"
+      ]
+    },
+    {
+      version: "2.6.0",
+      summary: "You can now log basal (long-acting) insulin, with its own entries in History, kept out of your active insulin and correction maths.",
+      changes: [
+        "New \"+ Basal\" button next to the History search: pick Morning or Evening, enter the dose and the time, and save. It starts from your last dose in that slot, and asks you to confirm if a dose looks like a typo (for example 14 turning into 140)",
+        "Basal shows in History as its own row; tap it to edit or delete, and Undo works. It is never counted as a meal, and it never changes active insulin, IOB or the correction suggestion",
+        "Basal is sent to Nightscout as a Note (\"Basal insulin: 14u (morning)\") with no insulin amount, because Nightscout would otherwise count it as rapid-acting insulin on board",
+        "The clinic report adds basal doses logged, average daily basal and average total daily insulin whenever basal was logged in the period; the meal figures are unchanged",
+        "Apple Health export can include basal when you add &include=basal to the Shortcut's URL (off by default, so an existing Shortcut can't misfile it)"
+      ]
+    },
     {
       version: "2.5.0",
       summary: "Added a mg/dL and mmol/L conversion guide you can open from the Correction section.",
@@ -3267,7 +3471,8 @@ import { createDialogs } from "./js/dialogs.js";
   let expandedHistoryId = null;
 
   function renderHistory(opts = {}) {
-    histCountPill.textContent = `${state.history.length} meal${state.history.length === 1 ? "" : "s"}`;
+    const mealCount = state.history.filter(e => !isBasalEntry(e)).length;   // a basal dose isn't a meal
+    histCountPill.textContent = `${mealCount} meal${mealCount === 1 ? "" : "s"}`;
     historyEmpty.hidden = state.history.length > 0;
     historyGroups.innerHTML = "";
     if (state.history.length === 0) {
@@ -3280,7 +3485,7 @@ import { createDialogs } from "./js/dialogs.js";
     // so the list stays fast however long the history gets.
     const query = historySearch.value.trim();
     const filtered = query ? state.history.filter(e => matchesQuery(e, query, ts => formatDateHeader(ts))) : state.history;
-    if (query) histCountPill.textContent = `${filtered.length} of ${state.history.length}`;
+    if (query) histCountPill.textContent = `${filtered.filter(e => !isBasalEntry(e)).length} of ${mealCount}`;
     historyNoMatch.hidden = filtered.length > 0;
     const { visible, hidden } = takeEntries(filtered, historyLimit);
     const groups = groupByDay(visible);
@@ -3296,6 +3501,7 @@ import { createDialogs } from "./js/dialogs.js";
       groupEl.appendChild(header);
 
       group.entries.forEach(entry => {
+        if (isBasalEntry(entry)) { groupEl.appendChild(buildBasalRow(entry)); return; }
         const meal = MEAL_TYPES[entry.mealType] || MEAL_TYPES.snack;
         const row = document.createElement("div");
         row.className = "history-entry";
@@ -3316,6 +3522,7 @@ import { createDialogs } from "./js/dialogs.js";
                 const qtyLabel = isUnit ? `${formatQty(i.quantity)} ${escapeHtml(i.unitLabel)}${i.quantity === 1 ? "" : "s"}` : (i.grams ? escapeHtml(i.grams) + "g" : "");
                 return `<div class="history-entry__item"><span class="history-entry__item-name">${escapeHtml(i.name)}</span><span class="history-entry__item-qty">${qtyLabel}</span><span class="history-entry__item-carbs">${round1(i.carbs)}g</span></div>`;
               }).join("")}
+              ${entry.cappedFrom ? `<p class="history-entry__cap">Capped at your maximum dose (calculated ${entry.cappedFrom}u)</p>` : ""}
               <div class="history-entry__row-actions">
                 <button data-use="${entry.id}" type="button">Use Again</button>
                 <button data-edit="${entry.id}" type="button">Edit</button>
@@ -3621,6 +3828,7 @@ import { createDialogs } from "./js/dialogs.js";
     const byKey = new Map(buckets.map(b => [b.key, b]));
     const inRange = [];
     state.history.forEach(entry => {
+      if (isBasalEntry(entry)) return;   // not a meal or a bolus (same rule as buildTrendBuckets)
       const b = byKey.get(dayKeyFromTs(entry.ts));
       if (!b) return;
       inRange.push(entry);
@@ -3738,7 +3946,7 @@ import { createDialogs } from "./js/dialogs.js";
       renderHistory();
       renderActivePanel();
       renderRecentMeals();
-      showUndoToast("Meal deleted", () => {
+      showUndoToast(isBasalEntry(removed) ? "Basal dose deleted" : "Meal deleted", () => {
         state.history.splice(idx, 0, removed);
         saveState();
         undoNsDelete(removed);
@@ -3757,7 +3965,7 @@ import { createDialogs } from "./js/dialogs.js";
     const editBtn = e.target.closest("[data-edit]");
     if (editBtn) {
       const entry = state.history.find(h => h.id === editBtn.dataset.edit);
-      if (entry) openEditMealSheet(entry);
+      if (entry) (isBasalEntry(entry) ? openBasalSheet : openEditMealSheet)(entry);
       return;
     }
     const row = e.target.closest(".history-entry");
@@ -3790,6 +3998,7 @@ import { createDialogs } from "./js/dialogs.js";
   });
 
   function useMealAgain(entry) {
+    if (isBasalEntry(entry)) return;   // a basal dose isn't a meal; nothing to put back in the calculator
     if (draft.items.length > 0 && !confirm("This replaces what's currently in the Calculator. Continue?")) return;
     draft = {
       items: entry.items.map(i => ({
@@ -3894,26 +4103,32 @@ import { createDialogs } from "./js/dialogs.js";
       updatePreview();
     }
 
+    // ONE calculation for both the preview and the save, so the preview can never promise a dose that saving then
+    // stores differently. (It used to cap the number it showed but save the uncapped parts: preview 15.0u, stored
+    // 19.5u -- and re-saving an already-capped meal would have quietly put the 19.5u back.)
+    function editDoseParts(totalCarbs) {
+      const glucoseEl = backdrop.querySelector("#em-glucose");
+      let correction, correctionTyped = false;
+      if (entry.noInsulin) correction = 0;                                   // "Treating a low" entries never carry insulin
+      else if (glucoseEl) {                                                  // a glucose reading is on screen: recalculate from it
+        const g = parseFloat(glucoseEl.value);
+        correction = g > 0 ? roundDose(Math.max(0, (g - state.settings.target) / state.settings.isf)) : 0;
+      } else {                                                               // no reading was ever recorded, so a correction here was typed in: keep it
+        correction = entry.correctionDose || 0;
+        correctionTyped = correction > 0 && entry.glucose == null;
+      }
+      const meal = entry.noInsulin ? 0 : (selectedRatioValue ? roundDose(totalCarbs / selectedRatioValue) : (entry.mealDose || 0));
+      return capDoseParts({ meal, correction, maxDose: state.settings.maxDose, typed: correctionTyped });
+    }
+
     function updatePreview() {
       const totalCarbs = round1(items.reduce((s, i) => s + i.carbs, 0));
-      // Matches the save handler just below: a meal with no glucose field (no reading was ever
-      // recorded -- including a manually-entered correction, which never saves one) keeps its
-      // original correction dose here too, rather than the preview misleadingly showing it as
-      // dropped to 0 before anything has actually been saved.
-      let correctionDose = entry.noInsulin ? 0 : (entry.correctionDose || 0);
-      const glucoseInputEl = backdrop.querySelector("#em-glucose");
-      if (glucoseInputEl) {
-        const g = parseFloat(glucoseInputEl.value);
-        correctionDose = (!isNaN(g) && g > 0) ? Math.max(0, (g - state.settings.target) / state.settings.isf) : 0;
-      }
-      const mealDose = selectedRatioValue ? totalCarbs / selectedRatioValue : 0;
-      // Round each part first, then add -- matches computeDose()/recompute(), so this preview
-      // can't show a total that disagrees with what logging or the main calculator would show.
-      let total = roundDose(mealDose) + roundDose(correctionDose);
-      if (state.settings.maxDose > 0 && total > state.settings.maxDose) total = state.settings.maxDose;
+      const parts = editDoseParts(totalCarbs);
+      const capText = parts.capped ? ` — capped at your ${state.settings.maxDose} u maximum (calculated ${parts.requested} u)`
+        : parts.overMax ? ` — above your ${state.settings.maxDose} u maximum` : "";
       backdrop.querySelector("#em-preview").textContent =
-        `New total: ${round1(totalCarbs)}g carbs → ${total.toFixed(1)} units` +
-        (selectedRatioValue ? ` (using ${selectedRatioLabel ? escapeHtml(selectedRatioLabel) + " " : ""}1:${selectedRatioValue})` : "");
+        `New total: ${round1(totalCarbs)}g carbs → ${parts.total.toFixed(1)} units` +
+        (selectedRatioValue ? ` (using ${selectedRatioLabel ? escapeHtml(selectedRatioLabel) + " " : ""}1:${selectedRatioValue})` : "") + capText;
     }
 
     backdrop.querySelector("#em-meal-types").addEventListener("click", e => {
@@ -3962,22 +4177,20 @@ import { createDialogs } from "./js/dialogs.js";
       if (items.length === 0 && entry.mealType !== "correction") { dialogs.alert("A meal needs at least one item — delete it instead if you want it gone."); return; }
       const totalCarbs = round1(items.reduce((s, i) => s + i.carbs, 0));
       const totalKcal = Math.round(items.reduce((s, i) => s + (i.kcal || 0), 0));
-      // "Treating a low" entries never carry insulin, however they're edited.
-      const mealDose = entry.noInsulin ? 0 : (selectedRatioValue ? roundDose(totalCarbs / selectedRatioValue) : entry.mealDose);
-      // Keep the logged correction unless a glucose reading is re-entered below.
-      let correctionDose = entry.noInsulin ? 0 : (entry.correctionDose || 0);
+      // The same calculation the preview just showed, so what it promised is what gets saved.
+      const parts = editDoseParts(totalCarbs);
+      const mealDose = parts.meal;
+      const correctionDose = parts.correction;
       const glucoseInputEl2 = backdrop.querySelector("#em-glucose");
       let newGlucose = entry.glucose;
-      if (glucoseInputEl2) {
-        newGlucose = parseFloat(glucoseInputEl2.value) || null;
-        if (!entry.noInsulin) correctionDose = newGlucose ? roundDose(Math.max(0, (newGlucose - state.settings.target) / state.settings.isf)) : 0;
-      }
+      if (glucoseInputEl2) newGlucose = parseFloat(glucoseInputEl2.value) || null;
       entry.mealType = mealType;
       entry.items = items;
       entry.totalCarbs = totalCarbs;
       entry.totalKcal = totalKcal;
       entry.mealDose = mealDose;
       entry.correctionDose = correctionDose;
+      if (parts.capped) entry.cappedFrom = parts.requested; else delete entry.cappedFrom;
       entry.glucose = newGlucose;
       entry.ratioValue = selectedRatioValue;
       entry.ratioLabel = selectedRatioLabel;

@@ -263,6 +263,9 @@ input:focus-visible, select:focus-visible, button:focus-visible { outline: 2px s
 .pill-btn--warn.is-active { background: #FBBF24; color: #7C2D12; border-color: #FBBF24; }
 .pill-btn--icon { padding: 5px; }
 .dose-card__no-insulin-note { font-size: 0.76rem; color: rgba(255,255,255,0.95); background: rgba(0,0,0,0.15); padding: 6px 9px; border-radius: var(--radius-s); margin: 8px 0 0; }
+/* Says out loud when the shown dose is not what the calculation came to, instead of capping silently. */
+.dose-card__cap-note { border-left: 3px solid #FBBF24; background: rgba(0,0,0,0.24); font-weight: 600; }
+.history-entry__cap { font-size: 0.76rem; font-style: italic; color: var(--ink-soft); margin: 6px 0 0; }
 .quick-carb-row { display: flex; align-items: center; gap: 8px; margin: 8px 0 0; flex-wrap: wrap; }
 .quick-carb-row__label { font-size: 0.74rem; font-weight: 600; color: rgba(255,255,255,0.85); }
 .quick-carb-chip {
@@ -980,6 +983,37 @@ html[data-theme="dark"] .undo-toast { background: var(--surface); border: 1px so
   width: 100%; padding: 11px 14px; border: 1.5px solid var(--line); border-radius: var(--radius-s);
   background: var(--surface); color: var(--ink); font-size: 16px; font-family: var(--font-ui);
 }
+
+/* The Basal button shares the search field's row, so it costs no extra height. */
+.history-search--row { display: flex; gap: 8px; align-items: stretch; }
+.history-search--row input { flex: 1; min-width: 0; width: auto; }
+.basal-add-btn {
+  display: inline-flex; align-items: center; gap: 6px; flex-shrink: 0; padding: 0 14px; white-space: nowrap;
+  border: 1.5px solid var(--line); border-radius: var(--radius-s); background: var(--surface); color: var(--ink);
+  font: 600 0.86rem var(--font-ui); cursor: pointer;
+}
+.basal-add-btn svg { width: 14px; height: 14px; color: var(--acc-1); }
+.basal-add-btn:active { background: var(--paper); }
+
+/* ================= Basal insulin =================
+   #356E9C rather than a lighter blue: white text on it clears the 4.5:1 contrast minimum (about 5.4:1). */
+.history-entry--basal { border-left-color: #356E9C; }
+.dose-pill--basal { background: #356E9C; }
+.basal-sheet .basal-slots { margin-bottom: 14px; }
+.basal-sheet .basal-slots .btn.is-active { border-color: var(--acc-1); color: var(--acc-1); }
+.basal-dose-row { display: flex; gap: 8px; align-items: stretch; }
+.basal-dose-row .field__row { flex: 1; min-width: 0; }
+/* The generic input[type="number"] rule is as specific as .field__row input but comes later, so it hands the
+   input its own border and fill again -- a box inside the field's box. Scoped here so no other screen moves. */
+.basal-dose-row .field__row input { border: none; border-radius: 0; background: transparent; }
+.basal-step {
+  width: 48px; flex-shrink: 0; border: 1.5px solid var(--line); border-radius: var(--radius-s);
+  background: var(--surface); color: var(--ink); font: 700 1.3rem var(--font-ui); cursor: pointer;
+}
+.basal-step:active { background: var(--paper); }
+.basal-hint { font-size: 0.8rem; color: var(--ink-soft); margin: 6px 0 0; min-height: 1.2em; }
+.basal-error { font-size: 0.84rem; font-weight: 600; color: var(--brick); margin: 6px 0 0; }
+.basal-note { font-size: 0.76rem; color: var(--ink-soft); margin: 2px 0 14px; }
 .ns-badge {
   display: inline-block; margin-left: 6px; padding: 1px 7px; border-radius: 999px; border: 1px solid var(--line);
   background: none; font: 600 0.66rem var(--font-ui); vertical-align: 1px; cursor: pointer; color: var(--ink-soft);
