@@ -1478,7 +1478,7 @@ import { createDialogs } from "./js/dialogs.js";
         <div id="aiog-content"></div>
       </div>
     `;
-    document.body.appendChild(backdrop);
+    openSheet(backdrop);   // not appendChild: every sheet goes through openSheet so the page behind is pinned and the count is right
     backdrop.addEventListener("click", e => {
       if (e.target === backdrop || e.target.closest("#aiog-close")) closeSheet(backdrop);
     });
@@ -1571,6 +1571,13 @@ import { createDialogs } from "./js/dialogs.js";
     const $ = sel => backdrop.querySelector(sel);
     const unitsInput = $("#basal-units"), timeInput = $("#basal-time"), hintEl = $("#basal-hint"), errEl = $("#basal-error"), saveBtn = $("#basal-save");
 
+    // Sized to what is typed (digits are all the same width here), so "14 units" reads as one centred group. When the
+    // field stretched to fill the box it pushed "units" to the far edge. A half-typed "14." reads as empty to a number
+    // field, so that case keeps a sensible width rather than collapsing.
+    const fitDose = () => {
+      const len = unitsInput.value ? unitsInput.value.length : (unitsInput.validity && unitsInput.validity.badInput ? 4 : 1);
+      unitsInput.style.width = Math.max(2, len + 0.5) + "ch";
+    };
     const refreshSlot = () => {
       backdrop.querySelectorAll("[data-slot]").forEach(b => {
         const on = b.dataset.slot === slot;
@@ -1586,12 +1593,13 @@ import { createDialogs } from "./js/dialogs.js";
         if (last) { unitsInput.value = last.units; prefilled = last.units; }
         else { unitsInput.value = ""; prefilled = null; }
       }
+      fitDose();
     };
 
     const close = () => {
       document.removeEventListener("keydown", onKey);
       closeSheet(backdrop);
-      if (!editing && trigger && trigger.isConnected) trigger.focus();
+      if (!editing && trigger && trigger.isConnected) trigger.focus({ preventScroll: true });
     };
     // Escape closes the sheet, unless a confirm dialog is open on top of it (that one handles its own Escape).
     const onKey = e => { if (e.key === "Escape" && !document.querySelector(".dialog-backdrop")) close(); };
@@ -1639,9 +1647,12 @@ import { createDialogs } from "./js/dialogs.js";
       if (stepBtn) {
         const next = Math.max(0, Math.round(((parseFloat(unitsInput.value) || 0) + Number(stepBtn.dataset.step)) * 100) / 100);
         unitsInput.value = next; prefilled = null;   // a hand-set value is the person's, not a prefill
+        fitDose();
       }
     });
-    unitsInput.addEventListener("input", () => { errEl.hidden = true; });
+    unitsInput.addEventListener("input", () => { errEl.hidden = true; fitDose(); });
+    // The field is now only as wide as its digits, so the space around it is part of the box and should still focus it.
+    $(".basal-dose-row .field__row").addEventListener("click", e => { if (e.target !== unitsInput) unitsInput.focus(); });
     timeInput.addEventListener("change", () => {
       const t = new Date(timeInput.value).getTime();
       if (!slotChosenByHand && !isNaN(t)) { slot = basalSlotForTime(t); refreshSlot(); }
@@ -1651,7 +1662,7 @@ import { createDialogs } from "./js/dialogs.js";
 
     refreshSlot();
     openSheet(backdrop);
-    unitsInput.focus(); unitsInput.select();   // so typing today's dose replaces the prefilled one
+    unitsInput.focus({ preventScroll: true }); unitsInput.select();   // so typing today's dose replaces the prefilled one
   }
 
   // Quick-reference panel: mg/dL and mmol/L side by side, 40-400 in steps of 10. Split into two halves
@@ -1691,13 +1702,13 @@ import { createDialogs } from "./js/dialogs.js";
     const close = () => {
       document.removeEventListener("keydown", onKey);
       closeSheet(backdrop);
-      if (trigger && trigger.isConnected) trigger.focus();
+      if (trigger && trigger.isConnected) trigger.focus({ preventScroll: true });
     };
     const onKey = e => { if (e.key === "Escape") close(); };
     backdrop.addEventListener("click", e => { if (e.target === backdrop || e.target.closest("#glucose-guide-close")) close(); });
     document.addEventListener("keydown", onKey);
     openSheet(backdrop);
-    backdrop.querySelector("#glucose-guide-close").focus();
+    backdrop.querySelector("#glucose-guide-close").focus({ preventScroll: true });
   }
   el("btn-glucose-guide").addEventListener("click", openGlucoseGuide);
   el("btn-log-basal").addEventListener("click", () => openBasalSheet());
@@ -2168,24 +2179,47 @@ import { createDialogs } from "./js/dialogs.js";
     const onFocusIn = e => {
       const t = e.target;
       if (!t || !t.closest || !t.closest(".sheet") || !/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName)) return;
-      setTimeout(() => { try { t.scrollIntoView({ block: "center", behavior: "smooth" }); } catch { /* not worth failing over */ } }, 350);   // after the keyboard has finished sliding up
+      // After the keyboard has finished sliding up, centre the field in the SHEET. scrollIntoView would also be
+      // free to scroll the page behind it, which is exactly what must not move.
+      const sheet = t.closest(".sheet");
+      setTimeout(() => {
+        const sr = sheet.getBoundingClientRect(), tr = t.getBoundingClientRect();
+        const delta = (tr.top + tr.height / 2) - (sr.top + sr.height / 2);
+        try { sheet.scrollBy({ top: delta, behavior: "smooth" }); } catch { sheet.scrollTop += delta; }
+      }, 350);
     };
     vv.addEventListener("resize", sync); vv.addEventListener("scroll", sync);
     document.addEventListener("focusin", onFocusIn);
     sync();
     return () => { vv.removeEventListener("resize", sync); vv.removeEventListener("scroll", sync); document.removeEventListener("focusin", onFocusIn); clear(); };
   }
+  // While a sheet is open the page behind must not move. `overflow: hidden` on the body alone isn't enough on iPhone
+  // Safari (the page can still be dragged, and the keyboard can nudge it), so the body is instead pinned in place with
+  // position: fixed -- shifted up by however far the page was scrolled so nothing visibly jumps -- and the scroll
+  // position is put back exactly on close. Touches on the dimmed area outside the sheet are swallowed.
+  let lockedScrollY = 0, pagePinned = false;
   function openSheet(backdrop) {
     document.body.appendChild(backdrop);
     openSheetCount++;
-    document.body.classList.add("sheet-open");
-    if (openSheetCount === 1 && !stopTrackingViewport) stopTrackingViewport = trackVisualViewport();
+    if (openSheetCount === 1) {
+      lockedScrollY = window.scrollY || document.documentElement.scrollTop || 0;
+      document.body.style.top = `-${lockedScrollY}px`;
+      document.body.classList.add("sheet-open");
+      pagePinned = true;
+      if (!stopTrackingViewport) stopTrackingViewport = trackVisualViewport();
+    }
+    backdrop.addEventListener("touchmove", e => { if (!e.target.closest(".sheet")) e.preventDefault(); }, { passive: false });
   }
   function closeSheet(backdrop) {
+    if (!backdrop.isConnected) return;                      // already closed: don't count it twice
     backdrop.remove();
     openSheetCount = Math.max(0, openSheetCount - 1);
     if (openSheetCount === 0) {
       document.body.classList.remove("sheet-open");
+      document.body.style.top = "";
+      // Only put the page back if we were the ones who pinned it. Restoring a scroll position that was never
+      // saved would fling the page to wherever it happened to be last time (usually the very top).
+      if (pagePinned) { window.scrollTo(0, lockedScrollY); pagePinned = false; }
       if (stopTrackingViewport) { stopTrackingViewport(); stopTrackingViewport = null; }
     }
   }
@@ -2758,6 +2792,14 @@ import { createDialogs } from "./js/dialogs.js";
   // card are always drawn from CHANGELOG[0], so the two can never drift.
   const CHANGELOG = [
     {
+      version: "2.6.3",
+      summary: "The page behind a pop-up sheet no longer scrolls while it is open, and the basal dose box reads properly.",
+      changes: [
+        "Fixed: the page behind a pop-up sheet (Log basal, editing a meal, Active Insulin, What's New, and the rest) no longer scrolls or shifts while the sheet is open, and it is back exactly where it was when you close it",
+        "Fixed: in the basal dose box, the number and \"units\" now sit together in the middle instead of \"units\" being pushed against the right edge; tapping anywhere in the box starts typing"
+      ]
+    },
+    {
       version: "2.6.2",
       summary: "The basal sheet (and other pop-up sheets) now sit above the iPhone keyboard instead of underneath it, and its buttons and spacing are tidied.",
       changes: [
@@ -3158,7 +3200,7 @@ import { createDialogs } from "./js/dialogs.js";
         `).join("")}
       </div>
     `;
-    document.body.appendChild(backdrop);
+    openSheet(backdrop);   // not appendChild: see openActiveDetailSheet
     backdrop.addEventListener("click", e => {
       if (e.target === backdrop || e.target.closest("#cl-close")) closeSheet(backdrop);
     });

@@ -51,7 +51,9 @@ body {
   -webkit-font-smoothing: antialiased;
   min-height: 100dvh;
 }
-body.sheet-open { overflow: hidden; }
+/* The page behind an open sheet is pinned (app.js shifts it up by the scroll offset so nothing jumps, and restores it on
+   close). overflow: hidden alone does not hold on iPhone Safari. */
+body.sheet-open { overflow: hidden; position: fixed; left: 0; right: 0; width: 100%; }
 button, .tab, .segmented__btn { touch-action: manipulation; }
 @media (prefers-reduced-motion: reduce) {
   /* Shortening the duration alone doesn't stop an infinite animation -- it just repeats
@@ -476,7 +478,7 @@ html[data-theme="dark"] .cat-snacks, html[data-theme="dark"] .cat-other { filter
 /* top/height follow the VISIBLE area (see trackVisualViewport in app.js), so with the keyboard up the sheet sits above it
    instead of underneath. Without that script's variables they fall back to the whole screen, exactly as before. */
 .sheet-backdrop { position: fixed; left: 0; right: 0; top: var(--vv-top, 0px); height: var(--vv-height, 100%); background: rgba(0,0,0,0.4); z-index: 40; display: flex; align-items: flex-end; justify-content: center; }
-.sheet { background: var(--surface); width: 100%; max-width: 480px; border-radius: 20px 20px 0 0; padding: 20px 20px calc(20px + env(safe-area-inset-bottom)); max-height: min(85vh, calc(var(--vv-height, 100vh) - 16px)); overflow-y: auto; -webkit-overflow-scrolling: touch; }
+.sheet { background: var(--surface); width: 100%; max-width: 480px; border-radius: 20px 20px 0 0; padding: 20px 20px calc(20px + env(safe-area-inset-bottom)); max-height: min(85vh, calc(var(--vv-height, 100vh) - 16px)); overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
 .sheet h2 { font-family: var(--font-display); font-size: 1.15rem; font-weight: 700; margin: 0; }
 .sheet-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; }
 .sheet-close { background: none; border: none; color: var(--ink-soft); cursor: pointer; padding: 4px; }
@@ -1011,10 +1013,11 @@ html[data-theme="dark"] .undo-toast { background: var(--surface); border: 1px so
 .basal-sheet .basal-slots .btn { padding: 12px 10px; background: var(--surface); color: var(--ink); border: 2px solid var(--line); }
 .basal-sheet .basal-slots .btn.is-active { border-color: var(--acc-1); color: var(--acc-1); }
 .basal-dose-row { display: flex; gap: 8px; align-items: stretch; }
-.basal-dose-row .field__row { flex: 1; min-width: 0; }
+.basal-dose-row .field__row { flex: 1; min-width: 0; justify-content: center; cursor: text; }
 /* The generic input[type="number"] rule is as specific as .field__row input but comes later, so it hands the
    input its own border and fill again -- a box inside the field's box. Scoped here so no other screen moves. */
-.basal-dose-row .field__row input { border: none; border-radius: 0; background: transparent; }
+.basal-dose-row .field__row input { flex: 0 0 auto; width: 2ch; min-width: 2ch; padding: 12px 0; text-align: center; border: none; border-radius: 0; background: transparent; }
+.basal-dose-row .field__row span { padding-left: 6px; color: var(--ink-soft); font-size: 0.95rem; }
 .basal-step {
   width: 48px; flex-shrink: 0; border: 1.5px solid var(--line); border-radius: var(--radius-s);
   background: var(--surface); color: var(--ink); font: 700 1.3rem var(--font-ui); cursor: pointer;
