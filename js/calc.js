@@ -100,6 +100,34 @@ const fmtU = u => String(Math.round(u * 100) / 100);
  *   total      = meal + correction, capped at maxDose, rounded to the user's step
  * Returns the numbers plus human-readable `lines` explaining each step.
  */
+const round2 = x => Math.round(x * 100) / 100;
+
+/**
+ * Applies the maximum-dose cap to a meal part and a correction part that have each ALREADY been rounded,
+ * and returns the parts to show, log and send onward.
+ *
+ * Why this returns PARTS, not just a capped total: the number on the calculator, the saved entry, the edit
+ * preview and what goes to Nightscout and Apple Health must all be built from the same numbers. Capping only
+ * the displayed total left the saved parts uncapped -- the card said 15u while the log said 19.5u, which also
+ * overstates active insulin for the next six hours.
+ *
+ *   calculated parts: when over the limit, the correction gives way first, then the meal.
+ *   typed parts (`typed: true`): never altered. A dose the person typed is a record of what they decided, so
+ *     the app doesn't quietly change it; it reports `overMax` so the caller can warn instead.
+ *
+ * `maxDose` of 0 / missing / negative means no cap.
+ */
+export function capDoseParts({ meal = 0, correction = 0, maxDose = 0, typed = false } = {}) {
+  const m = Math.max(0, Number(meal) || 0), c = Math.max(0, Number(correction) || 0);
+  const requested = round2(m + c);
+  const limit = maxDose > 0 ? maxDose : Infinity;
+  if (requested <= limit) return { meal: m, correction: c, total: requested, requested, capped: false, overMax: false };
+  if (typed) return { meal: m, correction: c, total: requested, requested, capped: false, overMax: true };
+  const keptMeal = Math.min(m, limit);
+  const keptCorrection = round2(Math.max(0, limit - keptMeal));
+  return { meal: keptMeal, correction: keptCorrection, total: round2(keptMeal + keptCorrection), requested, capped: true, overMax: false };
+}
+
 export function computeDose({ carbs, ratio, correctionOn, glucose, glucoseUnit, settings, iob = 0, noInsulin = false }) {
   const unitLbl = settings.units === "mmol" ? "mmol/L" : "mg/dL";
   const lines = [];
@@ -135,9 +163,10 @@ export function computeDose({ carbs, ratio, correctionOn, glucose, glucoseUnit, 
   // rounding 3.85 on its own lands on 4u. The displayed breakdown must always add up to the total.
   let loggedMeal = roundDose(mealPart, settings.rounding);
   let loggedCorrection = roundDose(correctionPart, settings.rounding);
-  let finalDose = Math.max(0, loggedMeal + loggedCorrection);
-  let capped = false;
-  if (settings.maxDose > 0 && finalDose > settings.maxDose) { finalDose = settings.maxDose; capped = true; }
+  const cap = capDoseParts({ meal: loggedMeal, correction: loggedCorrection, maxDose: settings.maxDose });
+  loggedMeal = cap.meal; loggedCorrection = cap.correction;   // the parts must add up to the total that is shown
+  let finalDose = Math.max(0, cap.total);
+  const capped = cap.capped;
 
   if (noInsulin) {
     finalDose = 0; loggedMeal = 0; loggedCorrection = 0;
@@ -145,13 +174,13 @@ export function computeDose({ carbs, ratio, correctionOn, glucose, glucoseUnit, 
     lines.push("Treating a low: carbs are logged but no insulin is recorded");
   } else {
     if (mealPart > 0 && correctionPart > 0) lines.push(`Raw sum before rounding: ${fmtU(mealPart)} + ${fmtU(correctionPart)} = ${fmtU(totalBeforeCap)} u`);
-    if (capped) lines.push(`Capped at your ${settings.maxDose} u maximum dose`);
+    if (capped) lines.push(`Capped at your ${settings.maxDose} u maximum dose (the calculation came to ${fmtU(cap.requested)} u)`);
     lines.push(mealPart > 0 && correctionPart > 0
       ? `Meal and correction are each rounded to the nearest ${settings.rounding} u first, then added: ${fmtU(loggedMeal)} + ${fmtU(loggedCorrection)} = ${finalDose.toFixed(1)} u`
       : `Rounded to the nearest ${settings.rounding} u: ${finalDose.toFixed(1)} u`);
   }
 
-  return { mealPart, rawCorrection, iobSubtracted, correctionPart, correctionApplied, totalBeforeCap, capped, finalDose, loggedMeal, loggedCorrection, lines };
+  return { mealPart, rawCorrection, iobSubtracted, correctionPart, correctionApplied, totalBeforeCap, capped, requestedDose: cap.requested, finalDose, loggedMeal, loggedCorrection, lines };
 }
 
 // ----------------------------------------------------------------- trends
@@ -181,6 +210,9 @@ export function buildTrendBuckets(history, days, nowMs = Date.now()) {
   const byKey = new Map(buckets.map(b => [b.key, b]));
   const inRange = [];
   for (const entry of history) {
+    // Basal (long-acting) doses aren't meals or boluses: counting one would make a day with only a basal
+    // dose look like a day of eating nothing, and summarizeTrends would count it as a regular meal.
+    if (entry.entryType === "basal") continue;
     const b = byKey.get(dayKeyFromTs(entry.ts));
     if (!b) continue;
     inRange.push(entry);
