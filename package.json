@@ -1,22 +1,13 @@
 {
-  "name": "insulin-buddy-tests",
+  "name": "insulin-buddy",
+  "version": "2.0.0",
   "private": true,
-  "description": "Dev-only test tooling for Insulin Buddy. The app itself is a plain static site with no dependencies or build step -- this package.json exists solely to run the test suite locally.",
+  "type": "module",
+  "description": "Insulin Buddy: a dependency-free insulin & carb calculator PWA",
   "scripts": {
-    "test": "node tests/run.js"
-  },
-  "devDependencies": {
-    "jsdom": "^24.1.3"
-  },
-  "version": "1.0.0",
-  "main": "app.js",
-  "directories": {
-    "test": "tests"
-  },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "dependencies": {
-    "puppeteer": "^25.10.0"
+    "test": "node --test \"tests/unit/*.test.js\"",
+    "test:unit": "node --test \"tests/unit/*.test.js\"",
+    "test:e2e": "node tests/e2e/run.js",
+    "test:legacy": "node tests/run.js"
   }
 }
