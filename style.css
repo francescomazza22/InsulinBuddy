@@ -74,33 +74,8 @@ button, .tab, .segmented__btn { touch-action: manipulation; }
 @media (min-width: 481px) {
   .app { border-left: 1px solid var(--line); border-right: 1px solid var(--line); box-shadow: 0 0 40px rgba(0,0,0,0.05); }
 }
-@media (min-width: 700px) {
-  .app { max-width: 760px; }
-}
-@media (min-width: 1000px) {
-  .app { max-width: 1040px; }
-}
 
 .views { flex: 1; padding: calc(18px + env(safe-area-inset-top)) 18px 28px; }
-
-/* Content that should stay a comfortable single-column width even inside
-   a wide iPad/desktop container — the calculator's hero card, add-food
-   row, and current-meal list all read worse stretched full-width.
-   Centering the whole view as a flex column (rather than margin:auto on
-   each child individually) is the more robust technique here. Applied to
-   every tab, not just the Calculator, so none of them look stretched/empty
-   on a wide screen. */
-@media (min-width: 700px) {
-  #view-calculator, #view-settings, #view-library, #view-history {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-  }
-  #view-calculator > *, #view-settings > *, #view-library > *, #view-history > * {
-    width: 100%;
-    max-width: 600px;
-  }
-}
 
 /* ---------- Shared bits ---------- */
 .page-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
@@ -175,8 +150,6 @@ input:focus-visible, select:focus-visible, button:focus-visible { outline: 2px s
   display: flex; justify-content: center; background: var(--surface); border-top: 1px solid var(--line);
   padding: 8px 4px max(8px, env(safe-area-inset-bottom));
 }
-@media (min-width: 700px) { .tabbar { max-width: 760px; } }
-@media (min-width: 1000px) { .tabbar { max-width: 1040px; } }
 .tab { flex: 0 1 120px; display: flex; flex-direction: column; align-items: center; gap: 4px; background: none; border: none; color: var(--ink-soft); font-size: 0.72rem; font-weight: 600; padding: 6px 2px; cursor: pointer; border-radius: 10px; font-family: var(--font-ui); }
 .tab svg { width: 22px; height: 22px; }
 .tab[aria-current="page"] { color: var(--acc-1); }
@@ -188,8 +161,6 @@ input:focus-visible, select:focus-visible, button:focus-visible { outline: 2px s
   padding: 8px 14px; display: flex; gap: 10px;
   box-shadow: 0 -2px 10px rgba(0,0,0,0.05);
 }
-@media (min-width: 700px) { .sticky-log-bar { max-width: 760px; } }
-@media (min-width: 1000px) { .sticky-log-bar { max-width: 1040px; } }
 .sticky-log-bar .btn--primary { flex: 2; padding: 12px 16px; }
 .sticky-log-bar .btn--ghost-full { flex: 1; margin-top: 0; padding: 12px 10px; }
 .sticky-log-spacer { height: var(--sticky-log-bar-height, 78px); }
@@ -845,6 +816,66 @@ input[type="number"]::-webkit-inner-spin-button {
    scoped with :has() to whichever report is actually open, so printing anything else is left
    alone. Where :has() isn't supported the block is simply ignored, and the page prints
    normally rather than blank. */
+/* ================= RESPONSIVE LAYOUT =================
+   under 700px   Phone. The original single column with the tab bar along the bottom. Nothing in this block touches it.
+   700px and up  Tablet and larger. The tab bar becomes a navigation rail down the left edge, the content fills the
+                 space beside it, and pop-up sheets are centred cards instead of drawers stuck to the bottom.
+   1000px and up Wide (iPad landscape, laptops, desktops). The Calculator splits in two -- the dose and the Log button
+                 pinned on the left, the meal being built on the right -- and Settings and Trends flow into columns.
+   These two breakpoints are in step with RAIL_QUERY in app.js, and tests/e2e/layout.e2e.js checks both. */
+:root { --rail-w: 92px; }
+.calc-side, .calc-main { display: contents; }   /* just wrappers: invisible to layout until the wide layout needs them */
+
+@media (min-width: 700px) {
+  .app { max-width: none; margin: 0; padding: 0 0 0 var(--rail-w); border: 0; box-shadow: none; }
+  .tabbar {
+    top: 0; bottom: 0; right: auto; width: var(--rail-w); max-width: none; margin: 0;
+    flex-direction: column; justify-content: flex-start; gap: 4px;
+    border-top: 0; border-right: 1px solid var(--line); padding: calc(20px + env(safe-area-inset-top)) 8px 20px;
+  }
+  .tab { flex: 0 0 auto; width: 100%; padding: 12px 4px; }
+  .views { padding: 28px 36px 48px; }
+  .view { width: 100%; max-width: 720px; margin: 0 auto; }
+  /* The Log bar rests at the bottom of the content area (never underneath the rail), buttons centred. */
+  .sticky-log-bar { left: var(--rail-w); right: 0; bottom: 0; max-width: none; margin: 0; justify-content: center; padding: 10px 36px calc(10px + env(safe-area-inset-bottom)); }
+  .sticky-log-bar .btn--primary { flex: 0 1 440px; }
+  .sticky-log-bar .btn--ghost-full { flex: 0 1 220px; }
+  .undo-toast { bottom: 88px; left: calc(50% + var(--rail-w) / 2); }
+  /* Pop-ups are centred cards rather than bottom drawers. */
+  .sheet-backdrop { align-items: center; padding: 24px; }
+  .sheet { max-width: 540px; border-radius: 20px; padding: 24px; max-height: min(88vh, calc(var(--vv-height, 100vh) - 48px)); }
+}
+
+@media (min-width: 1000px) {
+  /* `overflow-x: hidden` on <body> (set at the top of this file) makes the body a scroll container, and that silently
+     stops position: sticky working for everything inside it. `clip` crops sideways overflow in exactly the same way
+     without becoming one. Only here, so the phone keeps its original rule; a browser too old to know `clip` just keeps
+     `hidden`, and the left column then scrolls with the page instead of sticking, which is harmless. */
+  body { overflow-x: clip; }
+  .view { max-width: 1180px; }
+  .segmented { max-width: 520px; }
+  /* Calculator: dose and Log button on the left, held in view while you scroll the meal on the right. */
+  #view-calculator { display: grid; grid-template-columns: minmax(340px, 400px) minmax(0, 1fr); column-gap: 36px; align-items: start; }
+  .calc-side { display: block; position: sticky; top: 28px; max-height: calc(100vh - 56px); max-height: calc(100dvh - 56px); overflow-y: auto; padding: 2px; margin: -2px; }
+  .calc-main { display: block; min-width: 0; }
+  .calc-side .sticky-log-bar { position: static; left: auto; right: auto; bottom: auto; max-width: none; margin: 14px 0 0; padding: 0; background: none; border: 0; box-shadow: none; justify-content: stretch; }
+  .calc-side .sticky-log-bar .btn--primary { flex: 2; }
+  .calc-side .sticky-log-bar .btn--ghost-full { flex: 1; }
+  .sticky-log-spacer { display: none; }
+  .food-pick-list { max-height: max(420px, calc(100vh - 380px)); max-height: max(420px, calc(100dvh - 380px)); }
+  .undo-toast { bottom: 28px; }
+  /* History: more, wider entries per row; Trends: the two charts side by side. */
+  .history-group { grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); }
+  #history-trends-panel { display: grid; grid-template-columns: 1fr 1fr; column-gap: 24px; align-items: stretch; }
+  #history-trends-panel > * { grid-column: 1 / -1; }
+  #history-trends-panel > #trend-card-carbs { grid-column: 1; }
+  #history-trends-panel > #trend-card-dose { grid-column: 2; }
+  #history-glucose-panel { max-width: 900px; margin-inline: auto; }
+  /* Settings: the cards flow into two columns instead of one long scroll. */
+  #view-settings .settings-panel { column-count: 2; column-gap: 24px; }
+  #view-settings .settings-panel > * { break-inside: avoid; }
+}
+
 @media print {
   .no-print, .report-overlay__bar { display: none !important; }
 

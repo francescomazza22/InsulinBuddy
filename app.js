@@ -577,9 +577,13 @@ import { createDialogs } from "./js/dialogs.js";
   // device's own safe-area inset) so the sticky log bar can sit precisely
   // above it, rather than guessing a fixed pixel value that would be wrong
   // on some devices.
+  // Kept in step with the RESPONSIVE LAYOUT breakpoints in style.css (tests/e2e/layout.e2e.js checks they agree).
+  const RAIL_QUERY = "(min-width: 700px)";
   function syncTabbarHeightVar() {
     const tabbar = document.querySelector(".tabbar");
-    if (tabbar) document.documentElement.style.setProperty("--tabbar-height", tabbar.offsetHeight + "px");
+    // From 700px the tab bar is a rail down the left edge, not a bar along the bottom, so nothing sits above it: reading
+    // its height there would give the whole screen height and push the Log bar and food list off the page.
+    if (tabbar) document.documentElement.style.setProperty("--tabbar-height", (window.matchMedia(RAIL_QUERY).matches ? 0 : tabbar.offsetHeight) + "px");
     const logBar = document.getElementById("cc-sticky-log-bar");
     if (logBar) document.documentElement.style.setProperty("--sticky-log-bar-height", logBar.offsetHeight + "px");
   }
@@ -2791,6 +2795,16 @@ import { createDialogs } from "./js/dialogs.js";
   // Newest first. version-badge-text/version-summary-text in the Settings
   // card are always drawn from CHANGELOG[0], so the two can never drift.
   const CHANGELOG = [
+    {
+      version: "2.7.0",
+      summary: "Proper layouts for iPad and computer screens. The phone layout is unchanged.",
+      changes: [
+        "On iPad and computer screens the bottom tab bar becomes a navigation rail down the left edge, the content fills the space beside it, and pop-up sheets appear as centred cards instead of sticking to the bottom",
+        "On iPad landscape and computers the Calculator is two columns: the dose and the Log button stay pinned on the left while you build the meal on the right",
+        "On wide screens Settings and Trends use two columns (the two charts sit side by side) and History fits more entries across",
+        "Phones are exactly as they were, and rotating an iPad or resizing a window switches layout live"
+      ]
+    },
     {
       version: "2.6.3",
       summary: "The page behind a pop-up sheet no longer scrolls while it is open, and the basal dose box reads properly.",

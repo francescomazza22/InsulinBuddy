@@ -60,6 +60,10 @@
     <!-- ======================= CALCULATOR ======================= -->
     <section class="view" id="view-calculator" data-view>
 
+      <!-- Two plain wrappers so wide screens can put the dose and the Log button on the left and the meal on the right.
+           Below 1000px they are display: contents, i.e. they are not there as far as layout goes, so phones and portrait
+           tablets get exactly the single column they always had. -->
+      <div class="calc-side">
       <div class="dose-card">
         <div class="dose-card__top">
           <div class="dose-card__top-left">
@@ -162,6 +166,16 @@
 
       <div class="ratio-picker" id="cc-ratio-picker" hidden></div>
 
+      <div class="sticky-log-bar" id="cc-sticky-log-bar">
+        <button class="btn btn--primary" id="cc-log-btn" type="button" disabled>Log Meal to History</button>
+        <button class="btn btn--ghost-full" id="cc-clear-all-btn" type="button" hidden>
+          <svg viewBox="0 0 24 24" fill="none"><path d="M5 7h14M9 7V5a1 1 0 011-1h4a1 1 0 011 1v2m-9 0l1 12a2 2 0 002 2h6a2 2 0 002-2l1-12" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Clear All
+        </button>
+      </div>
+      </div>
+
+      <div class="calc-main">
       <div id="cc-food-section">
         <div class="section-header section-header--row" id="cc-current-meal-header" hidden>
           <span>CURRENT MEAL</span>
@@ -192,15 +206,8 @@
       <div class="sticky-log-spacer"></div>
 
       <p class="disclaimer">Uses the ratios you've set in Settings. Always use your own judgment and your care team's guidance — this isn't medical advice.</p>
+      </div>
     </section>
-
-    <div class="sticky-log-bar" id="cc-sticky-log-bar">
-      <button class="btn btn--primary" id="cc-log-btn" type="button" disabled>Log Meal to History</button>
-      <button class="btn btn--ghost-full" id="cc-clear-all-btn" type="button" hidden>
-        <svg viewBox="0 0 24 24" fill="none"><path d="M5 7h14M9 7V5a1 1 0 011-1h4a1 1 0 011 1v2m-9 0l1 12a2 2 0 002 2h6a2 2 0 002-2l1-12" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        Clear All
-      </button>
-    </div>
 
     <!-- ======================= LIBRARY ======================= -->
     <section class="view" id="view-library" data-view hidden>
@@ -696,9 +703,17 @@
     // once so the tab actually picks up the update instead of running the old
     // code until the next manual refresh. The flag stops a reload loop if the
     // controller changes more than once in a session.
+    //
+    // Only an UPDATE needs this. If a worker already controlled the page when it
+    // loaded, a new one taking over means newer code is waiting. On a first visit
+    // (or after the saved copy was cleared) nothing controls the page yet and it
+    // has just come from the network, so the worker taking control changes
+    // nothing: reloading then only made the page flash and load twice about 300ms
+    // after opening, and threw away anything started in that first moment.
+    const hadController = !!navigator.serviceWorker.controller;
     let swReloaded = false;
     navigator.serviceWorker.addEventListener("controllerchange", () => {
-      if (swReloaded) return;
+      if (!hadController || swReloaded) return;
       swReloaded = true;
       location.reload();
     });
