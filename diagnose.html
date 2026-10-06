@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Insulin Buddy: file check</title>
+<style>
+  :root { --bg:#f4f2ec; --card:#fff; --ink:#1c2733; --soft:#5d6b78; --line:#e3e0d6; --ok:#15803d; --warn:#b45309; --bad:#b91c1c; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#14181d; --card:#1e242b; --ink:#e8edf2; --soft:#9aa7b4; --line:#313a44; --ok:#4ade80; --warn:#fbbf24; --bad:#f87171; } }
+  * { box-sizing: border-box; }
+  body { margin:0; padding:18px 16px 40px; background:var(--bg); color:var(--ink); font:16px/1.45 -apple-system, system-ui, "Segoe UI", sans-serif; max-width:640px; margin-inline:auto; }
+  h1 { font-size:1.35rem; margin:0 0 2px; }
+  .sub { color:var(--soft); margin:0 0 16px; font-size:.92rem; }
+  .verdict { border-radius:14px; padding:14px 16px; font-weight:700; border:2px solid var(--line); background:var(--card); }
+  .verdict[data-state="ok"]   { border-color:var(--ok);   } .verdict[data-state="ok"]   .vt { color:var(--ok); }
+  .verdict[data-state="warn"] { border-color:var(--warn); } .verdict[data-state="warn"] .vt { color:var(--warn); }
+  .verdict[data-state="bad"]  { border-color:var(--bad);  } .verdict[data-state="bad"]  .vt { color:var(--bad); }
+  .verdict p { font-weight:400; margin:6px 0 0; }
+  h2 { font-size:1rem; margin:22px 0 8px; }
+  ol.todo, ul.notes { padding-left:22px; margin:0; } ol.todo li, ul.notes li { margin:0 0 9px; }
+  code { background:var(--card); border:1px solid var(--line); border-radius:5px; padding:0 5px; font-size:.88em; }
+  details { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:10px 14px; margin-top:12px; }
+  summary { font-weight:600; cursor:pointer; }
+  table { width:100%; border-collapse:collapse; margin-top:8px; font-size:.9rem; }
+  td { padding:6px 4px; border-top:1px solid var(--line); vertical-align:top; } td:first-child { white-space:nowrap; padding-right:10px; }
+  .ok { color:var(--ok); } .warn { color:var(--warn); } .bad { color:var(--bad); }
+  textarea { width:100%; min-height:190px; margin-top:8px; border:1px solid var(--line); border-radius:8px; background:var(--bg); color:var(--ink); font:12px/1.4 ui-monospace, Menlo, monospace; padding:8px; }
+  button { font:600 1rem system-ui; padding:11px 16px; border-radius:10px; border:1.5px solid var(--line); background:var(--card); color:var(--ink); margin:10px 8px 0 0; }
+  .foot { color:var(--soft); font-size:.82rem; margin-top:20px; }
+</style>
+</head>
+<body>
+<h1>Insulin Buddy: file check</h1>
+<p class="sub">Checks that the files on your website are the right ones for version <b id="ver"></b> and that they match each other.</p>
+<div id="verdict" class="verdict" data-state="wait"><div class="vt" id="vt">Checking&hellip;</div><p id="vp"></p></div>
+<div id="todoWrap" hidden><h2>What to do</h2><ol class="todo" id="todo"></ol></div>
+<details id="allWrap" hidden><summary>Every file</summary><table id="files"></table></details>
+<details id="repWrap" hidden><summary>Report to copy and send to me</summary><textarea id="report" readonly></textarea><br><button id="copy" type="button">Copy report</button></details>
+<button id="again" type="button" hidden>Check again</button>
+<p class="foot">This page works even when the app itself is broken. It never touches your meals, settings or sign-in; at most it clears the browser's <i>saved copy of the app's files</i>, which the app downloads fresh next time.</p>
+<script>
+"use strict";
+const EXPECT = {"version": "2.6.1", "files": {"index.html": {"sha": "cbf0af99dc74ffa558a36e3e9f03acbfe37cd6a59a4d9499c8af2ff7bfde8f85", "size": 41450, "must": ["btn-log-basal", "btn-glucose-guide", "cc-cap-note"]}, "app.js": {"sha": "23f25648d228159c8f6d83c746a8ee20313e7a3bfca16f075916cdf9e46acd5a", "size": 293842, "must": ["version: \"2.6.1\"", "capDoseParts", "isBasalEntry"]}, "style.css": {"sha": "93551c3e36f6c05b5f60181ee2ded761fbcd2268bcd3add8ee26c4a6b6b0bbbe", "size": 70751, "must": [".dose-card__cap-note", ".basal-add-btn", ".glucose-guide"]}, "sw.js": {"sha": "a77ac235f92d27842ccb906ad82de8db26741c32796528eb5f4e84137c79af77", "size": 5282, "must": ["CACHE_VERSION = \"2.6.1\""]}, "js/backup.js": {"sha": "8ae5a55947f2ccbcae5cb05e9ecd728bf28c0fef6a4bef74f765cc8b575ecb75", "size": 3042, "must": []}, "js/calc.js": {"sha": "598bb31b42df33e2de46d40ad68e496c64f0081067b462c1d788d262b4494943", "size": 14586, "must": ["export function capDoseParts"]}, "js/crypto.js": {"sha": "9e4dd32cb1362e86762aa7521a071dc207ff97fb4be3848f4816e2501be7ef54", "size": 3105, "must": []}, "js/diag.js": {"sha": "8527218c22c947a3c91ae4d6f0ee6f9648d7cf78882f3a7ea8ade37432e54fe7", "size": 2339, "must": []}, "js/dialogs.js": {"sha": "d0ec07c427faa738bf0b9ac47a5d826336e15dfe28e6e0bcbdfc52e91cc26404", "size": 5006, "must": []}, "js/glucose-stats.js": {"sha": "214930cc03242fbcbe7d0cc9daed1014f438346e835e63f92d06d3747de0b773", "size": 5910, "must": ["export function glucoseGuideRows"]}, "js/history.js": {"sha": "1db7421ea47af46c43debd749e79bdceedc57de1cbcd21655b7d5cd82f8e44c1", "size": 8900, "must": ["export function makeBasalEntry"]}, "js/nightscout.js": {"sha": "6df2b46bca53d786c0d81d1dd77ecd0c1467436a44692b1cdf19f54eed73e194", "size": 21706, "must": ["entryType === \"basal\""]}, "js/state.js": {"sha": "34bafffa9bf3cba87a6a8fbee8e65f693b5424e90155c19f892cf1d0c7745aca", "size": 8153, "must": []}, "js/util.js": {"sha": "6df912d17e8fd3d6810d7906dee4c8aea3b083d8ab08bbdace614bc27f19a4d1", "size": 2033, "must": []}}};
+const $ = id => document.getElementById(id);
+$("ver").textContent = EXPECT.version;
+const rel = p => new URL(p, location.href).href;
+
+const status = (t, p) => { $("vt").textContent = t; $("vp").textContent = p || ""; };
+const hex = buf => [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, "0")).join("");
+const folderOf = p => p.includes("/") ? `the "${p.split("/")[0]}" folder` : "the main folder (next to index.html)";
+const looksLikePage = t => /^\s*<(!doctype|html)/i.test(t);
+
+async function get(path) {                        // always from the server, never from a saved copy
+  try {
+    const res = await fetch(rel(path) + "?nc=" + Date.now(), { cache: "no-store" });
+    if (!res.ok) return { path, ok: false, code: res.status };
+    const buf = await res.arrayBuffer();
+    return { path, ok: true, size: buf.byteLength, text: new TextDecoder().decode(buf), sha: hex(await crypto.subtle.digest("SHA-256", buf)) };
+  } catch (e) { return { path, ok: false, code: "no connection" }; }
+}
+function importsOf(text) {
+  const out = [], re = /(?:^|\n)\s*import\s*\{([^}]*)\}\s*from\s*["']([^"']+)["']/g; let m;
+  while ((m = re.exec(text))) out.push({ names: m[1].split(",").map(s => s.trim().split(/\s+as\s+/)[0].trim()).filter(Boolean), from: m[2] });
+  return out;
+}
+function exportsOf(text) {
+  const set = new Set(); let m;
+  const a = /(?:^|\n)\s*export\s+(?:async\s+)?(?:function\*?|const|let|var|class)\s+([A-Za-z0-9_$]+)/g;
+  while ((m = a.exec(text))) set.add(m[1]);
+  const b = /(?:^|\n)\s*export\s*\{([^}]*)\}/g;
+  while ((m = b.exec(text))) m[1].split(",").forEach(s => { const p = s.trim().split(/\s+as\s+/); const n = (p[1] || p[0]).trim(); if (n) set.add(n); });
+  return set;
+}
+
+async function run(clearedNote) {
+  const names = Object.keys(EXPECT.files);
+  const got = Object.fromEntries((await Promise.all(names.map(get))).map(r => [r.path, r]));
+  const rows = [], problems = [];           // problems: { sev: "bad"|"warn", text, fix }
+  const bad = (text, fix) => problems.push({ sev: "bad", text, fix });
+  const warn = (text, fix) => problems.push({ sev: "warn", text, fix });
+
+  for (const path of names) {
+    const exp = EXPECT.files[path], r = got[path];
+    if (!r.ok) { rows.push([path, "bad", r.code === 404 ? "not found" : `can't load (${r.code})`]); bad(`<code>${path}</code> is missing (${r.code === 404 ? "not found" : r.code}).`, `Upload <code>${path.split("/").pop()}</code> from the zip into ${folderOf(path)}.`); continue; }
+    if (path.endsWith(".js") && looksLikePage(r.text)) { rows.push([path, "bad", "a web page, not the file"]); bad(`<code>${path}</code> isn't the real file (the server sent a web page).`, `Upload <code>${path.split("/").pop()}</code> from the zip into ${folderOf(path)}.`); continue; }
+    if (r.sha === exp.sha) { rows.push([path, "ok", "correct"]); continue; }
+    const missingTokens = (exp.must || []).filter(t => !r.text.includes(t));
+    if (missingTokens.length) { rows.push([path, "bad", "old version"]); bad(`<code>${path}</code> is an old version (it is missing <code>${missingTokens[0]}</code>).`, `Replace it with <code>${path.split("/").pop()}</code> from the zip, in ${folderOf(path)}.`); }
+    else { rows.push([path, "warn", "differs from 2.6.1"]); warn(`<code>${path}</code> has the right features but isn't identical to the 2.6.1 file (edited, or a different version).`, ""); }
+  }
+
+  // Does every name app.js (and each module) imports actually exist where it points? This is what freezes the whole app.
+  const text = p => got[p] && got[p].ok ? got[p].text : null;
+  const exportsCache = {};
+  for (const importer of names.filter(n => n.endsWith(".js") && text(n))) {
+    for (const imp of importsOf(text(importer))) {
+      if (/^https?:/.test(imp.from)) continue;
+      const target = new URL(imp.from, "http://x/" + importer).pathname.slice(1);
+      if (!text(target)) { if (!(target in got)) continue; continue; }       // a missing target is already reported above
+      const have = exportsCache[target] || (exportsCache[target] = exportsOf(text(target)));
+      for (const name of imp.names) if (!have.has(name)) bad(`<code>${importer}</code> needs <code>${name}</code> from <code>${target}</code>, but that file doesn't have it. <b>This alone stops the whole app from starting.</b>`, `Replace <code>${target.split("/").pop()}</code> with the one from the zip, in ${folderOf(target)}.`);
+    }
+  }
+
+  // Files that are yours and not in the zip, plus files that went to the wrong place.
+  const [foods, manifest] = await Promise.all([get("foods_data.js"), get("manifest.json")]);
+  if (!foods.ok) { rows.push(["foods_data.js", "bad", "not found"]); bad("<code>foods_data.js</code> (your food list) isn't in the main folder.", "Put your <code>foods_data.js</code> back in the main folder, next to index.html."); }
+  else if (foods.size < 500) { rows.push(["foods_data.js", "warn", `only ${foods.size} bytes`]); warn(`<code>foods_data.js</code> is only ${foods.size} bytes, which means it is an <b>empty placeholder</b>, not your food list.`, "Put your real <code>foods_data.js</code> back. If you've lost it, tell me before changing anything else."); }
+  else rows.push(["foods_data.js", "ok", `${Math.round(foods.size / 1024)} KB`]);
+  rows.push(["manifest.json", manifest.ok ? "ok" : "warn", manifest.ok ? "present" : "not found"]);
+  if (!manifest.ok) warn("<code>manifest.json</code> isn't in the main folder (only affects adding the app to the Home Screen).", "");
+  const strays = (await Promise.all(names.filter(n => n.startsWith("js/")).map(async n => { const f = n.split("/").pop(), r = await get(f); return r.ok && !looksLikePage(r.text) ? f : null; }))).filter(Boolean);
+  for (const f of strays) {
+    const real = got["js/" + f];
+    if (!real || !real.ok || real.sha !== EXPECT.files["js/" + f].sha) warn(`A copy of <code>${f}</code> is in the main folder. It does nothing there, and it suggests the file went to the wrong place.`, `Move it into the "js" folder (and delete the one in the main folder).`);
+    else warn(`A leftover copy of <code>${f}</code> is in the main folder. Harmless, but you can delete it.`, "");
+  }
+
+  render(rows, problems, clearedNote);
+}
+
+function render(rows, problems, clearedNote) {
+  const nBad = problems.filter(p => p.sev === "bad").length, nWarn = problems.filter(p => p.sev === "warn").length;
+  const state = nBad ? "bad" : nWarn ? "warn" : "ok";
+  $("verdict").dataset.state = state;
+  if (state === "ok") status("Everything on the server is correct", "Every file is the right 2.6.1 version and they all match each other.");
+  else if (state === "warn") status("Probably fine, with notes", "Nothing here should stop the app from starting.");
+  else status(`${nBad} problem${nBad === 1 ? "" : "s"} found`, "These are why the app won't start or respond.");
+
+  const todo = $("todo"); todo.innerHTML = "";
+  for (const p of problems) { const li = document.createElement("li"); li.innerHTML = `<span class="${p.sev}">${p.sev === "bad" ? "&#10007;" : "&#9888;"}</span> ${p.text}${p.fix ? `<br><b>Fix:</b> ${p.fix}` : ""}`; todo.appendChild(li); }
+  if (state === "ok") { const li = document.createElement("li"); li.innerHTML = "The files are right. On your phone, <b>close the app completely and open it twice</b> (it refreshes its saved copy in the background). If it still won't respond, send me the report below."; todo.appendChild(li); }
+  else if (state === "bad") { const li = document.createElement("li"); li.innerHTML = "After fixing, open this page again to confirm, then close the app completely and open it twice."; todo.appendChild(li); }
+  $("todoWrap").hidden = false;
+
+  const t = $("files"); t.innerHTML = rows.map(([p, s, n]) => `<tr><td>${p}</td><td class="${s}">${s === "ok" ? "&#10003;" : s === "warn" ? "&#9888;" : "&#10007;"} ${n}</td></tr>`).join("");
+  $("allWrap").hidden = false;
+  const strip = h => h.replace(/<[^>]+>/g, "").replace(/&[a-z]+;/g, "");
+  $("report").value = [
+    `Insulin Buddy file check for ${EXPECT.version}  ${new Date().toISOString().slice(0, 16).replace("T", " ")}`,
+    `Page: ${location.origin}${location.pathname}`, `Browser: ${navigator.userAgent}`, clearedNote,
+    `RESULT: ${state === "ok" ? "ALL CORRECT" : state === "warn" ? "NOTES ONLY" : nBad + " PROBLEM(S)"}`,
+    ...problems.map(p => `${p.sev === "bad" ? "[PROBLEM]" : "[note]"} ${strip(p.text)}${p.fix ? "  FIX: " + strip(p.fix) : ""}`),
+    "", "Files:", ...rows.map(([p, s, n]) => `  ${s.toUpperCase().padEnd(4)} ${p}  ${n}`)
+  ].filter(x => x !== "" || true).join("\n");
+  $("repWrap").hidden = false; $("again").hidden = false;
+}
+
+$("copy").onclick = async () => { try { await navigator.clipboard.writeText($("report").value); $("copy").textContent = "Copied"; } catch { $("report").select(); $("copy").textContent = "Select all, then copy"; } };
+$("again").onclick = () => location.replace(location.pathname + "?again=" + Date.now());
+
+(async function main() {
+  try {
+    const params = new URLSearchParams(location.search);
+    let note = "Saved app copy: nothing to clear in this browser";
+    if (params.has("clean")) { try { const c = JSON.parse(sessionStorage.getItem("ibdiag") || "null"); if (c) note = `Saved app copy cleared in this browser first: ${c.sw} service worker(s), ${c.caches} cache(s) removed`; } catch {} }
+    else {
+      const regs = "serviceWorker" in navigator ? await navigator.serviceWorker.getRegistrations() : [];
+      const keys = "caches" in window ? await caches.keys() : [];
+      if (regs.length || keys.length) {
+        status("Clearing this browser's saved copy of the app\u2026", "Your meals, settings and sign-in are not touched. The page will reload once.");
+        await Promise.all(regs.map(r => r.unregister())); await Promise.all(keys.map(k => caches.delete(k)));
+        try { sessionStorage.setItem("ibdiag", JSON.stringify({ sw: regs.length, caches: keys.length })); } catch {}
+        location.replace(location.pathname + "?clean=1"); return;
+      }
+    }
+    status("Checking every file on the server\u2026", "");
+    await run(note);
+  } catch (e) { status("The check itself hit an error", String(e && e.message || e)); }
+})();
+</script>
+</body>
+</html>
