@@ -2798,6 +2798,15 @@ import { createDialogs } from "./js/dialogs.js";
   // card are always drawn from CHANGELOG[0], so the two can never drift.
   const CHANGELOG = [
     {
+      version: "2.10.0",
+      summary: "New Abstract background: soft, colorful shapes as a second pattern.",
+      changes: [
+        "Settings > General > Background > Pattern now has a third choice, Abstract: a soft wallpaper of colorful abstract shapes, squiggles and dots, drawn over whichever background color you pick. It works in dark mode too, with its own muted version",
+        "It has the same Small / Medium / Large size choice as Doodles, with sizes suited to its bigger shapes",
+        "It is kept faint on purpose, so the small grey labels stay easy to read even where a colored shape sits behind them. Its artwork files are only downloaded if you choose Abstract"
+      ]
+    },
+    {
       version: "2.9.2",
       summary: "The doodle background is now twice as dense, with many more drawings.",
       changes: [
@@ -4707,17 +4716,17 @@ import { createDialogs } from "./js/dialogs.js";
       </button>
     `).join("");
     resetBtn.hidden = !active;
-    const pattern = state.settings.backgroundPattern === "doodles" ? "doodles" : "none";
-    el("bg-pattern-grid").innerHTML = [["none", "Plain"], ["doodles", "Doodles"]].map(([id, label]) => `
+    const pattern = backgroundPatternOf(state.settings);
+    el("bg-pattern-grid").innerHTML = [["none", "Plain"], ["doodles", "Doodles"], ["abstract", "Abstract"]].map(([id, label]) => `
       <button class="pattern-card${pattern === id ? " is-selected" : ""}" type="button" data-pattern="${id}" aria-pressed="${pattern === id}">
-        <span class="pattern-card__preview${id === "doodles" ? " pattern-card__preview--doodles" : ""}"></span>
+        <span class="pattern-card__preview${id === "none" ? "" : ` pattern-card__preview--${id}`}"></span>
         <span class="pattern-card__name">${label}</span>
       </button>
     `).join("");
     // The size choice only makes sense (and only shows) once there is a pattern to size.
     const size = ["small", "medium", "large"].includes(state.settings.backgroundPatternSize) ? state.settings.backgroundPatternSize : "small";
     const sizeBox = el("bg-pattern-size");
-    sizeBox.hidden = pattern !== "doodles";
+    sizeBox.hidden = pattern === "none";
     sizeBox.querySelectorAll("[data-size]").forEach(b => {
       const on = b.dataset.size === size;
       b.classList.toggle("is-active", on);
@@ -4735,7 +4744,7 @@ import { createDialogs } from "./js/dialogs.js";
   el("bg-pattern-grid").addEventListener("click", e => {
     const btn = e.target.closest(".pattern-card");
     if (!btn) return;
-    state.settings.backgroundPattern = btn.dataset.pattern === "doodles" ? "doodles" : "none";
+    state.settings.backgroundPattern = backgroundPatternOf({ backgroundPattern: btn.dataset.pattern });
     applyBackgroundPattern();
     saveState();
     renderBackgroundSection();
@@ -5374,9 +5383,12 @@ import { createDialogs } from "./js/dialogs.js";
     applyCustomBackground();
     applyBackgroundPattern();
   }
-  // The pattern is pure CSS keyed off this attribute (see DOODLE-PATTERN in style.css), so applying it is one attribute.
+  // The patterns on offer. Anything else (a typo, a value from a newer version) means no pattern rather than a broken page.
+  const BACKGROUND_PATTERNS = ["none", "doodles", "abstract"];
+  function backgroundPatternOf(settings) { return BACKGROUND_PATTERNS.includes(settings.backgroundPattern) ? settings.backgroundPattern : "none"; }
+  // The pattern is pure CSS keyed off this attribute (see DOODLE-PATTERN and ABSTRACT-PATTERN in style.css), so applying it is one attribute.
   function applyBackgroundPattern() {
-    document.documentElement.setAttribute("data-bg-pattern", state.settings.backgroundPattern === "doodles" ? "doodles" : "none");
+    document.documentElement.setAttribute("data-bg-pattern", backgroundPatternOf(state.settings));
     const size = state.settings.backgroundPatternSize;
     document.documentElement.setAttribute("data-bg-pattern-size", size === "medium" || size === "large" ? size : "small");
   }
