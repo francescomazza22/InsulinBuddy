@@ -100,6 +100,7 @@ import { createDialogs } from "./js/dialogs.js";
         darkMode: false,
         darkModeAuto: false,
         showRecentMeals: true,
+        backgroundPattern: "none",   // "none" or "doodles": a faint pattern drawn over the background colour
         insulinModel: { preset: "rapid", peakMinutes: 75, diaMinutes: 360 },
         carbAbsorptionMinutes: { high: 120, medium: 180, low: 240, unknown: 180 },
         iobAwareCorrection: false,
@@ -2796,6 +2797,15 @@ import { createDialogs } from "./js/dialogs.js";
   // card are always drawn from CHANGELOG[0], so the two can never drift.
   const CHANGELOG = [
     {
+      version: "2.9.0",
+      summary: "New Background pattern option: faint food and insulin doodles behind the app.",
+      changes: [
+        "Settings > General > Background now has a Pattern choice. Pick Doodles for a faint pattern of food and insulin doodles behind everything, drawn over whichever background color you choose. It works in dark mode too, and Plain turns it off",
+        "The pattern is a drawing rather than a photo, so it stays sharp on iPhone, iPad and computer screens, and it scales gently with the size of the screen. It never changes the layout and is never printed",
+        "Fixed: the file checker page (diagnose.html) quoted the wrong version number in its result message"
+      ]
+    },
+    {
       version: "2.8.0",
       summary: "New Daily basal insulin chart in History > Trends.",
       changes: [
@@ -4679,7 +4689,22 @@ import { createDialogs } from "./js/dialogs.js";
       </button>
     `).join("");
     resetBtn.hidden = !active;
+    const pattern = state.settings.backgroundPattern === "doodles" ? "doodles" : "none";
+    el("bg-pattern-grid").innerHTML = [["none", "Plain"], ["doodles", "Doodles"]].map(([id, label]) => `
+      <button class="pattern-card${pattern === id ? " is-selected" : ""}" type="button" data-pattern="${id}" aria-pressed="${pattern === id}">
+        <span class="pattern-card__preview${id === "doodles" ? " pattern-card__preview--doodles" : ""}"></span>
+        <span class="pattern-card__name">${label}</span>
+      </button>
+    `).join("");
   }
+  el("bg-pattern-grid").addEventListener("click", e => {
+    const btn = e.target.closest(".pattern-card");
+    if (!btn) return;
+    state.settings.backgroundPattern = btn.dataset.pattern === "doodles" ? "doodles" : "none";
+    applyBackgroundPattern();
+    saveState();
+    renderBackgroundSection();
+  });
   el("bg-swatch-grid").addEventListener("click", e => {
     const btn = e.target.closest(".bg-swatch");
     if (!btn) return;
@@ -5312,6 +5337,11 @@ import { createDialogs } from "./js/dialogs.js";
   function applyTheme() {
     document.documentElement.setAttribute("data-theme", isDarkModeActive() ? "dark" : "light");
     applyCustomBackground();
+    applyBackgroundPattern();
+  }
+  // The pattern is pure CSS keyed off this attribute (see DOODLE-PATTERN in style.css), so applying it is one attribute.
+  function applyBackgroundPattern() {
+    document.documentElement.setAttribute("data-bg-pattern", state.settings.backgroundPattern === "doodles" ? "doodles" : "none");
   }
   function applyCustomBackground() {
     if (state.settings.customBackground && !isDarkModeActive()) {
