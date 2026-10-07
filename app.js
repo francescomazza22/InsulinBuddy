@@ -100,7 +100,8 @@ import { createDialogs } from "./js/dialogs.js";
         darkMode: false,
         darkModeAuto: false,
         showRecentMeals: true,
-        backgroundPattern: "none",   // "none" or "doodles": a faint pattern drawn over the background colour
+        backgroundPattern: "none",   // "none" or "doodles": a faint pattern drawn over the background color
+        backgroundPatternSize: "small",   // "small" | "medium" | "large": how big the doodles are
         insulinModel: { preset: "rapid", peakMinutes: 75, diaMinutes: 360 },
         carbAbsorptionMinutes: { high: 120, medium: 180, low: 240, unknown: 180 },
         iobAwareCorrection: false,
@@ -2797,6 +2798,23 @@ import { createDialogs } from "./js/dialogs.js";
   // card are always drawn from CHANGELOG[0], so the two can never drift.
   const CHANGELOG = [
     {
+      version: "2.9.2",
+      summary: "The doodle background is now twice as dense, with many more drawings.",
+      changes: [
+        "The doodle pattern now has twice as many doodles, spread evenly, and 28 different drawings instead of 14 (bananas, strawberries, cookies, pills, clouds, leaves, cherries and more join the original food and insulin icons)",
+        "The pattern now repeats with no visible seam or gap where the tiles meet, at every size and on every screen"
+      ]
+    },
+    {
+      version: "2.9.1",
+      summary: "The doodle background is now much smaller and finer, with a Small / Medium / Large choice.",
+      changes: [
+        "The doodle pattern is now small and fine by default (about a third of the size it was), so it reads as a texture rather than big scattered stickers, and it no longer grows large on iPad and computer screens",
+        "New Size choice under Background > Pattern: Small (the new default), Medium, or Large (the previous look)",
+        "The doodle lines are slightly bolder so the small size stays easy to see"
+      ]
+    },
+    {
       version: "2.9.0",
       summary: "New Background pattern option: faint food and insulin doodles behind the app.",
       changes: [
@@ -4696,7 +4714,24 @@ import { createDialogs } from "./js/dialogs.js";
         <span class="pattern-card__name">${label}</span>
       </button>
     `).join("");
+    // The size choice only makes sense (and only shows) once there is a pattern to size.
+    const size = ["small", "medium", "large"].includes(state.settings.backgroundPatternSize) ? state.settings.backgroundPatternSize : "small";
+    const sizeBox = el("bg-pattern-size");
+    sizeBox.hidden = pattern !== "doodles";
+    sizeBox.querySelectorAll("[data-size]").forEach(b => {
+      const on = b.dataset.size === size;
+      b.classList.toggle("is-active", on);
+      b.setAttribute("aria-pressed", String(on));
+    });
   }
+  el("bg-pattern-size").addEventListener("click", e => {
+    const btn = e.target.closest("[data-size]");
+    if (!btn) return;
+    state.settings.backgroundPatternSize = btn.dataset.size;
+    applyBackgroundPattern();
+    saveState();
+    renderBackgroundSection();
+  });
   el("bg-pattern-grid").addEventListener("click", e => {
     const btn = e.target.closest(".pattern-card");
     if (!btn) return;
@@ -5342,6 +5377,8 @@ import { createDialogs } from "./js/dialogs.js";
   // The pattern is pure CSS keyed off this attribute (see DOODLE-PATTERN in style.css), so applying it is one attribute.
   function applyBackgroundPattern() {
     document.documentElement.setAttribute("data-bg-pattern", state.settings.backgroundPattern === "doodles" ? "doodles" : "none");
+    const size = state.settings.backgroundPatternSize;
+    document.documentElement.setAttribute("data-bg-pattern-size", size === "medium" || size === "large" ? size : "small");
   }
   function applyCustomBackground() {
     if (state.settings.customBackground && !isDarkModeActive()) {
