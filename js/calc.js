@@ -228,6 +228,44 @@ export function buildTrendBuckets(history, days, nowMs = Date.now()) {
 // Headline numbers for a set of buckets. Averages use complete days with logs:
 // today is still in progress and would drag them down (unless it's the only
 // day with data, in which case it's used so the numbers aren't blank).
+/** Basal (long-acting) insulin per day, over the SAME day buckets the other trend charts use, so tapping a day lines up
+ * across all of them. Each bucket gets { am, pm, total, count }: morning and evening doses are added up separately so the
+ * chart can show how each is moving. A dose with no recorded slot is placed by the time it was taken (before 14:00 is
+ * morning), the same rule the logging sheet uses (basalSlotForTime in history.js; a unit test keeps the two in step). */
+export function basalByDay(history, bucketKeys) {
+  const out = new Map(bucketKeys.map(k => [k, { am: 0, pm: 0, total: 0, count: 0 }]));
+  for (const e of history || []) {
+    if (!e || e.entryType !== "basal" || !(e.basalDose > 0)) continue;
+    const b = out.get(dayKeyFromTs(e.ts));
+    if (!b) continue;
+    const slot = e.basalSlot === "am" || e.basalSlot === "pm" ? e.basalSlot : (new Date(e.ts).getHours() < 14 ? "am" : "pm");
+    b[slot] += e.basalDose; b.total += e.basalDose; b.count += 1;
+  }
+  return out;
+}
+
+/** The headline numbers for the basal chart. Like the other trend averages they use complete days only (an evening dose
+ * not yet taken would drag today down), falling back to today if it is the only day with a dose. The morning and evening
+ * averages are each taken over the days that have THAT dose, so a missed or unlogged one doesn't look like a zero. */
+export function summarizeBasal(byDay, bucketKeys, todayKey) {
+  const days = bucketKeys.map(key => ({ key, ...byDay.get(key) }));
+  const withDoses = days.filter(d => d.count > 0);
+  if (withDoses.length === 0) return { hasData: false, avg: 0, avgAm: 0, avgPm: 0, avgDays: 0, usingToday: false, doses: 0, max: 0 };
+  let avgDays = withDoses.filter(d => d.key !== todayKey);
+  const usingToday = avgDays.length === 0;
+  if (usingToday) avgDays = withDoses;
+  const mean = (list, f) => list.length ? list.reduce((t, d) => t + f(d), 0) / list.length : 0;
+  return {
+    hasData: true,
+    avg: mean(avgDays, d => d.total),
+    avgAm: mean(avgDays.filter(d => d.am > 0), d => d.am),
+    avgPm: mean(avgDays.filter(d => d.pm > 0), d => d.pm),
+    avgDays: avgDays.length, usingToday,
+    doses: withDoses.reduce((t, d) => t + d.count, 0),
+    max: Math.max(...days.map(d => d.total))
+  };
+}
+
 export function summarizeTrends(buckets, inRange, todayKey) {
   let avgBuckets = buckets.filter(b => b.entries > 0 && b.key !== todayKey);
   const usingToday = avgBuckets.length === 0;
