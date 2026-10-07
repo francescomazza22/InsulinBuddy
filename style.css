@@ -564,7 +564,7 @@ html[data-theme="dark"] .cat-snacks, html[data-theme="dark"] .cat-other { filter
 .dashed-btn svg { width: 15px; height: 15px; }
 
 .bg-swatch-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; }
-.pattern-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 8px 0 12px; }
+.pattern-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 8px 0 12px; }
 .pattern-card {
   display: flex; flex-direction: column; gap: 8px; padding: 8px; background: var(--surface); color: var(--ink);
   border: 1.5px solid var(--line); border-radius: var(--radius-s); font: 600 0.84rem var(--font-ui); cursor: pointer;
@@ -837,6 +837,17 @@ html[data-bg-pattern-size="large"] { --doodle-tile: clamp(320px, calc(260px + 14
 html[data-bg-pattern="doodles"] body { background-image: var(--doodles); background-size: var(--doodle-tile); background-repeat: repeat; }
 .pattern-card__preview--doodles { background-image: var(--doodles); background-size: var(--doodle-tile); }
 /* DOODLE-PATTERN:END */
+
+/* ABSTRACT-PATTERN: the artwork-based alternative. The two files (pattern-abstract-light.svg and -dark.svg, built by
+   tools/make-abstract.mjs) are only downloaded when this pattern is chosen. Its shapes are bigger than the doodles, so its
+   three sizes are too, but they follow the same rule: grow only gently with the screen so it never balloons on a big one. */
+html { --abstract-tile: clamp(180px, calc(160px + 4vw), 240px); }
+html[data-bg-pattern-size="medium"] { --abstract-tile: clamp(250px, calc(220px + 8vw), 350px); }
+html[data-bg-pattern-size="large"] { --abstract-tile: clamp(350px, calc(290px + 14vw), 560px); }
+html[data-bg-pattern="abstract"] body { background-image: url("pattern-abstract-light.svg"); background-size: var(--abstract-tile); background-repeat: repeat; }
+html[data-bg-pattern="abstract"][data-theme="dark"] body { background-image: url("pattern-abstract-dark.svg"); }
+.pattern-card__preview--abstract { background-image: url("pattern-abstract-light.svg"); background-size: 130px; }
+html[data-theme="dark"] .pattern-card__preview--abstract { background-image: url("pattern-abstract-dark.svg"); }
 
 /* ================= RESPONSIVE LAYOUT =================
    under 700px   Phone. The original single column with the tab bar along the bottom. Nothing in this block touches it.
