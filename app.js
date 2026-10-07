@@ -1,5 +1,5 @@
 import { escapeHtml, escapeAttr, round1, formatQty, dayKeyFromTs, timeAgo, makeId, redact } from "./js/util.js";
-import { convertGlucose, roundDose as roundDoseWith, activeAt, compoundGiInfo, computeDose, capDoseParts, giBand, niceScale, buildTrendBuckets, summarizeTrends, mealTypeBreakdown, absorptionMinutesForEntry as absorptionForEntry, iobFraction, cobGrams, glucoseTrendArrow, glucoseRangeClass, glucoseRangeLabel } from "./js/calc.js";
+import { convertGlucose, roundDose as roundDoseWith, activeAt, compoundGiInfo, computeDose, capDoseParts, giBand, niceScale, buildTrendBuckets, summarizeTrends, mealTypeBreakdown, absorptionMinutesForEntry as absorptionForEntry, iobFraction, cobGrams, glucoseTrendArrow, glucoseRangeClass, glucoseRangeLabel, basalByDay, summarizeBasal } from "./js/calc.js";
 import { SCHEMA_VERSION, normalizeState as normalizeStateWith, makeFingerprint, stampChanges, mergeStates, statesEquivalent, prepareRestoredState, unexplainedEmptying } from "./js/state.js";
 import { NightscoutClient, NsOutbox, nsToken, nsBaseUrl, nsConfigured, treatmentsForEntry, entriesToGlucoseRows } from "./js/nightscout.js";
 import { createDiag, hookGlobalErrors } from "./js/diag.js";
@@ -2796,6 +2796,15 @@ import { createDialogs } from "./js/dialogs.js";
   // card are always drawn from CHANGELOG[0], so the two can never drift.
   const CHANGELOG = [
     {
+      version: "2.8.0",
+      summary: "New Daily basal insulin chart in History > Trends.",
+      changes: [
+        "History > Trends has a new Daily basal insulin chart: one bar per day, with the morning dose (light blue) and the evening dose (dark blue) stacked, a dashed average line, and morning and evening averages underneath",
+        "Tap a day to see that day's doses; the same day lights up in the other charts too, so basal can be compared with carbs and mealtime insulin",
+        "It follows the 7 / 14 / 30 day choice, only appears once you have logged basal, and also shows if you have logged basal but no meals in that period"
+      ]
+    },
+    {
       version: "2.7.0",
       summary: "Proper layouts for iPad and computer screens. The phone layout is unchanged.",
       changes: [
@@ -3795,6 +3804,26 @@ import { createDialogs } from "./js/dialogs.js";
     return `<svg class="trend-chart" viewBox="0 0 ${g.W} ${g.H}" style="width:100%;height:${g.H}px;display:block;">${frame.under}${bars}${frame.over}${trendHitAreas(g)}</svg>`;
   }
 
+  // Basal insulin per day. Stacked like the dose chart: the morning dose on the bottom (light blue) and the evening dose
+  // on top (dark blue), so with variable doses you can see which of the two is moving, not just the daily total.
+  function buildBasalChartSvg(buckets, avg, width) {
+    const g = trendGeometry(buckets.length, Math.max(1, ...buckets.map(b => b.basal)), width);
+    const frame = trendFrameSvg(g, buckets, avg, `avg ${round1(avg)}u`);
+    const base = g.padT + g.plotH;
+    const bars = buckets.map((b, i) => {
+      const todayCls = i === g.n - 1 ? " trend-chart__bar--today" : "";
+      const x = g.xBar(i).toFixed(1), w = g.barW.toFixed(1);
+      if (b.basal <= 0) return `<rect class="trend-chart__bar trend-chart__bar--empty${todayCls}" data-idx="${i}" x="${x}" y="${(base - 1).toFixed(1)}" width="${w}" height="1" rx="2"></rect>`;
+      const hAm = b.bAm > 0 ? Math.max(2, (b.bAm / g.max) * g.plotH) : 0;
+      const hPm = b.bPm > 0 ? Math.max(2, (b.bPm / g.max) * g.plotH) : 0;
+      let out = "";
+      if (hAm > 0) out += `<rect class="trend-chart__bar trend-chart__bar--basal-am${todayCls}" data-idx="${i}" x="${x}" y="${(base - hAm).toFixed(1)}" width="${w}" height="${hAm.toFixed(1)}" rx="${hPm > 0 ? 0 : 2}"></rect>`;
+      if (hPm > 0) out += `<rect class="trend-chart__bar trend-chart__bar--basal-pm${todayCls}" data-idx="${i}" x="${x}" y="${(base - hAm - hPm).toFixed(1)}" width="${w}" height="${hPm.toFixed(1)}" rx="2"></rect>`;
+      return out;
+    }).join("");
+    return `<svg class="trend-chart" viewBox="0 0 ${g.W} ${g.H}" style="width:100%;height:${g.H}px;display:block;">${frame.under}${bars}${frame.over}${trendHitAreas(g)}</svg>`;
+  }
+
   // Tapping a day highlights it in BOTH charts and shows its exact numbers,
   // so carbs and insulin for the same day can be compared at a glance.
   const trendChartCtx = {};   // container id -> { defaultText, describe(idx) }
@@ -3817,7 +3846,7 @@ import { createDialogs } from "./js/dialogs.js";
       readout.textContent = trendChartCtx[id].describe(idx);
     });
   }
-  ["trend-chart-carbs", "trend-chart-dose"].forEach(id => {
+  ["trend-chart-carbs", "trend-chart-dose", "trend-chart-basal"].forEach(id => {
     const box = el(id);
     if (!box) return;
     box.addEventListener("click", e => {
@@ -3902,6 +3931,37 @@ import { createDialogs } from "./js/dialogs.js";
   historySearch.addEventListener("input", () => { historyLimit = PAGE_SIZE; renderHistory({ skipTrends: true }); });
   historyMore.addEventListener("click", () => { historyLimit += PAGE_SIZE; renderHistory({ skipTrends: true }); });
 
+  // The "Daily basal insulin" card. Shown only when a basal dose was logged in the period; it joins the tap-a-day
+  // selection shared by the other charts (see setTrendSelection) while it is showing.
+  function renderBasalTrend(buckets, sum, fallbackWidth) {
+    const card = el("trend-card-basal"), box = el("trend-chart-basal"), panel = el("history-trends-panel");
+    if (!card || !box) return;
+    delete trendChartCtx["trend-chart-basal"];
+    card.hidden = !sum.hasData;
+    if (panel) panel.classList.toggle("has-basal", sum.hasData);
+    if (!sum.hasData) { box.innerHTML = ""; return; }
+    const fmtDay = ts => new Date(ts).toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" });
+    trendChartCtx["trend-chart-basal"] = {
+      defaultText: `Avg ${round1(sum.avg)} u / day \u00b7 tap a day for details`,
+      describe: i => {
+        const b = buckets[i];
+        if (b.basal <= 0) return `${fmtDay(b.key)} \u00b7 no basal logged`;
+        const parts = [];
+        if (b.bAm > 0) parts.push(`morning ${round1(b.bAm)}`);
+        if (b.bPm > 0) parts.push(`evening ${round1(b.bPm)}`);
+        return `${fmtDay(b.key)} \u00b7 ${round1(b.basal)} u basal (${parts.join(" + ")})`;
+      }
+    };
+    const averages = [];
+    if (sum.avgAm > 0) averages.push(`Morning avg ${round1(sum.avgAm)} u`);
+    if (sum.avgPm > 0) averages.push(`Evening avg ${round1(sum.avgPm)} u`);
+    box.innerHTML =
+      `<p class="trend-readout">${trendChartCtx["trend-chart-basal"].defaultText}</p>` +
+      buildBasalChartSvg(buckets, sum.avg, box.clientWidth || fallbackWidth) +
+      `<div class="trend-legend"><span><span class="trend-legend__dot" style="background:#8DB9DE;"></span>Morning</span><span><span class="trend-legend__dot" style="background:#356E9C;"></span>Evening</span></div>` +
+      (averages.length ? `<p class="trend-caption trend-caption--tight">${averages.join(" \u00b7 ")}</p>` : "");
+  }
+
   function renderTrends(days) {
     const chartCarbsBox = el("trend-chart-carbs");
     const chartDoseBox = el("trend-chart-dose");
@@ -3935,16 +3995,23 @@ import { createDialogs } from "./js/dialogs.js";
       b.corr += entry.correctionDose || 0;
     });
     buckets.forEach(b => { b.dose = b.meal + b.corr; });
+    // Basal (long-acting) insulin per day, over these same day buckets.
+    const bucketKeys = buckets.map(b => b.key);
+    const basalMap = basalByDay(state.history, bucketKeys);
+    buckets.forEach(b => { const x = basalMap.get(b.key); b.bAm = x.am; b.bPm = x.pm; b.basal = x.total; b.bCount = x.count; });
+    const basalSummary = summarizeBasal(basalMap, bucketKeys, buckets[buckets.length - 1].key);
 
     trendSelectedIdx = null;
     if (inRange.length === 0) {
-      emptyBox.hidden = false;
       cards.forEach(c => { if (c) c.hidden = true; });
       statsBox.innerHTML = "";
       if (captionBox) captionBox.textContent = "";
       chartCarbsBox.innerHTML = "";
       chartDoseBox.innerHTML = "";
       Object.keys(trendChartCtx).forEach(k => delete trendChartCtx[k]);
+      // No meals in this period, but basal doses are still worth charting, so only call it empty if there's neither.
+      emptyBox.hidden = basalSummary.hasData;
+      renderBasalTrend(buckets, basalSummary, 320);
       return;
     }
     emptyBox.hidden = true;
@@ -4018,6 +4085,7 @@ import { createDialogs } from "./js/dialogs.js";
       `<div class="trend-legend"><span><span class="trend-legend__dot" style="background:var(--acc-1);"></span>Meal insulin</span><span><span class="trend-legend__dot" style="background:#C0392B;"></span>Correction</span></div>` +
       (totalIns > 0 ? `<p class="trend-caption trend-caption--tight">Corrections were ${corrPct}% of logged insulin (${round1(totalCorrIns)} of ${round1(totalIns)} u).</p>` : "");
 
+    renderBasalTrend(buckets, basalSummary, width);
     renderTrendMealBreakdown(inRange);
   }
 

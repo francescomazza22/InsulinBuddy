@@ -870,6 +870,9 @@ input[type="number"]::-webkit-inner-spin-button {
   #history-trends-panel > * { grid-column: 1 / -1; }
   #history-trends-panel > #trend-card-carbs { grid-column: 1; }
   #history-trends-panel > #trend-card-dose { grid-column: 2; }
+  /* With a basal card, the bottom row is basal | by meal; without one, "By meal" keeps the full width. */
+  #history-trends-panel > #trend-card-basal { grid-column: 1; }
+  #history-trends-panel.has-basal > #trend-card-meals { grid-column: 2; }
   #history-glucose-panel { max-width: 900px; margin-inline: auto; }
   /* Settings: the cards flow into two columns instead of one long scroll. */
   #view-settings .settings-panel { column-count: 2; column-gap: 24px; }
@@ -981,6 +984,8 @@ html[data-theme="dark"] .undo-toast { background: var(--surface); border: 1px so
 .trend-chart { width: 100%; overflow: visible; -webkit-tap-highlight-color: transparent; }
 .trend-chart__bar { fill: var(--acc-1); transition: opacity 0.15s; }
 .trend-chart__bar--corr { fill: #C0392B; }
+.trend-chart__bar--basal-am { fill: #8DB9DE; }   /* morning dose: light, at the bottom of the stack */
+.trend-chart__bar--basal-pm { fill: #356E9C; }   /* evening dose: dark, on top (same blue as basal rows in History) */
 .trend-chart__bar--empty { fill: var(--line); }
 .trend-chart__bar--today { opacity: 0.6; }
 .trend-chart.has-selection .trend-chart__bar:not(.is-selected) { opacity: 0.3; }
