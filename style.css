@@ -844,10 +844,10 @@ html[data-bg-pattern="doodles"] body { background-image: var(--doodles); backgro
 html { --abstract-tile: clamp(180px, calc(160px + 4vw), 240px); }
 html[data-bg-pattern-size="medium"] { --abstract-tile: clamp(250px, calc(220px + 8vw), 350px); }
 html[data-bg-pattern-size="large"] { --abstract-tile: clamp(350px, calc(290px + 14vw), 560px); }
-html[data-bg-pattern="abstract"] body { background-image: url("pattern-abstract-light.svg"); background-size: var(--abstract-tile); background-repeat: repeat; }
-html[data-bg-pattern="abstract"][data-theme="dark"] body { background-image: url("pattern-abstract-dark.svg"); }
-.pattern-card__preview--abstract { background-image: url("pattern-abstract-light.svg"); background-size: 130px; }
-html[data-theme="dark"] .pattern-card__preview--abstract { background-image: url("pattern-abstract-dark.svg"); }
+html[data-bg-pattern="abstract"] body { background-image: url("assets/patterns/pattern-abstract-light.svg"); background-size: var(--abstract-tile); background-repeat: repeat; }
+html[data-bg-pattern="abstract"][data-theme="dark"] body { background-image: url("assets/patterns/pattern-abstract-dark.svg"); }
+.pattern-card__preview--abstract { background-image: url("assets/patterns/pattern-abstract-light.svg"); background-size: 130px; }
+html[data-theme="dark"] .pattern-card__preview--abstract { background-image: url("assets/patterns/pattern-abstract-dark.svg"); }
 
 /* ================= RESPONSIVE LAYOUT =================
    under 700px   Phone. The original single column with the tab bar along the bottom. Nothing in this block touches it.

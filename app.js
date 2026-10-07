@@ -2798,6 +2798,15 @@ import { createDialogs } from "./js/dialogs.js";
   // card are always drawn from CHANGELOG[0], so the two can never drift.
   const CHANGELOG = [
     {
+      version: "2.10.1",
+      summary: "Housekeeping: pictures and icons now live in an assets folder.",
+      changes: [
+        "All the app's pictures are now sorted into one assets folder: the icons in assets/icons and the Abstract background artwork in assets/patterns, instead of sitting loose beside the code",
+        "The file check page (diagnose.html) now also checks the icons, checks that manifest.json points at them (and tells you the exact line to change if it doesn't), and notes any old copies left behind",
+        "No change to how the app looks or works"
+      ]
+    },
+    {
       version: "2.10.0",
       summary: "New Abstract background: soft, colorful shapes as a second pattern.",
       changes: [
