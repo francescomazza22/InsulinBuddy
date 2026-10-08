@@ -467,6 +467,21 @@ html[data-theme="dark"] .cat-snacks, html[data-theme="dark"] .cat-other { filter
 .sheet .field-grid > * { min-width: 0; }
 .sheet .field-grid input, .sheet .field-grid select { width: 100%; box-sizing: border-box; }
 .sheet-actions { display: flex; gap: 10px; margin-top: 6px; }
+/* Inside a SHEET, the Save / Cancel bar is PINNED to the bottom of the visible part of the sheet. These sheets are taller than a
+   phone screen (and the number keypad covers about 40% of it), so with the bar at the end of the content the Save button was
+   off-screen or hidden under the keyboard: you could type a number and have no way to see, let alone press, Save. Its negative
+   margins cancel the sheet's own padding so the bar sits flush with the sheet's edges. (Scoped to .sheet: the same class is also
+   used for the Sign in / Create account buttons inside a Settings card, which must stay where they are.) */
+.sheet .sheet-actions {
+  /* "bottom" is measured from the sheet's INNER edge (inside its padding), so it must be pushed down by the padding for the bar
+     to sit flush with the sheet's real bottom edge; otherwise a strip of scrolled content shows underneath it. */
+  position: sticky; bottom: calc(-20px - env(safe-area-inset-bottom)); z-index: 2;
+  margin: 10px -20px calc(-20px - env(safe-area-inset-bottom));
+  padding: 12px 20px calc(12px + env(safe-area-inset-bottom));
+  background: var(--surface); box-shadow: 0 -1px 0 var(--line);
+}
+.kb-open .sheet .sheet-actions { bottom: -16px; margin-bottom: -16px; padding-bottom: 12px; }    /* the keyboard covers the home-indicator area, so no extra room is needed */
+@media (min-width: 700px) { .sheet .sheet-actions { bottom: -24px; margin: 10px -24px -24px; padding: 12px 24px 14px; } }   /* the centred card on iPad and PC has 24px padding all round */
 .sheet-actions .btn { flex: 1; }
 .sheet-actions .btn--secondary { background: var(--surface); border: 1.5px solid var(--line); color: var(--ink); }
 

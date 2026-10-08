@@ -2798,6 +2798,14 @@ import { createDialogs } from "./js/dialogs.js";
   // card are always drawn from CHANGELOG[0], so the two can never drift.
   const CHANGELOG = [
     {
+      version: "2.10.2",
+      summary: "Fixed: Save could be out of reach in edit sheets, especially with the keyboard up.",
+      changes: [
+        "Fixed: in the Edit Meal sheet (and the basal, food and recipe sheets) the Save and Cancel buttons sat at the very end of a long form, so on a phone they were below the screen, and once you typed a number the keypad hid them completely. They are now pinned to the bottom of the sheet and always visible and pressable, with or without the keyboard, on iPhone, iPad and computer",
+        "No change to how anything is saved"
+      ]
+    },
+    {
       version: "2.10.1",
       summary: "Housekeeping: pictures and icons now live in an assets folder.",
       changes: [
