@@ -53,9 +53,9 @@ export function basalDoseCheck(units, last) {
 /** A history entry for a basal dose. Every meal-shaped field is present and zero, so anything that
  * reads entries without knowing about basal sees "no carbs, no bolus" rather than undefined. The id
  * comes from when it was logged (like meals), not from `ts`, which the person may backdate. */
-export function makeBasalEntry({ units, ts, slot, now = Date.now() }) {
+export function makeBasalEntry({ units, ts, slot, now = Date.now(), id = `h-${now}` }) {
   return {
-    id: `h-${now}`, ts, entryType: "basal", mealType: "basal", periodName: slot === "am" ? "morning" : "evening",
+    id, ts, entryType: "basal", mealType: "basal", periodName: slot === "am" ? "morning" : "evening",
     basalDose: Math.round(units * 100) / 100, basalSlot: slot,
     items: [], totalCarbs: 0, totalKcal: 0, glycemicLoad: null,
     mealDose: 0, correctionDose: 0, noInsulin: false, glucose: null, ratioLabel: "", ratioValue: null
@@ -135,8 +135,7 @@ export function dosingSummary(history, sinceMs) {
   // a day with only a basal dose must not become an "averaging day" with zero carbs and zero insulin.
   const inRange = all.filter(e => !isBasalEntry(e));
   const basal = all.filter(e => isBasalEntry(e) && e.basalDose > 0);
-  const dayKeyOf = ts => { const d = new Date(ts); return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`; };
-  const dayKeys = new Set(inRange.map(e => dayKeyOf(e.ts)));
+  const dayKeys = new Set(inRange.map(e => dayKeyFromTs(e.ts)));
   const days = dayKeys.size || 1;
   // A carbsUnknown (Eating Out) entry is still a real meal with real insulin -- it just has no
   // carb count, so it wouldn't pass a totalCarbs > 0 filter the way a normal meal would.
@@ -155,7 +154,7 @@ export function dosingSummary(history, sinceMs) {
   // Basal is averaged over the days it was actually logged on, and bolus over the days meals were, so
   // each figure is honest about its own data. Their sum is an approximation of total daily insulin that
   // is exact whenever both are logged every day, which is the normal case.
-  const basalDays = new Set(basal.map(e => dayKeyOf(e.ts))).size;
+  const basalDays = new Set(basal.map(e => dayKeyFromTs(e.ts))).size;
   const totalBasal = basal.reduce((s, e) => s + e.basalDose, 0);
   const avgDailyBasal = basalDays ? totalBasal / basalDays : 0;
   return {

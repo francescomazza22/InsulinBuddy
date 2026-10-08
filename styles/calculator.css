@@ -1,0 +1,257 @@
+/* The Calculator: dose card, correction and Eating Out rows, Active Insulin panel, meal items, food list, the Log bar, and the glucose guide sheet. */
+
+/* ================= CALCULATOR ================= */
+.dose-card {
+  background: linear-gradient(155deg, var(--acc-1) 0%, var(--acc-2) 100%);
+  color: #fff; border-radius: var(--radius-l); padding: 11px 14px 10px; margin-bottom: 14px;
+}
+.dose-card__top { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--dose-gap); }
+.dose-card__top-right { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+.dose-card__label { font-size: 0.66rem; font-weight: 700; letter-spacing: 0.06em; color: rgba(255,255,255,0.85); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.carbs-pill { background: rgba(255,255,255,0.22); padding: 3px 10px; border-radius: 999px; font-size: 0.74rem; font-weight: 600; border: none; color: #fff; font-family: var(--font-ui); cursor: default; white-space: nowrap; }
+.carbs-pill--ratio { background: rgba(0,0,0,0.24); cursor: pointer; appearance: none; flex-shrink: 0; white-space: nowrap; }
+.dose-card__top-left { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.glucose-pill {
+  display: inline-flex; align-items: center; gap: 3px; background: rgba(255,255,255,0.22);
+  padding: 2px 9px; border-radius: 999px; font-size: 0.74rem; font-weight: 700;
+  font-variant-numeric: tabular-nums; white-space: nowrap; transition: opacity 0.2s; cursor: pointer;
+}
+.glucose-pill--low { background: rgba(255,255,255,0.92); color: var(--brick); }
+.glucose-pill--high { background: rgba(255,196,60,0.95); color: #6b4a00; }
+.glucose-pill--stale { opacity: 0.55; }
+
+/* ================= Glucose tab: FreeStyle-Libre-style banner + range picker ================= */
+.glucose-banner {
+  border-radius: var(--radius-m); padding: 8px 14px; margin-bottom: 12px; text-align: center;
+  color: #14331f;
+}
+.glucose-banner--in-range { background: #C6EFA8; }
+.glucose-banner--low { background: #F7C9C4; color: #5C1712; }
+.glucose-banner--high { background: #FCE49B; color: #5C4408; }
+.glucose-banner--unknown { background: var(--surface); border: 1.5px dashed var(--line); color: var(--ink-soft); }
+.glucose-banner__label { font-size: 0.66rem; font-weight: 800; letter-spacing: 0.04em; margin-bottom: 2px; }
+.glucose-banner__value { font-family: var(--font-display); font-size: 1.7rem; font-weight: 700; line-height: 1.1; font-variant-numeric: tabular-nums; display: flex; align-items: baseline; justify-content: center; gap: 6px; }
+.glucose-banner__arrow { font-size: 1.1rem; }
+.glucose-banner__meta { font-size: 0.7rem; font-weight: 600; opacity: 0.8; margin-top: 2px; }
+.glucose-range-picker { display: flex; gap: 6px; justify-content: center; margin-bottom: 10px; }
+.glucose-range-btn {
+  border: 1.5px solid var(--line); background: var(--surface); color: var(--ink-soft);
+  padding: 5px 14px; border-radius: 999px; font: 600 0.8rem var(--font-ui); cursor: pointer;
+}
+.glucose-range-btn.is-active { background: var(--acc-1); border-color: var(--acc-1); color: #fff; }
+.carbs-pill--muted { background: var(--surface); color: var(--ink-soft); border: 1px solid var(--line); }
+.dose-card__value-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: var(--dose-gap); }
+.dose-card__value { display: flex; align-items: baseline; gap: 6px; font-family: var(--font-display); font-size: 1.55rem; line-height: 1; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+.dose-card__unit { font-family: var(--font-ui); font-size: 0.82rem; font-weight: 500; color: rgba(255,255,255,0.82); }
+.dose-card__controls { display: flex; gap: 4px; }
+.dose-card__controls .pill-btn { flex: 1; justify-content: center; }
+/* The Ratio pill sits between the carbs pill (top row) and the Eating Out pill (toggle row), and
+   should be exactly centred between them. That only holds if the pills above and below it are the
+   same height and the gaps are the same, so both are fixed here rather than left to font metrics
+   (they used to be 20px / 20px / 24px with 5px above and 8px below, which left it visibly high). */
+.dose-card { --dose-pill-h: 24px; --dose-gap: 4px; }
+.dose-card .pill-btn, .dose-card .carbs-pill { height: var(--dose-pill-h); padding-top: 0; padding-bottom: 0; line-height: 1; }
+/* gap: as a flex container the pill's text and the value <span> become separate flex items, and the
+   space between them is collapsed away ("Ratio1:15"), so the spacing has to be explicit. */
+.dose-card .carbs-pill { display: inline-flex; align-items: center; gap: 0.3em; }
+.pill-btn {
+  display: inline-flex; align-items: center; gap: 4px; background: rgba(255,255,255,0.16);
+  border: 1px solid rgba(255,255,255,0.3); color: #fff; padding: 5px 8px; border-radius: 999px;
+  font-size: 0.72rem; font-weight: 600; cursor: pointer; font-family: var(--font-ui); white-space: nowrap;
+}
+.pill-btn svg { width: 12px; height: 12px; }
+.pill-btn.is-active { background: #fff; color: var(--acc-1); border-color: #fff; }
+.pill-btn--warn.is-active { background: #FBBF24; color: #7C2D12; border-color: #FBBF24; }
+.pill-btn--icon { padding: 5px; }
+.dose-card__no-insulin-note { font-size: 0.76rem; color: rgba(255,255,255,0.95); background: rgba(0,0,0,0.15); padding: 6px 9px; border-radius: var(--radius-s); margin: 8px 0 0; }
+/* Says out loud when the shown dose is not what the calculation came to, instead of capping silently. */
+.dose-card__cap-note { border-left: 3px solid #FBBF24; background: rgba(0,0,0,0.24); font-weight: 600; }
+.history-entry__cap { font-size: 0.76rem; font-style: italic; color: var(--ink-soft); margin: 6px 0 0; }
+.quick-carb-row { display: flex; align-items: center; gap: 8px; margin: 8px 0 0; flex-wrap: wrap; }
+.quick-carb-row__label { font-size: 0.74rem; font-weight: 600; color: rgba(255,255,255,0.85); }
+.quick-carb-chip {
+  background: rgba(255,255,255,0.16); border: 1px solid rgba(255,255,255,0.3); color: #fff;
+  padding: 6px 14px; border-radius: 999px; font-size: 0.82rem; font-weight: 700;
+  font-family: var(--font-ui); cursor: pointer;
+}
+.quick-carb-chip:active { background: #fff; color: var(--acc-1); }
+.correction-row { margin-top: 8px; padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.25); }
+
+.active-panel {
+  background: var(--surface); border: 1.5px solid var(--line); border-radius: var(--radius-m);
+  padding: 9px 12px; margin-bottom: 12px; width: 100%; text-align: left; cursor: pointer;
+  font-family: var(--font-ui); display: block;
+}
+.active-panel:active { background: var(--paper); }
+.active-panel__stats { display: flex; align-items: center; gap: 10px; justify-content: space-between; }
+.active-panel__stat { flex: 0 1 auto; display: flex; align-items: center; gap: 6px; min-width: 0; }
+.active-panel__stat svg { width: 15px; height: 15px; color: var(--acc-1); flex-shrink: 0; }
+.active-panel__value { font-family: var(--font-display); font-weight: 700; font-size: 0.9rem; color: var(--ink); white-space: nowrap; }
+.active-panel__sub { font-size: 0.72rem; color: var(--ink-soft); margin-left: -3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.active-panel__chevron { width: 14px; height: 14px; color: var(--ink-soft); flex-shrink: 0; margin-left: auto; }
+.active-panel__stats-left { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.active-panel__divider { width: 1px; align-self: stretch; background: var(--line); }
+.active-panel__clear { font-size: 0.7rem; color: var(--ink-soft); margin: 5px 0 0; text-align: center; }
+.correction-row label, #cc-eating-out-row label { display: block; font-size: 0.8rem; margin-bottom: 6px; color: rgba(255,255,255,0.9); }
+.correction-mode-link { display: block; background: none; border: none; padding: 0; margin: 8px 0 0; font-family: var(--font-ui); font-size: 0.76rem; font-weight: 600; color: rgba(255,255,255,0.9); text-decoration: underline; cursor: pointer; }
+.correction-row__unit-label { padding: 0 12px; font-size: 0.82rem; color: rgba(255,255,255,0.85); }
+.correction-row__manual-note { font-size: 0.74rem; color: rgba(255,255,255,0.8); margin: 6px 0 0; }
+/* The glucose-guide button shares the "Current glucose" label's line, so it costs no vertical space. */
+.correction-row__labelrow { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
+.correction-row__labelrow label { margin-bottom: 0; }
+.glucose-guide-btn {
+  display: inline-flex; align-items: center; gap: 5px; height: 22px; padding: 0 9px; flex-shrink: 0; white-space: nowrap;
+  background: rgba(255,255,255,0.16); border: 1px solid rgba(255,255,255,0.3); color: #fff; border-radius: 999px;
+  font: 600 0.7rem var(--font-ui); cursor: pointer;
+}
+.glucose-guide-btn svg { width: 12px; height: 12px; }
+.glucose-guide-btn:active { background: rgba(255,255,255,0.3); }
+/* the global focus ring is the blue accent, which vanishes on the dose card's gradient */
+.glucose-guide-btn:focus-visible { outline-color: #fff; }
+.correction-row__iob-note { font-size: 0.78rem; color: rgba(255,255,255,0.9); margin: 8px 0 0; }
+.correction-row__input { display: flex; align-items: center; background: rgba(255,255,255,0.16); border-radius: var(--radius-s); overflow: hidden; }
+.correction-row__input input { flex: 1; background: transparent; border: none; padding: 11px 12px; color: #fff; font-size: 1rem; font-family: var(--font-ui); }
+.correction-row__input input::placeholder { color: rgba(255,255,255,0.6); }
+.correction-row__input input:focus { outline: none; }
+/* The input's own outline is removed above (it would be clipped by the wrapper's overflow and
+   hug the text, not the box), so the focus indicator lives on the wrapper instead. White rather
+   than the accent colour: this sits on the dose card's gradient, where blue would disappear.
+   Shared by the glucose, manual-correction and eating-out inputs. */
+.correction-row__input:focus-within { outline: 2px solid #fff; outline-offset: 2px; background: rgba(255,255,255,0.22); }
+.correction-row__input span { padding: 0 12px; font-size: 0.82rem; color: rgba(255,255,255,0.85); }
+/* Shown when a typed dose can't be read as a number, so the Log button is never greyed out without a reason. */
+.log-why { margin: 8px 2px 0; font-size: 0.8rem; color: var(--ink-soft); text-align: center; }
+.correction-row__manual-error { margin: 6px 0 0; padding: 6px 10px; border-radius: 8px; background: rgba(150, 40, 30, 0.92); color: #fff; font-size: 0.78rem; font-weight: 600; }
+.correction-row__unit-toggle {
+  padding: 0 12px; align-self: stretch; font-size: 0.8rem; font-weight: 700; color: #fff;
+  background: rgba(255,255,255,0.18); border: none; cursor: pointer; font-family: var(--font-ui);
+  text-decoration: underline; text-underline-offset: 2px; white-space: nowrap;
+  border-radius: 0 var(--radius-s) var(--radius-s) 0;
+}
+.correction-row__fetch-btn {
+  margin-top: 8px; background: none; border: none; color: #fff; text-decoration: underline;
+  text-underline-offset: 2px; font-size: 0.8rem; font-family: var(--font-ui); cursor: pointer; padding: 0;
+}
+.correction-row__fetch-status { font-size: 0.78rem; color: rgba(255,255,255,0.9); margin: 6px 0 0; }
+.correction-row__fetch-status--error { color: #FED7AA; }
+
+.ratio-picker { background: var(--surface); border: 1.5px solid var(--line); border-radius: var(--radius-m); padding: 10px; margin-bottom: 16px; display: flex; flex-direction: column; gap: 4px; }
+.ratio-picker__item { display: flex; align-items: center; justify-content: space-between; padding: 10px 10px; border-radius: 10px; background: none; border: none; cursor: pointer; font-family: var(--font-ui); text-align: left; }
+.ratio-picker__item:hover { background: var(--paper); }
+.ratio-picker__name { display: flex; align-items: center; gap: 8px; font-size: 0.92rem; font-weight: 600; color: var(--ink); }
+.ratio-picker__dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+.ratio-picker__value { font-size: 0.86rem; color: var(--ink-soft); font-weight: 600; }
+
+.meal-items { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
+/* Empty, this is a zero-height box that still carried its 12px bottom margin (a flex container's
+   margins don't collapse away), which silently added 12px between the Active Insulin banner and
+   whatever came next. Nothing in it means nothing to space. */
+.meal-items:empty { display: none; }
+.meal-item {
+  position: relative; overflow: hidden; border-radius: var(--radius-s);
+  border: 1.5px solid var(--line);
+}
+.meal-item__edit-reveal {
+  position: absolute; top: 0; right: 0; bottom: 0; width: 72px;
+  background: var(--acc-1); color: #fff; border: none; cursor: pointer;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+  font-size: 0.72rem; font-weight: 700; font-family: var(--font-ui);
+}
+.meal-item__edit-reveal svg { width: 16px; height: 16px; }
+.meal-item__content {
+  position: relative; z-index: 1; display: flex; align-items: center; gap: 10px;
+  background: var(--surface); padding: 10px 12px; transition: transform 0.18s ease;
+  touch-action: pan-y;
+}
+.meal-item__main { flex: 1; min-width: 0; }
+.meal-item__name { font-weight: 600; font-size: 0.92rem; margin: 0; }
+.meal-item__meta { font-size: 0.78rem; color: var(--ink-soft); margin: 1px 0 0; }
+input.meal-item__grams-input {
+  width: 26px; padding: 0; margin: 0; text-align: left;
+  border: none; background: transparent; border-radius: 4px;
+  color: inherit; font-family: inherit; font-variant-numeric: tabular-nums;
+  pointer-events: none; /* plain-looking by default; only editable once swipe-revealed */
+}
+.app input.meal-item__grams-input { font-size: inherit; }
+input.meal-item__grams-input.is-editing {
+  width: 54px; padding: 4px 6px; text-align: right; pointer-events: auto;
+  border: 1.5px solid var(--acc-1); background: var(--surface); color: var(--ink);
+  box-shadow: 0 0 0 3px rgba(0,0,0,0.04);
+}
+.app input.meal-item__grams-input.is-editing { font-size: 16px; }
+input.meal-item__grams-input:focus { outline: none; }
+.meal-item__carbs { font-family: var(--font-display); font-size: 1rem; font-weight: 700; color: var(--amber); flex-shrink: 0; }
+.meal-item__remove { background: none; border: none; color: var(--ink-soft); cursor: pointer; padding: 4px; flex-shrink: 0; }
+.meal-item__remove svg { width: 15px; height: 15px; display: block; }
+
+.add-row { display: flex; gap: 8px; margin-bottom: 10px; }
+.search-input-wrap { position: relative; flex: 1; min-width: 0; }
+.add-row__search { flex: 1; min-width: 0; width: 100%; padding: 10px 34px 10px 12px; font-size: 0.96rem; }
+.search-input-clear {
+  position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
+  width: 24px; height: 24px; border: none; background: var(--paper); border-radius: 50%;
+  color: var(--ink-soft); display: flex; align-items: center; justify-content: center; cursor: pointer;
+}
+.search-input-clear svg { width: 12px; height: 12px; }
+.add-row__grams { width: 76px; flex-shrink: 0; padding: 10px 8px; font-size: 0.96rem; text-align: center; }
+.add-row__btn { width: 40px; flex-shrink: 0; border: none; border-radius: var(--radius-s); background: var(--acc-1); color: #fff; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+.add-row__btn svg { width: 16px; height: 16px; }
+
+.food-pick-list { display: flex; flex-direction: column; gap: 5px; margin-bottom: 16px; max-height: 420px; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+/* Phones keep the fixed 420px above. On wider screens (tablet / computer) the
+   list grows to use the window height: viewport minus the two fixed bottom bars
+   minus ~300px for the dose card, panel and search row above it. Never shorter
+   than 420px, never taller than 1200px. svh (stable height, ignores the
+   collapsing browser toolbar) with a plain vh fallback for older browsers. */
+@media (min-width: 700px) {
+  .food-pick-list {
+    max-height: max(420px, min(1200px, calc(100vh - var(--tabbar-height, 68px) - var(--sticky-log-bar-height, 78px) - 300px)));
+    max-height: max(420px, min(1200px, calc(100svh - var(--tabbar-height, 68px) - var(--sticky-log-bar-height, 78px) - 300px)));
+  }
+}
+.food-pick-item {
+  background: var(--surface); border: 1.5px solid var(--line); border-radius: var(--radius-m);
+  padding: 8px 12px; display: flex; align-items: center; gap: 10px; cursor: pointer;
+}
+.food-pick-item.is-selected { border-color: var(--acc-1); }
+.food-pick-item__main { flex: 1; min-width: 0; }
+.food-pick-item__row { display: flex; align-items: baseline; gap: 7px; margin: 0; white-space: nowrap; }
+.food-pick-item__name { font-weight: 600; font-size: 0.86rem; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.food-pick-item__meta { font-size: 0.72rem; color: var(--ink-soft); flex-shrink: 0; }
+.food-pick-item__meta .c-carbs { color: var(--green); font-weight: 600; }
+.food-pick-item__meta .c-kcal { color: var(--amber); }
+.food-pick-item__note { font-size: 0.72rem; font-style: italic; color: var(--ink-soft); margin: 2px 0 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.food-pick-item__badge { font-size: 0.68rem; color: var(--ink-soft); background: var(--paper); padding: 2px 7px; border-radius: 999px; flex-shrink: 0; }
+
+
+/* Clear All button (full-width, appears once a meal is being built) */
+.btn--ghost-full {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  background: var(--surface); border: 1.5px solid var(--line); color: var(--ink-soft);
+  margin-top: 10px;
+}
+.btn--ghost-full svg { width: 16px; height: 16px; }
+
+
+/* ================= Glucose guide (mg/dL <-> mmol/L) =================
+   Two halves side by side so 40-400 fits on a phone without scrolling. Rows are tinted with the same
+   hues the Time in Range chart uses (--band is an r,g,b triplet so it can be used at any opacity). */
+.glucose-guide .sheet-head { margin-bottom: 10px; }
+.glucose-guide__tables { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.glucose-guide__table { width: 100%; border-collapse: separate; border-spacing: 0 2px; font-variant-numeric: tabular-nums; }
+.glucose-guide__table th { font-size: 0.66rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--ink-soft); padding: 0 0 4px; text-align: center; }
+.glucose-guide__table td { padding: 3px 4px; text-align: center; font-size: 0.86rem; color: var(--ink); background: rgba(var(--band), var(--tint)); }
+.glucose-guide__table td:first-child { font-weight: 700; border-left: 3px solid rgb(var(--band)); border-radius: 5px 0 0 5px; }
+.glucose-guide__table td:last-child { border-radius: 0 5px 5px 0; }
+.glucose-guide__row--veryLow  { --band: 220, 38, 38;   --tint: 0.16; }
+.glucose-guide__row--low      { --band: 252, 165, 165; --tint: 0.34; }
+.glucose-guide__row--target   { --band: 34, 197, 94;   --tint: 0.14; }
+.glucose-guide__row--high     { --band: 251, 191, 36;  --tint: 0.24; }
+.glucose-guide__row--veryHigh { --band: 217, 119, 6;   --tint: 0.20; }
+.glucose-guide__legend { list-style: none; display: flex; flex-wrap: wrap; gap: 4px 12px; padding: 0; margin: 12px 0 0; font-size: 0.74rem; color: var(--ink-soft); }
+.glucose-guide__legend li { display: flex; align-items: center; gap: 5px; }
+.glucose-guide__legend b { color: var(--ink); font-weight: 600; }
+.glucose-guide__swatch { width: 10px; height: 10px; border-radius: 50%; background: rgb(var(--band)); display: inline-block; flex-shrink: 0; }
+.glucose-guide__foot { font-size: 0.72rem; color: var(--ink-soft); margin: 8px 0 0; }
+
+.checkbox-row { display: flex; align-items: center; gap: 8px; margin-bottom: 16px; font-size: 0.9rem; font-weight: 600; }

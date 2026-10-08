@@ -250,6 +250,8 @@ export class NsOutbox {
   _log(level, msg) { if (this.diag) this.diag.log(level, "outbox", msg); }
 
   count() { return this.jobs.length; }
+  /** Forget every queued job and the stored queue itself (Delete Account & All Data). */
+  clear() { this.jobs = []; try { this.storage.removeItem(this.key); } catch { /* non-fatal */ } this.onChange(); }
   pendingFor(entryId) { return this.jobs.find(j => j.entryId === entryId) || null; }
   lastError() { const j = this.jobs.find(x => x.lastError); return j ? j.lastError : null; }
 

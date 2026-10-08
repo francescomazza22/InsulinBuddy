@@ -1,6 +1,6 @@
 {
   "name": "insulin-buddy",
-  "version": "2.0.0",
+  "version": "2.11.0",
   "private": true,
   "type": "module",
   "description": "Insulin Buddy: a dependency-free insulin & carb calculator PWA",
@@ -8,6 +8,7 @@
     "test": "node --test \"tests/unit/*.test.js\"",
     "test:unit": "node --test \"tests/unit/*.test.js\"",
     "test:e2e": "node tests/e2e/run.js",
-    "test:legacy": "node tests/run.js"
+    "test:legacy": "node tests/run.js",
+    "release": "node tools/release.mjs"
   }
 }

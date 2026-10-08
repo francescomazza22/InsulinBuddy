@@ -8,36 +8,84 @@
 // "2.0.0" -> "2.0.1"). That's it. On the next visit the browser fetches this
 // file (browsers always re-check the service worker script itself), sees the
 // version differ, installs the new cache, deletes the old one, and reloads the
-// open tab automatically. If you forget to bump it, most static files still
-// update quickly (network-first, see below) — only the offline fallback copy
-// stays old until the version changes.
+// open tab automatically. If you forget to bump it, app files still update
+// within a load or two (stale-while-revalidate, see below), but a version bump
+// is what guarantees every file switches over together.
+//
+// `node tools/release.mjs` sets CACHE_VERSION (from js/changelog.js) and the
+// PRECACHE_URLS list below for you.
 
-const CACHE_VERSION = "2.10.5";
+const CACHE_VERSION = "2.11.0";
 const CACHE_NAME = `insulin-buddy-${CACHE_VERSION}`;
 
 // Everything needed to open the app with no network. A missing file here just
-// fails to precache (see PRECACHE below) rather than blocking install.
+// fails to precache (see the install handler) rather than blocking install.
+// The Abstract background artwork is left out on purpose: it is only downloaded
+// if that pattern is chosen (it is then cached on first use).
 const PRECACHE_URLS = [
   "./",
   "index.html",
-  "style.css",
   "app.js",
+  "styles/base.css",
+  "styles/calculator.css",
+  "styles/components.css",
+  "styles/history.css",
+  "styles/library.css",
+  "styles/patterns.css",
+  "styles/print.css",
+  "styles/report.css",
+  "styles/responsive.css",
+  "styles/settings.css",
+  "styles/utilities.css",
+  "js/backup.js",
+  "js/calc.js",
+  "js/changelog.js",
+  "js/constants.js",
+  "js/crypto.js",
+  "js/diag.js",
+  "js/dialogs.js",
+  "js/foods.js",
+  "js/glucose-stats.js",
+  "js/history.js",
+  "js/keys.js",
+  "js/nightscout.js",
+  "js/ratios.js",
+  "js/services/cloud.js",
+  "js/services/diagnostics.js",
+  "js/services/glucose-data.js",
+  "js/services/lock.js",
+  "js/services/nightscout-sync.js",
+  "js/services/store.js",
+  "js/state.js",
+  "js/ui/charts.js",
+  "js/ui/dom.js",
+  "js/ui/icons.js",
+  "js/ui/sheets.js",
+  "js/ui/toast.js",
+  "js/util.js",
+  "js/views/active-insulin.js",
+  "js/views/basal.js",
+  "js/views/calculator.js",
+  "js/views/edit-meal.js",
+  "js/views/glucose-guide.js",
+  "js/views/glucose.js",
+  "js/views/history-log.js",
+  "js/views/library.js",
+  "js/views/report.js",
+  "js/views/settings-data.js",
+  "js/views/settings-general.js",
+  "js/views/settings.js",
+  "js/views/shell.js",
+  "js/views/trends.js",
+  "assets/patterns/pattern-doodles-dark.svg",
+  "assets/patterns/pattern-doodles-light.svg",
   "foods_data.js",
   "manifest.json",
+  "assets/icons/apple-touch-icon.png",
   "assets/icons/favicon-16.png",
   "assets/icons/favicon-32.png",
   "assets/icons/icon-192.png",
-  "assets/icons/apple-touch-icon.png",
-  "js/util.js",
-  "js/calc.js",
-  "js/state.js",
-  "js/nightscout.js",
-  "js/diag.js",
-  "js/backup.js",
-  "js/history.js",
-  "js/dialogs.js",
-  "js/crypto.js",
-  "js/glucose-stats.js"
+  "assets/icons/icon-512.png"
 ];
 
 self.addEventListener("install", event => {

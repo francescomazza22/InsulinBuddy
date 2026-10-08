@@ -1,0 +1,30 @@
+/* Small single-purpose classes used in index.html in place of inline styles. Loaded last so they win over the
+   component rules they adjust, the way the inline styles they replace did. */
+
+.mt-2 { margin-top: 2px; }
+.mt-4 { margin-top: 4px; }
+.mt-6 { margin-top: 6px; }
+.mt-8 { margin-top: 8px; }
+.mt-10 { margin-top: 10px; }
+.mt-16 { margin-top: 16px; }
+.mt-18 { margin-top: 18px; }
+.mb-12 { margin-bottom: 12px; }
+.mb-16 { margin-bottom: 16px; }
+
+/* A hint sitting directly under a toggle row. */
+.hint-below { margin: 6px 0 0; }
+.hint--warn { color: var(--amber); }
+
+/* A thin rule between groups inside a card. */
+.divider { border-top: 1px solid var(--line); margin: 14px 0; }
+.divider.mt-16 { margin-top: 16px; }
+
+/* A card title with a small button at the right-hand end. */
+.card-head-row { display: flex; align-items: center; justify-content: space-between; }
+
+/* Two or more buttons sharing a row equally. */
+.btn-row { display: flex; gap: 8px; margin-top: 10px; }
+.btn-row > * { flex: 1; }
+
+/* A dashed button sized to its label rather than the full width. */
+.dashed-btn--compact { width: auto; padding: 6px 12px; }
