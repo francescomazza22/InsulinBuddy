@@ -10,6 +10,16 @@ export const escapeAttr = escapeHtml;
 
 export function round1(n) { return Math.round(n * 10) / 10; }
 
+/** A number typed by a person, read strictly. Accepts a decimal point OR a decimal comma ("1.5", "1,5", ".5", "2") and nothing else:
+ * anything unreadable ("1.2.3", "12a", "-1", "1e3") gives NaN rather than a guess. This replaces a browser number box for typed
+ * insulin doses, where a decimal comma could be silently dropped ("1,5" read as 15 units) or rejected (leaving the Log button
+ * greyed out with no reason). */
+export function parseDecimalInput(text) {
+  const s = String(text ?? "").trim();
+  if (!/^(\d+([.,]\d*)?|[.,]\d+)$/.test(s)) return NaN;
+  return parseFloat(s.replace(",", "."));
+}
+
 export function formatQty(n) { return n % 1 === 0 ? String(n) : String(round1(n)); }
 
 // Local-midnight timestamp for the day containing `ts`.
