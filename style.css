@@ -292,6 +292,7 @@ input:focus-visible, select:focus-visible, button:focus-visible { outline: 2px s
 .correction-row__input:focus-within { outline: 2px solid #fff; outline-offset: 2px; background: rgba(255,255,255,0.22); }
 .correction-row__input span { padding: 0 12px; font-size: 0.82rem; color: rgba(255,255,255,0.85); }
 /* Shown when a typed dose can't be read as a number, so the Log button is never greyed out without a reason. */
+.log-why { margin: 8px 2px 0; font-size: 0.8rem; color: var(--text-muted, #6b6b6b); text-align: center; }
 .correction-row__manual-error { margin: 6px 0 0; padding: 6px 10px; border-radius: 8px; background: rgba(150, 40, 30, 0.92); color: #fff; font-size: 0.78rem; font-weight: 600; }
 .correction-row__unit-toggle {
   padding: 0 12px; align-self: stretch; font-size: 0.8rem; font-weight: 700; color: #fff;
@@ -902,10 +903,16 @@ html[data-theme="dark"] .pattern-card__preview--abstract { background-image: url
      without becoming one. Only here, so the phone keeps its original rule; a browser too old to know `clip` just keeps
      `hidden`, and the left column then scrolls with the page instead of sticking, which is harmless. */
   body { overflow-x: clip; }
+  /* Type sized for a phone looks tiny on a big screen. Every size in this file is in rem, so raising the root size
+     scales the whole app evenly (and the 16px text boxes below follow it so they don't look out of step). */
+  html { font-size: 112.5%; }
+  .app input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), .app select, .app textarea,
+  .sheet-backdrop input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), .sheet-backdrop select, .sheet-backdrop textarea { font-size: 1rem; }
   .view { max-width: 1180px; }
+  .dose-card__value { font-size: 2rem; }
   .segmented { max-width: 520px; }
   /* Calculator: dose and Log button on the left, held in view while you scroll the meal on the right. */
-  #view-calculator { display: grid; grid-template-columns: minmax(340px, 400px) minmax(0, 1fr); column-gap: 36px; align-items: start; }
+  #view-calculator { display: grid; grid-template-columns: minmax(360px, 440px) minmax(0, 1fr); column-gap: 36px; align-items: start; }
   .calc-side { display: block; position: sticky; top: 28px; max-height: calc(100vh - 56px); max-height: calc(100dvh - 56px); overflow-y: auto; padding: 2px; margin: -2px; }
   .calc-main { display: block; min-width: 0; }
   .calc-side .sticky-log-bar { position: static; left: auto; right: auto; bottom: auto; max-width: none; margin: 14px 0 0; padding: 0; background: none; border: 0; box-shadow: none; justify-content: stretch; }
@@ -923,10 +930,17 @@ html[data-theme="dark"] .pattern-card__preview--abstract { background-image: url
   /* With a basal card, the bottom row is basal | by meal; without one, "By meal" keeps the full width. */
   #history-trends-panel > #trend-card-basal { grid-column: 1; }
   #history-trends-panel.has-basal > #trend-card-meals { grid-column: 2; }
-  #history-glucose-panel { max-width: 900px; margin-inline: auto; }
+  /* Left-aligned with the heading and tabs above it (it used to be centred, so everything sat at a different edge). */
+  #history-glucose-panel { max-width: 960px; }
   /* Settings: the cards flow into two columns instead of one long scroll. */
   #view-settings .settings-panel { column-count: 2; column-gap: 24px; }
   #view-settings .settings-panel > * { break-inside: avoid; }
+}
+
+@media (min-width: 1500px) {
+  html { font-size: 125%; }
+  .view { max-width: 1400px; }
+  #history-glucose-panel { max-width: 1080px; }
 }
 
 @media print {

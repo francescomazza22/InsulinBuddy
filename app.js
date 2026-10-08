@@ -1904,6 +1904,20 @@ import { createDialogs } from "./js/dialogs.js";
 
     const hasSomethingToLog = draft.noInsulinOn ? carbs > 0 : (carbs > 0 || correctionPart > 0 || mealPart > 0);
     logBtn.disabled = !hasSomethingToLog;
+    // When Log is off, say why, in words, so a greyed-out button is never a mystery.
+    const whyEl = el("cc-log-why");
+    let why = "";
+    if (!hasSomethingToLog) {
+      if (draft.correctionOn && draft.correctionManual) {
+        const raw = el("cc-correction-manual-input").value.trim();
+        if (raw === "") why = "Type the correction dose in the box above.";
+        else if (isNaN(parseDecimalInput(raw))) why = "";
+        else why = `The dose read as ${raw}, and 0 units has nothing to log.`;
+      } else if (draft.correctionOn && glucoseInput.value.trim() !== "") {
+        why = `No correction is needed at ${glucoseInput.value.trim()} ${unitLabel(draft.glucoseUnit || state.settings.units)}, so there is nothing to log. Use "Enter dose manually" to give a dose anyway.`;
+      }
+    }
+    whyEl.textContent = why; whyEl.hidden = !why;
     logBtn.classList.toggle("btn--pulse", hasSomethingToLog);
     clearAllBtn.hidden = !hasSomethingToLog;
 
@@ -2811,6 +2825,22 @@ import { createDialogs } from "./js/dialogs.js";
   // Newest first. version-badge-text/version-summary-text in the Settings
   // card are always drawn from CHANGELOG[0], so the two can never drift.
   const CHANGELOG = [
+    {
+      version: "2.10.5",
+      summary: "Better use of large screens: bigger text and tidier alignment.",
+      changes: [
+        "On a laptop or desktop screen the whole app is now drawn a size larger (and larger again on very big screens), so text is no longer tiny",
+        "On the History > Glucose tab the range buttons, charts and cards now line up with the heading and tabs instead of floating in the middle",
+        "The dose number in the Calculator is bigger on large screens"
+      ]
+    },
+    {
+      version: "2.10.4",
+      summary: "The Log button now says why it is off.",
+      changes: [
+        "When Log Meal to History is greyed out in the correction panel, a short line under it now says why (nothing typed yet, a 0 dose, or a glucose that needs no correction)"
+      ]
+    },
     {
       version: "2.10.3",
       summary: "Fixed: typing a manual correction or Eating Out dose, especially with a decimal comma.",
