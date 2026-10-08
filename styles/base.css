@@ -1,0 +1,221 @@
+/* Design tokens (colours, radii, fonts), the palettes and dark mode, page basics, shared controls (buttons, inputs, pills), the tab bar, and mobile rendering fixes. */
+
+:root {
+  --ink: #1B2A3A;
+  --ink-soft: #6B7A89;
+  --paper: #F5F3EE;
+  --app-bg: var(--paper);
+  --surface: #FFFFFF;
+  --line: #E4E1D8;
+  --amber: #C8862E;
+  --brick: #A34A3B;
+  --brick-soft: #F1DCD6;
+  --green: #4C7A5E;
+  --radius-s: 10px;
+  --radius-m: 16px;
+  --radius-l: 22px;
+  --font-ui: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-display: var(--font-ui);
+
+  /* palette accents — overridden per data-palette */
+  --acc-1: #3B82F6;
+  --acc-2: #8B5CF6;
+  --acc-3: #6366F1;
+  --acc-1-rgb: 59,130,246;
+}
+
+/* ---------- Palettes ---------- */
+html[data-palette="tealViolet"]   { --acc-1:#1F9E93; --acc-2:#8B5CF6; --acc-3:#38BDF8; --acc-1-rgb: 31,158,147; }
+html[data-palette="blueViolet"]   { --acc-1:#3B82F6; --acc-2:#8B5CF6; --acc-3:#6366F1; --acc-1-rgb: 59,130,246; }
+html[data-palette="emeraldRose"]  { --acc-1:#10B981; --acc-2:#F43F5E; --acc-3:#34D399; --acc-1-rgb: 16,185,129; }
+html[data-palette="orangePink"]   { --acc-1:#F97316; --acc-2:#EC4899; --acc-3:#F59E0B; --acc-1-rgb: 249,115,22; }
+html[data-palette="cyanIndigo"]   { --acc-1:#22B8CE; --acc-2:#6366F1; --acc-3:#3B82F6; --acc-1-rgb: 34,184,206; }
+html[data-palette="greenAmber"]   { --acc-1:#22C55E; --acc-2:#F59E0B; --acc-3:#84CC16; --acc-1-rgb: 34,197,94; }
+
+/* ---------- Dark mode ---------- */
+html[data-theme="dark"] {
+  --ink: #ECEAE3;
+  --ink-soft: #9AA6B2;
+  --paper: #14181D;
+  --app-bg: var(--paper);
+  --surface: #1C2127;
+  --line: #2B3138;
+  --brick-soft: #3A2420;
+}
+
+[hidden] { display: none !important; }
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { margin: 0; padding: 0; overscroll-behavior-y: contain; overflow-x: hidden; }
+body {
+  background: var(--app-bg);
+  color: var(--ink);
+  font-family: var(--font-ui);
+  -webkit-font-smoothing: antialiased;
+  min-height: 100dvh;
+}
+/* The page behind an open sheet is pinned (app.js shifts it up by the scroll offset so nothing jumps, and restores it on
+   close). overflow: hidden alone does not hold on iPhone Safari. */
+body.sheet-open { overflow: hidden; position: fixed; left: 0; right: 0; width: 100%; }
+button, .tab, .segmented__btn { touch-action: manipulation; }
+@media (prefers-reduced-motion: reduce) {
+  /* Shortening the duration alone doesn't stop an infinite animation -- it just repeats
+     near-instantly, forever. Limiting it to one iteration is what actually stops the
+     log-button pulse and the loading spinner from running. */
+  * { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; }
+}
+
+.app {
+  max-width: 480px;
+  margin: 0 auto;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  padding-bottom: calc(76px + env(safe-area-inset-bottom));
+  position: relative;
+}
+@media (min-width: 481px) {
+  .app { border-left: 1px solid var(--line); border-right: 1px solid var(--line); box-shadow: 0 0 40px rgba(0,0,0,0.05); }
+}
+
+.views { flex: 1; padding: calc(18px + env(safe-area-inset-top)) 18px 28px; }
+
+/* ---------- Shared bits ---------- */
+.page-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+.page-head h1 { font-family: var(--font-display); font-size: 1.4rem; font-weight: 700; margin: 0; letter-spacing: -0.01em; }
+.page-head__sub { color: var(--ink-soft); font-size: 0.88rem; margin: 2px 0 0; }
+
+.fab {
+  width: 42px; height: 42px; border-radius: 50%; border: none; flex-shrink: 0;
+  background: var(--acc-1); color: #fff; display: flex; align-items: center; justify-content: center; cursor: pointer;
+}
+.fab svg { width: 20px; height: 20px; }
+
+.section-header { font-size: 0.72rem; font-weight: 700; letter-spacing: 0.04em; color: var(--ink-soft); margin: 4px 0 8px; }
+#recent-meals-header { margin-top: 4px; }
+.recent-meals-row { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 2px; margin-bottom: 8px; scrollbar-width: none; }
+.recent-meals-row::-webkit-scrollbar { display: none; }
+.recent-meal-chip {
+  flex-shrink: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 2px;
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-s);
+  padding: 8px 12px; font-family: var(--font-ui); cursor: pointer; max-width: 150px;
+}
+.recent-meal-chip__name { font-size: 0.8rem; font-weight: 700; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.recent-meal-chip__meta { font-size: 0.7rem; color: var(--ink-soft); }
+.section-header--row { display: flex; align-items: center; justify-content: space-between; }
+.gl-indicator { font-size: 0.74rem; font-weight: 600; letter-spacing: normal; color: var(--ink-soft); background: var(--surface); border: 1px solid var(--line); border-radius: 999px; padding: 3px 10px; }
+.gl-indicator--low { color: #1a7f4f; border-color: #b7e3cb; background: #eafaf1; }
+.gl-indicator--medium { color: #92660a; border-color: #f2debb; background: #fdf3e2; }
+.gl-indicator--high { color: #a0332a; border-color: #f3c6c1; background: #fceceb; }
+
+.field { margin-bottom: 16px; }
+.field label { display: block; font-size: 0.86rem; font-weight: 600; margin-bottom: 6px; }
+.field__optional { font-weight: 400; color: var(--ink-soft); }
+.field__row { display: flex; align-items: center; background: var(--surface); border: 1.5px solid var(--line); border-radius: var(--radius-s); overflow: hidden; }
+.field__row:focus-within { border-color: var(--acc-1); }
+.field__row input { flex: 1; min-width: 0; border: none; background: transparent; padding: 12px; font-size: 1.02rem; color: var(--ink); font-family: var(--font-ui); font-variant-numeric: tabular-nums; }
+.field__row input:focus { outline: none; }
+.field__unit { padding: 0 12px; color: var(--ink-soft); font-size: 0.86rem; white-space: nowrap; }
+
+input[type="text"], input[type="number"], input[type="password"], input[type="time"], input[type="date"], select, textarea {
+  appearance: none; -webkit-appearance: none; -moz-appearance: none;
+  font-family: var(--font-ui); color: var(--ink); background: var(--surface);
+  border: 1.5px solid var(--line); border-radius: var(--radius-s);
+}
+/* A bare <select> sizes itself to its widest <option> text rather than its
+   container, so a long option (like Nightscout's format choices) can push it
+   past the edge of its card. Pin it to the container instead. */
+select { width: 100%; max-width: 100%; }
+/* ...except the compact Library filter row, where the select sits beside its
+   label rather than stacked full-width underneath it. */
+.filter-panel__row select { width: auto; max-width: none; }
+select {
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none'><path d='M6 9l6 6 6-6' stroke='%236B7A89' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/></svg>");
+  background-repeat: no-repeat; background-position: right 12px center; background-size: 16px;
+  padding-right: 36px !important;
+}
+input:focus-visible, select:focus-visible, button:focus-visible { outline: 2px solid var(--acc-1); outline-offset: 2px; }
+
+.btn { display: block; width: 100%; padding: 14px 18px; border-radius: var(--radius-s); border: none; font-size: 1rem; font-weight: 600; font-family: var(--font-ui); cursor: pointer; text-align: center; }
+.btn--primary { background: var(--acc-1); color: #fff; }
+.btn--primary:disabled { background: var(--line); color: var(--ink-soft); cursor: not-allowed; }
+.btn--danger-solid { background: var(--brick); color: #fff; margin-top: 18px; }
+
+.empty-state { text-align: center; padding: 40px 16px; color: var(--ink-soft); }
+.empty-state p { margin: 0 0 4px; }
+.empty-state__sub { font-size: 0.86rem; }
+
+.disclaimer { font-size: 0.78rem; color: var(--ink-soft); line-height: 1.5; margin: 14px 2px 0; }
+
+/* ---------- Tab bar ---------- */
+.tabbar {
+  position: fixed; bottom: 0; left: 0; right: 0; max-width: 480px; margin: 0 auto;
+  display: flex; justify-content: center; background: var(--surface); border-top: 1px solid var(--line);
+  padding: 8px 4px max(8px, env(safe-area-inset-bottom));
+}
+.tab { flex: 0 1 120px; display: flex; flex-direction: column; align-items: center; gap: 4px; background: none; border: none; color: var(--ink-soft); font-size: 0.72rem; font-weight: 600; padding: 6px 2px; cursor: pointer; border-radius: 10px; font-family: var(--font-ui); }
+.tab svg { width: 22px; height: 22px; }
+.tab[aria-current="page"] { color: var(--acc-1); }
+
+.sticky-log-bar {
+  position: fixed; left: 0; right: 0; bottom: var(--tabbar-height, 68px);
+  max-width: 480px; margin: 0 auto; z-index: 30;
+  background: var(--surface); border-top: 1px solid var(--line);
+  padding: 8px 14px; display: flex; gap: 10px;
+  box-shadow: 0 -2px 10px rgba(0,0,0,0.05);
+}
+.sticky-log-bar .btn--primary { flex: 2; padding: 12px 16px; }
+.sticky-log-bar .btn--ghost-full { flex: 1; margin-top: 0; padding: 12px 10px; }
+.sticky-log-spacer { height: var(--sticky-log-bar-height, 78px); }
+
+@keyframes log-btn-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(var(--acc-1-rgb), 0.35); }
+  50% { box-shadow: 0 0 0 6px rgba(var(--acc-1-rgb), 0); }
+}
+.btn--pulse { animation: log-btn-pulse 2.2s ease-in-out infinite; }
+
+
+/* ================= Mobile rendering fixes ================= */
+
+/* Prevent iOS Safari's auto-zoom-on-focus, which fires on any text input
+   under 16px. Higher specificity than the per-field rules above (class +
+   type beats a single class), so this wins without touching their other
+   properties like width or text-align. */
+.app input, .app select, .app textarea,
+.sheet-backdrop input, .sheet-backdrop select, .sheet-backdrop textarea { font-size: 16px; }
+
+/* Clean, consistent number inputs across browsers (no spinner arrows) */
+input[type="number"] { -moz-appearance: textfield; }
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+/* Comfortable tap targets (~40px) for the small icon-only buttons, without
+   changing their visual icon size or layout */
+.lib-item__actions button,
+.meal-item__remove,
+.ratio-row__del,
+.ingredient-row button {
+  min-width: 34px;
+  min-height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.lib-item__star {
+  min-width: 34px;
+  min-height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.tab { min-height: 48px; }
+.fab, .icon-btn, .add-row__btn { min-width: 44px; min-height: 44px; }
+
+/* Quiet native tap highlight, replace with a deliberate pressed state */
+.btn:active, .pill-btn:active, .dashed-btn:active, .data-row:active,
+.food-pick-item:active, .lib-item:active, .history-entry:active,
+.palette-card:active, .segmented__btn:active {
+  opacity: 0.75;
+}

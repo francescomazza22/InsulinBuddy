@@ -1,0 +1,117 @@
+/* Pieces shared by several screens: segmented controls and graph tabs, panel cards, bottom sheets, the lock and loading screens, the undo toast and in-app dialogs. */
+
+.segmented { display: flex; background: var(--surface); border: 1.5px solid var(--line); border-radius: 999px; padding: 4px; margin-bottom: 16px; }
+.segmented__btn { flex: 1; border: none; background: none; padding: 9px 10px; border-radius: 999px; font-size: 0.88rem; font-weight: 600; color: var(--ink-soft); cursor: pointer; font-family: var(--font-ui); }
+.segmented__btn.is-active { background: var(--paper); color: var(--ink); box-shadow: 0 0 0 1.5px var(--line) inset; }
+.graph-tabs { display: flex; background: var(--surface); border: 1.5px solid var(--line); border-radius: 999px; padding: 4px; margin: 14px 0; }
+.graph-tab { flex: 1; border: none; background: none; padding: 8px 10px; border-radius: 999px; font-size: 0.84rem; font-weight: 600; color: var(--ink-soft); cursor: pointer; font-family: var(--font-ui); }
+.graph-tab.is-active { background: var(--paper); color: var(--ink); box-shadow: 0 0 0 1.5px var(--line) inset; }
+
+.panel-card { background: var(--surface); border: 1.5px solid var(--line); border-radius: var(--radius-m); padding: 16px; margin-bottom: 14px; }
+.panel-card__title { font-size: 0.98rem; font-weight: 700; margin: 0 0 14px; display: flex; align-items: center; gap: 8px; }
+.panel-card__hint { font-size: 0.8rem; color: var(--ink-soft); margin: -8px 0 12px; }
+.icon-inline { width: 17px; height: 17px; color: var(--acc-1); flex-shrink: 0; }
+
+.panel-card__icon-badge {
+  width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center;
+  justify-content: center; flex-shrink: 0;
+}
+.panel-card__icon-badge svg { width: 14px; height: 14px; }
+.panel-card__icon-badge--account { background: #3B82F61a; color: #3B82F6; }
+.panel-card__icon-badge--nightscout { background: #10B9811a; color: #10B981; }
+.panel-card__icon-badge--privacy { background: #8B5CF61a; color: #8B5CF6; }
+
+/* Add/edit food form (used as inline sheet) */
+/* top/height follow the VISIBLE area (see trackVisualViewport in app.js), so with the keyboard up the sheet sits above it
+   instead of underneath. Without that script's variables they fall back to the whole screen, exactly as before. */
+.sheet-backdrop { position: fixed; left: 0; right: 0; top: var(--vv-top, 0px); height: var(--vv-height, 100%); background: rgba(0,0,0,0.4); z-index: 40; display: flex; align-items: flex-end; justify-content: center; }
+.sheet { background: var(--surface); width: 100%; max-width: 480px; border-radius: 20px 20px 0 0; padding: 20px 20px calc(20px + env(safe-area-inset-bottom)); max-height: min(85vh, calc(var(--vv-height, 100vh) - 16px)); overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
+.sheet h2 { font-family: var(--font-display); font-size: 1.15rem; font-weight: 700; margin: 0; }
+.sheet-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; }
+.sheet-close { background: none; border: none; color: var(--ink-soft); cursor: pointer; padding: 4px; }
+.sheet-close svg { width: 20px; height: 20px; display: block; }
+.field-inline-row { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 10px 0; border-bottom: 1px solid var(--line); }
+.field-inline-row:last-of-type { border-bottom: none; }
+.field-inline-row label { font-size: 0.88rem; font-weight: 600; color: var(--ink); flex: 1; }
+.field-inline-row input { width: 116px; flex-shrink: 0; padding: 10px 12px; font-size: 16px; text-align: right; font-variant-numeric: tabular-nums; }
+.sheet textarea {
+  width: 100%; border: 1.5px solid var(--line); border-radius: var(--radius-s); background: var(--surface);
+  padding: 12px 14px; font-size: 16px; color: var(--ink); font-family: var(--font-ui); resize: vertical;
+}
+.sheet textarea:focus { outline: none; border-color: var(--acc-1); }
+.sheet .field-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; min-width: 0; }
+.sheet .field-grid > * { min-width: 0; }
+.sheet .field-grid input, .sheet .field-grid select { width: 100%; box-sizing: border-box; }
+.sheet-actions { display: flex; gap: 10px; margin-top: 6px; }
+/* Inside a SHEET, the Save / Cancel bar is PINNED to the bottom of the visible part of the sheet. These sheets are taller than a
+   phone screen (and the number keypad covers about 40% of it), so with the bar at the end of the content the Save button was
+   off-screen or hidden under the keyboard: you could type a number and have no way to see, let alone press, Save. Its negative
+   margins cancel the sheet's own padding so the bar sits flush with the sheet's edges. (Scoped to .sheet: the same class is also
+   used for the Sign in / Create account buttons inside a Settings card, which must stay where they are.) */
+.sheet .sheet-actions {
+  /* "bottom" is measured from the sheet's INNER edge (inside its padding), so it must be pushed down by the padding for the bar
+     to sit flush with the sheet's real bottom edge; otherwise a strip of scrolled content shows underneath it. */
+  position: sticky; bottom: calc(-20px - env(safe-area-inset-bottom)); z-index: 2;
+  margin: 10px -20px calc(-20px - env(safe-area-inset-bottom));
+  padding: 12px 20px calc(12px + env(safe-area-inset-bottom));
+  background: var(--surface); box-shadow: 0 -1px 0 var(--line);
+}
+.kb-open .sheet .sheet-actions { bottom: -16px; margin-bottom: -16px; padding-bottom: 12px; }    /* the keyboard covers the home-indicator area, so no extra room is needed */
+@media (min-width: 700px) { .sheet .sheet-actions { bottom: -24px; margin: 10px -24px -24px; padding: 12px 24px 14px; } }   /* the centred card on iPad and PC has 24px padding all round */
+.sheet-actions .btn { flex: 1; }
+.sheet-actions .btn--secondary { background: var(--surface); border: 1.5px solid var(--line); color: var(--ink); }
+
+
+/* ================= Passphrase lock screen ================= */
+.lock-screen {
+  position: fixed; inset: 0; z-index: 100; background: var(--paper);
+  display: flex; align-items: center; justify-content: center; padding: 24px;
+}
+.lock-screen__card { max-width: 360px; width: 100%; text-align: center; }
+.lock-screen__icon {
+  width: 56px; height: 56px; border-radius: 50%; background: var(--acc-1); color: #fff;
+  display: flex; align-items: center; justify-content: center; margin: 0 auto 18px;
+}
+.lock-screen__icon svg { width: 26px; height: 26px; }
+.lock-screen__card h1 { font-family: var(--font-display); font-size: 1.3rem; font-weight: 700; margin: 0 0 8px; }
+.lock-screen__card > p { color: var(--ink-soft); font-size: 0.88rem; line-height: 1.5; margin: 0 0 22px; }
+#lock-form input[type="password"] {
+  width: 100%; padding: 13px 14px; font-size: 16px; text-align: center;
+  border: 1.5px solid var(--line); border-radius: var(--radius-s); background: var(--surface);
+  color: var(--ink); margin-bottom: 12px;
+}
+#lock-form input[type="password"]:focus { outline: none; border-color: var(--acc-1); }
+.lock-screen__error { color: var(--brick); font-size: 0.84rem; margin: -4px 0 12px; }
+
+#loading-screen .lock-screen__icon svg { animation: spin 0.9s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ================= Undo toast ================= */
+.undo-toast {
+  position: fixed; left: 50%; transform: translateX(-50%);
+  bottom: calc(76px + env(safe-area-inset-bottom));
+  background: var(--ink); color: #fff; padding: 12px 12px 12px 18px;
+  border-radius: 999px; display: flex; align-items: center; gap: 14px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.25); z-index: 60; max-width: calc(100% - 40px);
+  font-size: 0.88rem; animation: toast-in 0.2s ease;
+}
+html[data-theme="dark"] .undo-toast { background: var(--surface); border: 1px solid var(--line); }
+.undo-toast span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#undo-toast-btn {
+  background: none; border: none; color: var(--acc-3); font-weight: 700; font-size: 0.88rem;
+  cursor: pointer; padding: 6px 10px; flex-shrink: 0; font-family: var(--font-ui);
+}
+@keyframes toast-in { from { opacity: 0; transform: translateX(-50%) translateY(8px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }
+
+
+/* ================= In-app dialogs (replace alert / confirm / prompt) ================= */
+.dialog-backdrop { position: fixed; inset: 0; z-index: 200; background: rgba(0,0,0,0.45); display: flex; align-items: center; justify-content: center; padding: 20px; }
+.dialog { background: var(--surface); color: var(--ink); width: 100%; max-width: 380px; border-radius: 18px; padding: 20px; box-shadow: 0 16px 48px rgba(0,0,0,0.3); }
+.dialog__title { margin: 0 0 8px; font-family: var(--font-display); font-size: 1.1rem; }
+.dialog__message { margin: 0 0 16px; font-size: 0.95rem; line-height: 1.45; white-space: pre-line; color: var(--ink); }
+.dialog__input { width: 100%; padding: 12px 14px; margin-bottom: 16px; border: 1.5px solid var(--line); border-radius: var(--radius-s); background: var(--paper); color: var(--ink); font-size: 16px; font-family: var(--font-ui); }
+.dialog__actions { display: flex; gap: 10px; justify-content: flex-end; }
+.dialog__btn { flex: 1; padding: 12px 14px; border-radius: var(--radius-s); border: 1.5px solid transparent; font: 600 0.95rem var(--font-ui); cursor: pointer; }
+.dialog__btn--primary { background: var(--acc-1); color: #fff; }
+.dialog__btn--danger { background: var(--brick); color: #fff; }
+.dialog__btn--ghost { background: none; border-color: var(--line); color: var(--ink-soft); }

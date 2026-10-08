@@ -1,0 +1,165 @@
+/* History: the meal log, Trends charts, the Glucose tab (daily pattern, time in range), sync badges and basal insulin. */
+
+/* ================= HISTORY ================= */
+.history-group {
+  margin-bottom: 18px; display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 10px; align-items: start;
+}
+.history-group__date { grid-column: 1 / -1; font-size: 0.76rem; font-weight: 700; letter-spacing: 0.05em; color: var(--ink-soft); margin: 0; text-transform: uppercase; }
+.history-entry {
+  background: var(--surface); border: 1.5px solid var(--line); border-left-width: 4px;
+  border-radius: var(--radius-m); padding: 11px 13px; display: flex; gap: 10px; align-items: flex-start;
+  cursor: pointer;
+}
+.history-entry__icon { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: #fff; }
+.history-entry__icon svg { width: 15px; height: 15px; }
+.history-entry__main { flex: 1; min-width: 0; }
+.history-entry__title { font-size: 0.9rem; font-weight: 600; margin: 0; display: flex; gap: 6px; flex-wrap: wrap; align-items: baseline; }
+.history-entry__title .muted { font-weight: 400; color: var(--ink-soft); font-size: 0.8rem; }
+.history-entry__foods { font-size: 0.8rem; color: var(--ink-soft); margin: 3px 0 0; }
+.history-entry__stats { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0; }
+.stat-kcal { font-size: 0.76rem; color: var(--amber); font-weight: 600; }
+.stat-grams { font-size: 0.76rem; color: var(--ink-soft); }
+.gl-indicator--compact { font-size: 0.68rem; padding: 2px 8px; }
+.dose-pill { background: var(--acc-1); color: #fff; font-size: 0.78rem; font-weight: 700; padding: 4px 10px; border-radius: 999px; display: inline-flex; align-items: center; gap: 4px; }
+.dose-pill--warn { background: #FBBF24; color: #7C2D12; }
+.dose-pill svg { width: 11px; height: 11px; }
+.history-entry__detail { margin-top: 9px; padding-top: 9px; border-top: 1px dashed var(--line); font-size: 0.8rem; color: var(--ink-soft); }
+.history-entry__item { display: flex; align-items: baseline; gap: 8px; margin-bottom: 4px; }
+.history-entry__item-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.history-entry__item-qty { color: var(--ink-soft); opacity: 0.75; font-size: 0.76rem; flex-shrink: 0; }
+.history-entry__item-carbs { font-weight: 600; color: var(--green); flex-shrink: 0; min-width: 38px; text-align: right; }
+.history-entry__row-actions { display: flex; gap: 10px; margin-top: 10px; }
+.history-entry__row-actions button { background: none; border: none; color: var(--ink-soft); font-size: 0.82rem; font-weight: 600; cursor: pointer; padding: 0; }
+.history-entry__row-actions button.danger { color: var(--brick); }
+
+
+/* ================= Trends ================= */
+.trend-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 8px; }
+.glucose-stats { grid-template-columns: repeat(2, 1fr); margin-bottom: 14px; }
+
+/* ================= Daily Pattern: band picker + legend ================= */
+.band-preset-row { display: flex; align-items: center; gap: 8px; margin: 8px 0 10px; }
+.band-preset-row__label { font-size: 0.82rem; font-weight: 600; color: var(--ink-soft); }
+.band-preset-row select { width: auto; flex: 1; padding: 7px 10px; font-size: 0.85rem; }
+.glucose-legend { display: flex; flex-wrap: wrap; gap: 10px 14px; margin-top: 10px; }
+.glucose-legend__item { display: inline-flex; align-items: center; gap: 5px; font-size: 0.74rem; color: var(--ink-soft); }
+.glucose-legend__swatch { width: 14px; height: 10px; border-radius: 2px; display: inline-block; flex-shrink: 0; }
+.glucose-legend__swatch--line { background: #2563EB; height: 2.5px; border-radius: 2px; }
+.glucose-legend__swatch--inner { background: #3B82F6; opacity: 0.5; }
+.glucose-legend__swatch--outer { background: #3B82F6; opacity: 0.22; }
+.glucose-legend__swatch--threshold { background: none; border-top: 1.5px dashed #F59E0B; height: 0; }
+
+/* ================= Time in Range bars ================= */
+.tir-bars { display: flex; flex-direction: column; gap: 10px; margin-top: 10px; }
+.tir-row { display: grid; grid-template-columns: 62px 1fr 38px; align-items: center; gap: 8px; }
+.tir-row__range { font-size: 0.74rem; color: var(--ink-soft); text-align: right; white-space: nowrap; }
+.tir-row__track { background: var(--line); border-radius: 999px; height: 16px; overflow: hidden; }
+.tir-row__fill { height: 100%; border-radius: 999px; transition: width 0.2s; }
+.tir-row__pct { font-size: 0.82rem; font-weight: 700; }
+.trend-stat-card {
+  background: var(--surface); border: 1.5px solid var(--line); border-radius: var(--radius-m);
+  padding: 11px 8px; text-align: center;
+}
+.trend-stat-card__value { font-family: var(--font-display); font-size: 1.3rem; font-weight: 700; color: var(--acc-1); line-height: 1.1; white-space: nowrap; }
+.trend-stat-card__unit { font-size: 0.6em; font-weight: 600; margin-left: 1px; }
+.trend-stat-card__label { font-size: 0.7rem; color: var(--ink-soft); margin-top: 4px; }
+.trend-stat-card--warn .trend-stat-card__value { color: #D97706; }
+.trend-caption { font-size: 0.72rem; color: var(--ink-soft); text-align: center; margin: 0 0 14px; }
+.trend-caption--tight { margin: 8px 0 0; }
+
+.trend-readout { font-size: 0.82rem; font-weight: 600; color: var(--ink); margin: 2px 0 8px; min-height: 1.3em; }
+.trend-chart { width: 100%; overflow: visible; -webkit-tap-highlight-color: transparent; }
+.trend-chart__bar { fill: var(--acc-1); transition: opacity 0.15s; }
+.trend-chart__bar--corr { fill: #C0392B; }
+.trend-chart__bar--basal-am { fill: #8DB9DE; }   /* morning dose: light, at the bottom of the stack */
+.trend-chart__bar--basal-pm { fill: #356E9C; }   /* evening dose: dark, on top (same blue as basal rows in History) */
+.trend-chart__bar--empty { fill: var(--line); }
+.trend-chart__bar--today { opacity: 0.6; }
+.trend-chart.has-selection .trend-chart__bar:not(.is-selected) { opacity: 0.3; }
+.trend-chart__bar.is-selected { opacity: 1; }
+.trend-chart__grid { stroke: var(--line); stroke-width: 1; stroke-dasharray: 2 3; }
+.trend-chart__grid.is-base { stroke-dasharray: none; }
+.trend-chart__weekend { fill: var(--ink); opacity: 0.04; }
+.trend-chart__avg { stroke: var(--ink-soft); stroke-width: 1.2; stroke-dasharray: 5 3; }
+.trend-chart__avg-label {
+  font-size: 9px; font-weight: 700; fill: var(--ink); font-family: var(--font-ui); text-anchor: end;
+  paint-order: stroke; stroke: var(--surface); stroke-width: 3px; stroke-linejoin: round;
+}
+.trend-chart__hit { fill: transparent; cursor: pointer; }
+.trend-chart__axis-label { font-size: 9px; fill: var(--ink-soft); font-family: var(--font-ui); }
+.trend-chart__axis-label--dow { font-size: 8px; }
+.trend-chart__axis-label--today { fill: var(--acc-1); font-weight: 700; }
+.trend-legend { display: flex; justify-content: center; gap: 16px; margin-top: 8px; font-size: 0.76rem; color: var(--ink-soft); }
+.trend-legend__dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 5px; }
+
+.meal-break-row { padding: 10px 0; border-bottom: 1px solid var(--line); }
+.meal-break-row:last-child { border-bottom: none; padding-bottom: 2px; }
+.meal-break-row__head { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.meal-break-row__dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+.meal-break-row__name { font-weight: 700; font-size: 0.88rem; color: var(--ink); }
+.meal-break-row__count { font-size: 0.74rem; color: var(--ink-soft); }
+.meal-break-row__vals { margin-left: auto; font-weight: 700; font-size: 0.9rem; color: var(--ink); font-variant-numeric: tabular-nums; }
+.meal-break-row__track { height: 6px; border-radius: 999px; background: var(--paper); overflow: hidden; }
+.meal-break-row__fill { display: block; height: 100%; border-radius: 999px; }
+.meal-break-row__sub { font-size: 0.74rem; color: var(--ink-soft); margin-top: 5px; }
+
+
+/* ================= History search, sync badges ================= */
+.history-search { margin-bottom: 12px; }
+.history-search input {
+  width: 100%; padding: 11px 14px; border: 1.5px solid var(--line); border-radius: var(--radius-s);
+  background: var(--surface); color: var(--ink); font-size: 16px; font-family: var(--font-ui);
+}
+
+/* The Basal button shares the search field's row, so it costs no extra height. */
+.history-search--row { display: flex; gap: 8px; align-items: stretch; }
+.history-search--row input { flex: 1; min-width: 0; width: auto; }
+.basal-add-btn {
+  display: inline-flex; align-items: center; gap: 6px; flex-shrink: 0; padding: 0 14px; white-space: nowrap;
+  border: 1.5px solid var(--line); border-radius: var(--radius-s); background: var(--surface); color: var(--ink);
+  font: 600 0.86rem var(--font-ui); cursor: pointer;
+}
+.basal-add-btn svg { width: 14px; height: 14px; color: var(--acc-1); }
+.basal-add-btn:active { background: var(--paper); }
+
+/* ================= Basal insulin =================
+   #356E9C rather than a lighter blue: white text on it clears the 4.5:1 contrast minimum (about 5.4:1). */
+.history-entry--basal { border-left-color: #356E9C; }
+.dose-pill--basal { background: #356E9C; }
+/* Tighter than the generic sheet, so more of it fits above the keyboard. */
+.basal-sheet .sheet-head { margin-bottom: 12px; }
+.basal-sheet .field { margin-bottom: 12px; }
+.basal-sheet .basal-slots { margin-bottom: 12px; }
+/* Fully styled rather than left to the browser: .btn sets no text colour and .btn--secondary only exists inside the
+   bottom action row, so on iPhone these came out in Safari's own grey with link-blue text, and only the selected
+   one picked up the app colour. */
+.basal-sheet .basal-slots .btn { padding: 12px 10px; background: var(--surface); color: var(--ink); border: 2px solid var(--line); }
+.basal-sheet .basal-slots .btn.is-active { border-color: var(--acc-1); color: var(--acc-1); }
+.basal-dose-row { display: flex; gap: 8px; align-items: stretch; }
+.basal-dose-row .field__row { flex: 1; min-width: 0; justify-content: center; cursor: text; }
+/* The generic input[type="number"] rule is as specific as .field__row input but comes later, so it hands the
+   input its own border and fill again -- a box inside the field's box. Scoped here so no other screen moves. */
+.basal-dose-row .field__row input { flex: 0 0 auto; width: 2ch; min-width: 2ch; padding: 12px 0; text-align: center; border: none; border-radius: 0; background: transparent; }
+.basal-dose-row .field__row span { padding-left: 6px; color: var(--ink-soft); font-size: 0.95rem; }
+.basal-step {
+  width: 48px; flex-shrink: 0; border: 1.5px solid var(--line); border-radius: var(--radius-s);
+  background: var(--surface); color: var(--ink); font: 700 1.3rem var(--font-ui); cursor: pointer;
+}
+.basal-step:active { background: var(--paper); }
+.basal-hint { font-size: 0.8rem; color: var(--ink-soft); margin: 5px 0 0; }
+.basal-error { font-size: 0.84rem; font-weight: 600; color: var(--brick); margin: 6px 0 0; }
+.basal-note { font-size: 0.76rem; color: var(--ink-soft); margin: 0 0 12px; }
+/* With the keyboard up there is little room, so a sheet drops the bottom safe-area padding (it is under the keyboard
+   anyway) and this reminder, which is still there the moment the keyboard goes away. */
+.kb-open .sheet { padding-bottom: 16px; }
+.kb-open .basal-note { display: none; }
+.ns-badge {
+  display: inline-block; margin-left: 6px; padding: 1px 7px; border-radius: 999px; border: 1px solid var(--line);
+  background: none; font: 600 0.66rem var(--font-ui); vertical-align: 1px; cursor: pointer; color: var(--ink-soft);
+}
+.ns-badge--ok { color: #15803D; border-color: #15803D55; }
+.ns-badge--pending { color: #B45309; border-color: #B4530955; }
+.ns-badge--warn { color: #B45309; border-color: #B4530955; }
+.ns-badge--failed { color: #B91C1C; border-color: #B91C1C66; background: #B91C1C12; }

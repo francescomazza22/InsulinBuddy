@@ -14,8 +14,20 @@
 <link rel="icon" type="image/png" sizes="192x192" href="assets/icons/icon-192.png">
 <link rel="apple-touch-icon" sizes="180x180" href="assets/icons/apple-touch-icon.png">
 <link rel="manifest" href="manifest.json">
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<link rel="stylesheet" href="style.css">
+<!-- Pinned to an exact version: an unpinned "@2" could change underneath the app on any day. Deferred so it no longer
+     blocks the first paint; deferred scripts still run in order, before app.js (a module, which is deferred too). -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.1/dist/umd/supabase.js" defer></script>
+<link rel="stylesheet" href="styles/base.css">
+<link rel="stylesheet" href="styles/components.css">
+<link rel="stylesheet" href="styles/calculator.css">
+<link rel="stylesheet" href="styles/library.css">
+<link rel="stylesheet" href="styles/history.css">
+<link rel="stylesheet" href="styles/settings.css">
+<link rel="stylesheet" href="styles/report.css">
+<link rel="stylesheet" href="styles/patterns.css">
+<link rel="stylesheet" href="styles/responsive.css">
+<link rel="stylesheet" href="styles/print.css">
+<link rel="stylesheet" href="styles/utilities.css">
 </head>
 <body>
 
@@ -45,7 +57,7 @@
       </div>
       <h1>Enter your passphrase</h1>
       <p>Your data is encrypted with this passphrase — including anything synced to the cloud, if that's turned on. The passphrase itself never leaves this browser.</p>
-      <button class="btn btn--primary" id="btn-faceid-unlock" type="button" style="margin-bottom:12px;" hidden>Unlock with Face ID / Touch ID</button>
+      <button class="btn btn--primary mb-12" id="btn-faceid-unlock" type="button" hidden>Unlock with Face ID / Touch ID</button>
       <form id="lock-form">
         <input type="password" id="lock-passphrase" placeholder="Passphrase" autocomplete="current-password" autofocus>
         <p class="lock-screen__error" id="lock-error" hidden>That passphrase doesn't match. Try again.</p>
@@ -289,7 +301,7 @@
           </button>
         </div>
         <div id="history-groups"></div>
-        <button class="dashed-btn" id="history-more" type="button" hidden style="margin-top:8px;">Show older meals</button>
+        <button class="dashed-btn mt-8" id="history-more" type="button" hidden>Show older meals</button>
         <div class="empty-state" id="history-nomatch" hidden>
           <p>No meals match that search.</p>
         </div>
@@ -338,23 +350,15 @@
           <button class="segmented__btn" data-range="30" type="button">30 days</button>
           <button class="segmented__btn" data-range="90" type="button">90 days</button>
         </div>
-        <div class="segmented" id="glucose-view-segmented" style="margin-top:8px;">
+        <div class="segmented mt-8" id="glucose-view-segmented">
           <button class="segmented__btn is-active" data-glview="pattern" type="button">Daily Pattern</button>
           <button class="segmented__btn" data-glview="tir" type="button">Time in Range</button>
         </div>
 
         <div id="glucose-tab-content"></div>
-        <button class="dashed-btn" id="btn-generate-report" type="button" style="margin-top:4px;">Generate Report for Doctor</button>
+        <button class="dashed-btn mt-4" id="btn-generate-report" type="button">Generate Report for Doctor</button>
       </div>
     </section>
-
-    <div class="report-overlay" id="report-overlay" hidden>
-      <div class="report-overlay__bar">
-        <button class="dashed-btn" id="btn-report-close" type="button">Close</button>
-        <button class="btn btn--primary" id="btn-report-print" type="button">Print / Save as PDF</button>
-      </div>
-      <div class="report-overlay__content" id="report-content"></div>
-    </div>
 
     <!-- ======================= SETTINGS ======================= -->
     <section class="view" id="view-settings" data-view hidden>
@@ -442,7 +446,7 @@
           <p class="panel-card__hint">Powers the "Active Insulin &amp; Carbs" panel on the Calculator only — these numbers never change your suggested dose.</p>
 
           <label class="block-label">Insulin type</label>
-          <div class="insulin-preset-grid" id="insulin-preset-buttons" style="margin-bottom:16px;">
+          <div class="insulin-preset-grid mb-16" id="insulin-preset-buttons">
             <button class="insulin-preset-btn" data-preset="rapid" type="button">NovoRapid / Humalog</button>
             <button class="insulin-preset-btn" data-preset="fiasp" type="button">Fiasp / Lyumjev</button>
             <button class="insulin-preset-btn insulin-preset-btn--wide" data-preset="custom" type="button">Custom</button>
@@ -457,9 +461,9 @@
             <div class="field__row"><input type="number" id="insulin-dia-input" min="180" max="600" step="5" inputmode="numeric"><span class="field__unit">min</span></div>
           </div>
 
-          <div style="border-top:1px solid var(--line); margin:16px 0 14px;"></div>
+          <div class="divider mt-16"></div>
           <label class="block-label">Carb absorption time by GI</label>
-          <p class="panel-card__hint" style="margin-top:2px;">Matches the same High / Medium / Low bands used by the compound GI shown on meals elsewhere in the app.</p>
+          <p class="panel-card__hint mt-2">Matches the same High / Medium / Low bands used by the compound GI shown on meals elsewhere in the app.</p>
           <div class="field">
             <label for="carb-abs-high">High GI <span class="field__optional">(&ge;70)</span></label>
             <div class="field__row"><input type="number" id="carb-abs-high" min="30" max="360" step="5" inputmode="numeric"><span class="field__unit">min</span></div>
@@ -486,16 +490,16 @@
               <span class="switch__track"></span>
             </label>
           </div>
-          <p class="panel-card__hint" style="margin-top:6px;">Unlike the settings above, this one changes your suggested dose: when on, a correction is reduced by your current Active Insulin (IOB) — your meal dose is never affected. Off by default.</p>
+          <p class="panel-card__hint mt-6">Unlike the settings above, this one changes your suggested dose: when on, a correction is reduced by your current Active Insulin (IOB) — your meal dose is never affected. Off by default.</p>
         </div>
       </div>
 
       <!-- Data -->
       <div class="settings-panel" id="panel-data" hidden>
         <div class="panel-card">
-          <div style="display:flex; align-items:center; justify-content:space-between;">
+          <div class="card-head-row">
             <h2 class="panel-card__title">System Status</h2>
-            <button class="dashed-btn" id="btn-status-refresh" type="button" style="width:auto; padding:6px 12px;">Refresh</button>
+            <button class="dashed-btn dashed-btn--compact" id="btn-status-refresh" type="button">Refresh</button>
           </div>
           <div id="status-panel-list"></div>
         </div>
@@ -526,13 +530,13 @@
               <span class="switch__track"></span>
             </label>
           </div>
-          <div id="ns-status" class="panel-card__hint" style="margin-top:8px;"></div>
-          <div style="display:flex; gap:8px; margin-top:10px;">
-            <button class="dashed-btn" id="btn-ns-test" type="button" style="flex:1;">Test Connection</button>
-            <button class="dashed-btn" id="btn-ns-refresh" type="button" style="flex:1;">Refresh</button>
+          <div id="ns-status" class="panel-card__hint mt-8"></div>
+          <div class="btn-row">
+            <button class="dashed-btn" id="btn-ns-test" type="button">Test Connection</button>
+            <button class="dashed-btn" id="btn-ns-refresh" type="button">Refresh</button>
           </div>
-          <button class="dashed-btn" id="btn-ns-backfill" type="button" style="margin-top:8px;" hidden>Import history from Nightscout</button>
-          <p class="panel-card__hint" id="ns-backfill-status" style="margin-top:6px;" hidden></p>
+          <button class="dashed-btn mt-8" id="btn-ns-backfill" type="button" hidden>Import history from Nightscout</button>
+          <p class="panel-card__hint mt-6" id="ns-backfill-status" hidden></p>
         </div>
 
         <div class="panel-card">
@@ -591,9 +595,9 @@
         <div class="panel-card" id="card-diagnostics">
           <h2 class="panel-card__title">Diagnostics</h2>
           <p class="panel-card__hint" id="diag-summary"></p>
-          <div style="display:flex; gap:8px; margin-top:10px;">
-            <button class="dashed-btn" id="btn-diag-copy" type="button" style="flex:1;">Copy report</button>
-            <button class="dashed-btn" id="btn-diag-clear" type="button" style="flex:1;">Clear log</button>
+          <div class="btn-row">
+            <button class="dashed-btn" id="btn-diag-copy" type="button">Copy report</button>
+            <button class="dashed-btn" id="btn-diag-clear" type="button">Clear log</button>
           </div>
         </div>
       </div>
@@ -609,10 +613,10 @@
         <div class="panel-card">
           <h2 class="panel-card__title">Background</h2>
           <p class="panel-card__hint">Pick a background color, independent of your theme above.</p>
-          <p class="panel-card__hint" id="bg-dark-mode-note" style="color:var(--amber);" hidden>Applies in light mode only — dark mode keeps its own dark background so text stays readable.</p>
+          <p class="panel-card__hint hint--warn" id="bg-dark-mode-note" hidden>Applies in light mode only — dark mode keeps its own dark background so text stays readable.</p>
           <div class="bg-swatch-grid" id="bg-swatch-grid"></div>
-          <button class="dashed-btn" id="btn-bg-reset" type="button" hidden style="margin-top:10px;">Reset to theme default</button>
-          <p class="panel-card__hint" style="margin-top:18px;">Pattern</p>
+          <button class="dashed-btn mt-10" id="btn-bg-reset" type="button" hidden>Reset to theme default</button>
+          <p class="panel-card__hint mt-18">Pattern</p>
           <div class="pattern-grid" id="bg-pattern-grid"></div>
           <div class="segmented" id="bg-pattern-size" role="group" aria-label="Pattern size" hidden>
             <button class="segmented__btn" data-size="small" type="button">Small</button>
@@ -630,8 +634,8 @@
               <span class="switch__track"></span>
             </label>
           </div>
-          <p class="panel-card__hint" style="margin:6px 0 0;">Automatically follow your device's light/dark setting.</p>
-          <div style="border-top:1px solid var(--line); margin:14px 0;"></div>
+          <p class="panel-card__hint hint-below">Automatically follow your device's light/dark setting.</p>
+          <div class="divider"></div>
           <div class="toggle-row">
             <span><svg viewBox="0 0 24 24" fill="none" class="icon-inline"><circle cx="12" cy="12" r="4.5" stroke="currentColor" stroke-width="1.6"/><path d="M12 2.5v2M12 19.5v2M4 12H2M22 12h-2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M18.4 5.6L17 7M7 17l-1.4 1.4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg> Dark Mode</span>
             <label class="switch">
@@ -639,7 +643,7 @@
               <span class="switch__track"></span>
             </label>
           </div>
-          <div style="border-top:1px solid var(--line); margin:14px 0;"></div>
+          <div class="divider"></div>
           <div class="toggle-row">
             <span><svg viewBox="0 0 24 24" fill="none" class="icon-inline"><path d="M12 8v4l3 3M21 12a9 9 0 11-9-9" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg> Show "Recently Logged" row</span>
             <label class="switch">
@@ -647,7 +651,7 @@
               <span class="switch__track"></span>
             </label>
           </div>
-          <p class="panel-card__hint" style="margin:6px 0 0;">A quick-access row above food search for re-adding your last few meals with one tap.</p>
+          <p class="panel-card__hint hint-below">A quick-access row above food search for re-adding your last few meals with one tap.</p>
         </div>
 
         <div class="panel-card" id="privacy-panel-card">
@@ -665,7 +669,7 @@
         <button class="version-card" id="btn-open-changelog" type="button">
           <div class="version-card__row">
             <span>App Version</span>
-            <span class="version-card__badge" id="version-badge-text">v2.0.0 <svg viewBox="0 0 24 24" fill="none" width="14" height="14"><path d="M9 6l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+            <span class="version-card__badge" id="version-badge-text">v2.11.0 <svg viewBox="0 0 24 24" fill="none" width="14" height="14"><path d="M9 6l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
           </div>
           <p id="version-summary-text">Cloud sync, glycemic index tracking, and stronger data-loss protection since the original rebuild. Tap to see what's changed.</p>
         </button>

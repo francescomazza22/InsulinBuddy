@@ -1,0 +1,25 @@
+/* The optional background patterns (Settings > General > Background). */
+
+/* DOODLE-PATTERN: food and insulin doodles. The two tiles (assets/patterns/pattern-doodles-light.svg and -dark.svg, built
+   by tools/make-doodles.mjs from tools/doodles.svg) are only downloaded when this pattern is chosen. */
+:root { --doodles: url("../assets/patterns/pattern-doodles-light.svg"); }
+:root[data-theme="dark"] { --doodles: url("../assets/patterns/pattern-doodles-dark.svg"); }
+/* The tile is a vector, so it stays sharp at any resolution. Its size is chosen in Settings (Small is the default) and
+   grows only gently with the screen, so the pattern reads as a fine texture on a phone, an iPad and a desktop alike
+   instead of ballooning into big sparse stickers on a large screen. */
+html { --doodle-tile: clamp(150px, calc(130px + 4vw), 200px); }
+html[data-bg-pattern-size="medium"] { --doodle-tile: clamp(220px, calc(190px + 8vw), 300px); }
+html[data-bg-pattern-size="large"] { --doodle-tile: clamp(320px, calc(260px + 14vw), 520px); }
+html[data-bg-pattern="doodles"] body { background-image: var(--doodles); background-size: var(--doodle-tile); background-repeat: repeat; }
+.pattern-card__preview--doodles { background-image: var(--doodles); background-size: var(--doodle-tile); }
+
+/* ABSTRACT-PATTERN: the artwork-based alternative. The two files (pattern-abstract-light.svg and -dark.svg, built by
+   tools/make-abstract.mjs) are only downloaded when this pattern is chosen. Its shapes are bigger than the doodles, so its
+   three sizes are too, but they follow the same rule: grow only gently with the screen so it never balloons on a big one. */
+html { --abstract-tile: clamp(180px, calc(160px + 4vw), 240px); }
+html[data-bg-pattern-size="medium"] { --abstract-tile: clamp(250px, calc(220px + 8vw), 350px); }
+html[data-bg-pattern-size="large"] { --abstract-tile: clamp(350px, calc(290px + 14vw), 560px); }
+html[data-bg-pattern="abstract"] body { background-image: url("../assets/patterns/pattern-abstract-light.svg"); background-size: var(--abstract-tile); background-repeat: repeat; }
+html[data-bg-pattern="abstract"][data-theme="dark"] body { background-image: url("../assets/patterns/pattern-abstract-dark.svg"); }
+.pattern-card__preview--abstract { background-image: url("../assets/patterns/pattern-abstract-light.svg"); background-size: 130px; }
+html[data-theme="dark"] .pattern-card__preview--abstract { background-image: url("../assets/patterns/pattern-abstract-dark.svg"); }

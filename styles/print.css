@@ -1,0 +1,27 @@
+/* Printing: only the open report prints, always dark-on-white, never the background pattern. */
+
+@media print {
+  /* never print the decorative background */
+  html[data-bg-pattern] body { background-image: none !important; }
+  .no-print { display: none !important; }
+
+  /* Hide each sibling along the path to the open report (it sits directly inside .app), which leaves that path
+     intact and takes the hidden app out of the page flow, so there are no stray blank pages. Scoped with :has() to
+     the report actually being open; where :has() isn't supported this is ignored and the page prints normally. */
+  body:has(#clinic-report-overlay:not([hidden])) > :not(.app),
+  body:has(#clinic-report-overlay:not([hidden])) .app > :not(#clinic-report-overlay) { display: none !important; }
+
+  /* The app shell is sized for a phone screen; let the printed page set the width instead. */
+  body:has(.clinic-report-overlay:not([hidden])) { background: #fff; min-height: 0; }
+  body:has(.clinic-report-overlay:not([hidden])) .app { display: block; max-width: none; min-height: 0; margin: 0; padding: 0; border: 0; box-shadow: none; }
+
+  /* The open report itself: normal flow, so it paginates (a fixed overlay would clip and repeat),
+     and always dark-on-light, because paper is white whatever theme the app is using. */
+  .clinic-report-overlay:not([hidden]) {
+    position: static; overflow: visible; padding: 0;
+    --ink: #1B2A3A; --ink-soft: #55616D; --line: #CFCFCF; --surface: #FFFFFF; --paper: #FFFFFF;
+    background: #fff; color: var(--ink);
+  }
+  .clinic-report-content { padding: 0; max-width: none; }
+  .clinic-report__table td, .clinic-report__table th { border-color: #999 !important; }
+}

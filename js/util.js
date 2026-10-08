@@ -29,6 +29,13 @@ export function dayKeyFromTs(ts) {
   return d.getTime();
 }
 
+/** The value a <input type="datetime-local"> wants for `ts`, in local time: "2026-10-08T13:05". */
+export function toDatetimeLocalValue(ts) {
+  const d = new Date(ts);
+  const pad = n => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
 // "1h40", "35m", "6h"
 export function formatDuration(ms) {
   const totalMin = Math.max(0, Math.round(ms / 60000));
