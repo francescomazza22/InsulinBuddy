@@ -109,9 +109,10 @@
         <div id="cc-eating-out-row" hidden>
           <label for="cc-eating-out-dose">Meal insulin dose</label>
           <div class="correction-row__input">
-            <input type="number" id="cc-eating-out-dose" inputmode="decimal" min="0" step="0.1" placeholder="0">
+            <input type="text" id="cc-eating-out-dose" inputmode="decimal" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="0">
             <span class="correction-row__unit-label">units</span>
           </div>
+          <p class="correction-row__manual-error" id="cc-eating-out-error" role="alert" hidden>That isn't a number I can read. Try something like 1.5 or 1,5</p>
         </div>
 
         <div class="correction-row" id="cc-correction-row" hidden>
@@ -135,9 +136,10 @@
           <div id="cc-correction-manual-wrap" hidden>
             <label for="cc-correction-manual-input">Correction dose</label>
             <div class="correction-row__input">
-              <input type="number" id="cc-correction-manual-input" inputmode="decimal" min="0" step="0.1" placeholder="0">
+              <input type="text" id="cc-correction-manual-input" inputmode="decimal" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="0">
               <span class="correction-row__unit-label">units</span>
             </div>
+            <p class="correction-row__manual-error" id="cc-correction-manual-error" role="alert" hidden>That isn't a number I can read. Try something like 1.5 or 1,5</p>
             <p class="correction-row__manual-note">Entered directly — this skips the glucose/ISF calculation for this dose.</p>
             <button type="button" id="cc-correction-auto-link" class="correction-mode-link">Use glucose reading instead</button>
           </div>
