@@ -1,4 +1,4 @@
-import { escapeHtml, escapeAttr, round1, formatQty, dayKeyFromTs, timeAgo, makeId, redact } from "./js/util.js";
+import { escapeHtml, escapeAttr, round1, formatQty, dayKeyFromTs, timeAgo, makeId, redact, parseDecimalInput } from "./js/util.js";
 import { convertGlucose, roundDose as roundDoseWith, activeAt, compoundGiInfo, computeDose, capDoseParts, giBand, niceScale, buildTrendBuckets, summarizeTrends, mealTypeBreakdown, absorptionMinutesForEntry as absorptionForEntry, iobFraction, cobGrams, glucoseTrendArrow, glucoseRangeClass, glucoseRangeLabel, basalByDay, summarizeBasal } from "./js/calc.js";
 import { SCHEMA_VERSION, normalizeState as normalizeStateWith, makeFingerprint, stampChanges, mergeStates, statesEquivalent, prepareRestoredState, unexplainedEmptying } from "./js/state.js";
 import { NightscoutClient, NsOutbox, nsToken, nsBaseUrl, nsConfigured, treatmentsForEntry, entriesToGlucoseRows } from "./js/nightscout.js";
@@ -1814,6 +1814,15 @@ import { createDialogs } from "./js/dialogs.js";
     el("active-clear-text").textContent = clearParts.join(" · ");
   }
 
+  // A typed dose that can't be read as a number (letters, "1.2.3") is never half-understood, and must never leave the Log button
+  // greyed out for no visible reason: say so. (A lone "." or "," is just someone part-way through typing, so it isn't flagged.)
+  function showDoseEntryProblem(inputId, messageId, active) {
+    const text = el(inputId).value.trim();
+    const unreadable = active && text !== "" && isNaN(parseDecimalInput(text)) && !/^[.,]$/.test(text);
+    el(messageId).hidden = !unreadable;
+    el(inputId).setAttribute("aria-invalid", unreadable ? "true" : "false");
+  }
+
   function recompute() {
     // Eating Out: carbs aren't being tracked for this entry at all, so the carbs pill and the
     // ratio-based formula are both bypassed in favor of the insulin dose entered directly.
@@ -1828,7 +1837,7 @@ import { createDialogs } from "./js/dialogs.js";
     let mealPart = ratioEntry && ratioEntry.ratio > 0 ? carbs / ratioEntry.ratio : 0;
     let mealPartIsManual = false;
     if (draft.eatingOutOn) {
-      const manualMeal = parseFloat(el("cc-eating-out-dose").value);
+      const manualMeal = parseDecimalInput(el("cc-eating-out-dose").value);
       mealPart = !isNaN(manualMeal) && manualMeal > 0 ? manualMeal : 0;
       mealPartIsManual = true;
     }
@@ -1837,8 +1846,10 @@ import { createDialogs } from "./js/dialogs.js";
     let iobSubtracted = 0;
     let rawCorrectionPart = 0;
     let correctionIsManual = false;
+    showDoseEntryProblem("cc-eating-out-dose", "cc-eating-out-error", draft.eatingOutOn);
+    showDoseEntryProblem("cc-correction-manual-input", "cc-correction-manual-error", draft.correctionOn && draft.correctionManual);
     if (draft.correctionOn && draft.correctionManual) {
-      const manual = parseFloat(el("cc-correction-manual-input").value);
+      const manual = parseDecimalInput(el("cc-correction-manual-input").value);
       if (!isNaN(manual) && manual > 0) { correctionPart = manual; correctionIsManual = true; }
     } else if (draft.correctionOn) {
       const bg = parseFloat(glucoseInput.value);
@@ -2074,7 +2085,10 @@ import { createDialogs } from "./js/dialogs.js";
     // Eating Out drafts have no items at all (that's the point), so they'd never pass an
     // items-only guard here -- the eatingOutOn flag is itself evidence of a real in-progress
     // entry worth restoring (a typed insulin dose), same as a non-empty item list is otherwise.
-    if (!saved || (!Array.isArray(saved.items) || saved.items.length === 0) && !saved.eatingOutOn) return;
+    // A correction typed with no foods at all (a manual dose, or a glucose reading) is just as real an in-progress entry as an
+    // Eating Out dose, and was being thrown away on reload because it has no items.
+    const hasTypedCorrection = !!saved && !!saved.correctionOn && !!(saved.correctionManualValue || saved.glucose);
+    if (!saved || (!Array.isArray(saved.items) || saved.items.length === 0) && !saved.eatingOutOn && !hasTypedCorrection) return;
     draft.items = saved.items || [];
     draft.manualRatioId = saved.manualRatioId || null;
     draft.glucoseUnit = saved.glucoseUnit || state.settings.units;
@@ -2797,6 +2811,15 @@ import { createDialogs } from "./js/dialogs.js";
   // Newest first. version-badge-text/version-summary-text in the Settings
   // card are always drawn from CHANGELOG[0], so the two can never drift.
   const CHANGELOG = [
+    {
+      version: "2.10.3",
+      summary: "Fixed: typing a manual correction or Eating Out dose, especially with a decimal comma.",
+      changes: [
+        "Fixed: a manual correction (or an Eating Out dose) typed with a decimal comma, like 1,5, could be misread as 15 or rejected, which left the Log button greyed out. Both a decimal point and a decimal comma now work",
+        "If what you type can't be read as a number, a short message now says so, instead of the Log button silently staying off",
+        "Fixed: a correction typed on its own (no foods in the meal) was thrown away if the app reloaded in the background, for example after switching to another app. It is now kept, along with a glucose reading typed for an automatic correction"
+      ]
+    },
     {
       version: "2.10.2",
       summary: "Fixed: Save could be out of reach in edit sheets, especially with the keyboard up.",
