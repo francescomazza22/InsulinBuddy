@@ -1863,6 +1863,19 @@ import { createDialogs } from "./js/dialogs.js";
         correctionPart = rawCorrectionPart - iobSubtracted;
       }
     }
+    // Show the working, so a correction can be checked at a glance against the Settings it came from.
+    const workingEl = el("cc-correction-working");
+    if (workingEl) {
+      const bgNow = parseFloat(glucoseInput.value);
+      if (draft.correctionOn && !draft.correctionManual && !isNaN(bgNow) && bgNow > 0 && state.settings.isf > 0) {
+        const inUnit = convertGlucose(bgNow, draft.glucoseUnit, state.settings.units);
+        const uLabel = unitLabel(state.settings.units);
+        workingEl.textContent = rawCorrectionPart > 0
+          ? `(${round1(inUnit)} \u2212 ${state.settings.target} target) \u00f7 ${state.settings.isf} ${uLabel} per unit = ${round1(rawCorrectionPart)}u, rounded to ${roundDose(correctionPart)}u`
+          : `${round1(inUnit)} is at or below your ${state.settings.target} ${uLabel} target, so no correction`;
+        workingEl.hidden = false;
+      } else workingEl.hidden = true;
+    }
     const iobNote = el("cc-iob-adjust-note");
     if (iobSubtracted > 0.05) {
       iobNote.textContent = `Correction: ${round1(rawCorrectionPart)}u − ${round1(iobSubtracted)}u IOB = ${round1(correctionPart)}u`;
@@ -2831,6 +2844,13 @@ import { createDialogs } from "./js/dialogs.js";
   // Newest first. version-badge-text/version-summary-text in the Settings
   // card are always drawn from CHANGELOG[0], so the two can never drift.
   const CHANGELOG = [
+    {
+      version: "2.12.1",
+      summary: "The correction now shows its working.",
+      changes: [
+        "Under the glucose box the correction card now shows the sum it used, for example \"(217 \u2212 100 target) \u00f7 50 mg/dL per unit = 2.3u, rounded to 2.5u\", so you can see which Settings numbers produced the dose"
+      ]
+    },
     {
       version: "2.12.0",
       summary: "Trends: ideal ratio by time of day, counting carbs eaten to treat lows after an injection.",
