@@ -2482,15 +2482,21 @@ import { createDialogs } from "./js/dialogs.js";
       // can mean dozens of pages -- fetch them all CONCURRENTLY (we know the page boundaries
       // upfront from the count) rather than one at a time, which is the main thing that made
       // opening a 30/90-day view feel slow.
-      const PAGE = 1000, HARD_CAP = 30000;
+      // The cap is only a runaway guard. It used to be 30,000, which silently cut a 90-day window short for anyone whose
+      // sensor/app records a reading every 2-3 minutes (about 50,000 readings in 90 days): the oldest 30,000 were kept
+      // and the newest ones dropped, so "90 days" showed roughly 51.
+      const PAGE = 1000, HARD_CAP = 400000, PARALLEL = 8;
       const { count, error: countErr } = await supabaseClient.from("glucose_readings").select("at", { count: "exact", head: true }).eq("user_id", currentUser.id).gte("at", sinceISO);
       if (countErr) throw countErr;
       const total = Math.min(count || 0, HARD_CAP);
       const pageCount = Math.max(1, Math.ceil(total / PAGE)) || 1;
-      const pages = await Promise.all(Array.from({ length: total === 0 ? 0 : pageCount }, (_, i) => {
-        const offset = i * PAGE;
-        return supabaseClient.from("glucose_readings").select("at, mgdl").eq("user_id", currentUser.id).gte("at", sinceISO).order("at").range(offset, offset + PAGE - 1);
-      }));
+      // Pages are fetched a few at a time (all at once is dozens of simultaneous requests for a long window).
+      const fetchPage = i => supabaseClient.from("glucose_readings").select("at, mgdl").eq("user_id", currentUser.id).gte("at", sinceISO).order("at").range(i * PAGE, i * PAGE + PAGE - 1);
+      const pages = [];
+      const pageTotal = total === 0 ? 0 : pageCount;
+      for (let start = 0; start < pageTotal; start += PARALLEL) {
+        pages.push(...await Promise.all(Array.from({ length: Math.min(PARALLEL, pageTotal - start) }, (_, k) => fetchPage(start + k))));
+      }
       const firstError = pages.find(p => p.error);
       if (firstError) throw firstError.error;
       const readings = pages.flatMap(p => p.data || []).map(row => ({ at: new Date(row.at).getTime(), mgdl: row.mgdl }));
@@ -2825,6 +2831,14 @@ import { createDialogs } from "./js/dialogs.js";
   // Newest first. version-badge-text/version-summary-text in the Settings
   // card are always drawn from CHANGELOG[0], so the two can never drift.
   const CHANGELOG = [
+    {
+      version: "2.10.7",
+      summary: "Fixed: the 90-day glucose view only showed about 51 days.",
+      changes: [
+        "Fixed: History > Glucose could silently stop at 30,000 readings. If your sensor or app records a reading every 2-3 minutes, that is only about 51 days, so the 30 and 90 day views were missing data. The limit is now far higher",
+        "Long windows are now loaded a few pages at a time instead of all at once"
+      ]
+    },
     {
       version: "2.10.6",
       summary: "No more empty-looking app for a split second when opening online.",
