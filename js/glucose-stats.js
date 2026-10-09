@@ -1,5 +1,4 @@
 import { MGDL_PER_MMOL } from "./calc.js";
-import { dayKeyFromTs } from "./util.js";
 
 // Pure glucose statistics for the History > Glucose tab. Takes plain readings
 // ({ at: epoch-ms, mgdl }) so it's fully testable without any DOM, network, or Date-object
@@ -51,7 +50,8 @@ export function daysSpanned(readings) {
   const days = new Set();
   for (const r of readings || []) {
     if (!r || typeof r.at !== "number") continue;
-    days.add(dayKeyFromTs(r.at));
+    const d = new Date(r.at);
+    days.add(`${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`);
   }
   return days.size;
 }

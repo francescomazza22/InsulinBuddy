@@ -10,14 +10,6 @@ export function convertGlucose(value, fromUnit, toUnit) {
   return fromUnit === "mmol" ? value * MGDL_PER_MMOL : value / MGDL_PER_MMOL;
 }
 
-/** "mmol/L" or "mg/dL". */
-export function glucoseUnitLabel(unit) { return unit === "mmol" ? "mmol/L" : "mg/dL"; }
-
-/** A mg/dL value as it should be SHOWN in `unit`: one decimal in mmol/L, a whole number in mg/dL. */
-export function formatGlucose(mgdl, unit) {
-  return unit === "mmol" ? round1(convertGlucose(mgdl, "mgdl", "mmol")) : Math.round(mgdl);
-}
-
 // Round a dose to the user's step (0.1 / 0.5 / 1 unit).
 export function roundDose(value, rounding) {
   const step = parseFloat(rounding) || 0.5;
@@ -39,11 +31,8 @@ export function compoundGiInfo(items) {
 }
 
 // ------------------------------------------------- insulin / carbs on board
-// IOB: the "scalable exponential" insulin activity model used by Loop, AndroidAPS and OpenAPS (originally by
-// Dragan Maksimovic, refined by Pete Schwamb), not a bespoke curve. Given a dose's peak activity time and its
-// duration of insulin action (DIA), it returns the fraction of the dose still active `minutesAgo` minutes later.
-// tau / a / S are derived, not tuned by hand, so the curve is exactly 1 at t=0 and exactly 0 at t=DIA with a
-// single smooth peak in between.
+// "Scalable exponential" insulin activity model used by Loop / AndroidAPS /
+// OpenAPS (Maksimovic, refined by Schwamb). Exactly 1 at t=0, exactly 0 at DIA.
 export function iobFraction(minutesAgo, peakMinutes, diaMinutes) {
   if (minutesAgo <= 0) return 1;
   if (minutesAgo >= diaMinutes) return 0;
@@ -54,17 +43,13 @@ export function iobFraction(minutesAgo, peakMinutes, diaMinutes) {
   return 1 - S * (1 - a) * ((t * t / (tau * td * (1 - a)) - t / tau - 1) * Math.exp(-t / tau) + 1);
 }
 
-// COB: deliberately simple linear absorption, from 100% of the meal's carbs at t=0 to 0% at the meal's own
-// absorption time. Real absorption is closer to a bell curve; this trades that precision for a curve anyone can
-// check by hand.
+// Deliberately simple linear absorption.
 export function cobGrams(minutesAgo, carbs, absorptionMinutes) {
   if (minutesAgo <= 0) return carbs;
   if (minutesAgo >= absorptionMinutes) return 0;
   return carbs * (1 - minutesAgo / absorptionMinutes);
 }
 
-// Which absorption time applies to a logged meal, from its snapshotted compound GI, using the same high / medium /
-// low bands (>=70 / 56-69 / <=55) as the GI indicator shown elsewhere. Meals with no GI use the "unknown" default.
 export function absorptionMinutesForEntry(entry, carbAbsorptionMinutes) {
   const m = carbAbsorptionMinutes;
   if (!entry.glycemicLoad) return m.unknown;
@@ -72,9 +57,7 @@ export function absorptionMinutesForEntry(entry, carbAbsorptionMinutes) {
   return m[band];
 }
 
-// Stacked IOB/COB at a point in time (`atTime`, ms) across the whole history: overlapping doses and meals simply
-// add. Also reports when each reaches zero, which is exact rather than searched for, because every curve hits
-// zero at its own cutoff, so the total clears when the last contributing dose or meal does.
+// Stacked IOB/COB at a point in time (`atTime`, ms) across the whole history.
 export function activeAt(history, settings, atTime) {
   const now = atTime != null ? atTime : Date.now();
   const dia = settings.insulinModel.diaMinutes;
@@ -109,6 +92,14 @@ export function activeAt(history, settings, atTime) {
 
 // ------------------------------------------------------------------- dose
 const fmtU = u => String(Math.round(u * 100) / 100);
+
+/**
+ * The dose suggestion, as a pure function.
+ *   meal       = carbs / ratio
+ *   correction = max(0, (glucose - target) / ISF)      [optionally minus IOB]
+ *   total      = meal + correction, capped at maxDose, rounded to the user's step
+ * Returns the numbers plus human-readable `lines` explaining each step.
+ */
 const round2 = x => Math.round(x * 100) / 100;
 
 /**
@@ -137,51 +128,16 @@ export function capDoseParts({ meal = 0, correction = 0, maxDose = 0, typed = fa
   return { meal: keptMeal, correction: keptCorrection, total: round2(keptMeal + keptCorrection), requested, capped: true, overMax: false };
 }
 
-/**
- * THE dose calculation. The Calculator and the Edit Meal sheet both call this, so a dose can only ever be worked
- * out one way (the 2.6.1 cap bug came from three copies of this maths disagreeing).
- *
- *   meal       = carbs / ratio                              or a dose the person typed (Eating Out)
- *   correction = max(0, (glucose - target) / ISF) [- IOB]   or a dose the person typed (manual correction)
- *   each part is rounded to the dose step (typed parts are kept exactly, to 0.01u), then the two are capped
- *   together by capDoseParts. A typed part is never changed: over the cap it reports `overMax` instead.
- *
- * typedMeal:       null/undefined = calculate from carbs. A number (NaN allowed, meaning "nothing readable yet")
- *                  = the meal dose was typed; anything not above 0 counts as 0u.
- * typedCorrection: null/undefined = calculate from `glucose`. A number = the correction was typed; only a value
- *                  above 0 counts (and only then marks the dose as typed), as in the Calculator's manual mode.
- * iob:             subtracted from a calculated correction when settings.iobAwareCorrection is on. Pass 0 to
- *                  re-calculate a past meal (its active insulin then is not today's).
- *
- * Returns the parts before rounding (mealPart, correctionPart, rawCorrection, iobSubtracted), the parts to log
- * (loggedMeal, loggedCorrection), finalDose, the cap outcome (capped, overMax, requestedDose), which parts were
- * typed, and human-readable `lines` explaining each step. With noInsulin every insulin figure is 0 and nothing
- * is reported as capped.
- */
-export function computeDose({ carbs, ratio, correctionOn, glucose, glucoseUnit, settings, iob = 0, noInsulin = false, typedMeal = null, typedCorrection = null }) {
+export function computeDose({ carbs, ratio, correctionOn, glucose, glucoseUnit, settings, iob = 0, noInsulin = false }) {
   const unitLbl = settings.units === "mmol" ? "mmol/L" : "mg/dL";
   const lines = [];
 
-  const mealTyped = typedMeal != null;
-  let mealPart;
-  if (mealTyped) {
-    mealPart = Number.isFinite(typedMeal) && typedMeal > 0 ? typedMeal : 0;
-    lines.push(`Meal: ${fmtU(mealPart)} u, as typed`);
-  } else {
-    mealPart = ratio && ratio > 0 ? carbs / ratio : 0;
-    if (ratio && ratio > 0) lines.push(`Meal: ${round1(carbs)} g ÷ ${ratio} g per unit = ${fmtU(mealPart)} u`);
-    else lines.push("Meal: no ratio set, so no meal insulin");
-  }
+  const mealPart = ratio && ratio > 0 ? carbs / ratio : 0;
+  if (ratio && ratio > 0) lines.push(`Meal: ${round1(carbs)} g ÷ ${ratio} g per unit = ${fmtU(mealPart)} u`);
+  else lines.push("Meal: no ratio set, so no meal insulin");
 
-  let rawCorrection = 0, iobSubtracted = 0, correctionPart = 0, correctionApplied = false, correctionTyped = false;
-  if (correctionOn && typedCorrection != null) {
-    if (Number.isFinite(typedCorrection) && typedCorrection > 0) {
-      correctionPart = typedCorrection; correctionTyped = true; correctionApplied = true;
-      lines.push(`Correction: ${fmtU(correctionPart)} u, as typed`);
-    } else {
-      lines.push("Correction is on, but no correction dose has been typed yet");
-    }
-  } else if (correctionOn) {
+  let rawCorrection = 0, iobSubtracted = 0, correctionPart = 0, correctionApplied = false;
+  if (correctionOn) {
     const bg = parseFloat(glucose);
     if (!isNaN(bg) && bg > 0 && settings.isf > 0) {
       correctionApplied = true;
@@ -205,68 +161,26 @@ export function computeDose({ carbs, ratio, correctionOn, glucose, glucoseUnit, 
   // (unrounded) sum instead can disagree with what the meal and correction lines actually show --
   // e.g. a 3.15u meal (shown as "3u") plus a 0.7u correction (shown as "0.5u") sum to 3.5u, but
   // rounding 3.85 on its own lands on 4u. The displayed breakdown must always add up to the total.
-  // A typed part is a precise record of a decision, so it is kept as typed rather than rounded to the step.
-  let loggedMeal = mealTyped ? round2(mealPart) : roundDose(mealPart, settings.rounding);
-  let loggedCorrection = correctionTyped ? round2(correctionPart) : roundDose(correctionPart, settings.rounding);
-  const cap = capDoseParts({ meal: loggedMeal, correction: loggedCorrection, maxDose: settings.maxDose, typed: mealTyped || correctionTyped });
+  let loggedMeal = roundDose(mealPart, settings.rounding);
+  let loggedCorrection = roundDose(correctionPart, settings.rounding);
+  const cap = capDoseParts({ meal: loggedMeal, correction: loggedCorrection, maxDose: settings.maxDose });
   loggedMeal = cap.meal; loggedCorrection = cap.correction;   // the parts must add up to the total that is shown
   let finalDose = Math.max(0, cap.total);
-  let capped = cap.capped, overMax = cap.overMax;
+  const capped = cap.capped;
 
   if (noInsulin) {
-    finalDose = 0; loggedMeal = 0; loggedCorrection = 0; capped = false; overMax = false;
+    finalDose = 0; loggedMeal = 0; loggedCorrection = 0;
     lines.length = 0;
     lines.push("Treating a low: carbs are logged but no insulin is recorded");
   } else {
     if (mealPart > 0 && correctionPart > 0) lines.push(`Raw sum before rounding: ${fmtU(mealPart)} + ${fmtU(correctionPart)} = ${fmtU(totalBeforeCap)} u`);
     if (capped) lines.push(`Capped at your ${settings.maxDose} u maximum dose (the calculation came to ${fmtU(cap.requested)} u)`);
-    if (overMax) lines.push(`${fmtU(cap.total)} u is above your ${settings.maxDose} u maximum dose, but part of it was typed, so it hasn't been changed`);
     lines.push(mealPart > 0 && correctionPart > 0
       ? `Meal and correction are each rounded to the nearest ${settings.rounding} u first, then added: ${fmtU(loggedMeal)} + ${fmtU(loggedCorrection)} = ${finalDose.toFixed(1)} u`
       : `Rounded to the nearest ${settings.rounding} u: ${finalDose.toFixed(1)} u`);
   }
 
-  return {
-    mealPart, rawCorrection, iobSubtracted, correctionPart, correctionApplied, totalBeforeCap,
-    capped, overMax, requestedDose: cap.requested, finalDose, loggedMeal, loggedCorrection,
-    mealTyped, correctionTyped, lines
-  };
-}
-
-/**
- * The Calculator's dose: what the dose card shows and what Log saves. Same computeDose, with the Calculator's modes:
- *   eatingOut + eatingOutDose          the meal dose was typed (Eating Out); carbs are not counted at all
- *   correctionManual + correctionDose  the correction was typed; otherwise it is calculated from `glucose`
- * Typed doses arrive already parsed (parseDecimalInput), so NaN means "nothing readable typed yet".
- */
-export function calculatorDose({ carbs, ratio, settings, iob = 0, noInsulin = false, eatingOut = false, eatingOutDose = NaN, correctionOn = false, correctionManual = false, correctionDose = NaN, glucose = "", glucoseUnit = null }) {
-  return computeDose({
-    carbs: eatingOut ? 0 : carbs, ratio, settings, iob, noInsulin,
-    correctionOn, glucose, glucoseUnit,
-    typedMeal: eatingOut ? eatingOutDose : null,
-    typedCorrection: correctionOn && correctionManual ? correctionDose : null
-  });
-}
-
-/**
- * The dose for a meal that's already in History, as the Edit Meal sheet re-calculates it. Same computeDose, with
- * the inputs a logged entry has:
- *   carbs / ratio   the edited items and the chosen ratio. With no ratio, or for an Eating Out entry (carbsUnknown),
- *                   the logged meal dose is kept exactly as it is: there is nothing to re-calculate it from.
- *   glucose         the reading on screen (string or number), or null when none was recorded -- then a logged
- *                   correction can only have been typed, so it is kept exactly as it is.
- * Active insulin is never subtracted (today's IOB says nothing about a past meal), and a "Treating a Low" entry
- * stays at 0u.
- */
-export function recalculateEntryDose({ entry, carbs, ratio, glucose = null, settings }) {
-  const keepMeal = !!entry.carbsUnknown || !(ratio > 0);
-  const keptMeal = keepMeal ? (entry.mealDose || 0) : 0;
-  return computeDose({
-    carbs, ratio: keepMeal ? 0 : ratio, settings, iob: 0, noInsulin: !!entry.noInsulin,
-    correctionOn: true, glucose, glucoseUnit: settings.units,
-    typedCorrection: glucose == null ? (entry.correctionDose || 0) : null,
-    typedMeal: keptMeal > 0 ? keptMeal : null
-  });
+  return { mealPart, rawCorrection, iobSubtracted, correctionPart, correctionApplied, totalBeforeCap, capped, requestedDose: cap.requested, finalDose, loggedMeal, loggedCorrection, lines };
 }
 
 // ----------------------------------------------------------------- trends
@@ -408,4 +322,98 @@ export function glucoseRangeClass(mgdl, low = 70, high = 180) {
 // The label for a LibreLink-style banner, given a range class.
 export function glucoseRangeLabel(rangeClass) {
   return rangeClass === "low" ? "GLUCOSE LOW" : rangeClass === "high" ? "GLUCOSE HIGH" : rangeClass === "in-range" ? "GLUCOSE IN RANGE" : "";
+}
+
+/** Did the insulin-to-carb ratio actually decide this entry's meal dose? Not for a basal dose, a low treated with no
+ * insulin, an Eating Out entry (the dose was typed in, carbs weren't counted), or a correction on its own. Works on old
+ * entries too, because it only looks at what every entry already stores. */
+export function ratioWasApplied(e) {
+  if (!e || e.entryType === "basal" || e.mealType === "basal") return false;
+  if (e.noInsulin || e.carbsUnknown) return false;
+  return Number(e.ratioValue) > 0 && Number(e.totalCarbs) > 0 && Number(e.mealDose) > 0;
+}
+
+/** The average ratio actually used in each of the person's brackets (the time-of-day ratios, then the activity ones),
+ * for the given entries. Every current bracket gets a row, even with no meals, so a bracket that is never used is
+ * visible; a bracket that was renamed or deleted since still shows, after them, if it was used. Averages are of the
+ * ratio stored on each entry (the ratio can have been changed over time), so min/max show how much it moved.
+ * `unrecorded` counts dosed meals that have no ratio saved (older entries), which can't be included. */
+export function ratioByBracket(entries, settings) {
+  const groups = new Map();
+  let unrecorded = 0;
+  for (const e of entries || []) {
+    if (!e || e.entryType === "basal" || e.mealType === "basal") continue;
+    if (ratioWasApplied(e)) {
+      const key = e.ratioLabel || "";
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(Number(e.ratioValue));
+    } else if (!e.noInsulin && !e.carbsUnknown && Number(e.totalCarbs) > 0 && Number(e.mealDose) > 0) unrecorded++;
+  }
+  const rows = [], seen = new Set();
+  const add = (name, kind, extra) => {
+    seen.add(name);
+    const v = groups.get(name) || [];
+    rows.push({
+      label: name, kind, ...extra, count: v.length,
+      avg: v.length ? v.reduce((s, x) => s + x, 0) / v.length : null,
+      min: v.length ? Math.min(...v) : null, max: v.length ? Math.max(...v) : null
+    });
+  };
+  for (const r of (settings && settings.timeRatios) || []) add(r.name, "time", { color: r.color, current: r.ratio, start: r.start, end: r.end });
+  for (const r of (settings && settings.activityRatios) || []) add(r.name, "activity", { color: r.color, current: r.ratio });
+  for (const name of groups.keys()) if (!seen.has(name)) add(name || "Unnamed", "other", { color: null, current: null });
+  return { rows, unrecorded, total: rows.reduce((s, r) => s + r.count, 0) };
+}
+
+/** The "ideal" ratio for each bracket if the carbs eaten to treat lows shortly AFTER an injection had been counted into
+ * that meal. Only carbs taken with no insulin of their own (Treating a Low) are counted: a later meal that was injected
+ * for already has its own dose, so counting it again would be double-counting. Each such low is credited to the nearest
+ * insulin entry before it, and only when that entry is a meal dosed by the ratio and the low came within
+ * `windowHours` of it.
+ *
+ * For a meal that used ratio R, ate C g, and was followed by r g of low-treatment carbs, the same insulin would have
+ * matched C + r g, so the ratio that would have fitted is R x (C + r) / C. (Scaling R, rather than dividing carbs by the
+ * dose, keeps dose rounding out of it.) The bracket's figure is the mean of those, directly comparable with the mean of
+ * the ratios used. A bracket with no lows after its meals comes out equal to what was used. */
+export function idealRatioByBracket(entries, settings, windowHours = 3) {
+  const windowMs = Math.max(0, Number(windowHours) || 0) * 3600000;
+  const list = (entries || []).filter(e => e && e.entryType !== "basal" && e.mealType !== "basal" && Number.isFinite(e.ts)).slice().sort((a, b) => a.ts - b.ts);
+  const hasInsulin = e => !e.noInsulin && ((Number(e.mealDose) || 0) + (Number(e.correctionDose) || 0)) > 0;
+  const rescue = new Map(); // dosing entry -> grams of low-treatment carbs credited to it
+  let lowsCounted = 0, lowsUnattached = 0, rescueCarbs = 0;
+  let lastDosed = null;
+  for (const e of list) {
+    if (e.noInsulin) {
+      const g = Number(e.totalCarbs) || 0;
+      if (g <= 0) continue;
+      if (lastDosed && ratioWasApplied(lastDosed) && e.ts - lastDosed.ts <= windowMs) {
+        rescue.set(lastDosed, (rescue.get(lastDosed) || 0) + g); lowsCounted++; rescueCarbs += g;
+      } else lowsUnattached++;
+    } else if (hasInsulin(e)) lastDosed = e;
+  }
+  const groups = new Map();
+  for (const e of list) {
+    if (!ratioWasApplied(e)) continue;
+    const key = e.ratioLabel || "";
+    const r = rescue.get(e) || 0;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push({ used: Number(e.ratioValue), ideal: Number(e.ratioValue) * ((Number(e.totalCarbs) + r) / Number(e.totalCarbs)), hadLow: r > 0, r });
+  }
+  const mean = (v, f) => v.reduce((s, x) => s + f(x), 0) / v.length;
+  const rows = [], seen = new Set();
+  const add = (name, kind, extra) => {
+    seen.add(name);
+    const v = groups.get(name) || [];
+    rows.push({
+      label: name, kind, ...extra, count: v.length,
+      used: v.length ? mean(v, x => x.used) : null,
+      ideal: v.length ? mean(v, x => x.ideal) : null,
+      affected: v.filter(x => x.hadLow).length,
+      rescueCarbs: v.reduce((s, x) => s + x.r, 0)
+    });
+  };
+  for (const r of (settings && settings.timeRatios) || []) add(r.name, "time", { color: r.color, current: r.ratio, start: r.start, end: r.end });
+  for (const r of (settings && settings.activityRatios) || []) add(r.name, "activity", { color: r.color, current: r.ratio });
+  for (const name of groups.keys()) if (!seen.has(name)) add(name || "Unnamed", "other", { color: null, current: null });
+  return { rows, lowsCounted, lowsUnattached, rescueCarbs, windowHours: windowMs / 3600000, total: rows.reduce((s, r) => s + r.count, 0) };
 }
