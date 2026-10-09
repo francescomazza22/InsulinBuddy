@@ -1068,6 +1068,27 @@ html[data-theme="dark"] .undo-toast { background: var(--surface); border: 1px so
 .trend-chart__axis-label { font-size: 9px; fill: var(--ink-soft); font-family: var(--font-ui); }
 .trend-chart__axis-label--dow { font-size: 8px; }
 .trend-chart__axis-label--today { fill: var(--acc-1); font-weight: 700; }
+/* Average ratio by time of day (Trends) */
+.rtrend { display: grid; grid-template-columns: minmax(84px, 26%) 1fr auto; align-items: center; gap: 4px 12px; padding: 7px 0; }
+.rtrend + .rtrend { border-top: 1px solid var(--line); }
+.rtrend__head { display: flex; flex-direction: column; min-width: 0; }
+.rtrend__name { font-weight: 700; font-size: 0.88rem; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rtrend__hours { font-size: 0.7rem; color: var(--ink-soft); }
+.rtrend__track { position: relative; height: 14px; border-radius: 7px; background: var(--surface-2, rgba(128,128,128,0.14)); }
+.rtrend__bar { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 7px; min-width: 6px; }
+.rtrend__mark { position: absolute; top: -3px; bottom: -3px; width: 3px; margin-left: -1.5px; border-radius: 2px; background: var(--ink); opacity: 0.85; }
+.rtrend__figures { display: flex; flex-direction: column; align-items: flex-end; text-align: right; width: 150px; }
+.rtrend__value { font-family: var(--font-display); font-weight: 700; font-size: 1rem; font-variant-numeric: tabular-nums; color: var(--ink); }
+.rtrend__value--none { color: var(--ink-soft); }
+.rtrend__n { font-size: 0.68rem; color: var(--ink-soft); }
+.ideal-window { display: flex; gap: 6px; margin: 4px 0 8px; }
+.rtrend__track--double { height: 22px; background: none; }
+.rtrend__track--double::before { content: ""; position: absolute; inset: 0; border-radius: 7px; background: var(--surface-2, rgba(128,128,128,0.14)); }
+.rtrend__track--double .rtrend__bar { height: 9px; bottom: auto; }
+.rtrend__track--double .rtrend__bar--used { top: 2px; opacity: 0.4; }
+.rtrend__track--double .rtrend__bar--ideal { top: 11px; }
+.trend-legend__tick { display: inline-block; width: 3px; height: 12px; border-radius: 2px; background: var(--ink); margin-right: 6px; vertical-align: -2px; }
+.history-entry__ratio { margin: 6px 0 0; font-size: 0.78rem; color: var(--ink-soft); }
 .trend-legend { display: flex; justify-content: center; gap: 16px; margin-top: 8px; font-size: 0.76rem; color: var(--ink-soft); }
 .trend-legend__dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 5px; }
 

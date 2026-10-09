@@ -1,5 +1,5 @@
 import { escapeHtml, escapeAttr, round1, formatQty, dayKeyFromTs, timeAgo, makeId, redact, parseDecimalInput } from "./js/util.js";
-import { convertGlucose, roundDose as roundDoseWith, activeAt, compoundGiInfo, computeDose, capDoseParts, giBand, niceScale, buildTrendBuckets, summarizeTrends, mealTypeBreakdown, absorptionMinutesForEntry as absorptionForEntry, iobFraction, cobGrams, glucoseTrendArrow, glucoseRangeClass, glucoseRangeLabel, basalByDay, summarizeBasal } from "./js/calc.js";
+import { convertGlucose, roundDose as roundDoseWith, activeAt, compoundGiInfo, computeDose, capDoseParts, giBand, niceScale, buildTrendBuckets, summarizeTrends, mealTypeBreakdown, absorptionMinutesForEntry as absorptionForEntry, iobFraction, cobGrams, glucoseTrendArrow, glucoseRangeClass, glucoseRangeLabel, basalByDay, summarizeBasal, ratioWasApplied, ratioByBracket, idealRatioByBracket } from "./js/calc.js";
 import { SCHEMA_VERSION, normalizeState as normalizeStateWith, makeFingerprint, stampChanges, mergeStates, statesEquivalent, prepareRestoredState, unexplainedEmptying } from "./js/state.js";
 import { NightscoutClient, NsOutbox, nsToken, nsBaseUrl, nsConfigured, treatmentsForEntry, entriesToGlucoseRows } from "./js/nightscout.js";
 import { createDiag, hookGlobalErrors } from "./js/diag.js";
@@ -2832,6 +2832,22 @@ import { createDialogs } from "./js/dialogs.js";
   // card are always drawn from CHANGELOG[0], so the two can never drift.
   const CHANGELOG = [
     {
+      version: "2.12.0",
+      summary: "Trends: ideal ratio by time of day, counting carbs eaten to treat lows after an injection.",
+      changes: [
+        "New Trends card, \"Ideal ratio by time of day\": for every injection it adds the carbs you ate to treat a low in the following 2, 3 or 4 hours (your choice, 3 by default) to that meal, and shows the ratio that would have matched, next to the ratio you actually used and what each bracket is set to now",
+        "Only carbs taken without insulin (Treating a Low) are added, and each is credited to the nearest injection before it, so nothing is counted twice"
+      ]
+    },
+    {
+      version: "2.11.0",
+      summary: "Trends: average insulin-to-carb ratio by time of day. History shows the ratio used.",
+      changes: [
+        "New Trends card: for each of your brackets (Morning, Lunch, Evening, Night and any activity ratios), the average ratio actually used in the period, how many meals it is based on, its range if you changed it, and a tick for what it is set to now",
+        "Each meal in the History log now shows the ratio used (for example 1:10) beside the time of day, and the full detail under Details. Entries where no ratio decided the dose (a low treated without insulin, Eating Out, a correction on its own) show none"
+      ]
+    },
+    {
       version: "2.10.7",
       summary: "Fixed: the 90-day glucose view only showed about 51 days.",
       changes: [
@@ -3748,7 +3764,7 @@ import { createDialogs } from "./js/dialogs.js";
         row.innerHTML = `
           <div class="history-entry__icon" style="background:${meal.color}">${meal.icon}</div>
           <div class="history-entry__main">
-            <p class="history-entry__title">${meal.label} <span class="muted">· ${formatTime(entry.ts)} · ${escapeHtml(entry.periodName || "")}</span>${nsBadgeHtml(entry)}</p>
+            <p class="history-entry__title">${meal.label} <span class="muted">· ${formatTime(entry.ts)} · ${escapeHtml(entry.periodName || "")}${ratioWasApplied(entry) ? ` · 1:${round1(entry.ratioValue)}` : ""}</span>${nsBadgeHtml(entry)}</p>
             <p class="history-entry__foods">${entry.items.length ? entry.items.map(i => escapeHtml(i.name)).join(", ") : (entry.carbsUnknown ? "Eating out — carbs not logged" : "No food — correction only")}</p>
             <div class="history-entry__detail" hidden>
               ${entry.items.map(i => {
@@ -3756,6 +3772,7 @@ import { createDialogs } from "./js/dialogs.js";
                 const qtyLabel = isUnit ? `${formatQty(i.quantity)} ${escapeHtml(i.unitLabel)}${i.quantity === 1 ? "" : "s"}` : (i.grams ? escapeHtml(i.grams) + "g" : "");
                 return `<div class="history-entry__item"><span class="history-entry__item-name">${escapeHtml(i.name)}</span><span class="history-entry__item-qty">${qtyLabel}</span><span class="history-entry__item-carbs">${round1(i.carbs)}g</span></div>`;
               }).join("")}
+              ${ratioWasApplied(entry) ? `<p class="history-entry__ratio">Ratio used: ${escapeHtml(entry.ratioLabel || "")} 1:${round1(entry.ratioValue)}</p>` : ""}
               ${entry.cappedFrom ? `<p class="history-entry__cap">Capped at your maximum dose (calculated ${entry.cappedFrom}u)</p>` : ""}
               <div class="history-entry__row-actions">
                 <button data-use="${entry.id}" type="button">Use Again</button>
@@ -4097,6 +4114,7 @@ import { createDialogs } from "./js/dialogs.js";
     const emptyBox = el("trends-empty");
     if (!chartCarbsBox) return; // view not in the DOM yet on first boot
     const cards = ["trend-card-carbs", "trend-card-dose", "trend-card-meals"].map(id => el(id));
+    const ratioCard = el("trend-card-ratios");
     const captionBox = el("trend-caption");
 
     // Day buckets, oldest first. Built with setDate() rather than "now minus
@@ -4140,6 +4158,8 @@ import { createDialogs } from "./js/dialogs.js";
       // No meals in this period, but basal doses are still worth charting, so only call it empty if there's neither.
       emptyBox.hidden = basalSummary.hasData;
       renderBasalTrend(buckets, basalSummary, 320);
+      if (ratioCard) ratioCard.hidden = true;
+      if (el("trend-card-ideal")) el("trend-card-ideal").hidden = true;
       return;
     }
     emptyBox.hidden = true;
@@ -4215,6 +4235,84 @@ import { createDialogs } from "./js/dialogs.js";
 
     renderBasalTrend(buckets, basalSummary, width);
     renderTrendMealBreakdown(inRange);
+    renderRatioTrend(inRange);
+    renderIdealRatioTrend(inRange);
+  }
+
+  // "Average ratio by time of day": for each of your brackets, the insulin-to-carb ratio actually used in this period.
+  function renderRatioTrend(inRange) {
+    const card = el("trend-card-ratios"), box = el("trend-ratios");
+    if (!card || !box) return;
+    const res = ratioByBracket(inRange, state.settings);
+    card.hidden = res.total === 0;
+    if (res.total === 0) { box.innerHTML = ""; return; }
+    const fmt = n => String(round1(n));
+    const scale = Math.max(1, ...res.rows.map(r => Math.max(r.max || 0, r.current || 0))) * 1.08;
+    box.innerHTML = res.rows.map(r => {
+      const pct = v => Math.max(0, Math.min(100, (v / scale) * 100));
+      const hours = r.start ? `${escapeHtml(r.start)}\u2013${escapeHtml(r.end)}` : (r.kind === "activity" ? "activity" : "");
+      const colour = r.color && /^#[0-9a-fA-F]{3,8}$/.test(r.color) ? r.color : "var(--acc-1)";
+      const used = r.count > 0
+        ? `<span class="rtrend__value">1:${fmt(r.avg)}</span><span class="rtrend__n">${r.count} meal${r.count === 1 ? "" : "s"}${r.min !== r.max ? ` \u00b7 range 1:${fmt(r.min)}\u20131:${fmt(r.max)}` : ""}</span>`
+        : `<span class="rtrend__value rtrend__value--none">\u2014</span><span class="rtrend__n">no meals</span>`;
+      return `<div class="rtrend">
+        <div class="rtrend__head"><span class="rtrend__name">${escapeHtml(r.label)}</span><span class="rtrend__hours">${hours}</span></div>
+        <div class="rtrend__track" role="img" aria-label="${escapeAttr(r.label)}: ${r.count > 0 ? "average 1:" + fmt(r.avg) : "no meals"}${r.current ? ", currently set to 1:" + fmt(r.current) : ""}">
+          ${r.count > 0 ? `<div class="rtrend__bar" style="width:${pct(r.avg)}%;background:${colour};"></div>` : ""}
+          ${r.current ? `<div class="rtrend__mark" style="left:${pct(r.current)}%;" title="Currently set to 1:${fmt(r.current)}"></div>` : ""}
+        </div>
+        <div class="rtrend__figures">${used}</div>
+      </div>`;
+    }).join("") +
+      `<p class="trend-caption trend-caption--tight">Bars show the average grams of carbs per unit of insulin used in each bracket; the tick marks what that bracket is set to now.` +
+      (res.unrecorded > 0 ? ` ${res.unrecorded} older meal${res.unrecorded === 1 ? " has" : "s have"} no ratio saved, so ${res.unrecorded === 1 ? "isn't" : "aren't"} counted.` : "") + `</p>`;
+  }
+
+
+  // "Ideal ratio by time of day": the ratio that would have matched each meal if the carbs eaten to treat a low shortly
+  // afterwards had been counted into it. The look-back window is the person's choice (2, 3 or 4 hours; 3 by default).
+  const IDEAL_WINDOWS = [2, 3, 4], IDEAL_WINDOW_KEY = "insulinBuddy.idealWindowHours";
+  let idealWindowHours = 3;
+  try { const v = Number(localStorage.getItem(IDEAL_WINDOW_KEY)); if (IDEAL_WINDOWS.includes(v)) idealWindowHours = v; } catch (e) { /* storage unavailable: keep the default */ }
+  let lastIdealEntries = [];
+  const idealPicker = el("trend-ideal-window");
+  if (idealPicker) idealPicker.addEventListener("click", ev => {
+    const b = ev.target.closest("[data-hours]"); if (!b) return;
+    idealWindowHours = Number(b.dataset.hours);
+    try { localStorage.setItem(IDEAL_WINDOW_KEY, String(idealWindowHours)); } catch (e) { /* not essential */ }
+    renderIdealRatioTrend(lastIdealEntries);
+  });
+
+  function renderIdealRatioTrend(inRange) {
+    lastIdealEntries = inRange;
+    const card = el("trend-card-ideal"), box = el("trend-ideal");
+    if (!card || !box) return;
+    const res = idealRatioByBracket(inRange, state.settings, idealWindowHours);
+    card.hidden = res.total === 0;
+    if (idealPicker) idealPicker.querySelectorAll("[data-hours]").forEach(b => { const on = Number(b.dataset.hours) === idealWindowHours; b.classList.toggle("is-active", on); b.setAttribute("aria-pressed", String(on)); });
+    if (res.total === 0) { box.innerHTML = ""; return; }
+    const fmt = n => String(round1(n));
+    const scale = Math.max(1, ...res.rows.map(r => Math.max(r.used || 0, r.ideal || 0, r.current || 0))) * 1.08;
+    const pct = v => Math.max(0, Math.min(100, (v / scale) * 100));
+    box.innerHTML = res.rows.map(r => {
+      const hours = r.start ? `${escapeHtml(r.start)}\u2013${escapeHtml(r.end)}` : (r.kind === "activity" ? "activity" : "");
+      const colour = r.color && /^#[0-9a-fA-F]{3,8}$/.test(r.color) ? r.color : "var(--acc-1)";
+      const figures = r.count === 0
+        ? `<span class="rtrend__value rtrend__value--none">\u2014</span><span class="rtrend__n">no meals</span>`
+        : `<span class="rtrend__value">1:${fmt(r.ideal)}</span><span class="rtrend__n">${r.affected > 0 ? `was 1:${fmt(r.used)} \u00b7 ${r.affected} of ${r.count} meal${r.count === 1 ? "" : "s"} followed by a low` : `same as used \u00b7 no lows after ${r.count === 1 ? "this meal" : "these " + r.count + " meals"}`}</span>`;
+      return `<div class="rtrend">
+        <div class="rtrend__head"><span class="rtrend__name">${escapeHtml(r.label)}</span><span class="rtrend__hours">${hours}</span></div>
+        <div class="rtrend__track rtrend__track--double" role="img" aria-label="${escapeAttr(r.label)}: ${r.count > 0 ? "ideal 1:" + fmt(r.ideal) + ", used 1:" + fmt(r.used) : "no meals"}">
+          ${r.count > 0 ? `<div class="rtrend__bar rtrend__bar--used" style="width:${pct(r.used)}%;background:${colour};"></div><div class="rtrend__bar rtrend__bar--ideal" style="width:${pct(r.ideal)}%;background:${colour};"></div>` : ""}
+          ${r.current ? `<div class="rtrend__mark" style="left:${pct(r.current)}%;" title="Currently set to 1:${fmt(r.current)}"></div>` : ""}
+        </div>
+        <div class="rtrend__figures">${figures}</div>
+      </div>`;
+    }).join("") +
+      `<div class="trend-legend"><span><span class="trend-legend__dot" style="background:var(--ink-soft);opacity:.45;"></span>Used</span><span><span class="trend-legend__dot" style="background:var(--ink-soft);"></span>Ideal</span><span><span class="trend-legend__tick"></span>Set now</span></div>` +
+      `<p class="trend-caption trend-caption--tight">${res.lowsCounted > 0 ? `${res.lowsCounted} low${res.lowsCounted === 1 ? "" : "s"} treated within ${res.windowHours} h of an injection (${round1(res.rescueCarbs)} g) counted into the meal before ${res.lowsCounted === 1 ? "it" : "them"}.` : `No lows were treated within ${res.windowHours} h of an injection in this period, so the ideal ratio equals the ratio used.`}` +
+      (res.lowsUnattached > 0 ? ` ${res.lowsUnattached} other low${res.lowsUnattached === 1 ? "" : "s"} had no ratio-dosed meal in the window, so ${res.lowsUnattached === 1 ? "isn't" : "aren't"} counted.` : "") +
+      ` A longer ratio number means less insulin per gram of carbs. This is a pattern to talk through with your care team, not a dosing instruction.</p>`;
   }
 
   let trendResizeTimer = null;
