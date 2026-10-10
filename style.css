@@ -1050,6 +1050,7 @@ html[data-theme="dark"] .undo-toast { background: var(--surface); border: 1px so
 .trend-chart { width: 100%; overflow: visible; -webkit-tap-highlight-color: transparent; }
 .trend-chart__bar { fill: var(--acc-1); transition: opacity 0.15s; }
 .trend-chart__bar--corr { fill: #C0392B; }
+.trend-chart__bar--low { fill: #E0A100; }   /* carbs eaten to treat a low, on top of the meal carbs */
 .trend-chart__bar--basal-am { fill: #8DB9DE; }   /* morning dose: light, at the bottom of the stack */
 .trend-chart__bar--basal-pm { fill: #356E9C; }   /* evening dose: dark, on top (same blue as basal rows in History) */
 .trend-chart__bar--empty { fill: var(--line); }

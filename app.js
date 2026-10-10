@@ -2845,6 +2845,13 @@ import { createDialogs } from "./js/dialogs.js";
   // card are always drawn from CHANGELOG[0], so the two can never drift.
   const CHANGELOG = [
     {
+      version: "2.13.0",
+      summary: "Daily carbs graph split into meals and low treatment.",
+      changes: [
+        "The Daily carbs chart is now stacked: carbs eaten as meals (blue) with carbs eaten to treat a low (amber) on top. Tap a day to see the two figures, and a line under the chart gives the share eaten for lows"
+      ]
+    },
+    {
       version: "2.12.1",
       summary: "The correction now shows its working.",
       changes: [
@@ -3932,15 +3939,22 @@ import { createDialogs } from "./js/dialogs.js";
     return out;
   }
 
+  // Stacked: carbs eaten as meals on the bottom, carbs eaten to treat a low (no insulin) on top.
   function buildCarbsChartSvg(buckets, avg, width) {
     const g = trendGeometry(buckets.length, Math.max(...buckets.map(b => b.carbs)), width);
     const frame = trendFrameSvg(g, buckets, avg, `avg ${Math.round(avg)}g`);
     const base = g.padT + g.plotH;
     const bars = buckets.map((b, i) => {
-      const has = b.carbs > 0;
-      const h = has ? Math.max(2, (b.carbs / g.max) * g.plotH) : 1;
-      const cls = `trend-chart__bar${has ? "" : " trend-chart__bar--empty"}${i === g.n - 1 ? " trend-chart__bar--today" : ""}`;
-      return `<rect class="${cls}" data-idx="${i}" x="${g.xBar(i).toFixed(1)}" y="${(base - h).toFixed(1)}" width="${g.barW.toFixed(1)}" height="${h.toFixed(1)}" rx="2"></rect>`;
+      const todayCls = i === g.n - 1 ? " trend-chart__bar--today" : "";
+      if (!(b.carbs > 0)) {
+        return `<rect class="trend-chart__bar trend-chart__bar--empty${todayCls}" data-idx="${i}" x="${g.xBar(i).toFixed(1)}" y="${(base - 1).toFixed(1)}" width="${g.barW.toFixed(1)}" height="1" rx="2"></rect>`;
+      }
+      const hMeal = b.mealCarbs > 0 ? Math.max(2, (b.mealCarbs / g.max) * g.plotH) : 0;
+      const hLow = b.lowCarbs > 0 ? Math.max(2, (b.lowCarbs / g.max) * g.plotH) : 0;
+      let out = "";
+      if (hMeal > 0) out += `<rect class="trend-chart__bar${todayCls}" data-idx="${i}" x="${g.xBar(i).toFixed(1)}" y="${(base - hMeal).toFixed(1)}" width="${g.barW.toFixed(1)}" height="${hMeal.toFixed(1)}" rx="${hLow > 0 ? 0 : 2}"></rect>`;
+      if (hLow > 0) out += `<rect class="trend-chart__bar trend-chart__bar--low${todayCls}" data-idx="${i}" x="${g.xBar(i).toFixed(1)}" y="${(base - hMeal - hLow).toFixed(1)}" width="${g.barW.toFixed(1)}" height="${hLow.toFixed(1)}" rx="2"></rect>`;
+      return out;
     }).join("");
     return `<svg class="trend-chart" viewBox="0 0 ${g.W} ${g.H}" style="width:100%;height:${g.H}px;display:block;">${frame.under}${bars}${frame.over}${trendHitAreas(g)}</svg>`;
   }
@@ -4146,7 +4160,7 @@ import { createDialogs } from "./js/dialogs.js";
       const d = new Date(today);
       d.setDate(d.getDate() - i);
       d.setHours(0, 0, 0, 0);
-      buckets.push({ key: d.getTime(), carbs: 0, meal: 0, corr: 0, dose: 0, entries: 0 });
+      buckets.push({ key: d.getTime(), carbs: 0, mealCarbs: 0, lowCarbs: 0, meal: 0, corr: 0, dose: 0, entries: 0 });
     }
     const byKey = new Map(buckets.map(b => [b.key, b]));
     const inRange = [];
@@ -4157,6 +4171,7 @@ import { createDialogs } from "./js/dialogs.js";
       inRange.push(entry);
       b.entries += 1;
       b.carbs += entry.totalCarbs || 0;
+      if (entry.noInsulin) b.lowCarbs += entry.totalCarbs || 0; else b.mealCarbs += entry.totalCarbs || 0;
       b.meal += entry.mealDose || 0;
       b.corr += entry.correctionDose || 0;
     });
@@ -4226,7 +4241,8 @@ import { createDialogs } from "./js/dialogs.js";
       describe: i => {
         const b = buckets[i];
         if (b.entries === 0) return `${fmtDay(b.key)} \u00b7 nothing logged`;
-        return `${fmtDay(b.key)} \u00b7 ${b.carbs > 0 ? Math.round(b.carbs) + " g carbs" : "no carbs"} \u00b7 ${b.entries} entr${b.entries === 1 ? "y" : "ies"}`;
+        const split = b.lowCarbs > 0 ? ` (meals ${Math.round(b.mealCarbs)} + low treatment ${Math.round(b.lowCarbs)})` : "";
+        return `${fmtDay(b.key)} \u00b7 ${b.carbs > 0 ? Math.round(b.carbs) + " g carbs" + split : "no carbs"} \u00b7 ${b.entries} entr${b.entries === 1 ? "y" : "ies"}`;
       }
     };
     trendChartCtx["trend-chart-dose"] = {
@@ -4239,6 +4255,7 @@ import { createDialogs } from "./js/dialogs.js";
       }
     };
 
+    const totalCarbsAll = buckets.reduce((s, b) => s + b.carbs, 0), totalLowCarbs = buckets.reduce((s, b) => s + b.lowCarbs, 0);
     const totalMealIns = inRange.reduce((s, e) => s + (e.mealDose || 0), 0);
     const totalCorrIns = inRange.reduce((s, e) => s + (e.correctionDose || 0), 0);
     const totalIns = totalMealIns + totalCorrIns;
@@ -4246,7 +4263,9 @@ import { createDialogs } from "./js/dialogs.js";
 
     chartCarbsBox.innerHTML =
       `<p class="trend-readout">${trendChartCtx["trend-chart-carbs"].defaultText}</p>` +
-      buildCarbsChartSvg(buckets, avgCarbs, width);
+      buildCarbsChartSvg(buckets, avgCarbs, width) +
+      `<div class="trend-legend"><span><span class="trend-legend__dot" style="background:var(--acc-1);"></span>Meals</span><span><span class="trend-legend__dot" style="background:#E0A100;"></span>Low treatment</span></div>` +
+      (totalCarbsAll > 0 ? `<p class="trend-caption trend-caption--tight">${totalLowCarbs > 0 ? `${Math.round(totalLowCarbs)} g of the ${Math.round(totalCarbsAll)} g logged (${Math.round(totalLowCarbs / totalCarbsAll * 100)}%) was eaten to treat lows.` : "No carbs were eaten to treat lows in this period."}</p>` : "");
     chartDoseBox.innerHTML =
       `<p class="trend-readout">${trendChartCtx["trend-chart-dose"].defaultText}</p>` +
       buildDoseChartSvg(buckets, avgDose, width) +
