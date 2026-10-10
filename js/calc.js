@@ -205,7 +205,7 @@ export function buildTrendBuckets(history, days, nowMs = Date.now()) {
     const d = new Date(today);
     d.setDate(d.getDate() - i);
     d.setHours(0, 0, 0, 0);
-    buckets.push({ key: d.getTime(), carbs: 0, meal: 0, corr: 0, dose: 0, entries: 0 });
+    buckets.push({ key: d.getTime(), carbs: 0, mealCarbs: 0, lowCarbs: 0, meal: 0, corr: 0, dose: 0, entries: 0 });
   }
   const byKey = new Map(buckets.map(b => [b.key, b]));
   const inRange = [];
@@ -218,6 +218,8 @@ export function buildTrendBuckets(history, days, nowMs = Date.now()) {
     inRange.push(entry);
     b.entries += 1;
     b.carbs += entry.totalCarbs || 0;
+    // Carbs eaten to treat a low (logged with no insulin) are kept apart from carbs eaten as meals.
+    if (entry.noInsulin) b.lowCarbs += entry.totalCarbs || 0; else b.mealCarbs += entry.totalCarbs || 0;
     b.meal += entry.mealDose || 0;
     b.corr += entry.correctionDose || 0;
   }
