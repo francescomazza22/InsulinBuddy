@@ -2875,6 +2875,13 @@ import { createDialogs } from "./js/dialogs.js";
   // card are always drawn from CHANGELOG[0], so the two can never drift.
   const CHANGELOG = [
     {
+      version: "2.15.2",
+      summary: "Cloud sync no longer depends on a CDN being reachable.",
+      changes: [
+        "Fixed: the app could open saying “Cloud sync isn't set up yet” when the sync library failed to download from the internet. The library is now bundled with the app (vendor/supabase.js, new file) and works offline. If it ever fails to load, the message now says so and offers “Reload and try again”"
+      ]
+    },
+    {
       version: "2.15.1",
       summary: "Foods logged by quantity now survive an import.",
       changes: [
@@ -5091,6 +5098,12 @@ import { createDialogs } from "./js/dialogs.js";
 
   function renderAccountSection() {
     const box = el("account-section");
+    if (!supabaseClient && cloudConfigured) {
+      // Sync IS configured, but the sync library didn't load (offline, blocked, or a damaged cache). Say so, and offer a retry.
+      box.innerHTML = `<p class="panel-card__hint" style="margin-top:-4px;">Cloud sync is set up, but its component didn't load, so you're working offline for now. Your data is safe in this browser and will sync once it loads. <button type="button" class="dashed-btn" id="btn-reload-sync" style="margin-top:8px;">Reload and try again</button></p>`;
+      const b = box.querySelector("#btn-reload-sync"); if (b) b.addEventListener("click", () => location.reload());
+      return;
+    }
     if (!supabaseClient) {
       box.innerHTML = `<p class="panel-card__hint" style="margin-top:-4px;">Cloud sync isn't set up yet. See the README for a step-by-step Supabase guide — until then, everything stays in this browser.</p>`;
       return;
