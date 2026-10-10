@@ -575,16 +575,25 @@
               <span class="data-row__sub" id="export-count-label">0 foods · 0 recipes</span>
             </span>
           </button>
+          <button class="data-row" id="btn-export-recipes" type="button">
+            <span class="data-row__icon data-row__icon--down">
+              <svg viewBox="0 0 24 24" fill="none"><path d="M12 3v13m0 0l-4-4m4 4l4-4M4 20h16" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </span>
+            <span class="data-row__text">
+              <span class="data-row__title">Export Recipes only</span>
+              <span class="data-row__sub">Recipe_export.csv on its own (phones often block the second file of a full export)</span>
+            </span>
+          </button>
           <button class="data-row" id="btn-import-library" type="button">
             <span class="data-row__icon data-row__icon--up">
               <svg viewBox="0 0 24 24" fill="none"><path d="M12 21V8m0 0l-4 4m4-4l4 4M4 4h16" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
             </span>
             <span class="data-row__text">
               <span class="data-row__title">Import Library</span>
-              <span class="data-row__sub">Creates new items &amp; updates existing ones by name</span>
+              <span class="data-row__sub">Foods and recipes (CSV or JSON, several files at once). Creates new items &amp; updates existing ones by name</span>
             </span>
           </button>
-          <input type="file" id="import-file-input" accept=".csv,.json" hidden>
+          <input type="file" id="import-file-input" accept=".csv,.json" multiple hidden>
         </div>
 
         <div class="panel-card">
