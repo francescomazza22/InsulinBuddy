@@ -68,10 +68,11 @@ export function treatmentsForEntry(entry, { units = "mgdl", format = "combined" 
     const out = [];
     if (hasCarbs) out.push({ key: "carbs", treatment: { eventType: "Carb Correction", carbs, notes, ...base } });
     if (hasInsulin) {
+      // The insulin is stamped 1 s after the carbs: Gluroo kept only the carbs when both shared one timestamp.
       // Shape confirmed on Gluroo-hosted Nightscout (experiment "A", 2.14.0): carbs:0, a "Bolus: Xu" note and NO
       // enteredBy / glucose fields. Gluroo discarded the insulin from the fuller shape. Glucose goes in the note.
       const bg = entry.glucose != null ? ` (BG ${entry.glucose} ${units === "mmol" ? "mmol/L" : "mg/dL"})` : "";
-      out.push({ key: "insulin", treatment: { eventType: "Correction Bolus", insulin, carbs: 0, notes: `Bolus: ${insulin}u${bg}${hasCarbs && notes ? " – " + notes : ""}`, created_at: base.created_at } });
+      out.push({ key: "insulin", treatment: { eventType: "Correction Bolus", insulin, carbs: 0, notes: `Bolus: ${insulin}u${bg}${hasCarbs && notes ? " – " + notes : ""}`, created_at: new Date(entry.ts + (hasCarbs ? 1000 : 0)).toISOString() } });
     }
     return out;
   }
