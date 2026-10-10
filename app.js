@@ -2875,6 +2875,13 @@ import { createDialogs } from "./js/dialogs.js";
   // card are always drawn from CHANGELOG[0], so the two can never drift.
   const CHANGELOG = [
     {
+      version: "2.14.2",
+      summary: "Split meals: insulin stamped 1 second after the carbs.",
+      changes: [
+        "In split mode the insulin record is now time-stamped one second after the carbs record. Gluroo kept only the carbs when both had the exact same time"
+      ]
+    },
+    {
       version: "2.14.1",
       summary: "Insulin now reaches Gluroo/Nightscout in split mode.",
       changes: [
