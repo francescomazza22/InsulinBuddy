@@ -2617,6 +2617,36 @@ import { createDialogs } from "./js/dialogs.js";
     } catch (e) { /* UI not ready yet */ }
   }
 
+
+  // Insulin-delivery experiment: sends ONE labelled 0.1 u test record in a chosen shape and shows exactly what
+  // Nightscout answered, so we can find a shape Gluroo keeps the insulin for. Removes it again on request.
+  const NS_INSULIN_VARIANTS = {
+    gluroo: () => ({ eventType: "Correction Bolus", insulin: 0.1, carbs: 0, notes: "Bolus: 0.1u (Insulin Buddy test)" }),
+    plain: () => ({ eventType: "Correction Bolus", insulin: 0.1, notes: "Insulin Buddy test", enteredBy: "Insulin Buddy" }),
+    snack: () => ({ eventType: "Snack Bolus", insulin: 0.1, carbs: 0, notes: "Insulin Buddy test", enteredBy: "Insulin Buddy" }),
+    wizard: () => ({ eventType: "Bolus Wizard", insulin: 0.1, carbs: 0, notes: "Insulin Buddy test", enteredBy: "Insulin Buddy" }),
+  };
+  let lastInsulinTestId = null;
+  function showInsulinTest(text) { const o = el("ns-insulin-test-out"); o.hidden = false; o.textContent = text; }
+  async function sendInsulinTest() {
+    const cfg = nsCfg();
+    if (!cfg) { showInsulinTest("Enter a Nightscout URL and token first."); return; }
+    const kind = el("ns-insulin-test-kind").value;
+    const treatment = { ...NS_INSULIN_VARIANTS[kind](), created_at: new Date().toISOString() };
+    showInsulinTest("Sending…");
+    try {
+      const r = await nsClient.create(cfg, treatment);
+      lastInsulinTestId = r.id || null;
+      showInsulinTest(`Sent (${kind}) via ${r.via}.\nWe sent: ${JSON.stringify(treatment)}\nNightscout answered: ${JSON.stringify(r.body)}\nRecord id: ${r.id || "none returned"}\n\nNow check Nightscout/Gluroo: is there a 0.1u record? Then tap “Delete test record”.`);
+    } catch (e) { showInsulinTest(`Failed: ${friendlyNsError(e)}`); }
+  }
+  async function deleteInsulinTest() {
+    const cfg = nsCfg();
+    if (!cfg || !lastInsulinTestId) { showInsulinTest("No test record id to delete. If one exists in Nightscout, delete it there."); return; }
+    try { await nsClient.remove(cfg, lastInsulinTestId); showInsulinTest("Delete sent. Check Nightscout that the 0.1u test record is gone."); lastInsulinTestId = null; }
+    catch (e) { showInsulinTest(`Delete failed: ${friendlyNsError(e)}. Remove the test record in Nightscout/Gluroo yourself.`); }
+  }
+
   async function testNightscoutConnection() {
     const cfg = nsCfg();
     if (!cfg) { renderNsStatus("Enter a URL and token first.", true); return; }
@@ -2844,6 +2874,13 @@ import { createDialogs } from "./js/dialogs.js";
   // Newest first. version-badge-text/version-summary-text in the Settings
   // card are always drawn from CHANGELOG[0], so the two can never drift.
   const CHANGELOG = [
+    {
+      version: "2.14.0",
+      summary: "Nightscout insulin experiment (Settings).",
+      changes: [
+        "Settings → Nightscout: new “Insulin delivery experiment”. It sends one clearly labelled 0.1 u test record in a chosen shape and shows exactly what Nightscout answered, to find a format Gluroo keeps the insulin for. A button removes the test record again"
+      ]
+    },
     {
       version: "2.13.0",
       summary: "Daily carbs graph split into meals and low treatment.",
@@ -5537,6 +5574,8 @@ import { createDialogs } from "./js/dialogs.js";
   el("ns-format").addEventListener("change", e => { state.settings.nsFormat = e.target.value === "split" ? "split" : "combined"; saveState(); });
   el("ns-sync-edits").addEventListener("change", e => { state.settings.nsSyncEdits = e.target.checked; saveState(); });
   el("btn-ns-test").addEventListener("click", () => { testNightscoutConnection(); });
+  el("btn-ns-insulin-test").addEventListener("click", () => { sendInsulinTest(); });
+  el("btn-ns-insulin-del").addEventListener("click", () => { deleteInsulinTest(); });
   el("btn-ns-refresh").addEventListener("click", async () => {
     renderNsStatus("Checking…");
     await flushNightscoutQueue(true);

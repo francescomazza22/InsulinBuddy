@@ -548,6 +548,20 @@
           </div>
           <button class="dashed-btn" id="btn-ns-backfill" type="button" style="margin-top:8px;" hidden>Import history from Nightscout</button>
           <p class="panel-card__hint" id="ns-backfill-status" style="margin-top:6px;" hidden></p>
+          <div class="field" style="margin-top:14px;">
+            <label for="ns-insulin-test-kind">Insulin delivery experiment (sends a real 0.1 u test record)</label>
+            <select id="ns-insulin-test-kind">
+              <option value="gluroo">A · Gluroo-style Correction Bolus</option>
+              <option value="plain">B · Plain Correction Bolus (what the app sends now)</option>
+              <option value="snack">C · Snack Bolus</option>
+              <option value="wizard">D · Bolus Wizard</option>
+            </select>
+          </div>
+          <div style="display:flex; gap:8px; margin-top:8px;">
+            <button class="dashed-btn" id="btn-ns-insulin-test" type="button" style="flex:1;">Send 0.1u test</button>
+            <button class="dashed-btn" id="btn-ns-insulin-del" type="button" style="flex:1;">Delete test record</button>
+          </div>
+          <pre class="panel-card__hint" id="ns-insulin-test-out" style="margin-top:6px; white-space:pre-wrap; word-break:break-all; user-select:text;" hidden></pre>
         </div>
 
         <div class="panel-card">
