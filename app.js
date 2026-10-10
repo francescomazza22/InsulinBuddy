@@ -2875,6 +2875,14 @@ import { createDialogs } from "./js/dialogs.js";
   // card are always drawn from CHANGELOG[0], so the two can never drift.
   const CHANGELOG = [
     {
+      version: "2.15.0",
+      summary: "Recipes can now be imported as well as exported.",
+      changes: [
+        "Import Library now understands recipe files (Recipe_export.csv, or a JSON with a recipes list). Recipes are matched by name, so existing ones are updated and new ones added, and each ingredient is linked back to the matching food in your library. You can pick the foods file and the recipes file together (several files at once)",
+        "New “Export Recipes only” button: phones often block the second file of a full export, so the recipes now have a download of their own"
+      ]
+    },
+    {
       version: "2.14.2",
       summary: "Split meals: insulin stamped 1 second after the carbs.",
       changes: [
@@ -5375,19 +5383,9 @@ import { createDialogs } from "./js/dialogs.js";
     URL.revokeObjectURL(url);
   }
 
-  el("btn-export-library").addEventListener("click", () => {
-    const foodHeaders = ["fat_per_100g", "usage_count", "is_favorite", "notes", "calories_per_100g", "salt_per_100g", "name", "carbs_per_100g", "category", "protein_per_100g", "unit_based", "unit_label", "grams_per_unit", "glycemic_index", "id"];
-    const foodRows = state.library.map(f => ({
-      fat_per_100g: f.fat, usage_count: f.usageCount || 0, is_favorite: !!f.favorite,
-      notes: f.notes, calories_per_100g: f.kcal, salt_per_100g: f.salt, name: f.name,
-      carbs_per_100g: f.carbs, category: f.category, protein_per_100g: f.protein,
-      unit_based: !!f.unitBased, unit_label: f.unitLabel || "", grams_per_unit: f.gramsPerUnit || "",
-      glycemic_index: f.gi || "", id: f.id
-    }));
-    downloadText("Food_export.csv", toCsv(foodRows, foodHeaders), "text/csv");
-
-    if (state.recipes.length) {
-      const recipeHeaders = ["raw_weight", "total_carbs", "usage_count", "final_weight", "notes", "total_calories", "calories_per_100g", "name", "ingredients", "carbs_per_100g", "category", "id"];
+  function exportRecipesCsv() {
+    if (!state.recipes.length) { alert("You have no recipes to export yet."); return; }
+    const recipeHeaders = ["raw_weight", "total_carbs", "usage_count", "final_weight", "notes", "total_calories", "calories_per_100g", "name", "ingredients", "carbs_per_100g", "category", "id"];
       const recipeRows = state.recipes.map(r => {
         const t = recipeTotals(r);
         const ingredients = r.items.map(it => {
@@ -5410,51 +5408,108 @@ import { createDialogs } from "./js/dialogs.js";
           id: r.id
         };
       });
-      setTimeout(() => downloadText("Recipe_export.csv", toCsv(recipeRows, recipeHeaders), "text/csv"), 300);
-    }
+    downloadText("Recipe_export.csv", toCsv(recipeRows, recipeHeaders), "text/csv");
+  }
+
+  el("btn-export-library").addEventListener("click", () => {
+    const foodHeaders = ["fat_per_100g", "usage_count", "is_favorite", "notes", "calories_per_100g", "salt_per_100g", "name", "carbs_per_100g", "category", "protein_per_100g", "unit_based", "unit_label", "grams_per_unit", "glycemic_index", "id"];
+    const foodRows = state.library.map(f => ({
+      fat_per_100g: f.fat, usage_count: f.usageCount || 0, is_favorite: !!f.favorite,
+      notes: f.notes, calories_per_100g: f.kcal, salt_per_100g: f.salt, name: f.name,
+      carbs_per_100g: f.carbs, category: f.category, protein_per_100g: f.protein,
+      unit_based: !!f.unitBased, unit_label: f.unitLabel || "", grams_per_unit: f.gramsPerUnit || "",
+      glycemic_index: f.gi || "", id: f.id
+    }));
+    downloadText("Food_export.csv", toCsv(foodRows, foodHeaders), "text/csv");
+
+    if (state.recipes.length) setTimeout(() => exportRecipesCsv(), 300);
   });
+  el("btn-export-recipes").addEventListener("click", () => exportRecipesCsv());
 
   el("btn-import-library").addEventListener("click", () => el("import-file-input").click());
-  el("import-file-input").addEventListener("change", e => {
-    const file = e.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      try {
-        let imported = [];
-        if (file.name.endsWith(".json")) {
-          const data = JSON.parse(reader.result);
-          imported = Array.isArray(data) ? data : (data.foods || []);
-        } else {
-          imported = parseCsv(reader.result).map(r => ({
-            name: r.name, category: r.category || "other",
-            carbs: parseFloat(r.carbs_per_100g) || 0, kcal: parseFloat(r.calories_per_100g) || null,
-            protein: parseFloat(r.protein_per_100g) || null, fat: parseFloat(r.fat_per_100g) || null,
-            salt: parseFloat(r.salt_per_100g) || null, notes: r.notes || "",
-            favorite: r.is_favorite === "true", usageCount: parseInt(r.usage_count, 10) || 0,
-            unitBased: r.unit_based === "true", unitLabel: r.unit_label || null,
-            gramsPerUnit: parseFloat(r.grams_per_unit) || null,
-            gi: parseFloat(r.glycemic_index) || null
-          }));
-        }
-        let added = 0, updated = 0;
-        imported.forEach(item => {
-          if (!item.name) return;
-          const existing = state.library.find(f => f.name.toLowerCase() === item.name.toLowerCase());
-          if (existing) { Object.assign(existing, item, { id: existing.id }); updated++; }
-          else { state.library.push({ id: "food-" + Date.now() + "-" + Math.random().toString(36).slice(2, 6), usageCount: 0, ...item }); added++; }
+
+  // Imports foods and/or recipes from one file's text. A recipe CSV is recognised by its "ingredients" column
+  // (it is what Export Library writes as Recipe_export.csv). Items are matched by name (case-insensitive).
+  function importLibraryFile(name, text) {
+    const res = { foodsAdded: 0, foodsUpdated: 0, recipesAdded: 0, recipesUpdated: 0 };
+    let foods = [], recipes = [];
+    const num = v => { const n = parseFloat(v); return Number.isFinite(n) ? n : null; };
+    if (/\.json$/i.test(name)) {
+      const data = JSON.parse(text);
+      foods = Array.isArray(data) ? data : (data.foods || data.library || []);
+      recipes = Array.isArray(data) ? [] : (data.recipes || []);
+    } else {
+      const rows = parseCsv(text);
+      const isRecipe = rows.length ? Object.prototype.hasOwnProperty.call(rows[0], "ingredients") : /(^|,)"?ingredients"?(,|$)/.test((text.split(/\r?\n/)[0] || ""));
+      if (isRecipe) {
+        recipes = rows.filter(r => r.name).map(r => {
+          let ings = [];
+          try { ings = JSON.parse(r.ingredients || "[]"); } catch { ings = []; }
+          return {
+            name: r.name, category: r.category || "other", notes: r.notes || "",
+            rawWeight: num(r.raw_weight), finalWeight: num(r.final_weight) ?? "",
+            usageCount: parseInt(r.usage_count, 10) || 0,
+            items: (Array.isArray(ings) ? ings : []).map(i => ({
+              foodId: i.food_id || null, name: i.food_name || "", grams: num(i.weight_grams) || 0,
+              carbsPer100g: num(i.carbs_per_100g) ?? 0, kcalPer100g: num(i.calories_per_100g)
+            })).filter(i => i.grams > 0)
+          };
         });
-        saveState();
-        renderLibrary();
-        renderSettings();
-        alert(`Import complete: ${added} added, ${updated} updated.`);
-      } catch (err) {
-        console.error(err);
-        alert("Could not read that file. Make sure it's a CSV or JSON export.");
+      } else {
+        foods = rows.map(r => ({
+          name: r.name, category: r.category || "other",
+          carbs: parseFloat(r.carbs_per_100g) || 0, kcal: parseFloat(r.calories_per_100g) || null,
+          protein: parseFloat(r.protein_per_100g) || null, fat: parseFloat(r.fat_per_100g) || null,
+          salt: parseFloat(r.salt_per_100g) || null, notes: r.notes || "",
+          favorite: r.is_favorite === "true", usageCount: parseInt(r.usage_count, 10) || 0,
+          unitBased: r.unit_based === "true", unitLabel: r.unit_label || null,
+          gramsPerUnit: parseFloat(r.grams_per_unit) || null,
+          gi: parseFloat(r.glycemic_index) || null
+        }));
       }
+    }
+    foods.forEach(item => {
+      if (!item.name) return;
+      const existing = state.library.find(f => f.name.toLowerCase() === item.name.toLowerCase());
+      if (existing) { Object.assign(existing, item, { id: existing.id }); res.foodsUpdated++; }
+      else { state.library.push({ id: "food-" + Date.now() + "-" + Math.random().toString(36).slice(2, 6), usageCount: 0, ...item }); res.foodsAdded++; }
+    });
+    recipes.forEach(item => {
+      if (!item.name) return;
+      // Point each ingredient at the matching food in THIS library (by id, else by name); keep its saved rates.
+      item.items = (item.items || []).map(i => {
+        const f = state.library.find(x => x.id === i.foodId) || state.library.find(x => x.name.toLowerCase() === String(i.name || "").toLowerCase());
+        return { ...i, foodId: f ? f.id : (i.foodId || null) };
+      });
+      const existing = state.recipes.find(r => r.name.toLowerCase() === item.name.toLowerCase());
+      if (existing) { Object.assign(existing, item, { id: existing.id }); res.recipesUpdated++; }
+      else { state.recipes.unshift({ id: "recipe-" + Date.now() + "-" + Math.random().toString(36).slice(2, 6), favorite: false, ...item }); res.recipesAdded++; }
+    });
+    return res;
+  }
+
+  el("import-file-input").addEventListener("change", e => {
+    const files = [...e.target.files];
+    if (!files.length) return;
+    // Foods first, so recipes can find their ingredients when both files are chosen together.
+    files.sort((x, y) => (/recipe/i.test(x.name) ? 1 : 0) - (/recipe/i.test(y.name) ? 1 : 0));
+    const read = f => new Promise((ok, no) => { const r = new FileReader(); r.onload = () => ok(r.result); r.onerror = () => no(r.error); r.readAsText(f); });
+    (async () => {
+      const total = { foodsAdded: 0, foodsUpdated: 0, recipesAdded: 0, recipesUpdated: 0 };
+      const bad = [];
+      for (const f of files) {
+        try { const r = importLibraryFile(f.name, await read(f)); Object.keys(total).forEach(k => { total[k] += r[k]; }); }
+        catch (err) { console.error(err); bad.push(f.name); }
+      }
+      saveState(); renderLibrary(); renderSettings();
+      const parts = [];
+      if (total.foodsAdded || total.foodsUpdated) parts.push(`Foods: ${total.foodsAdded} added, ${total.foodsUpdated} updated`);
+      if (total.recipesAdded || total.recipesUpdated) parts.push(`Recipes: ${total.recipesAdded} added, ${total.recipesUpdated} updated`);
+      if (!parts.length && !bad.length) parts.push("Nothing to import in that file");
+      if (bad.length) parts.push(`Could not read: ${bad.join(", ")}. Make sure it's a CSV or JSON export`);
+      alert(`Import complete. ${parts.join(". ")}.`);
       e.target.value = "";
-    };
-    reader.readAsText(file);
+    })();
   });
 
   function parseCsv(text) {
