@@ -2875,6 +2875,13 @@ import { createDialogs } from "./js/dialogs.js";
   // card are always drawn from CHANGELOG[0], so the two can never drift.
   const CHANGELOG = [
     {
+      version: "2.14.1",
+      summary: "Insulin now reaches Gluroo/Nightscout in split mode.",
+      changes: [
+        "Split format now sends the insulin in the exact shape the experiment showed Gluroo keeps (Correction Bolus, carbs 0, note “Bolus: Xu”). Glucose, if any, is written in the note. Use Settings → Send each meal as → Two entries"
+      ]
+    },
+    {
       version: "2.14.0",
       summary: "Nightscout insulin experiment (Settings).",
       changes: [
