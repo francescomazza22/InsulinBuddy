@@ -2875,6 +2875,14 @@ import { createDialogs } from "./js/dialogs.js";
   // card are always drawn from CHANGELOG[0], so the two can never drift.
   const CHANGELOG = [
     {
+      version: "2.15.1",
+      summary: "Foods logged by quantity now survive an import.",
+      changes: [
+        "Fixed: Import Library only recognised the exact text “true” for “log by quantity”, so foods whose file said “True” or “1” lost it (they kept their unit name and weight but showed per 100 g). Import now accepts any spelling and also treats a food with a unit and weight as logged by quantity",
+        "Foods already damaged this way are repaired automatically the next time the app starts"
+      ]
+    },
+    {
       version: "2.15.0",
       summary: "Recipes can now be imported as well as exported.",
       changes: [
@@ -5430,6 +5438,7 @@ import { createDialogs } from "./js/dialogs.js";
 
   // Imports foods and/or recipes from one file's text. A recipe CSV is recognised by its "ingredients" column
   // (it is what Export Library writes as Recipe_export.csv). Items are matched by name (case-insensitive).
+  const truthy = v => /^(true|1|yes|y|vero|si|sì)$/i.test(String(v ?? "").trim());
   function importLibraryFile(name, text) {
     const res = { foodsAdded: 0, foodsUpdated: 0, recipesAdded: 0, recipesUpdated: 0 };
     let foods = [], recipes = [];
@@ -5461,8 +5470,8 @@ import { createDialogs } from "./js/dialogs.js";
           carbs: parseFloat(r.carbs_per_100g) || 0, kcal: parseFloat(r.calories_per_100g) || null,
           protein: parseFloat(r.protein_per_100g) || null, fat: parseFloat(r.fat_per_100g) || null,
           salt: parseFloat(r.salt_per_100g) || null, notes: r.notes || "",
-          favorite: r.is_favorite === "true", usageCount: parseInt(r.usage_count, 10) || 0,
-          unitBased: r.unit_based === "true", unitLabel: r.unit_label || null,
+          favorite: truthy(r.is_favorite), usageCount: parseInt(r.usage_count, 10) || 0,
+          unitBased: truthy(r.unit_based) || (!!r.unit_label && parseFloat(r.grams_per_unit) > 0), unitLabel: r.unit_label || null,
           gramsPerUnit: parseFloat(r.grams_per_unit) || null,
           gi: parseFloat(r.glycemic_index) || null
         }));
@@ -5501,7 +5510,7 @@ import { createDialogs } from "./js/dialogs.js";
         try { const r = importLibraryFile(f.name, await read(f)); Object.keys(total).forEach(k => { total[k] += r[k]; }); }
         catch (err) { console.error(err); bad.push(f.name); }
       }
-      saveState(); renderLibrary(); renderSettings();
+      repairQuantityFoods(); saveState(); renderLibrary(); renderSettings();
       const parts = [];
       if (total.foodsAdded || total.foodsUpdated) parts.push(`Foods: ${total.foodsAdded} added, ${total.foodsUpdated} updated`);
       if (total.recipesAdded || total.recipesUpdated) parts.push(`Recipes: ${total.recipesAdded} added, ${total.recipesUpdated} updated`);
@@ -5697,6 +5706,17 @@ import { createDialogs } from "./js/dialogs.js";
     "Corn on Cobs": 52, "Butternut squash": 51, "Avocado": 15, "Dry roasted peanuts": 14,
     "Croutons": 70, "Cracker misura": 65, "Pangrattato": 70, "Barley (orzo) secco": 28, "Yogurt": 35
   };
+  // A food with a unit name and a weight per unit is logged by quantity. Older imports only understood the exact
+  // text "true", so foods whose file said "True"/"TRUE"/"1" lost the flag but kept the unit and its weight.
+  function repairQuantityFoods() {
+    let n = 0;
+    state.library.forEach(f => {
+      if (!f.unitBased && f.unitLabel && Number(f.gramsPerUnit) > 0) { f.unitBased = true; n++; }
+    });
+    if (n) { saveState(); diag.log("info", "library", `Restored "log by quantity" on ${n} food(s) that had a unit and weight but the flag off`); }
+    return n;
+  }
+
   function applyGiSeedPatch() {
     let changed = false;
     state.library.forEach(f => {
@@ -5742,6 +5762,7 @@ import { createDialogs } from "./js/dialogs.js";
     applyTheme();
     if (!stateFp) stateFp = makeFingerprint(state);
     applyGiSeedPatch();
+    repairQuantityFoods();
     renderFoodPickList();
     renderMealItems();
     recompute();
