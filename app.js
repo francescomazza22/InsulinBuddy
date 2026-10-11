@@ -3010,6 +3010,11 @@ import { createDialogs } from "./js/dialogs.js";
   // card are always drawn from CHANGELOG[0], so the two can never drift.
   const CHANGELOG = [
     {
+      version: "2.19.1",
+      summary: "Abstract shapes no longer overlap.",
+      changes: ["The scattered Abstract shapes are now placed so none of them touch or overlap, with loose linework filling the gaps"]
+    },
+    {
       version: "2.19.0",
       summary: "Abstract background no longer repeats; thinner doodle lines.",
       changes: [
