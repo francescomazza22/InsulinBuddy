@@ -50,5 +50,5 @@ export function layoutField(width, height, size = "small") {
 /** The SVG markup (no colour: it draws in the surrounding `color`, and the page sets that and the opacity). */
 export function fieldSvg(width, height, size = "small") {
   const uses = layoutField(width, height, size).map(i => `<use href="#${i.id}" transform="translate(${fmt(i.x)} ${fmt(i.y)})${i.rot ? ` rotate(${fmt(i.rot)})` : ""} scale(${Math.round(i.scale * 1000) / 1000})"/>`).join("");
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" aria-hidden="true"><defs>${GLYPHS}</defs><g fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round">${uses}</g></svg>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" aria-hidden="true"><defs>${GLYPHS}</defs><g fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">${uses}</g></svg>`;
 }
