@@ -65,6 +65,7 @@
            Below 1000px they are display: contents, i.e. they are not there as far as layout goes, so phones and portrait
            tablets get exactly the single column they always had. -->
       <div class="calc-side">
+      <div class="reminder-card" id="cc-reminder" hidden></div>
       <div class="dose-card">
         <div class="dose-card__top">
           <div class="dose-card__top-left">
@@ -97,6 +98,7 @@
           </button>
         </div>
 
+        <p class="low-hint" id="cc-low-hint" role="status" hidden></p>
         <p class="dose-card__no-insulin-note dose-card__cap-note" id="cc-cap-note" role="status" hidden></p>
         <p class="dose-card__no-insulin-note" id="cc-no-insulin-note" hidden>Logging carbs only — no insulin will be recorded for this entry.</p>
         <div class="quick-carb-row" id="quick-carb-row" hidden>
@@ -105,6 +107,7 @@
           <button class="quick-carb-chip" data-grams="20" type="button">20g</button>
           <button class="quick-carb-chip" data-grams="30" type="button">30g</button>
         </div>
+        <p class="dose-card__no-insulin-note" id="quick-carb-usual" hidden></p>
 
         <p class="dose-card__no-insulin-note" id="cc-eating-out-note" hidden>Logging insulin only — carbs won't be tracked for this entry.</p>
         <div id="cc-eating-out-row" hidden>
@@ -207,6 +210,7 @@
         </div>
 
         <div class="food-pick-list" id="cc-food-list"></div>
+        <div class="pick-extra" id="cc-pick-extra" hidden></div>
       </div>
       <div class="sticky-log-spacer"></div>
 
@@ -341,6 +345,7 @@
           </div>
           <div id="trend-ideal"></div>
         </div>
+        <div id="trend-insights"></div>
         <div class="empty-state" id="trends-empty" hidden>
           <p>Not enough history yet.</p>
           <p class="empty-state__sub">Log a few meals and trends will show up here.</p>
@@ -563,6 +568,20 @@
             <button class="dashed-btn" id="btn-ns-insulin-del" type="button" style="flex:1;">Delete test record</button>
           </div>
           <pre class="panel-card__hint" id="ns-insulin-test-out" style="margin-top:6px; white-space:pre-wrap; word-break:break-all; user-select:text;" hidden></pre>
+        </div>
+
+        <div class="panel-card">
+          <h2 class="panel-card__title">After-meal glucose check</h2>
+          <p class="panel-card__hint">After you log a meal with insulin, show a reminder on the calculator for when to check your glucose, with an “Add to calendar” button (your phone's Calendar then alerts you even when the app is closed).</p>
+          <div class="field">
+            <label for="set-check-after">Remind me</label>
+            <select id="set-check-after">
+              <option value="0">Off</option>
+              <option value="2">2 hours after a meal</option>
+              <option value="3">3 hours after a meal</option>
+              <option value="4">4 hours after a meal</option>
+            </select>
+          </div>
         </div>
 
         <div class="panel-card">

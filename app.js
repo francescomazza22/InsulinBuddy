@@ -3,6 +3,7 @@ import { convertGlucose, roundDose as roundDoseWith, activeAt, compoundGiInfo, c
 import { SCHEMA_VERSION, normalizeState as normalizeStateWith, makeFingerprint, stampChanges, mergeStates, statesEquivalent, prepareRestoredState, unexplainedEmptying } from "./js/state.js";
 import { NightscoutClient, NsOutbox, nsToken, nsBaseUrl, nsConfigured, treatmentsForEntry, entriesToGlucoseRows } from "./js/nightscout.js";
 import { createDiag, hookGlobalErrors } from "./js/diag.js";
+import { postMealCurves, outcomeByBracket, foodImpact, correctionEffectiveness, iobStacking, overnightStats, weekdayWeekend, lowTreatmentUsual, lastTimesFor, isfToMgdl } from "./js/insights.js";
 import { percentile, dailyPatternBuckets, daysSpanned, estimatedA1c, glucoseSummaryStats, timeInRangeBreakdown, glucoseGuideRows, TIME_IN_RANGE_BANDS } from "./js/glucose-stats.js";
 import { randomBytes, toB64, fromB64, deriveKey, encryptString, decryptString, isEncryptedPayload, exportKeyRaw, importKeyRaw } from "./js/crypto.js";
 import { LocalBackups, shouldAutoSnapshot } from "./js/backup.js";
@@ -107,6 +108,7 @@ import { createDialogs } from "./js/dialogs.js";
         iobAwareCorrection: false,
         nightscoutUrl: "",
         nsFormat: "combined",   // "combined" (one Meal Bolus) or "split" (carbs and insulin separately)
+        checkAfterHours: 0,      // 0 = off; else remind me to check glucose this many hours after a meal with insulin
         nsSyncEdits: true,       // also update / delete in Nightscout when a meal is edited / deleted
         customBackground: null
       },
@@ -739,6 +741,8 @@ import { createDialogs } from "./js/dialogs.js";
     gramsInput.disabled = false;
     gramsInput.placeholder = item.unitBased ? "Qty" : "Grams";
     gramsInput.step = item.unitBased ? "0.5" : "1";
+    batchWeightG = null;
+    renderPickExtra();
     gramsInput.focus();
   });
 
@@ -749,6 +753,7 @@ import { createDialogs } from "./js/dialogs.js";
     gramsInput.step = "1";
     searchClearBtn.hidden = searchInput.value.length === 0;
     renderFoodPickList();
+    renderPickExtra();
   });
   searchClearBtn.addEventListener("click", () => {
     searchInput.value = "";
@@ -774,12 +779,19 @@ import { createDialogs } from "./js/dialogs.js";
       grams = entered;
     }
 
+    // A recipe cooked to a different weight this time: the whole batch's carbs spread over THIS batch's weight.
+    let cPer100 = item.carbsPer100g, kPer100 = item.kcalPer100g;
+    if (type === "recipe" && batchWeightG > 0) {
+      const rec = state.recipes.find(x => x.id === id), t = rec ? recipeTotals(rec) : null;
+      if (t) { cPer100 = Math.round((t.totalCarbs / batchWeightG) * 1000) / 10; kPer100 = t.totalKcal ? Math.round((t.totalKcal / batchWeightG) * 1000) / 10 : item.kcalPer100g; }
+    }
+    batchWeightG = null;
     draft.items.push({
       refType: type, refId: id, name: item.name, grams, quantity, unitLabel,
       gramsPerUnit: item.unitBased ? item.gramsPerUnit : null,
-      carbsPer100g: item.carbsPer100g, kcalPer100g: item.kcalPer100g, gi: item.gi || null,
-      carbs: Math.round(item.carbsPer100g * grams) / 100,
-      kcal: item.kcalPer100g ? Math.round(item.kcalPer100g * grams) / 100 : null
+      carbsPer100g: cPer100, kcalPer100g: kPer100, gi: item.gi || null,
+      carbs: Math.round(cPer100 * grams) / 100,
+      kcal: kPer100 ? Math.round(kPer100 * grams) / 100 : null
     });
     selectedPickId = null;
     searchInput.value = "";
@@ -789,6 +801,7 @@ import { createDialogs } from "./js/dialogs.js";
     gramsInput.placeholder = "Grams";
     gramsInput.step = "1";
     renderFoodPickList();
+    renderPickExtra();
     renderMealItems();
     recompute();
     saveDraftLocal();
@@ -1096,8 +1109,10 @@ import { createDialogs } from "./js/dialogs.js";
     const fmtDate = d => d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
 
     let glucoseHtml = `<p class="panel-card__hint">Sign in to Cloud Sync and set up Nightscout to include glucose stats in this report.</p>`;
+    let reportReadings = null;
     if (supabaseClient && currentUser && nightscoutConfigured()) {
       const result = await fetchStoredGlucoseReadings(days);
+      if (result.ok) reportReadings = result.readings;
       if (result.ok && result.readings.length > 0 && daysSpanned(result.readings) >= MIN_PATTERN_DAYS) {
         const stats = glucoseSummaryStats(result.readings);
         const tir = timeInRangeBreakdown(result.readings);
@@ -1140,6 +1155,26 @@ import { createDialogs } from "./js/dialogs.js";
       </table>
     `;
 
+    // Patterns: what the new Trends insights say, for the same period, so they can be talked through at the appointment.
+    let patternsHtml = "";
+    {
+      const gl = v => (v == null || !Number.isFinite(v) ? "\u2014" : unit === "mmol" ? String(round1(convertGlucose(v, "mgdl", "mmol"))) : String(Math.round(v)));
+      const ratios = ratioByBracket(inRange, state.settings), ideal = idealRatioByBracket(inRange, state.settings, 3);
+      const idealBy = new Map(ideal.rows.map(r => [r.label, r]));
+      const ratioRows = ratios.rows.filter(r => r.count > 0).map(r => { const i = idealBy.get(r.label); return `<tr><td>${escapeHtml(r.label)}</td><td>${r.count}</td><td>1:${round1(r.avg)}</td><td>${i && i.count ? "1:" + round1(i.ideal) : "\u2014"}</td><td>${r.current ? "1:" + round1(r.current) : "\u2014"}</td></tr>`; }).join("");
+      if (ratioRows) patternsHtml += `<h3>Insulin-to-carb ratios</h3><table class="report-table"><thead><tr><th>Bracket</th><th>Meals</th><th>Used (avg)</th><th>Ideal*</th><th>Set now</th></tr></thead><tbody>${ratioRows}</tbody></table><p class="panel-card__hint">*Ideal counts carbs eaten to treat a low within 3 h after an injection.</p>`;
+      if (reportReadings && reportReadings.length) {
+        const out = outcomeByBracket(inRange, reportReadings, { afterHours: 3 });
+        if (out.total) patternsHtml += `<h3>Glucose 3 hours after meals</h3><table class="report-table"><thead><tr><th>Bracket</th><th>Meals</th><th>Low</th><th>In range</th><th>High</th><th>Avg start \u2192 3 h</th></tr></thead><tbody>${[...out.rows, ...(out.rows.length > 1 ? [out.all] : [])].map(r => `<tr><td>${escapeHtml(r.label)}</td><td>${r.n}</td><td>${Math.round((r.low / r.n) * 100)}%</td><td>${Math.round((r.inRange / r.n) * 100)}%</td><td>${Math.round((r.high / r.n) * 100)}%</td><td>${gl(r.avgStart)} \u2192 ${gl(r.avgEnd)}</td></tr>`).join("")}</tbody></table>`;
+        const ov = overnightStats(inRange, reportReadings);
+        if (ov.n) patternsHtml += `<h3>Overnight (00:00\u201306:00, quiet nights)</h3><p>${ov.n} nights \u00b7 average drift ${ov.avgDrift >= 0 ? "+" : "\u2212"}${gl(Math.abs(ov.avgDrift))} ${unitLabel} \u00b7 ${ov.lowNights} with a low.</p>`;
+        const cor = correctionEffectiveness(inRange, reportReadings, {});
+        if (cor.n) patternsHtml += `<h3>Corrections</h3><p>${cor.n} isolated correction${cor.n === 1 ? "" : "s"}: glucose fell a median of ${gl(cor.medianPerUnit)} ${unitLabel} per unit by 3 hours (correction factor set to ${gl(isfToMgdl(state.settings.isf, state.settings.units))}).</p>`;
+        const fd = foodImpact(inRange, reportReadings, { minMeals: 2 });
+        if (fd.biggestRise.length) patternsHtml += `<h3>Foods with the biggest rise</h3><p>${fd.biggestRise.slice(0, 3).map(r => `${escapeHtml(r.name)} (+${gl(r.avgRise)} ${unitLabel}, ${r.n} meals)`).join("; ")}.</p>`;
+      }
+    }
+
     content.innerHTML = `
       <div class="report-content__header">
         <h1>Insulin Buddy — Summary Report</h1>
@@ -1148,6 +1183,7 @@ import { createDialogs } from "./js/dialogs.js";
       </div>
       <div class="report-section"><h2>Glucose</h2>${glucoseHtml}</div>
       <div class="report-section"><h2>Meals &amp; Dosing</h2>${dosingHtml}</div>
+      ${patternsHtml ? `<div class="report-section"><h2>Patterns</h2>${patternsHtml}</div>` : ""}
       <p class="report-footer">Generated by Insulin Buddy. Informational only — not a substitute for professional medical advice. Estimated A1c (GMI) is not a lab result.</p>
     `;
   }
@@ -1996,6 +2032,7 @@ import { createDialogs } from "./js/dialogs.js";
     el("cc-no-insulin-toggle").classList.toggle("is-active", draft.noInsulinOn);
     el("cc-no-insulin-note").hidden = !draft.noInsulinOn;
     el("quick-carb-row").hidden = !draft.noInsulinOn;
+    renderQuickUsual();
     if (draft.noInsulinOn && draft.correctionOn) {
       draft.correctionOn = false;
       correctionToggle.classList.remove("is-active");
@@ -2318,10 +2355,105 @@ import { createDialogs } from "./js/dialogs.js";
     });
     saveState();
     syncEntryToNightscout(entry);
+    setReminderFor(entry);
     resetDraft();
     renderActivePanel();
     renderRecentMeals();
   }
+
+
+  // ================= Features built on your own history (2.17) =================
+  const cachedReadings = () => { let best = []; for (const v of glucoseReadingsCache.values()) if (v.readings.length > best.length) best = v.readings; return best; };
+  const fmtGluShort = v => (v == null || !Number.isFinite(v) ? "—" : state.settings.units === "mmol" ? String(round1(convertGlucose(v, "mgdl", "mmol"))) : String(Math.round(v)));
+  const gluUnitShort = () => (state.settings.units === "mmol" ? "mmol/L" : "mg/dL");
+  let batchWeightG = null; // cooked weight of THIS batch, for a recipe being added (null = use the recipe's saved weight)
+
+  // Under the food list: for the food you just picked, the last few times you had it, and (for a recipe) a batch weight.
+  function renderPickExtra() {
+    const box = el("cc-pick-extra");
+    if (!box) return;
+    const item = selectedPickId ? pickableItems().find(i => i.id === selectedPickId) : null;
+    if (!item) { box.hidden = true; box.innerHTML = ""; return; }
+    let html = "";
+    if (item.refType === "recipe") {
+      const r = state.recipes.find(x => x.id === item.refId), t = r ? recipeTotals(r) : null;
+      if (r && t) {
+        const per = batchWeightG > 0 ? Math.round((t.totalCarbs / batchWeightG) * 1000) / 10 : t.carbsPer100g;
+        html += `<div class="pick-extra__batch"><label for="cc-batch-weight">This batch's cooked weight</label>
+          <div class="field__row"><input type="number" id="cc-batch-weight" inputmode="decimal" min="0" step="1" placeholder="${r.finalWeight}" value="${batchWeightG || ""}"><span>g</span></div>
+          <p class="pick-extra__note">${t.totalCarbs} g carbs in the whole batch → <b>${per} g per 100 g</b>${batchWeightG > 0 ? ` (recipe default ${t.carbsPer100g})` : ""}. Leave empty to use the saved weight of ${r.finalWeight} g.</p></div>`;
+      }
+    }
+    const last = lastTimesFor(state.history, cachedReadings(), { refId: item.refId, name: item.name }, 3);
+    if (last.length) {
+      const when = ts => new Date(ts).toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" });
+      const amount = l => (l.quantity != null && l.unitLabel ? `${formatQty(l.quantity)} ${l.unitLabel}${l.quantity === 1 ? "" : "s"}` : l.grams != null ? `${Math.round(l.grams)} g` : "");
+      html += `<div class="pick-extra__last"><div class="pick-extra__title">Last time you had this</div>` + last.map(l => `<div class="pick-extra__row"><span>${when(l.ts)} · ${amount(l)}${l.alone ? "" : " (with other foods)"}</span><span>${l.noInsulin ? "no insulin" : round1(l.dose) + " u"}${l.after3h != null ? ` · 3 h later ${fmtGluShort(l.after3h)}` : ""}</span></div>`).join("") + `</div>`;
+    }
+    box.innerHTML = html;
+    box.hidden = !html;
+  }
+  document.addEventListener("input", e => {
+    if (!e.target || e.target.id !== "cc-batch-weight") return;
+    const v = parseFloat(e.target.value);
+    batchWeightG = v > 0 ? v : null;
+    const note = el("cc-pick-extra").querySelector(".pick-extra__note");
+    const item = pickableItems().find(i => i.id === selectedPickId), r = item && state.recipes.find(x => x.id === item.refId);
+    if (note && r) { const t = recipeTotals(r); const per = batchWeightG ? Math.round((t.totalCarbs / batchWeightG) * 1000) / 10 : t.carbsPer100g; note.innerHTML = `${t.totalCarbs} g carbs in the whole batch → <b>${per} g per 100 g</b>${batchWeightG ? ` (recipe default ${t.carbsPer100g})` : ""}. Leave empty to use the saved weight of ${r.finalWeight} g.`; }
+  });
+
+  // Treating a low: your own usual amount, from your own past low treatments.
+  function renderQuickUsual() {
+    const note = el("quick-carb-usual");
+    if (!note) return;
+    const u = lowTreatmentUsual(state.history);
+    if (!u.n || u.medianCarbs == null) { note.hidden = true; return; }
+    note.textContent = `Your usual: about ${round1(u.medianCarbs)} g (the middle of your last ${u.n} low treatment${u.n === 1 ? "" : "s"}, ${round1(u.minCarbs)}–${round1(u.maxCarbs)} g). Follow your own care plan.`;
+    note.hidden = false;
+  }
+  function renderLowHint() {
+    const hint = el("cc-low-hint");
+    if (!hint) return;
+    const fresh = liveGlucose && typeof liveGlucose.mgdl === "number" && Date.now() - liveGlucose.at <= LIVE_GLUCOSE_STALE_MS;
+    if (!nightscoutConfigured() || !fresh || liveGlucose.mgdl >= 70) { hint.hidden = true; return; }
+    const u = lowTreatmentUsual(state.history);
+    hint.innerHTML = `<b>Low (${fmtGluShort(liveGlucose.mgdl)} ${gluUnitShort()}).</b> ${u.n ? `You usually treat with about ${round1(u.medianCarbs)} g of fast carbs — tap “Treating a low” for quick add.` : "Tap “Treating a low” to log fast carbs."}`;
+    hint.hidden = false;
+  }
+
+  // After-meal glucose check: a note on the calculator, plus a calendar event (with an alert) you can add in one tap.
+  const REMINDER_KEY = "insulinBuddy.checkReminder";
+  const readReminder = () => { try { return JSON.parse(localStorage.getItem(REMINDER_KEY)); } catch { return null; } };
+  function setReminderFor(entry) {
+    const hrs = Number(state.settings.checkAfterHours) || 0;
+    if (!hrs || entry.noInsulin || (Number(entry.mealDose) || 0) + (Number(entry.correctionDose) || 0) <= 0) return;
+    try { localStorage.setItem(REMINDER_KEY, JSON.stringify({ due: entry.ts + hrs * 3600000, mealTs: entry.ts, hours: hrs, label: entry.mealType || "meal" })); } catch { /* no storage: no reminder */ }
+    renderReminder();
+  }
+  function renderReminder() {
+    const box = el("cc-reminder");
+    if (!box) return;
+    const r = readReminder();
+    if (!r || !(Number(state.settings.checkAfterHours) > 0) || Date.now() > r.due + 6 * 3600000) { box.hidden = true; if (r && Date.now() > r.due + 6 * 3600000) { try { localStorage.removeItem(REMINDER_KEY); } catch { /* */ } } return; }
+    const due = new Date(r.due), time = due.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    const mins = Math.round((r.due - Date.now()) / 60000);
+    const isDue = mins <= 0;
+    box.className = "reminder-card" + (isDue ? " reminder-card--due" : "");
+    box.innerHTML = `<div class="reminder-card__text"><b>${isDue ? "Time to check your glucose" : "Check your glucose at " + time}</b><span>${isDue ? `${r.hours} h since your ${escapeHtml(r.label)}.` : `in ${mins >= 60 ? Math.floor(mins / 60) + " h " + (mins % 60) + " min" : mins + " min"} — ${r.hours} h after your ${escapeHtml(r.label)}.`}</span></div>
+      <div class="reminder-card__btns">${isDue ? "" : `<button type="button" class="reminder-btn" id="reminder-ics">Add to calendar</button>`}<button type="button" class="reminder-btn" id="reminder-done">${isDue ? "Done" : "Dismiss"}</button></div>`;
+    box.hidden = false;
+  }
+  function reminderIcs(r) {
+    const z = d => new Date(d).toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, "");
+    return ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Insulin Buddy//EN", "BEGIN:VEVENT", `UID:ib-${r.mealTs}@insulinbuddy`, `DTSTAMP:${z(Date.now())}`, `DTSTART:${z(r.due)}`, `DTEND:${z(r.due + 15 * 60000)}`,
+      "SUMMARY:Check glucose (Insulin Buddy)", `DESCRIPTION:${r.hours} h after your ${r.label}.`, "BEGIN:VALARM", "TRIGGER:PT0S", "ACTION:DISPLAY", "DESCRIPTION:Check glucose", "END:VALARM", "END:VEVENT", "END:VCALENDAR"].join("\r\n");
+  }
+  document.addEventListener("click", e => {
+    if (e.target.closest && e.target.closest("#reminder-done")) { try { localStorage.removeItem(REMINDER_KEY); } catch { /* */ } renderReminder(); return; }
+    if (e.target.closest && e.target.closest("#reminder-ics")) { const r = readReminder(); if (r) downloadText("check-glucose.ics", reminderIcs(r), "text/calendar"); }
+  });
+  setInterval(() => { if (!document.hidden) renderReminder(); }, 30000);
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) renderReminder(); });
 
   // ================= Nightscout sync =================
   // Sends the carbs + total insulin (and glucose, if a correction was used) for
@@ -2546,6 +2678,7 @@ import { createDialogs } from "./js/dialogs.js";
   function renderLiveGlucosePill() {
     const pill = el("cc-live-glucose");
     if (!pill) return;
+    renderLowHint();
     if (!nightscoutConfigured() || !liveGlucose || typeof liveGlucose.mgdl !== "number") { pill.hidden = true; return; }
     const stale = Date.now() - liveGlucose.at > LIVE_GLUCOSE_STALE_MS;
     const value = round1(convertGlucose(liveGlucose.mgdl, "mgdl", state.settings.units));
@@ -2874,6 +3007,25 @@ import { createDialogs } from "./js/dialogs.js";
   // Newest first. version-badge-text/version-summary-text in the Settings
   // card are always drawn from CHANGELOG[0], so the two can never drift.
   const CHANGELOG = [
+    {
+      version: "2.17.0",
+      summary: "Last-time lines, usual low treatment, glucose-check reminder, recipe batch weight, report patterns.",
+      changes: [
+        "Pick a food and the calculator shows the last 3 times you had it: the amount, the insulin you took, and your glucose 3 hours later when readings are available",
+        "Treating a low now shows your own usual amount (the middle of your last low treatments), and a low reading on the dose card points you to it. It is only your own history, not advice",
+        "New “After-meal glucose check” setting (Settings): after you log a meal with insulin, a card on the calculator says when to check, with an Add to calendar button so your phone alerts you even when the app is closed",
+        "Recipes: when you add a recipe you can enter this batch's cooked weight, and the carbs per 100 g update for that meal",
+        "The doctor report now has a Patterns section: ratios used vs ideal vs set now, glucose 3 hours after meals, overnight drift, correction results and the foods with the biggest rise"
+      ]
+    },
+    {
+      version: "2.16.0",
+      summary: "Glucose insights in Trends.",
+      changes: [
+        "New “Glucose insights” section under Trends, built from your stored glucose readings and the meals you logged: the typical glucose curve for 4 hours after a meal (per ratio bracket), where glucose is 3 hours after meals (low / in range / high), foods to watch (biggest rises and lows afterwards), how well corrections work compared with your set correction factor, meals taken with insulin still active, overnight drift and basal, weekdays vs weekends, and activity ratios vs everyday",
+        "New file js/insights.js (the calculations). They describe what happened after past meals and doses; they are patterns to talk through with your care team, not dosing instructions"
+      ]
+    },
     {
       version: "2.15.2",
       summary: "Cloud sync no longer depends on a CDN being reachable.",
@@ -4350,6 +4502,7 @@ import { createDialogs } from "./js/dialogs.js";
     renderTrendMealBreakdown(inRange);
     renderRatioTrend(inRange);
     renderIdealRatioTrend(inRange);
+    renderInsights(inRange, days);
   }
 
   // "Average ratio by time of day": for each of your brackets, the insulin-to-carb ratio actually used in this period.
@@ -4427,6 +4580,132 @@ import { createDialogs } from "./js/dialogs.js";
       (res.lowsUnattached > 0 ? ` ${res.lowsUnattached} other low${res.lowsUnattached === 1 ? "" : "s"} had no ratio-dosed meal in the window, so ${res.lowsUnattached === 1 ? "isn't" : "aren't"} counted.` : "") +
       ` A longer ratio number means less insulin per gram of carbs. This is a pattern to talk through with your care team, not a dosing instruction.</p>`;
   }
+
+
+  // ---- Glucose insights (Trends): patterns from stored CGM readings around the logged meals ----
+  // All of these read the same data the Glucose tab does (stored Nightscout readings) and never change anything.
+  let insightsToken = 0;
+  let insightsCurveGroup = "All meals";
+  let lastInsights = null; // { entries, readings, days } so a bracket button can redraw without refetching
+  const fmtGlu = v => v == null || !Number.isFinite(v) ? "—" : (state.settings.units === "mmol" ? String(round1(convertGlucose(v, "mgdl", "mmol"))) : String(Math.round(v)));
+  const gluUnit = () => (state.settings.units === "mmol" ? "mmol/L" : "mg/dL");
+  const pctTxt = v => (v == null ? "—" : Math.round(v) + "%");
+  const insCard = (title, hint, body) => `<div class="panel-card ins-card"><h2 class="panel-card__title">${title}</h2>${hint ? `<p class="trend-caption trend-caption--tight" style="margin-top:-4px;">${hint}</p>` : ""}${body}</div>`;
+
+  async function renderInsights(inRange, days) {
+    const box = el("trend-insights");
+    if (!box) return;
+    const token = ++insightsToken;
+    if (!inRange.length) { box.innerHTML = ""; return; }
+    box.innerHTML = `<h3 class="ins-heading">Glucose insights</h3><p class="trend-caption">Loading your glucose readings…</p>`;
+    const result = await fetchStoredGlucoseReadings(days);
+    if (token !== insightsToken) return; // a newer render took over
+    if (!result.ok || !result.readings.length) {
+      box.innerHTML = `<h3 class="ins-heading">Glucose insights</h3><p class="trend-caption">${escapeHtml(result.reason || "No stored glucose readings for this period yet.")} These cards compare your meals with what your glucose did afterwards.</p>`;
+      return;
+    }
+    lastInsights = { entries: inRange, readings: result.readings, days };
+    drawInsights();
+  }
+
+  function insCurveSvg(group, hours) {
+    const W = Math.max(280, Math.min(640, (el("trend-insights").clientWidth || 340) - 8)), H = 190, L = 34, R = 8, T = 8, B = 22;
+    const pts = group.points.filter(p => p.p50 != null);
+    if (pts.length < 2) return `<p class="trend-caption">Not enough readings after these meals yet.</p>`;
+    const vals = pts.flatMap(p => [p.p25, p.p50, p.p75]).filter(v => v != null).concat([70, 180]);
+    const lo = Math.floor((Math.min(...vals) - 5) / 10) * 10, hi = Math.ceil((Math.max(...vals) + 5) / 10) * 10;
+    const x = m => L + (m / (hours * 60)) * (W - L - R), y = v => T + (1 - (v - lo) / (hi - lo)) * (H - T - B);
+    const band = pts.filter(p => p.p25 != null && p.p75 != null);
+    const area = band.length > 1 ? `<path d="M${band.map(p => `${x(p.minute).toFixed(1)},${y(p.p75).toFixed(1)}`).join(" L")} L${band.slice().reverse().map(p => `${x(p.minute).toFixed(1)},${y(p.p25).toFixed(1)}`).join(" L")} Z" fill="var(--acc-1)" opacity="0.18"/>` : "";
+    const line = `<path d="M${pts.map(p => `${x(p.minute).toFixed(1)},${y(p.p50).toFixed(1)}`).join(" L")}" fill="none" stroke="var(--acc-1)" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"/>`;
+    const target = `<rect x="${L}" y="${y(180).toFixed(1)}" width="${W - L - R}" height="${(y(70) - y(180)).toFixed(1)}" fill="#2E9E6B" opacity="0.10"/>`;
+    const xt = []; for (let h = 0; h <= hours; h++) xt.push(`<text x="${x(h * 60).toFixed(1)}" y="${H - 6}" text-anchor="middle" font-size="10" fill="var(--ink-soft)">${h}h</text>`);
+    const yt = [lo, Math.round((lo + hi) / 2 / 10) * 10, hi].map(v => `<text x="${L - 4}" y="${(y(v) + 3).toFixed(1)}" text-anchor="end" font-size="10" fill="var(--ink-soft)">${fmtGlu(v)}</text><line x1="${L}" x2="${W - R}" y1="${y(v).toFixed(1)}" y2="${y(v).toFixed(1)}" stroke="var(--line, rgba(128,128,128,.25))" stroke-width="0.6"/>`);
+    return `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Typical glucose after a meal, ${escapeAttr(group.label)}">${target}${yt.join("")}${area}${line}${xt.join("")}</svg>`;
+  }
+
+  function drawInsights() {
+    const box = el("trend-insights");
+    if (!box || !lastInsights) return;
+    const { entries, readings } = lastInsights;
+    const cards = [];
+
+    // 1. Glucose after meals
+    const cur = postMealCurves(entries, readings, { hours: 4, stepMin: 15 });
+    if (cur.groups.length) {
+      if (!cur.groups.some(g => g.label === insightsCurveGroup)) insightsCurveGroup = "All meals";
+      const g = cur.groups.find(x => x.label === insightsCurveGroup);
+      const btns = cur.groups.map(x => `<button type="button" class="glucose-range-btn${x.label === insightsCurveGroup ? " is-active" : ""}" data-insgroup="${escapeAttr(x.label)}">${escapeHtml(x.label)} <small>${x.count}</small></button>`).join("");
+      cards.push(insCard("Glucose after meals", "The typical curve for the 4 hours after an injection: the line is the median, the shaded band the middle half of meals, the green strip your target range.",
+        `<div class="ideal-window ins-groups">${btns}</div>${insCurveSvg(g, cur.hours)}<p class="trend-caption trend-caption--tight">${g.count} meal${g.count === 1 ? "" : "s"}${g.enough ? "" : " — too few to trust the shape yet"}. Starting reading: ${fmtGlu(g.points[0].p50)} ${gluUnit()}; highest typical reading ${fmtGlu(Math.max(...g.points.map(p => p.p50 || 0)))} ${gluUnit()}.</p>`));
+    }
+
+    // 2. Outcome by bracket
+    const out = outcomeByBracket(entries, readings, { afterHours: 3 });
+    if (out.total) {
+      const row = r => `<div class="ins-row"><div class="ins-row__head"><span class="rtrend__name">${escapeHtml(r.label)}</span><span class="rtrend__n">${r.n} meal${r.n === 1 ? "" : "s"} · avg ${fmtGlu(r.avgStart)} → ${fmtGlu(r.avgEnd)}</span></div>
+        <div class="ins-bar" role="img" aria-label="${escapeAttr(r.label)}: ${r.low} low, ${r.inRange} in range, ${r.high} high"><span class="ins-bar__low" style="width:${(r.low / r.n) * 100}%"></span><span class="ins-bar__in" style="width:${(r.inRange / r.n) * 100}%"></span><span class="ins-bar__high" style="width:${(r.high / r.n) * 100}%"></span></div>
+        <div class="rtrend__n">${pctTxt((r.low / r.n) * 100)} low · ${pctTxt((r.inRange / r.n) * 100)} in range · ${pctTxt((r.high / r.n) * 100)} high${r.anyLow ? ` · ${r.anyLow} dipped below 70 at some point` : ""}</div></div>`;
+      cards.push(insCard("Where glucose is 3 hours after a meal", "Per ratio bracket: how many meals ended low (under 70 mg/dL), in range, or high (over 180).",
+        out.rows.map(row).join("") + (out.rows.length > 1 ? row(out.all) : "") + `<div class="trend-legend"><span><span class="trend-legend__dot" style="background:#D9534F;"></span>Low</span><span><span class="trend-legend__dot" style="background:#2E9E6B;"></span>In range</span><span><span class="trend-legend__dot" style="background:#E0A100;"></span>High</span></div>`));
+    }
+
+    // 3. Foods to watch
+    const foods = foodImpact(entries, readings, { minMeals: 2 });
+    if (foods.rows.length) {
+      const li = r => `<li><span class="ins-li__name">${escapeHtml(r.name)}</span><span class="ins-li__val">+${fmtGlu(r.avgRise)} ${gluUnit()}</span><span class="rtrend__n">${r.n} meals · peak ${fmtGlu(r.avgPeak)}${r.lowPct ? ` · low after ${pctTxt(r.lowPct)}` : ""}</span></li>`;
+      cards.push(insCard("Foods to watch", "Average rise (highest reading in the 3 hours minus the starting reading) for foods that made up most of a meal's carbs. Needs at least 2 such meals.",
+        `<ol class="ins-list">${foods.biggestRise.map(li).join("")}</ol>` + (foods.mostLows.length ? `<p class="trend-caption trend-caption--tight"><b>Lows afterwards:</b> ${foods.mostLows.map(r => `${escapeHtml(r.name)} (${pctTxt(r.lowPct)} of ${r.n})`).join(", ")}.</p>` : "")));
+    }
+
+    // 4. Correction effectiveness
+    const isf = isfToMgdl(state.settings.isf, state.settings.units);
+    const cor = correctionEffectiveness(entries, readings, { isfMgdl: isf });
+    if (cor.n) {
+      const eff = cor.medianPerUnit;
+      cards.push(insCard("How well corrections work", "Corrections given on their own, with no food or other insulin within the following 4 hours: how far glucose fell per unit by 3 hours later.",
+        `<div class="ins-big"><span class="ins-big__num">${fmtGlu(eff)}</span><span class="ins-big__unit">${gluUnit()} per unit (median of ${cor.n})</span></div>
+         <p class="trend-caption trend-caption--tight">Your correction factor is set to ${fmtGlu(isf)} ${gluUnit()} per unit${isf && eff != null ? `, so corrections have been ${eff > isf * 1.15 ? "stronger" : eff < isf * 0.85 ? "weaker" : "close to"} than set${eff > isf * 1.15 || eff < isf * 0.85 ? ` (${Math.round((eff / isf) * 100)}% of it)` : ""}` : ""}.</p>
+         <ul class="ins-list ins-list--plain">${cor.events.slice(0, 5).map(ev => `<li><span class="ins-li__name">${new Date(ev.ts).toLocaleDateString(undefined, { day: "numeric", month: "short" })} · ${round1(ev.units)} u</span><span class="ins-li__val">${fmtGlu(ev.start)} → ${fmtGlu(ev.end)}</span></li>`).join("")}</ul>`));
+    }
+
+    // 5. Stacking
+    const stk = iobStacking(entries, readings);
+    if (stk.stacked.n && stk.clean.n) {
+      const col = (t, s) => `<div class="ins-col"><div class="ins-col__title">${t}</div><div class="ins-col__num">${fmtGlu(s.avgEnd)}</div><div class="rtrend__n">avg at 3 h · ${s.n} meals</div><div class="rtrend__n">${pctTxt(s.lowPct)} dipped low · ${pctTxt(s.highPct)} high</div></div>`;
+      cards.push(insCard("Meals taken with insulin still active", `Meals eaten within ${stk.windowHours} hours of an earlier dose, compared with meals taken with no recent insulin.`,
+        `<div class="ins-cols">${col("Insulin still active", stk.stacked)}${col("No recent insulin", stk.clean)}</div><p class="trend-caption trend-caption--tight">Stacked meals had on average ${round1(stk.stacked.avgPriorUnits)} u from earlier doses still working.</p>`));
+    }
+
+    // 6. Overnight
+    const ov = overnightStats(entries, readings);
+    if (ov.n) {
+      const sign = v => (v > 0 ? "+" : v < 0 ? "−" : "") + fmtGlu(Math.abs(v));
+      cards.push(insCard("Overnight (00:00–06:00)", "Quiet nights only: no food or mealtime insulin in the 3 hours before midnight or during the night.",
+        `<div class="ins-cols"><div class="ins-col"><div class="ins-col__title">Average drift</div><div class="ins-col__num">${sign(ov.avgDrift)}</div><div class="rtrend__n">${gluUnit()} by 06:00 · ${ov.n} nights</div></div><div class="ins-col"><div class="ins-col__title">Nights with a low</div><div class="ins-col__num">${ov.lowNights}</div><div class="rtrend__n">of ${ov.n}</div></div></div>` +
+        (ov.byBasal.length > 1 ? `<ul class="ins-list ins-list--plain">${ov.byBasal.map(b => `<li><span class="ins-li__name">Basal ${round1(b.dose)} u</span><span class="ins-li__val">${sign(b.avgDrift)} ${gluUnit()}</span><span class="rtrend__n">${b.n} nights${b.lows ? ` · ${b.lows} with a low` : ""}</span></li>`).join("")}</ul>` : `<p class="trend-caption trend-caption--tight">Log basal doses in more than one amount to compare how the night went for each.</p>`)));
+    }
+
+    // 7. Weekday vs weekend, and activity
+    const wk = weekdayWeekend(entries, readings, state.settings);
+    if (wk.weekday.days && wk.weekend.days) {
+      const col = (t, s) => `<div class="ins-col"><div class="ins-col__title">${t}</div><div class="ins-col__num">${s.carbsPerDay == null ? "—" : Math.round(s.carbsPerDay)} g</div><div class="rtrend__n">carbs a day · ${s.days} day${s.days === 1 ? "" : "s"}</div><div class="rtrend__n">${s.insulinPerDay == null ? "—" : round1(s.insulinPerDay)} u a day · ${s.mealsPerDay == null ? "—" : round1(s.mealsPerDay)} meals</div><div class="rtrend__n">${s.avgRatio ? "avg ratio 1:" + round1(s.avgRatio) : ""}</div><div class="rtrend__n">${s.n3h ? "3 h after: avg " + fmtGlu(s.avg3h) + ", " + pctTxt(s.lowPct) + " low, " + pctTxt(s.highPct) + " high" : "no glucose data"}</div></div>`;
+      cards.push(insCard("Weekdays vs weekends", "", `<div class="ins-cols">${col("Weekdays", wk.weekday)}${col("Weekends", wk.weekend)}</div>`));
+    }
+    if (wk.activity.length && wk.everyday.n) {
+      const ar = r => `<li><span class="ins-li__name">${escapeHtml(r.label)}</span><span class="ins-li__val">1:${round1(r.avgRatio)}</span><span class="rtrend__n">${r.n} meals${r.n3h ? ` · 3 h after avg ${fmtGlu(r.avg3h)}, ${pctTxt(r.lowPct)} low` : ""}</span></li>`;
+      cards.push(insCard("Activity ratios vs everyday", "How meals logged with an activity ratio compare with ones at your everyday time-of-day ratios.",
+        `<ul class="ins-list ins-list--plain"><li><span class="ins-li__name">Everyday</span><span class="ins-li__val">1:${round1(wk.everyday.avgRatio)}</span><span class="rtrend__n">${wk.everyday.n} meals${wk.everyday.n3h ? ` · 3 h after avg ${fmtGlu(wk.everyday.avg3h)}, ${pctTxt(wk.everyday.lowPct)} low` : ""}</span></li>${wk.activity.map(ar).join("")}</ul>`));
+    }
+
+    box.innerHTML = `<h3 class="ins-heading">Glucose insights</h3>` + (cards.length ? cards.join("") + `<p class="trend-caption">These describe what happened after past meals and doses. They are patterns to talk through with your care team, not dosing instructions.</p>` : `<p class="trend-caption">Not enough overlap between logged meals and glucose readings in this period yet. Insights need readings around each meal (the Nightscout history that Insulin Buddy stores).</p>`);
+  }
+  document.addEventListener("click", e => {
+    const b = e.target.closest && e.target.closest("[data-insgroup]");
+    if (!b) return;
+    insightsCurveGroup = b.dataset.insgroup;
+    drawInsights();
+  });
 
   let trendResizeTimer = null;
   window.addEventListener("resize", () => {
@@ -4734,6 +5013,7 @@ import { createDialogs } from "./js/dialogs.js";
   });
 
   function renderSettings() {
+    if (el("set-check-after")) el("set-check-after").value = String(Number(state.settings.checkAfterHours) || 0);
     panelRatios.hidden = settingsSeg !== "ratios";
     panelData.hidden = settingsSeg !== "data";
     panelGeneral.hidden = settingsSeg !== "general";
@@ -5662,6 +5942,7 @@ import { createDialogs } from "./js/dialogs.js";
     localStorage.removeItem(LIVE_GLUCOSE_CACHE_KEY);
     renderLiveGlucosePill();
   });
+  el("set-check-after").addEventListener("change", e => { state.settings.checkAfterHours = Number(e.target.value) || 0; saveState(); if (!state.settings.checkAfterHours) { try { localStorage.removeItem(REMINDER_KEY); } catch { /* */ } } renderReminder(); });
   el("ns-format").addEventListener("change", e => { state.settings.nsFormat = e.target.value === "split" ? "split" : "combined"; saveState(); });
   el("ns-sync-edits").addEventListener("change", e => { state.settings.nsSyncEdits = e.target.checked; saveState(); });
   el("btn-ns-test").addEventListener("click", () => { testNightscoutConnection(); });
@@ -5776,6 +6057,7 @@ import { createDialogs } from "./js/dialogs.js";
     if (!stateFp) stateFp = makeFingerprint(state);
     applyGiSeedPatch();
     repairQuantityFoods();
+    renderQuickUsual(); renderReminder();
     renderFoodPickList();
     renderMealItems();
     recompute();

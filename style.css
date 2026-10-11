@@ -1182,3 +1182,42 @@ html[data-theme="dark"] .undo-toast { background: var(--surface); border: 1px so
 .backup-row__title { margin: 0; font-weight: 600; font-size: 0.88rem; }
 .backup-row__sub { margin: 2px 0 0; font-size: 0.74rem; color: var(--ink-soft); }
 .backup-row button { border: 1.5px solid var(--line); background: none; border-radius: var(--radius-s); padding: 6px 12px; font: 600 0.8rem var(--font-ui); color: var(--ink); cursor: pointer; }
+
+/* ---- Glucose insights (Trends) ---- */
+.ins-heading { font-family: var(--font-display); font-size: 1.05rem; margin: 18px 4px 8px; color: var(--ink); }
+.ins-groups { flex-wrap: wrap; margin-bottom: 8px; }
+.ins-groups small { opacity: 0.65; margin-left: 2px; }
+.ins-row { margin: 10px 0 12px; }
+.ins-row__head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 4px; flex-wrap: wrap; }
+.ins-bar { display: flex; height: 14px; border-radius: 7px; overflow: hidden; background: var(--surface-2, rgba(128,128,128,0.14)); margin-bottom: 3px; }
+.ins-bar__low { background: #D9534F; } .ins-bar__in { background: #2E9E6B; } .ins-bar__high { background: #E0A100; }
+.ins-list { list-style: none; margin: 6px 0 0; padding: 0; counter-reset: ins; }
+.ins-list li { display: grid; grid-template-columns: 1fr auto; column-gap: 10px; align-items: baseline; padding: 7px 0; border-top: 1px solid var(--line, rgba(128,128,128,0.2)); }
+.ins-list li:first-child { border-top: 0; }
+.ins-li__name { font-weight: 600; color: var(--ink); min-width: 0; overflow-wrap: anywhere; }
+.ins-li__val { font-family: var(--font-display); font-weight: 700; font-variant-numeric: tabular-nums; color: var(--ink); }
+.ins-list li .rtrend__n { grid-column: 1 / -1; }
+.ins-big { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; margin: 4px 0 2px; }
+.ins-big__num { font-family: var(--font-display); font-weight: 800; font-size: 2rem; color: var(--ink); font-variant-numeric: tabular-nums; }
+.ins-big__unit { color: var(--ink-soft); font-size: 0.85rem; }
+.ins-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 6px; }
+.ins-col { background: var(--surface-2, rgba(128,128,128,0.10)); border-radius: 12px; padding: 10px 12px; }
+.ins-col__title { font-size: 0.74rem; font-weight: 700; color: var(--ink-soft); text-transform: uppercase; letter-spacing: 0.04em; }
+.ins-col__num { font-family: var(--font-display); font-weight: 800; font-size: 1.5rem; color: var(--ink); font-variant-numeric: tabular-nums; margin: 2px 0; }
+
+/* ---- Features on your own history ---- */
+.pick-extra { margin: 8px 0 0; padding: 10px 12px; border-radius: 12px; background: var(--surface-2, rgba(128,128,128,0.10)); font-size: 0.82rem; color: var(--ink-soft); }
+.pick-extra__title { font-weight: 700; color: var(--ink); margin-bottom: 4px; }
+.pick-extra__row { display: flex; justify-content: space-between; gap: 10px; padding: 3px 0; flex-wrap: wrap; }
+.pick-extra__batch { margin-bottom: 10px; }
+.pick-extra__batch label { font-weight: 700; color: var(--ink); display: block; margin-bottom: 4px; }
+.pick-extra__note { margin: 6px 0 0; }
+.low-hint { margin: 8px 0 0; padding: 8px 12px; border-radius: 10px; background: rgba(217,83,79,0.14); color: var(--ink); font-size: 0.85rem; }
+.reminder-card { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin: 0 0 12px; padding: 12px 14px; border-radius: 14px; background: var(--surface-2, rgba(128,128,128,0.12)); border: 1px solid var(--line, rgba(128,128,128,0.25)); }
+.reminder-card--due { background: rgba(224,161,0,0.16); border-color: rgba(224,161,0,0.55); }
+.reminder-card__text { display: flex; flex-direction: column; font-size: 0.85rem; color: var(--ink-soft); min-width: 0; }
+.reminder-card__text b { color: var(--ink); font-size: 0.95rem; }
+.reminder-card__btns { display: flex; gap: 8px; }
+#quick-carb-row[hidden] + #quick-carb-usual { display: none; }
+.reminder-btn { border: 1px solid var(--line, rgba(128,128,128,0.35)); background: var(--surface, #fff); color: var(--ink); border-radius: 999px; padding: 7px 14px; font: inherit; font-size: 0.82rem; font-weight: 600; cursor: pointer; }
+.reminder-btn:active { transform: scale(0.97); }
