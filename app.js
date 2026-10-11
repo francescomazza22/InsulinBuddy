@@ -4,6 +4,7 @@ import { SCHEMA_VERSION, normalizeState as normalizeStateWith, makeFingerprint, 
 import { NightscoutClient, NsOutbox, nsToken, nsBaseUrl, nsConfigured, treatmentsForEntry, entriesToGlucoseRows } from "./js/nightscout.js";
 import { createDiag, hookGlobalErrors } from "./js/diag.js";
 import { postMealCurves, outcomeByBracket, foodImpact, correctionEffectiveness, iobStacking, overnightStats, weekdayWeekend, lowTreatmentUsual, lastTimesFor, isfToMgdl } from "./js/insights.js";
+import { fieldSvg } from "./js/doodle-field.js";
 import { percentile, dailyPatternBuckets, daysSpanned, estimatedA1c, glucoseSummaryStats, timeInRangeBreakdown, glucoseGuideRows, TIME_IN_RANGE_BANDS } from "./js/glucose-stats.js";
 import { randomBytes, toB64, fromB64, deriveKey, encryptString, decryptString, isEncryptedPayload, exportKeyRaw, importKeyRaw } from "./js/crypto.js";
 import { LocalBackups, shouldAutoSnapshot } from "./js/backup.js";
@@ -3007,6 +3008,11 @@ import { createDialogs } from "./js/dialogs.js";
   // Newest first. version-badge-text/version-summary-text in the Settings
   // card are always drawn from CHANGELOG[0], so the two can never drift.
   const CHANGELOG = [
+    {
+      version: "2.18.0",
+      summary: "Doodle background no longer repeats.",
+      changes: ["The Doodles background is now drawn to fit your screen instead of tiling one small picture, so it never repeats, on a phone, an iPad or a big monitor. It is laid out again if the window changes size. Abstract still uses its tile. New file js/doodle-field.js"]
+    },
     {
       version: "2.17.1",
       summary: "Edit a recipe ingredient's grams in place.",
@@ -6054,7 +6060,36 @@ import { createDialogs } from "./js/dialogs.js";
     document.documentElement.setAttribute("data-bg-pattern", backgroundPatternOf(state.settings));
     const size = state.settings.backgroundPatternSize;
     document.documentElement.setAttribute("data-bg-pattern-size", size === "medium" || size === "large" ? size : "small");
+    renderDoodleField();
   }
+  // Doodles are drawn for this screen's actual size (see js/doodle-field.js), so they never tile or repeat. The layout is
+  // redone when the window's width changes or it grows taller; a phone's address bar sliding in and out changes nothing.
+  let doodleKey = "";
+  function renderDoodleField() {
+    let host = document.getElementById("bg-doodles");
+    if (backgroundPatternOf(state.settings) !== "doodles") {
+      if (host) host.remove();
+      doodleKey = "";
+      document.documentElement.removeAttribute("data-doodle-field");
+      return;
+    }
+    const size = ["medium", "large"].includes(state.settings.backgroundPatternSize) ? state.settings.backgroundPatternSize : "small";
+    const w = Math.max(document.documentElement.clientWidth || 0, window.innerWidth || 0);
+    const h = Math.max(window.innerHeight || 0, (window.screen && window.screen.height) || 0, 600);
+    const key = `${size}|${w}|${h}`;
+    if (host && key === doodleKey) return;
+    if (!host) {
+      host = document.createElement("div");
+      host.id = "bg-doodles";
+      host.setAttribute("aria-hidden", "true");
+      document.body.prepend(host);
+    }
+    host.innerHTML = fieldSvg(w, h, size);
+    doodleKey = key;
+    document.documentElement.setAttribute("data-doodle-field", "on");
+  }
+  let doodleResizeTimer = null;
+  window.addEventListener("resize", () => { clearTimeout(doodleResizeTimer); doodleResizeTimer = setTimeout(renderDoodleField, 250); });
   function applyCustomBackground() {
     if (state.settings.customBackground && !isDarkModeActive()) {
       document.documentElement.style.setProperty("--app-bg", state.settings.customBackground);

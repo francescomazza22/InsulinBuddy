@@ -857,6 +857,13 @@ html[data-bg-pattern="doodles"] body { background-image: var(--doodles); backgro
 .pattern-card__preview--doodles { background-image: var(--doodles); background-size: var(--doodle-tile); }
 /* DOODLE-PATTERN:END */
 
+/* The doodle background is drawn by js/doodle-field.js to the screen's own size, so it never repeats. The tile above remains
+   only for the little preview card in Settings, and for the instant before the script has drawn the field. */
+html[data-doodle-field] body { background-image: none; }
+#bg-doodles { position: fixed; inset: 0; z-index: -1; overflow: hidden; pointer-events: none; color: #1B2A3A; opacity: 0.075; }
+html[data-theme="dark"] #bg-doodles { color: #ECEAE3; opacity: 0.07; }
+#bg-doodles svg { display: block; }
+
 /* ABSTRACT-PATTERN: the artwork-based alternative. The two files (pattern-abstract-light.svg and -dark.svg, built by
    tools/make-abstract.mjs) are only downloaded when this pattern is chosen. Its shapes are bigger than the doodles, so its
    three sizes are too, but they follow the same rule: grow only gently with the screen so it never balloons on a big one. */
@@ -947,6 +954,7 @@ html[data-theme="dark"] .pattern-card__preview--abstract { background-image: url
 @media print {
   /* never print the decorative background */
   html[data-bg-pattern] body { background-image: none !important; }
+  #bg-doodles { display: none !important; }
   .no-print, .report-overlay__bar { display: none !important; }
 
   body:has(#report-overlay:not([hidden])) > :not(.app),
