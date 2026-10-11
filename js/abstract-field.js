@@ -3,9 +3,8 @@
 import { MOTIFS, MOTIF_DEFS } from "./abstract-motifs.js";
 import { rnd } from "./doodle-field.js";
 
-const BIG = MOTIFS.filter(m => m.kind === "big" && m.r < 90);   // the long coral squiggle is handled apart: it is big, so it is used sparingly
-const SQUIGGLE = MOTIFS.find(m => m.kind === "big" && m.r >= 90);
-const ACCENT = MOTIFS.filter(m => m.kind === "accent");
+const SHAPES = MOTIFS.filter(m => m.kind === "big");
+const LINES = MOTIFS.filter(m => m.kind === "accent");
 
 /** Same three sizes as before (the width in px of the artwork's 300-unit square), as a scale factor. */
 export function abstractScale(width, size) {
@@ -14,24 +13,55 @@ export function abstractScale(width, size) {
   return tile / 300;
 }
 
-/** [{ id, x, y, rot, scale }]: one big shape and one loose accent per cell, chosen and placed from a fixed hash of the cell. */
+// How much of its radius a shape really fills (the radius in the artwork data is the outer reach, and most shapes are
+// rounder or thinner than that), and the clear space kept between neighbours, in the artwork's units.
+const FILL = 0.8, LINE_FILL = 0.55, GAP = 7;
+
+/**
+ * [{ id, x, y, rot, scale, r }]. Nothing overlaps: shapes are placed one at a time from a fixed hash of the cell, and a spot
+ * is used only if it is clear of everything placed so far. The big coloured shapes go in first, then loose linework fills the
+ * gaps that are left. Same screen size, same layout, every time.
+ */
 export function layoutAbstract(width, height, size = "small") {
   const k = abstractScale(width, size);
-  const g = 112 * k;
-  const cols = Math.ceil(width / g) + 2, rows = Math.ceil(height / g) + 2;
-  const pick = (cx, cy) => Math.floor(rnd(cx, cy, 21) * BIG.length);
-  const items = [];
-  for (let cy = -1; cy < rows; cy++) {
-    for (let cx = -1; cx < cols; cx++) {
-      let b = pick(cx, cy), tries = 0;
-      while ((b === pick(cx - 1, cy) || b === pick(cx, cy - 1) || b === pick(cx - 1, cy - 1)) && tries++ < 6) b = (b + 1 + Math.floor(rnd(cx, cy, 30 + tries) * (BIG.length - 1))) % BIG.length;
-      const m = SQUIGGLE && rnd(cx, cy, 40) < 0.1 ? SQUIGGLE : BIG[b];
-      items.push({ id: m.id, x: (cx + 0.5 + (rnd(cx, cy, 22) - 0.5) * 0.4) * g, y: (cy + 0.5 + (rnd(cx, cy, 23) - 0.5) * 0.4) * g, rot: (rnd(cx, cy, 24) - 0.5) * 100, scale: k * (0.9 + rnd(cx, cy, 25) * 0.25), r: m.r * k });
-      const a = ACCENT[Math.floor(rnd(cx, cy, 26) * ACCENT.length)];
-      items.push({ id: a.id, x: (cx + 1 + (rnd(cx, cy, 27) - 0.5) * 0.3) * g, y: (cy + 1 + (rnd(cx, cy, 28) - 0.5) * 0.3) * g, rot: (rnd(cx, cy, 29) - 0.5) * 360, scale: k * (0.85 + rnd(cx, cy, 31) * 0.3), r: a.r * k });
+  const cell = 64 * k;
+  const cols = Math.ceil(width / cell) + 1, rows = Math.ceil(height / cell) + 1;
+  const placed = [];
+  const buckets = new Map();
+  const bk = (x, y) => Math.floor(x / (cell * 2)) + "," + Math.floor(y / (cell * 2));
+  const clear = (x, y, e) => {
+    const bx = Math.floor(x / (cell * 2)), by = Math.floor(y / (cell * 2));
+    const reach = Math.ceil((e + 130 * k) / (cell * 2));
+    for (let dx = -reach; dx <= reach; dx++) for (let dy = -reach; dy <= reach; dy++) {
+      for (const p of buckets.get((bx + dx) + "," + (by + dy)) || []) {
+        const d = Math.hypot(p.x - x, p.y - y);
+        if (d < p.e + e + GAP * k) return false;
+      }
     }
-  }
-  return items.filter(i => i.x > -i.r * 1.2 && i.y > -i.r * 1.2 && i.x < width + i.r * 1.2 && i.y < height + i.r * 1.2);
+    return true;
+  };
+  const add = (it) => { placed.push(it); const key = bk(it.x, it.y); if (!buckets.has(key)) buckets.set(key, []); buckets.get(key).push(it); };
+  const pass = (list, fill, salt, tries, scaleLo, scaleHi, rotRange, avoidSame) => {
+    for (let cy = -1; cy < rows; cy++) {
+      for (let cx = -1; cx < cols; cx++) {
+        for (let t = 0; t < tries; t++) {
+          const s = salt + t * 7;
+          const m = list[Math.floor(rnd(cx, cy, s) * list.length)];
+          const sc = k * (scaleLo + rnd(cx, cy, s + 1) * (scaleHi - scaleLo));
+          const x = (cx + rnd(cx, cy, s + 2)) * cell, y = (cy + rnd(cx, cy, s + 3)) * cell;
+          const e = m.r * fill * sc;
+          if (x < -e || y < -e || x > width + e || y > height + e) continue;
+          if (avoidSame && placed.some(p => p.id === m.id && Math.abs(p.x - x) < cell * 3.2 && Math.abs(p.y - y) < cell * 3.2)) continue;
+          if (!clear(x, y, e)) continue;
+          add({ id: m.id, x, y, rot: (rnd(cx, cy, s + 4) - 0.5) * rotRange, scale: sc, r: m.r * sc, e });
+          break;
+        }
+      }
+    }
+  };
+  pass(SHAPES, FILL, 100, 8, 0.9, 1.15, 100, true);
+  pass(LINES, LINE_FILL, 400, 5, 0.85, 1.1, 360, false);
+  return placed;
 }
 
 const fmt = n => Math.round(n * 10) / 10;
