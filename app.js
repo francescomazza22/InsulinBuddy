@@ -5,6 +5,7 @@ import { NightscoutClient, NsOutbox, nsToken, nsBaseUrl, nsConfigured, treatment
 import { createDiag, hookGlobalErrors } from "./js/diag.js";
 import { postMealCurves, outcomeByBracket, foodImpact, correctionEffectiveness, iobStacking, overnightStats, weekdayWeekend, lowTreatmentUsual, lastTimesFor, isfToMgdl } from "./js/insights.js";
 import { fieldSvg } from "./js/doodle-field.js";
+import { abstractSvg } from "./js/abstract-field.js";
 import { percentile, dailyPatternBuckets, daysSpanned, estimatedA1c, glucoseSummaryStats, timeInRangeBreakdown, glucoseGuideRows, TIME_IN_RANGE_BANDS } from "./js/glucose-stats.js";
 import { randomBytes, toB64, fromB64, deriveKey, encryptString, decryptString, isEncryptedPayload, exportKeyRaw, importKeyRaw } from "./js/crypto.js";
 import { LocalBackups, shouldAutoSnapshot } from "./js/backup.js";
@@ -3008,6 +3009,14 @@ import { createDialogs } from "./js/dialogs.js";
   // Newest first. version-badge-text/version-summary-text in the Settings
   // card are always drawn from CHANGELOG[0], so the two can never drift.
   const CHANGELOG = [
+    {
+      version: "2.19.0",
+      summary: "Abstract background no longer repeats; thinner doodle lines.",
+      changes: [
+        "The Abstract background is now drawn to fit your screen too: your artwork's shapes are scattered across the whole screen, so nothing tiles or repeats. New files js/abstract-field.js and js/abstract-motifs.js",
+        "The doodle lines are thinner"
+      ]
+    },
     {
       version: "2.18.0",
       summary: "Doodle background no longer repeats.",
@@ -6060,36 +6069,36 @@ import { createDialogs } from "./js/dialogs.js";
     document.documentElement.setAttribute("data-bg-pattern", backgroundPatternOf(state.settings));
     const size = state.settings.backgroundPatternSize;
     document.documentElement.setAttribute("data-bg-pattern-size", size === "medium" || size === "large" ? size : "small");
-    renderDoodleField();
+    renderPatternField();
   }
-  // Doodles are drawn for this screen's actual size (see js/doodle-field.js), so they never tile or repeat. The layout is
-  // redone when the window's width changes or it grows taller; a phone's address bar sliding in and out changes nothing.
-  let doodleKey = "";
-  function renderDoodleField() {
-    let host = document.getElementById("bg-doodles");
-    if (backgroundPatternOf(state.settings) !== "doodles") {
-      if (host) host.remove();
-      doodleKey = "";
-      document.documentElement.removeAttribute("data-doodle-field");
-      return;
-    }
+  // Doodles and Abstract are drawn for this screen's actual size (js/doodle-field.js, js/abstract-field.js), so they never tile or
+  // repeat. The layout is redone when the window's width changes or it grows taller; a phone's address bar sliding in and out
+  // changes nothing.
+  let fieldKey = "";
+  function renderPatternField() {
+    const pattern = backgroundPatternOf(state.settings);
+    const hostId = pattern === "doodles" ? "bg-doodles" : pattern === "abstract" ? "bg-abstract" : null;
+    for (const id of ["bg-doodles", "bg-abstract"]) { const h = document.getElementById(id); if (h && id !== hostId) h.remove(); }
+    if (!hostId) { fieldKey = ""; document.documentElement.removeAttribute("data-pattern-field"); return; }
+    let host = document.getElementById(hostId);
     const size = ["medium", "large"].includes(state.settings.backgroundPatternSize) ? state.settings.backgroundPatternSize : "small";
     const w = Math.max(document.documentElement.clientWidth || 0, window.innerWidth || 0);
     const h = Math.max(window.innerHeight || 0, (window.screen && window.screen.height) || 0, 600);
-    const key = `${size}|${w}|${h}`;
-    if (host && key === doodleKey) return;
+    const key = `${pattern}|${size}|${w}|${h}`;
+    if (host && key === fieldKey) return;
     if (!host) {
       host = document.createElement("div");
-      host.id = "bg-doodles";
+      host.id = hostId;
+      host.className = "bg-field";
       host.setAttribute("aria-hidden", "true");
       document.body.prepend(host);
     }
-    host.innerHTML = fieldSvg(w, h, size);
-    doodleKey = key;
-    document.documentElement.setAttribute("data-doodle-field", "on");
+    host.innerHTML = pattern === "doodles" ? fieldSvg(w, h, size) : abstractSvg(w, h, size);
+    fieldKey = key;
+    document.documentElement.setAttribute("data-pattern-field", pattern);
   }
-  let doodleResizeTimer = null;
-  window.addEventListener("resize", () => { clearTimeout(doodleResizeTimer); doodleResizeTimer = setTimeout(renderDoodleField, 250); });
+  let fieldResizeTimer = null;
+  window.addEventListener("resize", () => { clearTimeout(fieldResizeTimer); fieldResizeTimer = setTimeout(renderPatternField, 250); });
   function applyCustomBackground() {
     if (state.settings.customBackground && !isDarkModeActive()) {
       document.documentElement.style.setProperty("--app-bg", state.settings.customBackground);
