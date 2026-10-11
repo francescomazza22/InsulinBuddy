@@ -759,7 +759,8 @@ input[type="number"]::-webkit-inner-spin-button {
   border-radius: 8px; padding: 8px 10px; font-size: 0.86rem;
 }
 .ingredient-row__name { flex: 1; min-width: 0; font-weight: 600; }
-.ingredient-row__grams { color: var(--ink-soft); flex-shrink: 0; }
+.ingredient-row__grams { color: var(--ink-soft); flex-shrink: 0; display: inline-flex; align-items: center; gap: 4px; }
+.ingredient-row__input { width: 76px; padding: 6px 8px; text-align: right; font: inherit; color: var(--ink); background: transparent; border: 1px solid var(--line, rgba(128,128,128,.35)); border-radius: 8px; }
 .ingredient-row button { background: none; border: none; color: var(--ink-soft); cursor: pointer; padding: 3px; flex-shrink: 0; }
 .ingredient-row button svg { width: 14px; height: 14px; display: block; }
 

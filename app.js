@@ -3008,6 +3008,11 @@ import { createDialogs } from "./js/dialogs.js";
   // card are always drawn from CHANGELOG[0], so the two can never drift.
   const CHANGELOG = [
     {
+      version: "2.17.1",
+      summary: "Edit a recipe ingredient's grams in place.",
+      changes: ["In the recipe editor, tap the grams next to any ingredient to change it directly. No more removing and re-adding it"]
+    },
+    {
       version: "2.17.0",
       summary: "Last-time lines, usual low treatment, glucose-check reminder, recipe batch weight, report patterns.",
       changes: [
@@ -3868,7 +3873,7 @@ import { createDialogs } from "./js/dialogs.js";
         return `
           <div class="ingredient-row">
             <span class="ingredient-row__name">${escapeHtml(name)}</span>
-            <span class="ingredient-row__grams">${it.grams}g</span>
+            <span class="ingredient-row__grams"><input type="number" class="ingredient-row__input" data-gidx="${idx}" value="${it.grams}" min="0" step="any" inputmode="decimal" aria-label="Grams of ${escapeAttr(name)}">g</span>
             <button type="button" data-idx="${idx}" aria-label="Remove ingredient">
               <svg viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
             </button>
@@ -3916,6 +3921,13 @@ import { createDialogs } from "./js/dialogs.js";
     }
     backdrop.querySelector("#rs-ing-add").addEventListener("click", addIngredient);
     backdrop.querySelector("#rs-ing-weight").addEventListener("keydown", e => { if (e.key === "Enter") addIngredient(); });
+    // Tweak an amount in place: no need to remove and re-add the ingredient.
+    backdrop.querySelector("#rs-ing-list").addEventListener("input", e => {
+      const inp = e.target.closest("input[data-gidx]");
+      if (!inp) return;
+      const g = parseFloat(inp.value);
+      if (items[+inp.dataset.gidx]) items[+inp.dataset.gidx].grams = g > 0 ? g : 0;
+    });
     backdrop.querySelector("#rs-ing-list").addEventListener("click", e => {
       const btn = e.target.closest("button[data-idx]");
       if (!btn) return;
@@ -3931,6 +3943,7 @@ import { createDialogs } from "./js/dialogs.js";
       const finalWeight = parseFloat(backdrop.querySelector("#rs-final-weight").value);
       if (!name) { alert("Give the recipe a name."); return; }
       if (items.length === 0) { alert("Add at least one ingredient."); return; }
+      if (items.some(i => !(i.grams > 0))) { alert("Every ingredient needs an amount in grams (or remove it)."); return; }
       if (!finalWeight || finalWeight <= 0) { alert("Final Weight is required — it's the total weight of the finished dish, used to work out carbs per 100g."); return; }
       const payload = {
         name,
