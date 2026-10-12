@@ -1242,3 +1242,8 @@ html[data-theme="dark"] .undo-toast { background: var(--surface); border: 1px so
 .reminder-btn:active { transform: scale(0.97); }
 
 .aiog-h { font-size: 1rem; margin: 0 0 4px; }
+/* Active Insulin & Carbs sheet: the generic hint style pulls up by 8px, which made text sit on top of legends and headings */
+#aiog-content > * + .panel-card__hint { margin-top: 12px; }
+#aiog-content .aiog-h + .panel-card__hint { margin-top: 4px; }
+#aiog-content .aiog-h { margin-bottom: 0; }
+#aiog-content > .panel-card__hint:first-child { margin-top: 10px; }

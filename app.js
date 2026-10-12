@@ -1798,9 +1798,11 @@ import { createDialogs } from "./js/dialogs.js";
     const lowY = yFor(70).toFixed(1), highY = yFor(180).toFixed(1);
     const tickMin = [15, 30, 60, 120, 180, 240].find(m => span / (m * 60000) <= 6) || 240;
     const tickMs = tickMin * 60000;
-    let ticks = "";
+    let ticks = "", lastX = -99;
     for (let t = Math.ceil(t0 / tickMs) * tickMs; t <= t1; t += tickMs) {
       const x = xFor(t).toFixed(1);
+      if (x - lastX < 40) continue;   // never let two time labels run into each other
+      lastX = Number(x);
       const anchor = x < padL + 14 ? "start" : x > padL + plotW - 14 ? "end" : "middle";
       ticks += `<line x1="${x}" y1="${padT + plotH}" x2="${x}" y2="${padT + plotH + 3}" stroke="var(--ink-soft)" stroke-width="1"/><text x="${x}" y="${H - 4}" font-size="9" fill="var(--ink-soft)" text-anchor="${anchor}">${clockTime(t)}</text>`;
     }
@@ -1839,8 +1841,8 @@ import { createDialogs } from "./js/dialogs.js";
       <h3 class="aiog-h" style="margin-top:18px;">Observed vs expected</h3>
       <p class="panel-card__hint">From ${clockTime(exp.anchor.t)} (your reading then: ${glucoseDisp(exp.anchor.mgdl)} ${u}), what logged insulin alone would do, using your Settings. It ignores basal insulin and exercise.</p>
       ${chart}
-      <div style="display:flex; gap:16px; justify-content:center; margin-top:6px;">${keyDot("#3B82F6", false, "Your readings")}${keyDot("#6B7280", true, "Expected from insulin alone")}</div>
-      <p class="panel-card__hint" style="margin-top:8px;">${msg}</p>`;
+      <div style="display:flex; gap:16px; justify-content:center; margin-top:8px;">${keyDot("#3B82F6", false, "Your readings")}${keyDot("#6B7280", true, "Expected from insulin alone")}</div>
+      <p class="panel-card__hint" style="margin-top:12px;">${msg}</p>`;
   }
 
   /** Now tab, once readings are in: the carbs line adjusted to the readings, plus the projected glucose. */
@@ -1866,8 +1868,8 @@ import { createDialogs } from "./js/dialogs.js";
         <h3 class="aiog-h" style="margin-top:18px;">Projected glucose</h3>
         <p class="panel-card__hint">A projection from your last reading (${glucoseDisp(p.start.mgdl)} ${u}, ${clockTime(p.start.t)}), <b>assuming no further food or insulin</b>. It is not a measurement and not dosing advice; it ignores basal insulin, exercise, illness and sensor error.</p>
         ${chart}
-        <div style="display:flex; gap:16px; justify-content:center; margin-top:6px;">${keyDot("#3B82F6", false, "Your readings")}${keyDot("#8B5CF6", true, "Projection")}</div>
-        <p class="panel-card__hint" style="margin-top:8px;">Settles around <b>${glucoseDisp(p.end.mgdl)} ${u}</b> by ${clockTime(p.end.t)}; highest about ${glucoseDisp(p.high.mgdl)}, lowest about ${glucoseDisp(p.low.mgdl)}.</p>${dips}`;
+        <div style="display:flex; gap:16px; justify-content:center; margin-top:8px;">${keyDot("#3B82F6", false, "Your readings")}${keyDot("#8B5CF6", true, "Projection")}</div>
+        <p class="panel-card__hint" style="margin-top:12px;">Settles around <b>${glucoseDisp(p.end.mgdl)} ${u}</b> by ${clockTime(p.end.t)}; highest about ${glucoseDisp(p.high.mgdl)}, lowest about ${glucoseDisp(p.low.mgdl)}.</p>${dips}`;
     } else if (ok) proj = `<h3 class="aiog-h" style="margin-top:18px;">Projected glucose</h3><p class="panel-card__hint">No glucose reading in the last 15 minutes, so there is no projection.</p>`;
     else proj = `<h3 class="aiog-h" style="margin-top:18px;">Projected glucose</h3><p class="panel-card__hint">${ms.isfMgdl > 0 ? "No glucose readings found." : "Set your correction factor in Settings to see a projection."}</p>`;
     return `
@@ -3162,6 +3164,11 @@ import { createDialogs } from "./js/dialogs.js";
   // Newest first. version-badge-text/version-summary-text in the Settings
   // card are always drawn from CHANGELOG[0], so the two can never drift.
   const CHANGELOG = [
+    {
+      version: "2.21.1",
+      summary: "Spacing fixed in the Active Insulin & Carbs sheet.",
+      changes: ["Text no longer sits on top of the chart legends and headings in the Now and Glucose tabs"]
+    },
     {
       version: "2.21.0",
       summary: "Glucose model: observed vs expected, learned carb timers, projected glucose.",
