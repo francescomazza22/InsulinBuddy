@@ -3010,6 +3010,11 @@ import { createDialogs } from "./js/dialogs.js";
   // card are always drawn from CHANGELOG[0], so the two can never drift.
   const CHANGELOG = [
     {
+      version: "2.20.2",
+      summary: "Abstract background laid out as an even staggered pattern.",
+      changes: ["The Abstract background is now a designed, staggered pattern instead of a random scatter: shapes sit in even rows, nudged slightly so it still looks hand-placed. Neighbouring shapes never repeat a shape or a colour, every shape turns up equally often, and each is sized to fill its slot evenly. Still drawn to fit your screen, so it never tiles"]
+    },
+    {
       version: "2.20.1",
       summary: "Calmer, evenly spaced Abstract background.",
       changes: ["The Abstract background is calmer: only your big coloured shapes and longer linework, no confetti or tiny marks, each placed at the best of many spots so the gaps come out even. Nothing overlaps, and every shape turns up about equally often"]
