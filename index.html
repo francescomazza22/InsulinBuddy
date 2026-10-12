@@ -384,6 +384,7 @@
           <h1>Settings</h1>
           <p class="page-head__sub">Manage preferences</p>
         </div>
+        <button class="sync-chip sync-chip--local" id="sync-chip" type="button" aria-label="Sync status" hidden><span class="sync-chip__dot" aria-hidden="true"></span><span id="sync-chip-text"></span></button>
       </div>
 
       <div class="segmented" id="settings-segmented">
@@ -756,8 +757,6 @@
     </section>
 
   </main>
-
-  <button class="sync-chip sync-chip--local" id="sync-chip" type="button" aria-label="Sync status" hidden><span class="sync-chip__dot" aria-hidden="true"></span><span id="sync-chip-text"></span></button>
 
   <div class="undo-toast" id="undo-toast" role="status" aria-live="polite" hidden>
     <span id="undo-toast-message"></span>

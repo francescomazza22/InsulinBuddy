@@ -3373,6 +3373,11 @@ import { createDialogs } from "./js/dialogs.js";
   // card are always drawn from CHANGELOG[0], so the two can never drift.
   const CHANGELOG = [
     {
+      version: "2.25.1",
+      summary: "The sync indicator now lives in Settings, where it can be seen.",
+      changes: ["The sync chip moved from the top edge of every screen (where it was hard to see, especially in dark mode) to the top right of Settings, larger and with a clear outline. Tap it for the same breakdown and Try again now button"]
+    },
+    {
       version: "2.25.0",
       summary: "A sync indicator: always know whether it is saved and sent.",
       changes: ["A small chip at the top right of every screen says Synced, Sending, Offline, Check sync or On this device. Tap it for a plain-English breakdown of this device, your cloud account and Nightscout/Gluroo (how many entries are waiting, how old, and the last problem), with a Try again now button","It updates the moment something is logged, sent, fails or you go offline or back online"]
