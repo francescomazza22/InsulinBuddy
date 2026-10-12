@@ -1247,3 +1247,11 @@ html[data-theme="dark"] .undo-toast { background: var(--surface); border: 1px so
 #aiog-content .aiog-h + .panel-card__hint { margin-top: 4px; }
 #aiog-content .aiog-h { margin-bottom: 0; }
 #aiog-content > .panel-card__hint:first-child { margin-top: 10px; }
+.aiog-head { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+.aiog-head .aiog-h { margin: 0; }
+.info-btn { width: 20px; height: 20px; flex: none; border-radius: 50%; border: 1.5px solid var(--ink-soft); background: transparent; color: var(--ink-soft); font: italic 700 0.75rem/1 Georgia, serif; padding: 0; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
+.info-btn[aria-expanded="true"] { background: var(--ink-soft); color: var(--card, #fff); }
+.info-panel { font-size: 0.8rem; color: var(--ink-soft); background: rgba(127,127,127,.1); border-radius: 10px; padding: 8px 12px; margin: 4px 0 10px; }
+.info-panel p { margin: 0 0 6px; }
+.info-panel p:last-child { margin-bottom: 0; }
+#aiog-content .info-panel + .panel-card__hint, #aiog-content .aiog-head + .panel-card__hint { margin-top: 4px; }

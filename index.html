@@ -500,7 +500,11 @@
         </div>
 
         <div class="panel-card" id="learned-abs-card">
-          <h3 style="margin:0 0 4px;">Learn from my readings</h3>
+          <div class="aiog-head"><h3 style="margin:0 0 4px;">Learn from my readings</h3><button type="button" class="info-btn" aria-expanded="false" aria-label="How are learned times worked out?">i</button></div>
+          <div class="info-panel" hidden>
+            <p>For each past meal eaten on its own (at least 15 g, no other carbs 4 hours either side, readings throughout), the app adds back the glucose the insulin removed. What is left is the rise from the carbs alone. It measures how long that rise took to reach 90% of its peak, which gives that meal's absorption time.</p>
+            <p>The time for each GI group is the middle value (median) of its meals, and only shown once there are 3 such meals. With the switch on, these replace the fixed times everywhere carbs on board is worked out. Basal insulin, exercise and sensor error aren't modelled, so treat them as a guide.</p>
+          </div>
           <p class="panel-card__hint">Looks at past meals that were eaten alone (no other carbs for 4 hours, at least 15 g, with glucose readings) and works out how long your glucose really took to level off. Needs 3 such meals per GI group.</p>
           <div id="learned-abs-result" class="panel-card__hint"></div>
           <div class="toggle-row">

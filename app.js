@@ -1825,9 +1825,9 @@ import { createDialogs } from "./js/dialogs.js";
   /** Glucose tab: your readings next to where the logged insulin alone would have taken you from your last meal or dose. */
   function renderExpectedVsObservedHtml(readings) {
     const params = modelParams();
-    if (!(params.isfMgdl > 0)) return `<h3 class="aiog-h">Observed vs expected</h3><p class="panel-card__hint">Set your correction factor in Settings to see this.</p>`;
+    if (!(params.isfMgdl > 0)) return `${secHead("Observed vs expected", "expected")}<p class="panel-card__hint">Set your correction factor in Settings to see this.</p>`;
     const exp = expectedFromInsulin(modelEntries(), readings, { ...params, now: Date.now() });
-    if (!exp) return `<h3 class="aiog-h">Observed vs expected</h3><p class="panel-card__hint">No recent meal or insulin dose with a glucose reading beside it, so there is nothing to compare yet.</p>`;
+    if (!exp) return `${secHead("Observed vs expected", "expected")}<p class="panel-card__hint">No recent meal or insulin dose with a glucose reading beside it, so there is nothing to compare yet.</p>`;
     const pts = exp.points.filter(p => Number.isFinite(p.actual) && Number.isFinite(p.expected));
     const chart = renderGlucoseLinesSVG([
       { pts: pts.map(p => ({ t: p.t, v: p.expected })), stroke: "#6B7280", dash: "5,4", width: 1.8 },
@@ -1838,7 +1838,7 @@ import { createDialogs } from "./js/dialogs.js";
       : g.kind === "below" ? `Your glucose is about <b>${amt} ${u} below</b> where the insulin alone would have it — the carbs were absorbed faster than the insulin needed, or something else (activity, a stronger correction factor than the one in Settings) is lowering it.`
       : `Your glucose is <b>tracking</b> where the insulin alone would have it (within ${glucoseDisp(15)} ${u}).`;
     return `
-      <h3 class="aiog-h" style="margin-top:18px;">Observed vs expected</h3>
+      ${secHead("Observed vs expected", "expected", 18)}
       <p class="panel-card__hint">From ${clockTime(exp.anchor.t)} (your reading then: ${glucoseDisp(exp.anchor.mgdl)} ${u}), what logged insulin alone would do, using your Settings. It ignores basal insulin and exercise.</p>
       ${chart}
       <div style="display:flex; gap:16px; justify-content:center; margin-top:8px;">${keyDot("#3B82F6", false, "Your readings")}${keyDot("#6B7280", true, "Expected from insulin alone")}</div>
@@ -1865,14 +1865,15 @@ import { createDialogs } from "./js/dialogs.js";
       ], now);
       const dips = p.low.mgdl < 70 ? `<p class="panel-card__hint" style="color:#B91C1C;">This projection dips below ${glucoseDisp(70)} ${u}. It is an estimate only.</p>` : "";
       proj = `
-        <h3 class="aiog-h" style="margin-top:18px;">Projected glucose</h3>
+        ${secHead("Projected glucose", "projection", 18)}
         <p class="panel-card__hint">A projection from your last reading (${glucoseDisp(p.start.mgdl)} ${u}, ${clockTime(p.start.t)}), <b>assuming no further food or insulin</b>. It is not a measurement and not dosing advice; it ignores basal insulin, exercise, illness and sensor error.</p>
         ${chart}
         <div style="display:flex; gap:16px; justify-content:center; margin-top:8px;">${keyDot("#3B82F6", false, "Your readings")}${keyDot("#8B5CF6", true, "Projection")}</div>
         <p class="panel-card__hint" style="margin-top:12px;">Settles around <b>${glucoseDisp(p.end.mgdl)} ${u}</b> by ${clockTime(p.end.t)}; highest about ${glucoseDisp(p.high.mgdl)}, lowest about ${glucoseDisp(p.low.mgdl)}.</p>${dips}`;
-    } else if (ok) proj = `<h3 class="aiog-h" style="margin-top:18px;">Projected glucose</h3><p class="panel-card__hint">No glucose reading in the last 15 minutes, so there is no projection.</p>`;
-    else proj = `<h3 class="aiog-h" style="margin-top:18px;">Projected glucose</h3><p class="panel-card__hint">${ms.isfMgdl > 0 ? "No glucose readings found." : "Set your correction factor in Settings to see a projection."}</p>`;
+    } else if (ok) proj = `${secHead("Projected glucose", "projection", 18)}<p class="panel-card__hint">No glucose reading in the last 15 minutes, so there is no projection.</p>`;
+    else proj = `${secHead("Projected glucose", "projection", 18)}<p class="panel-card__hint">${ms.isfMgdl > 0 ? "No glucose readings found." : "Set your correction factor in Settings to see a projection."}</p>`;
     return `
+      ${secHead("Active insulin & carbs", "iobcob")}
       <p class="panel-card__hint">Projected forward from now assuming no further food or insulin — a real dose or meal will change this.</p>
       ${renderActiveGraphSVG(buildActiveSeries(obs))}
       ${aiogLegendHtml()}
@@ -1901,6 +1902,41 @@ import { createDialogs } from "./js/dialogs.js";
     renderActivePanel();
     return { ok: true };
   }
+
+  // ---- "i" explainers: a small button beside each graph's heading that opens a plain-English account of how it is worked out ----
+  function infoText(key) {
+    const im = state.settings.insulinModel, ca = effectiveCarbAbsorption(), u = glucoseUnitLabel_();
+    const learned = state.settings.useLearnedAbsorption && state.settings.learnedAbsorption ? "your learned times" : "your timers in Settings";
+    const isf = state.settings.isf;
+    const T = {
+      iobcob: `<p><b>Insulin (blue).</b> Every dose you logged in the last ${Math.round(im.diaMinutes / 60)} hours is counted. A dose doesn't vanish at once: it works along a curve that peaks about ${im.peakMinutes} minutes after the injection and is spent after ${im.diaMinutes} minutes (Settings &gt; Insulin). Adding up what is left of each dose gives the line.</p>
+        <p><b>Carbs (orange).</b> Each meal's carbs are counted down over how long that kind of food takes to absorb, from ${learned}: high GI ${ca.high} min, medium ${ca.medium}, low ${ca.low}, unknown ${ca.unknown}.</p>
+        <p>If your glucose readings are available, the carbs line is <b>adjusted to them</b>: the rise in your glucose since the meal, less the rise that insulin alone would allow, is the part the carbs must be responsible for. A faster rise means the carbs are being absorbed faster, so the line drops sooner (never later than 1.5&times; the usual time). With no readings it uses the plain timer.</p>
+        <p>Everything to the right of "now" assumes you log nothing more.</p>`,
+      projection: `<p>This is a <b>projection, not a measurement and not advice</b>. It starts from your latest reading and draws two things that are already in motion:</p>
+        <p>&bull; <b>Falls</b> as the insulin still on board finishes working: each dose &times; your correction factor (${isf} ${u} per unit) &times; the share of it still to act.</p>
+        <p>&bull; <b>Rises</b> as the carbs still on board are absorbed: grams left &times; (correction factor &divide; the carb ratio you used for that meal) &mdash; the carbs line from above, converted to glucose.</p>
+        <p>It assumes no further food, insulin, exercise or illness, ignores basal insulin, and can be thrown off by sensor error. It is hidden when your last reading is over 15 minutes old.</p>`,
+      expected: `<p>From your last meal or dose that has a glucose reading beside it, the dashed line shows where glucose would go if <b>only the logged insulin acted</b>: that starting reading minus the insulin's effect so far (each dose &times; ${isf} ${u} per unit &times; the share already acted).</p>
+        <p>The blue line is your real readings. The <b>gap</b> between them is what the insulin doesn't explain &mdash; usually carbs still being absorbed (or absorbed faster or slower than the dose assumed), but also unlogged food, stress, illness, activity or sensor error.</p>
+        <p>A gap within 15 ${u} is called "tracking". Basal insulin and exercise are not modelled.</p>`,
+      today: `<p>The same insulin and carb curves as the Now tab, replayed for each moment since midnight using what you logged. Nothing here is predicted &mdash; it shows how much was active at each time. Carb times come from ${learned}.</p>`,
+      glucose: `<p>Your real glucose readings from Nightscout for the chosen window. The green band is the standard 70&ndash;180 mg/dL range; dashed lines mark its edges.</p>`
+    };
+    return T[key] || "";
+  }
+  const glucoseUnitLabel_ = () => state.settings.units === "mmol" ? "mmol/L" : "mg/dL";
+  function secHead(title, key, top = 0) {
+    return `<div class="aiog-head" style="margin-top:${top}px;"><h3 class="aiog-h">${title}</h3><button type="button" class="info-btn" aria-expanded="false" aria-label="How is ${escapeAttr(title)} worked out?">i</button></div><div class="info-panel" hidden>${infoText(key)}</div>`;
+  }
+  document.addEventListener("click", e => {
+    const btn = e.target.closest && e.target.closest(".info-btn");
+    if (!btn) return;
+    const panel = btn.parentElement.nextElementSibling;
+    if (!panel || !panel.classList.contains("info-panel")) return;
+    panel.hidden = !panel.hidden;
+    btn.setAttribute("aria-expanded", String(!panel.hidden));
+  });
 
   function aiogLegendHtml() {
     return `
@@ -1939,6 +1975,7 @@ import { createDialogs } from "./js/dialogs.js";
     content.dataset.tab = tab;
     if (tab === "now") {
       const plain = () => `
+        ${secHead("Active insulin & carbs", "iobcob")}
         <p class="panel-card__hint">Projected forward from now assuming no further food or insulin — a real dose or meal will change this.</p>
         ${renderActiveGraphSVG(buildActiveSeries())}
         ${aiogLegendHtml()}
@@ -1955,6 +1992,7 @@ import { createDialogs } from "./js/dialogs.js";
     } else if (tab === "today") {
       const series = buildTodaySeries();
       content.innerHTML = `
+        ${secHead("Today so far", "today")}
         <p class="panel-card__hint">What actually happened today, from midnight to now.</p>
         ${renderActiveGraphSVG(series)}
         ${aiogLegendHtml()}
@@ -1977,6 +2015,7 @@ import { createDialogs } from "./js/dialogs.js";
         content.innerHTML = `
           ${renderGlucoseBannerHtml(latest)}
           ${picker}
+          ${secHead("Your glucose", "glucose")}
           ${svg ? svg : `<p class="panel-card__hint">No recent glucose data found.</p>`}
           ${svg ? `<p class="panel-card__hint" style="margin-top:10px;">Dashed lines mark the standard 70&ndash;180 range.</p>` : ""}
           ${renderExpectedVsObservedHtml(nsToReadings(result.entries))}
@@ -3164,6 +3203,11 @@ import { createDialogs } from "./js/dialogs.js";
   // Newest first. version-badge-text/version-summary-text in the Settings
   // card are always drawn from CHANGELOG[0], so the two can never drift.
   const CHANGELOG = [
+    {
+      version: "2.22.0",
+      summary: "An \"i\" beside each graph explains how it is worked out.",
+      changes: ["Active Insulin & Carbs: every graph and prediction (Now, projected glucose, observed vs expected, Today, Glucose) has an i button that explains in plain words how it is calculated, using your own settings","Settings: the Learn from my readings block has the same explainer"]
+    },
     {
       version: "2.21.1",
       summary: "Spacing fixed in the Active Insulin & Carbs sheet.",
