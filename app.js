@@ -3010,6 +3010,11 @@ import { createDialogs } from "./js/dialogs.js";
   // card are always drawn from CHANGELOG[0], so the two can never drift.
   const CHANGELOG = [
     {
+      version: "2.20.1",
+      summary: "Calmer, evenly spaced Abstract background.",
+      changes: ["The Abstract background is calmer: only your big coloured shapes and longer linework, no confetti or tiny marks, each placed at the best of many spots so the gaps come out even. Nothing overlaps, and every shape turns up about equally often"]
+    },
+    {
       version: "2.20.0",
       summary: "Three meal recipes added; batch-weight bar fixed.",
       changes: ["Added three ready-made recipes: a pub-style cheeseburger and chips, a classic chicken pad thai, and the sweet pancakes at Where Pancakes Are in Battersea. They are typical estimates (each recipe says so in its notes): weigh your own portion and adjust the amounts. They are added once and stay gone if you delete them", "The \"This batch's cooked weight\" bar was squashed (the g was pushed against the edge); it now has proper room"]
