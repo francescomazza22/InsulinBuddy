@@ -4,10 +4,17 @@ import { MOTIFS, MOTIF_DEFS } from "./abstract-motifs.js";
 import { rnd } from "./doodle-field.js";
 
 // Only the artwork's own coloured shapes and its longer linework are used: no confetti, no tiny marks.
-// Only the artwork's own coloured shapes and its longer linework are used: no confetti, no tiny marks.
 const SHAPES = MOTIFS.filter(m => m.kind === "big" && m.r >= 38 && m.r < 90);
 const SQUIGGLE = MOTIFS.find(m => m.kind === "big" && m.r >= 90);
-const LINES = MOTIFS.filter(m => m.kind === "accent" && m.r >= 40);
+const LINES = MOTIFS.filter(m => m.kind === "accent" && m.r >= 70);
+
+// Each shape's main colour, read from its drawing, so neighbours can be kept from sharing one.
+const COLOUR = {};
+for (const m of MOTIFS) {
+  const at = MOTIF_DEFS.indexOf(`<g id=\"${m.id}\">`);
+  const seg = MOTIF_DEFS.slice(at, MOTIF_DEFS.indexOf('<g id=\"m', at + 8) < 0 ? undefined : MOTIF_DEFS.indexOf('<g id=\"m', at + 8));
+  COLOUR[m.id] = (/(?:fill|stroke)=\"(#[0-9A-F]{6})\"/.exec(seg) || [])[1] || "line";
+}
 
 /** Same three sizes as before (the width in px of the artwork's 300-unit square), as a scale factor. */
 export function abstractScale(width, size) {
@@ -16,62 +23,58 @@ export function abstractScale(width, size) {
   return tile / 300;
 }
 
-// How much of its radius a shape really fills (the radius in the artwork data is its outer reach, and most shapes are rounder
-// or thinner than that), and the least clear space kept between neighbours, in the artwork's units.
-const FILL = 0.84, LINE_FILL = 0.5, GAP = 14;
+// How much of its radius a shape really fills (the radius in the artwork data is its outer reach, and most are rounder or thinner).
+const FILL = 0.84, LINE_FILL = 0.5;
 
 /**
- * [{ id, x, y, rot, scale, r, e }]. An even, uncluttered spread. Shapes go in one at a time; each is tried at many fixed
- * pseudo-random spots and put at the one furthest from everything already placed (and from a copy of itself), so the gaps
- * come out about equal instead of clumped. A spot is only ever used if it is clear of every neighbour (nothing overlaps).
- * About as many shapes as the original artwork had per square, then a few lines in the larger gaps.
- * Same screen size, same layout, every time.
+ * [{ id, x, y, rot, scale, r, e }]. A designed rhythm instead of a random scatter: shapes sit on a staggered (brick-like)
+ * lattice, nudged a little so it reads as hand-placed. That alone makes the gaps even, with no clumps and no voids. Which
+ * shape goes where is decided so that neighbours never share a shape or a colour, every shape turns up equally often, and
+ * each is sized to fill its slot evenly. The long squiggle and the loose linework take the odd slot for lightness.
+ * Nothing overlaps. Same screen size, same layout, every time.
  */
 export function layoutAbstract(width, height, size = "small") {
   const k = abstractScale(width, size);
-  const placed = [];
-  const area = width * height;
-  const shapeCount = Math.max(6, Math.round(area / ((88 * k) * (88 * k))));
-  const lineCount = Math.round(shapeCount * 0.4);
-  const CANDIDATES = 30;
-  const gap = GAP * k;
-  // Shapes come from shuffled rounds of the whole set (every shape once per round, in a fresh order each time), so each turns
-  // up equally often and the same one is never bunched together by chance.
-  const sequence = (list, n, salt) => {
-    const out = [];
-    for (let round = 0; out.length < n; round++) {
-      const bag = [...list];
-      for (let j = bag.length - 1; j > 0; j--) { const s = Math.floor(rnd(round, j, salt) * (j + 1)); [bag[j], bag[s]] = [bag[s], bag[j]]; }
-      out.push(...bag);
-    }
-    return out.slice(0, n);
+  const s = 112 * k;                                   // distance between neighbouring slots
+  const rowH = s * Math.sqrt(3) / 2;
+  const jit = 0.05 * s;                               // how far a shape may be nudged from its slot
+  const room = 0.43 * s;                               // the radius each slot may fill, so even nudged neighbours cannot touch
+  const rows = Math.ceil(height / rowH) + 3, cols = Math.ceil(width / s) + 3;
+  const grid = new Map();                              // "row,col" -> chosen motif id
+  const use = {}; [...SHAPES, SQUIGGLE, ...LINES].filter(Boolean).forEach(m => { use[m.id] = 0; });
+  const items = [];
+  const neighbours = (r, c) => {                       // slots already decided that touch this one (above and to the left)
+    const off = r % 2 === 0 ? 0 : 1;
+    return [[r, c - 1], [r - 1, c - 1 + off], [r - 1, c + off], [r, c - 2], [r - 2, c]];
   };
-  const place = (list, n, fill, salt, scaleLo, scaleHi, rotRange, same) => {
-    const order = sequence(list, n, salt + 500);
-    for (let i = 0; i < n; i++) {
-      const m = order[i];
-      const sc = k * (scaleLo + rnd(i, salt, 2) * (scaleHi - scaleLo));
-      const e = m.r * fill * sc;
-      let best = null, bestScore = -Infinity;
-      for (let c = 0; c < CANDIDATES; c++) {
-        const x = rnd(i, salt + 10 + c, 3) * (width + e) - e * 0.5, y = rnd(i, salt + 10 + c, 4) * (height + e) - e * 0.5;
-        let score = Infinity, ok = true;
-        for (const p of placed) {
-          const d = Math.hypot(p.x - x, p.y - y) - p.e - e;
-          if (d < gap) { ok = false; break; }                       // the collision gate: too close to a neighbour
-          const eff = same && p.id === m.id ? d * 0.55 : d;         // a copy of the same shape counts as nearer than it is
-          if (eff < score) score = eff;
-        }
-        if (ok && score > bestScore) { bestScore = score; best = { x, y }; }
-      }
-      if (best) placed.push({ id: m.id, x: best.x, y: best.y, rot: (rnd(i, salt, 5) - 0.5) * rotRange, scale: sc, r: m.r * sc, e });
+  for (let r = -1; r < rows; r++) {
+    for (let c = -1; c < cols; c++) {
+      const near = neighbours(r, c).map(([rr, cc]) => grid.get(rr + "," + cc)).filter(Boolean);
+      const nearCol = new Set(near.map(id => COLOUR[id]));
+      let pool;
+      const special = rnd(r, c, 61) < 0.13 && (SQUIGGLE || LINES.length);
+      if (special) {
+        const lines = [...(SQUIGGLE ? [SQUIGGLE] : []), ...LINES].filter(m => !near.includes(m.id));
+        pool = lines.length ? lines : SHAPES;
+      } else pool = SHAPES;
+      let cand = pool.filter(m => !near.includes(m.id) && !nearCol.has(COLOUR[m.id]));
+      if (!cand.length) cand = pool.filter(m => !near.includes(m.id));
+      if (!cand.length) cand = pool;
+      const least = Math.min(...cand.map(m => use[m.id]));
+      const bag = cand.filter(m => use[m.id] <= least + 1);
+      const m = bag[Math.floor(rnd(r, c, 62) * bag.length)];
+      use[m.id]++;
+      grid.set(r + "," + c, m.id);
+      const fill = m.kind === "accent" ? LINE_FILL : FILL;
+      const fit = room / (m.r * fill) / k;                         // the scale that would fill the slot exactly
+      const sc = k * Math.min(fit, Math.pow(fit, 0.65)) * (0.92 + rnd(r, c, 63) * 0.08);   // evened out: small shapes are not blown up to fill
+      const cx = (c + (r % 2 === 0 ? 0 : 0.5)) * s + (rnd(r, c, 64) - 0.5) * 2 * jit;
+      const cy = r * rowH + (rnd(r, c, 65) - 0.5) * 2 * jit;
+      const rot = (rnd(r, c, 66) - 0.5) * (m.kind === "accent" ? 360 : 50);
+      items.push({ id: m.id, x: cx, y: cy, rot, scale: sc, r: m.r * sc, e: m.r * fill * sc });
     }
-  };
-  // the long coral squiggle is big, so only an occasional one is slipped in
-  const withSquiggle = SQUIGGLE ? [...SHAPES, ...SHAPES, SQUIGGLE] : SHAPES;
-  place(withSquiggle, shapeCount, FILL, 11, 0.95, 1.12, 70, true);
-  place(LINES, lineCount, LINE_FILL, 12, 0.9, 1.1, 360, true);
-  return placed;
+  }
+  return items.filter(i => i.x > -i.e && i.y > -i.e && i.x < width + i.e && i.y < height + i.e);
 }
 
 const fmt = n => Math.round(n * 10) / 10;
