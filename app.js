@@ -1547,7 +1547,7 @@ import { createDialogs } from "./js/dialogs.js";
         renderAiogTab(backdrop, btn.dataset.tab);
       });
     });
-    renderAiogTab(backdrop, startTab);
+    renderAiogTab(backdrop, startTab, { fresh: true });
   }
 
   // ---- Basal insulin (History tab) ----
@@ -1970,7 +1970,7 @@ import { createDialogs } from "./js/dialogs.js";
     `;
   }
 
-  async function renderAiogTab(backdrop, tab) {
+  async function renderAiogTab(backdrop, tab, { fresh = false } = {}) {   // fresh: the sheet was just opened, so always catch up on new readings (a tiny request)
     const content = backdrop.querySelector("#aiog-content");
     content.dataset.tab = tab;
     if (tab === "now") {
@@ -1980,15 +1980,19 @@ import { createDialogs } from "./js/dialogs.js";
         ${renderActiveGraphSVG(buildActiveSeries())}
         ${aiogLegendHtml()}
       `;
-      content.innerHTML = plain();
-      if (!nightscoutConfigured()) return;
-      content.insertAdjacentHTML("beforeend", `<p class="panel-card__hint" id="aiog-live-note" style="margin-top:12px;">Checking your glucose readings…</p>`);
+      if (!nightscoutConfigured()) { content.innerHTML = plain(); return; }
       const L = state.settings.learnedAbsorption;
       if (state.settings.useLearnedAbsorption && (!L || Date.now() - L.at > 86400_000)) refreshLearnedAbsorption().catch(() => {});
-      const result = await fetchGlucoseHistory(8);
-      if (!content.isConnected || content.dataset.tab !== "now") return;
-      if (!result.ok) { el("aiog-live-note").textContent = `Couldn't load glucose to adjust this: ${result.reason}`; return; }
-      content.innerHTML = renderNowWithReadings(nsToReadings(result.entries));
+      // Paint at once from the saved readings; only redraw when the refresh brings something new (and never while an explanation is open).
+      const cached = glucoseEntriesWithin(8);
+      const live = () => content.isConnected && content.dataset.tab === "now";
+      const repaint = () => { if (live() && !content.querySelector(".info-panel:not([hidden])")) content.innerHTML = renderNowWithReadings(nsToReadings(glucoseEntriesWithin(8))); };
+      if (cached.length) content.innerHTML = renderNowWithReadings(nsToReadings(cached));
+      else { content.innerHTML = plain(); content.insertAdjacentHTML("beforeend", `<p class="panel-card__hint" id="aiog-live-note" style="margin-top:12px;">Checking your glucose readings…</p>`); }
+      const unsub = onGlucoseUpdate(() => { if (!live()) { unsub(); return; } repaint(); });
+      const r = await refreshGlucoseStore({ maxAgeMs: fresh ? 0 : 15000 });
+      if (!live()) { unsub(); return; }
+      if (!r.ok && !cached.length) { const n = el("aiog-live-note"); if (n) n.textContent = `Couldn't load glucose to adjust this: ${r.reason}`; }
     } else if (tab === "today") {
       const series = buildTodaySeries();
       content.innerHTML = `
@@ -1998,35 +2002,40 @@ import { createDialogs } from "./js/dialogs.js";
         ${aiogLegendHtml()}
       `;
     } else if (tab === "glucose") {
-      content.innerHTML = `<p class="panel-card__hint">Loading recent glucose…</p>`;
-      const result = await fetchGlucoseHistory(glucoseWindowHours);
-      if (!content.isConnected) return; // sheet was closed while this was loading
+      const live = () => content.isConnected && content.dataset.tab === "glucose";
       const picker = `
         <div class="glucose-range-picker">
           ${GLUCOSE_WINDOWS_HOURS.map(h => `<button type="button" class="glucose-range-btn${h === glucoseWindowHours ? " is-active" : ""}" data-hours="${h}">${h}h</button>`).join("")}
         </div>
       `;
-      if (!result.ok) {
-        content.innerHTML = `${picker}<p class="panel-card__hint" style="color:#B91C1C;">Couldn't load glucose: ${escapeHtml(result.reason)}</p>`;
-      } else {
-        const entries = result.entries.filter(e => typeof e.sgv === "number").sort((a, b) => a.date - b.date);
+      const paint = (note = "") => {
+        const list = glucoseEntriesWithin(glucoseWindowHours);
+        const entries = list.slice().sort((a, b) => a.date - b.date);
         const latest = entries[entries.length - 1];
-        const svg = renderGlucoseGraphSVG(result.entries);
+        const svg = renderGlucoseGraphSVG(list);
         content.innerHTML = `
           ${renderGlucoseBannerHtml(latest)}
           ${picker}
+          ${note}
           ${secHead("Your glucose", "glucose")}
           ${svg ? svg : `<p class="panel-card__hint">No recent glucose data found.</p>`}
           ${svg ? `<p class="panel-card__hint" style="margin-top:10px;">Dashed lines mark the standard 70&ndash;180 range.</p>` : ""}
-          ${renderExpectedVsObservedHtml(nsToReadings(result.entries))}
+          ${renderExpectedVsObservedHtml(nsToReadings(list))}
         `;
-      }
-      content.querySelectorAll(".glucose-range-btn").forEach(btn => {
-        btn.addEventListener("click", () => {
-          glucoseWindowHours = Number(btn.dataset.hours);
-          renderAiogTab(backdrop, "glucose");
-        });
+        bindPicker();
+      };
+      const bindPicker = () => content.querySelectorAll(".glucose-range-btn").forEach(btn => {
+        btn.addEventListener("click", () => { glucoseWindowHours = Number(btn.dataset.hours); renderAiogTab(backdrop, "glucose"); });
       });
+      const hadCache = glucoseEntriesWithin(glucoseWindowHours).length > 0;
+      if (hadCache) paint(); else content.innerHTML = `<p class="panel-card__hint">Loading recent glucose…</p>`;
+      const unsub = onGlucoseUpdate(() => { if (!live()) { unsub(); return; } if (!content.querySelector(".info-panel:not([hidden])")) paint(); });
+      const r = await refreshGlucoseStore({ maxAgeMs: fresh ? 0 : 15000 });
+      if (!live()) { unsub(); return; }
+      if (!r.ok) {
+        if (hadCache) paint(`<p class="panel-card__hint" style="color:#B45309;">Showing saved readings &mdash; couldn't reach Nightscout (${escapeHtml(r.reason)}).</p>`);
+        else { content.innerHTML = `${picker}<p class="panel-card__hint" style="color:#B91C1C;">Couldn't load glucose: ${escapeHtml(r.reason)}</p>`; bindPicker(); }
+      } else if (!hadCache) paint();
     }
   }
   el("active-panel").addEventListener("click", () => openActiveDetailSheet("now"));
@@ -2781,6 +2790,14 @@ import { createDialogs } from "./js/dialogs.js";
    * from density -- the History tab -- keeps accumulating real readings over time. */
   async function fetchGlucoseHistory(hours) {
     if (!nightscoutConfigured()) return { ok: false, reason: "Nightscout isn't set up yet." };
+    if (hours <= 24) {
+      // Up to a day comes from the shared store: instant when it is fresh, one quiet refresh when it isn't, and the saved readings
+      // (flagged stale) when Nightscout can't be reached.
+      const r = await refreshGlucoseStore({ maxAgeMs: 45000 });
+      const entries = glucoseEntriesWithin(hours);
+      if (!r.ok && !entries.length) return { ok: false, reason: r.reason };
+      return { ok: true, entries, stale: !r.ok, reason: r.reason };
+    }
     try {
       const r = await nsClient.read(nsCfg(), Math.min(hours * 12 + 12, 1000)); // +12 is a small safety margin, not load-bearing -- 24h at a 5-min interval is ~288, nowhere near Nightscout's own 1000 cap
       if (r.entries.length) saveGlucoseReadings(r.entries);
@@ -2855,19 +2872,68 @@ import { createDialogs } from "./js/dialogs.js";
   let liveGlucose = null; // { mgdl, direction, at } -- cached across reloads so the pill isn't blank while the first fetch is in flight
   try { liveGlucose = JSON.parse(localStorage.getItem(LIVE_GLUCOSE_CACHE_KEY)); } catch (e) { liveGlucose = null; }
 
-  async function refreshLiveGlucose() {
+  // ---- the shared glucose store ----
+  // ONE place every screen reads recent glucose from (the last 24 hours of Nightscout readings), kept on the device so it is there the
+  // instant a screen opens, topped up quietly in the background with only the newest readings. Screens paint from it straight away and
+  // redraw only if a refresh actually brought something new. If Nightscout can't be reached the saved readings stay on show.
+  const GLUCOSE_STORE_KEY = "insulinBuddy.glucoseRecent";
+  const GLUCOSE_STORE_SPAN_MS = 26 * 3600_000;
+  const GLUCOSE_FULL_REFRESH_MS = 20 * 60_000;   // every so often re-read the whole day, to catch gaps and edited readings
+  const glucoseStore = { entries: [], at: 0, fullAt: 0, inflight: null, listeners: new Set() };   // entries newest-first: { sgv, date, direction }
+  try {
+    const saved = JSON.parse(localStorage.getItem(GLUCOSE_STORE_KEY) || "null");
+    if (saved && Array.isArray(saved.entries)) { glucoseStore.entries = saved.entries.filter(e => e && typeof e.sgv === "number" && Number.isFinite(e.date)); glucoseStore.at = saved.at || 0; glucoseStore.fullAt = saved.fullAt || 0; }
+  } catch (e) { /* no saved readings -- the first refresh fills it */ }
+  function glucoseEntriesWithin(hours) {
+    const from = Date.now() - hours * 3600_000;
+    return glucoseStore.entries.filter(e => e.date >= from);
+  }
+  function persistGlucoseStore() {
+    try { localStorage.setItem(GLUCOSE_STORE_KEY, JSON.stringify({ entries: glucoseStore.entries, at: glucoseStore.at, fullAt: glucoseStore.fullAt })); } catch (e) { /* storage full or blocked: still works in memory */ }
+  }
+  function resetGlucoseStore() {
+    glucoseStore.entries = []; glucoseStore.at = 0; glucoseStore.fullAt = 0;
+    try { localStorage.removeItem(GLUCOSE_STORE_KEY); } catch (e) { /* nothing to do */ }
+  }
+  function onGlucoseUpdate(fn) { glucoseStore.listeners.add(fn); return () => glucoseStore.listeners.delete(fn); }
+  /** Tops the store up. Returns { ok, changed, reason }. Calls made while one is already running share its result. */
+  function refreshGlucoseStore({ force = false, maxAgeMs = 20000 } = {}) {
+    if (!nightscoutConfigured()) return Promise.resolve({ ok: false, changed: false, reason: "Nightscout isn't set up yet." });
+    if (glucoseStore.inflight) return glucoseStore.inflight;
+    if (!force && glucoseStore.entries.length && Date.now() - glucoseStore.at < maxAgeMs) return Promise.resolve({ ok: true, changed: false });
+    glucoseStore.inflight = (async () => {
+      try {
+        const latest = glucoseStore.entries[0];
+        const full = !latest || Date.now() - glucoseStore.fullAt > GLUCOSE_FULL_REFRESH_MS || Date.now() - latest.date > 6 * 3600_000;
+        const r = full ? await nsClient.read(nsCfg(), 300) : await nsClient.read(nsCfg(), 300, { after: latest.date + 1 });
+        const incoming = (Array.isArray(r.entries) ? r.entries : []).filter(e => e && typeof e.sgv === "number" && Number.isFinite(e.date));
+        const before = glucoseStore.entries.length ? `${glucoseStore.entries[0].date}:${glucoseStore.entries.length}` : "";
+        const byDate = new Map(glucoseStore.entries.map(e => [e.date, e]));
+        for (const e of incoming) byDate.set(e.date, { sgv: e.sgv, date: e.date, direction: e.direction || null });
+        const from = Date.now() - GLUCOSE_STORE_SPAN_MS;
+        glucoseStore.entries = [...byDate.values()].filter(e => e.date >= from).sort((a, b) => b.date - a.date);
+        glucoseStore.at = Date.now();
+        if (full) glucoseStore.fullAt = glucoseStore.at;
+        const top = glucoseStore.entries[0];
+        if (top) {
+          liveGlucose = { mgdl: top.sgv, direction: top.direction || null, at: top.date };
+          try { localStorage.setItem(LIVE_GLUCOSE_CACHE_KEY, JSON.stringify(liveGlucose)); } catch (e) { /* ignore */ }
+        }
+        if (incoming.length) saveGlucoseReadings(incoming); // fire-and-forget: the database that History reads keeps accumulating
+        persistGlucoseStore();
+        const changed = before !== (glucoseStore.entries.length ? `${glucoseStore.entries[0].date}:${glucoseStore.entries.length}` : "");
+        if (changed) for (const fn of [...glucoseStore.listeners]) { try { fn(); } catch (e) { /* a listener must never break the refresh */ } }
+        return { ok: true, changed };
+      } catch (e) {
+        return { ok: false, changed: false, reason: friendlyNsError(e) };   // keep showing what we have
+      } finally { glucoseStore.inflight = null; }
+    })();
+    return glucoseStore.inflight;
+  }
+
+  async function refreshLiveGlucose(force = false) {
     if (!nightscoutConfigured()) return;
-    try {
-      const r = await nsClient.read(nsCfg(), 1);
-      const entry = Array.isArray(r.entries) ? r.entries[0] : null;
-      if (entry && typeof entry.sgv === "number") {
-        liveGlucose = { mgdl: entry.sgv, direction: entry.direction || null, at: entry.date || Date.now() };
-        localStorage.setItem(LIVE_GLUCOSE_CACHE_KEY, JSON.stringify(liveGlucose));
-        saveGlucoseReadings(r.entries); // fire-and-forget: don't hold up the pill on a DB write
-      }
-    } catch (e) {
-      // a background poll failing isn't worth interrupting anyone for -- just keep showing the last known reading
-    }
+    await refreshGlucoseStore({ force, maxAgeMs: 20000 });   // a failed background poll just leaves the last known reading showing
     renderLiveGlucosePill();
   }
 
@@ -3059,8 +3125,8 @@ import { createDialogs } from "./js/dialogs.js";
 
 
 
-  window.addEventListener("online", () => { flushNightscoutQueue(true); refreshLiveGlucose(); });
-  document.addEventListener("visibilitychange", () => { if (!document.hidden) { flushNightscoutQueue(true); refreshLiveGlucose(); } });
+  window.addEventListener("online", () => { flushNightscoutQueue(true); refreshLiveGlucose(true); });
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) { flushNightscoutQueue(true); refreshLiveGlucose(true); } });
 
 
   // ================= Undo toast =================
@@ -3203,6 +3269,16 @@ import { createDialogs } from "./js/dialogs.js";
   // Newest first. version-badge-text/version-summary-text in the Settings
   // card are always drawn from CHANGELOG[0], so the two can never drift.
   const CHANGELOG = [
+    {
+      version: "2.23.0",
+      summary: "Glucose now loads instantly everywhere, from one shared store.",
+      changes: [
+        "Recent glucose is kept on your device in one shared store that every screen reads from, and topped up quietly in the background with only the newest readings. The Now and Glucose tabs open instantly with the numbers already in place, instead of showing a loading message and redrawing",
+        "Screens only redraw when a refresh actually brings a new reading, and never while an explanation (i) is open",
+        "If Nightscout can't be reached, the saved readings stay on show with a note saying so",
+        "Far fewer requests to Nightscout: switching between tabs no longer downloads the same readings again"
+      ]
+    },
     {
       version: "2.22.0",
       summary: "An \"i\" beside each graph explains how it is worked out.",
@@ -6226,6 +6302,7 @@ import { createDialogs } from "./js/dialogs.js";
     // than show a number that looks live but isn't.
     liveGlucose = null;
     localStorage.removeItem(LIVE_GLUCOSE_CACHE_KEY);
+    resetGlucoseStore();
     renderLiveGlucosePill();
   });
   el("set-check-after").addEventListener("change", e => { state.settings.checkAfterHours = Number(e.target.value) || 0; saveState(); if (!state.settings.checkAfterHours) { try { localStorage.removeItem(REMINDER_KEY); } catch { /* */ } } renderReminder(); });
@@ -6237,7 +6314,7 @@ import { createDialogs } from "./js/dialogs.js";
   el("btn-ns-refresh").addEventListener("click", async () => {
     renderNsStatus("Checking…");
     await flushNightscoutQueue(true);
-    await refreshLiveGlucose();
+    await refreshLiveGlucose(true);
     renderNightscoutSection();
   });
 
@@ -6254,7 +6331,7 @@ import { createDialogs } from "./js/dialogs.js";
     }
     try { await backups.clear(); } catch (e) { /* none */ }
     nsOutbox.jobs = []; nsOutbox._save();
-    [PENDING_SYNC_KEY, LAST_SNAPSHOT_KEY, "insulinBuddy.diag", "insulinBuddy.nsQueue", LIVE_GLUCOSE_CACHE_KEY].forEach(k => localStorage.removeItem(k));
+    [PENDING_SYNC_KEY, LAST_SNAPSHOT_KEY, "insulinBuddy.diag", "insulinBuddy.nsQueue", LIVE_GLUCOSE_CACHE_KEY, GLUCOSE_STORE_KEY].forEach(k => localStorage.removeItem(k));
     liveGlucose = null;
     diag.clear();
     cloudSyncPending = false; lastKnownCloudUpdatedAt = null; lastKnownCloudHistoryCount = null; lastKnownCloudHistoryIds = null;
