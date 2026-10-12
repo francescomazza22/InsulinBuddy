@@ -2382,7 +2382,7 @@ import { createDialogs } from "./js/dialogs.js";
       if (r && t) {
         const per = batchWeightG > 0 ? Math.round((t.totalCarbs / batchWeightG) * 1000) / 10 : t.carbsPer100g;
         html += `<div class="pick-extra__batch"><label for="cc-batch-weight">This batch's cooked weight</label>
-          <div class="field__row"><input type="number" id="cc-batch-weight" inputmode="decimal" min="0" step="1" placeholder="${r.finalWeight}" value="${batchWeightG || ""}"><span>g</span></div>
+          <div class="field__row"><input type="number" id="cc-batch-weight" inputmode="decimal" min="0" step="1" placeholder="${r.finalWeight}" value="${batchWeightG || ""}"><span class="field__unit">g</span></div>
           <p class="pick-extra__note">${t.totalCarbs} g carbs in the whole batch → <b>${per} g per 100 g</b>${batchWeightG > 0 ? ` (recipe default ${t.carbsPer100g})` : ""}. Leave empty to use the saved weight of ${r.finalWeight} g.</p></div>`;
       }
     }
@@ -3009,6 +3009,11 @@ import { createDialogs } from "./js/dialogs.js";
   // Newest first. version-badge-text/version-summary-text in the Settings
   // card are always drawn from CHANGELOG[0], so the two can never drift.
   const CHANGELOG = [
+    {
+      version: "2.20.0",
+      summary: "Three meal recipes added; batch-weight bar fixed.",
+      changes: ["Added three ready-made recipes: a pub-style cheeseburger and chips, a classic chicken pad thai, and the sweet pancakes at Where Pancakes Are in Battersea. They are typical estimates (each recipe says so in its notes): weigh your own portion and adjust the amounts. They are added once and stay gone if you delete them", "The \"This batch's cooked weight\" bar was squashed (the g was pushed against the edge); it now has proper room"]
+    },
     {
       version: "2.19.2",
       summary: "Abstract background packed evenly, with no gaps.",
@@ -6049,6 +6054,51 @@ import { createDialogs } from "./js/dialogs.js";
     return n;
   }
 
+
+  // A few ready-made meal recipes, added once (and never brought back if you delete them). The numbers are typical estimates
+  // for each dish, not a lab analysis: each says so in its notes, so weigh your own portion and adjust the amounts.
+  // Each ingredient is [name, grams, carbs per 100 g, kcal per 100 g].
+  const SEED_RECIPES = [
+    {
+      key: "pub-cheeseburger-chips", name: "Pub-style cheeseburger and chips", category: "other",
+      notes: "Typical estimate for a pub cheeseburger with a brioche-style bun, sauce and chunky chips. Weigh your own portion and adjust the amounts.",
+      items: [["Burger bun", 85, 49, 280], ["Beef burger patty, cooked", 140, 0, 250], ["Cheddar cheese", 25, 1.3, 403], ["Lettuce", 20, 2.9, 15], ["Tomato", 40, 3.9, 18], ["Red onion", 20, 9.3, 40], ["Burger sauce", 20, 10, 450], ["Chips, cooked", 200, 38, 280], ["Tomato ketchup", 20, 26, 110]]
+    },
+    {
+      key: "chicken-pad-thai", name: "Classic chicken pad thai", category: "grains",
+      notes: "Typical estimate for a restaurant-style chicken pad thai (stir-fried rice noodles, egg, bean sprouts, crushed peanuts, tamarind and fish sauce). Takeaway portions vary a lot: weigh yours and adjust.",
+      items: [["Rice noodles, cooked", 250, 24, 108], ["Petto di pollo", 100, 0, 165], ["Egg", 50, 0.7, 143], ["Bean sprouts", 40, 3.7, 31], ["Dry roasted peanuts", 15, 7.3, 595], ["Zucchero", 15, 100, 400], ["Tamarind paste", 10, 62.5, 239], ["Fish sauce", 10, 3.6, 35], ["Vegetable oil", 15, 0, 900], ["Spring onion", 15, 7, 32], ["Lime juice", 10, 7, 25]]
+    },
+    {
+      key: "where-pancakes-are-sweet", name: "Where Pancakes Are (Battersea): sweet pancakes", category: "other",
+      notes: "Estimate for the sweet pancakes served there (pancakes with cinnamon-poached pineapple, pomegranate, flaked coconut, lime syrup and cream). The restaurant does not publish its portion sizes, so the amounts are a guess for a typical stack of three: adjust them to what you were served.",
+      items: [["Pancakes (plain, American style)", 180, 27, 227], ["Poached pineapple", 80, 13, 50], ["Pomegranate seeds", 20, 19, 83], ["Flaked coconut", 5, 7, 660], ["Lime syrup", 25, 70, 280], ["Whipped cream", 30, 2.5, 340]]
+    }
+  ];
+  function seedMealRecipes() {
+    const done = Array.isArray(state.settings.seededRecipes) ? state.settings.seededRecipes : [];
+    const added = [];
+    SEED_RECIPES.forEach(sr => {
+      if (done.includes(sr.key)) return;
+      if (!state.recipes.some(r => r.name.toLowerCase() === sr.name.toLowerCase())) {
+        const items = sr.items.map(([name, grams, carbs, kcal]) => {
+          const f = state.library.find(x => x.name.toLowerCase() === name.toLowerCase());
+          return { foodId: f ? f.id : null, name, grams, carbsPer100g: carbs, kcalPer100g: kcal };
+        });
+        const total = items.reduce((s, i) => s + i.grams, 0);
+        state.recipes.unshift({ id: "recipe-seed-" + sr.key, name: sr.name, category: sr.category, notes: sr.notes, favorite: false, usageCount: 0, rawWeight: null, finalWeight: total, items });
+        added.push(sr.name);
+      }
+      done.push(sr.key);
+    });
+    if (added.length || done.length !== (state.settings.seededRecipes || []).length) {
+      state.settings.seededRecipes = done;
+      saveState();
+      if (added.length) diag.log("info", "library", `Added ${added.length} ready-made recipe(s): ${added.join(", ")}`);
+    }
+    return added.length;
+  }
+
   function applyGiSeedPatch() {
     let changed = false;
     state.library.forEach(f => {
@@ -6124,6 +6174,7 @@ import { createDialogs } from "./js/dialogs.js";
     if (!stateFp) stateFp = makeFingerprint(state);
     applyGiSeedPatch();
     repairQuantityFoods();
+    seedMealRecipes();
     renderQuickUsual(); renderReminder();
     renderFoodPickList();
     renderMealItems();
@@ -6157,6 +6208,7 @@ import { createDialogs } from "./js/dialogs.js";
     document.documentElement.setAttribute("data-palette", state.settings.palette);
     applyTheme();
     applyGiSeedPatch();
+    seedMealRecipes();
     draft = { items: [], correctionOn: false, correctionManual: false, noInsulinOn: false, eatingOutOn: false, glucose: "", glucoseUnit: null, manualRatioId: null };
     renderFoodPickList(); renderMealItems(); recompute();
     restoreDraftIfAny();
