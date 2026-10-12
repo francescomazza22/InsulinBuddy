@@ -3,20 +3,11 @@
 import { MOTIFS, MOTIF_DEFS } from "./abstract-motifs.js";
 import { rnd } from "./doodle-field.js";
 
-const SHAPES = MOTIFS.filter(m => m.kind === "big");
-const LINES = MOTIFS.filter(m => m.kind === "accent");
-
-// Confetti in the artwork's own palette, drawn here, to fill the small gaps the larger shapes leave.
-const L = 'class="l"', PAL = ["#7AE3E1", "#F889C5", "#FEB771", "#868AE3", "#FF7540"];
-const FILLERS = [
-  { id: "f0", r: 4, svg: `<g id="f0"><circle r="3.6" ${L}/></g>` },
-  { id: "f1", r: 9, svg: `<g id="f1"><circle cx="-4" cy="3" r="2.8" ${L}/><circle cx="4" cy="-3" r="2.8" ${L}/><circle cx="5" cy="5" r="2.2" ${L}/></g>` },
-  { id: "f2", r: 7, svg: `<g id="f2"><path d="M-6 0H6" fill="none" stroke-width="3" stroke-linecap="round" style="stroke:var(--abs-line)"/></g>` },
-  { id: "f3", r: 8, svg: `<g id="f3"><path d="M-5 -5 5 5M5 -5-5 5" fill="none" stroke-width="2.6" stroke-linecap="round" style="stroke:var(--abs-line)"/></g>` },
-  ...PAL.map((c, n) => ({ id: "f" + (4 + n), r: 6 + (n % 3) * 2, svg: `<g id="f${4 + n}"><circle r="${6 + (n % 3) * 2}" fill="${c}"/></g>` })),
-  { id: "f9", r: 8, svg: `<g id="f9"><circle r="7" fill="none" stroke-width="2.6" style="stroke:var(--abs-line)"/></g>` }
-];
-const FILLER_DEFS = FILLERS.map(f => f.svg).join("");
+// Only the artwork's own coloured shapes and its longer linework are used: no confetti, no tiny marks.
+// Only the artwork's own coloured shapes and its longer linework are used: no confetti, no tiny marks.
+const SHAPES = MOTIFS.filter(m => m.kind === "big" && m.r >= 38 && m.r < 90);
+const SQUIGGLE = MOTIFS.find(m => m.kind === "big" && m.r >= 90);
+const LINES = MOTIFS.filter(m => m.kind === "accent" && m.r >= 40);
 
 /** Same three sizes as before (the width in px of the artwork's 300-unit square), as a scale factor. */
 export function abstractScale(width, size) {
@@ -26,52 +17,60 @@ export function abstractScale(width, size) {
 }
 
 // How much of its radius a shape really fills (the radius in the artwork data is its outer reach, and most shapes are rounder
-// or thinner than that), and the clear space kept between neighbours, in the artwork's units.
-const FILL = 0.84, LINE_FILL = 0.5, GAP = 5;
+// or thinner than that), and the least clear space kept between neighbours, in the artwork's units.
+const FILL = 0.84, LINE_FILL = 0.5, GAP = 14;
 
 /**
- * [{ id, x, y, rot, scale, r, e }]. Nothing overlaps, and the screen is packed evenly: shapes are tried at fixed pseudo-random
- * spots, biggest first, and each is kept only if it is clear of everything already placed. Then the medium shapes and loose
- * linework go into the gaps, then the small ones, and last the confetti, so no gap is left that anything could fill.
+ * [{ id, x, y, rot, scale, r, e }]. An even, uncluttered spread. Shapes go in one at a time; each is tried at many fixed
+ * pseudo-random spots and put at the one furthest from everything already placed (and from a copy of itself), so the gaps
+ * come out about equal instead of clumped. A spot is only ever used if it is clear of every neighbour (nothing overlaps).
+ * About as many shapes as the original artwork had per square, then a few lines in the larger gaps.
  * Same screen size, same layout, every time.
  */
 export function layoutAbstract(width, height, size = "small") {
   const k = abstractScale(width, size);
-  const B = 40 * k;                                     // bucket size for neighbour lookups
-  let maxE = 0;
-  const placed = [], buckets = new Map();
-  const clear = (x, y, e) => {
-    const bx = Math.floor(x / B), by = Math.floor(y / B);
-    const rr = Math.ceil((e + maxE + GAP * k) / B);
-    for (let dx = -rr; dx <= rr; dx++) for (let dy = -rr; dy <= rr; dy++) {
-      const list = buckets.get((bx + dx) + "," + (by + dy));
-      if (!list) continue;
-      for (const p of list) if (Math.hypot(p.x - x, p.y - y) < p.e + e + GAP * k) return false;
-    }
-    return true;
-  };
-  const add = it => { if (it.e > maxE) maxE = it.e; placed.push(it); const key = Math.floor(it.x / B) + "," + Math.floor(it.y / B); (buckets.get(key) || buckets.set(key, []).get(key)).push(it); };
+  const placed = [];
   const area = width * height;
-  const tier = (list, fill, salt, perArea, scaleLo, scaleHi, rotRange, avoidSame, maxTries) => {
-    const avgE = list.reduce((s, m) => s + m.r * fill, 0) / list.length * k * ((scaleLo + scaleHi) / 2);
-    const tries = Math.min(maxTries, Math.ceil((area / (Math.PI * avgE * avgE)) * perArea));
-    for (let n = 0; n < tries; n++) {
-      const m = list[Math.floor(rnd(n, salt, 1) * list.length)];
-      const sc = k * (scaleLo + rnd(n, salt, 2) * (scaleHi - scaleLo));
+  const shapeCount = Math.max(6, Math.round(area / ((88 * k) * (88 * k))));
+  const lineCount = Math.round(shapeCount * 0.4);
+  const CANDIDATES = 30;
+  const gap = GAP * k;
+  // Shapes come from shuffled rounds of the whole set (every shape once per round, in a fresh order each time), so each turns
+  // up equally often and the same one is never bunched together by chance.
+  const sequence = (list, n, salt) => {
+    const out = [];
+    for (let round = 0; out.length < n; round++) {
+      const bag = [...list];
+      for (let j = bag.length - 1; j > 0; j--) { const s = Math.floor(rnd(round, j, salt) * (j + 1)); [bag[j], bag[s]] = [bag[s], bag[j]]; }
+      out.push(...bag);
+    }
+    return out.slice(0, n);
+  };
+  const place = (list, n, fill, salt, scaleLo, scaleHi, rotRange, same) => {
+    const order = sequence(list, n, salt + 500);
+    for (let i = 0; i < n; i++) {
+      const m = order[i];
+      const sc = k * (scaleLo + rnd(i, salt, 2) * (scaleHi - scaleLo));
       const e = m.r * fill * sc;
-      const x = rnd(n, salt, 3) * (width + 2 * e) - e, y = rnd(n, salt, 4) * (height + 2 * e) - e;
-      if (avoidSame && placed.some(p => p.id === m.id && Math.abs(p.x - x) < B * 5 && Math.abs(p.y - y) < B * 5)) continue;
-      if (!clear(x, y, e)) continue;
-      add({ id: m.id, x, y, rot: (rnd(n, salt, 5) - 0.5) * rotRange, scale: sc, r: m.r * sc, e });
+      let best = null, bestScore = -Infinity;
+      for (let c = 0; c < CANDIDATES; c++) {
+        const x = rnd(i, salt + 10 + c, 3) * (width + e) - e * 0.5, y = rnd(i, salt + 10 + c, 4) * (height + e) - e * 0.5;
+        let score = Infinity, ok = true;
+        for (const p of placed) {
+          const d = Math.hypot(p.x - x, p.y - y) - p.e - e;
+          if (d < gap) { ok = false; break; }                       // the collision gate: too close to a neighbour
+          const eff = same && p.id === m.id ? d * 0.55 : d;         // a copy of the same shape counts as nearer than it is
+          if (eff < score) score = eff;
+        }
+        if (ok && score > bestScore) { bestScore = score; best = { x, y }; }
+      }
+      if (best) placed.push({ id: m.id, x: best.x, y: best.y, rot: (rnd(i, salt, 5) - 0.5) * rotRange, scale: sc, r: m.r * sc, e });
     }
   };
-  const bigShapes = SHAPES.filter(m => m.r >= 38), smallShapes = SHAPES.filter(m => m.r < 38);
-  const longLines = LINES.filter(m => m.r > 40), tinyLines = LINES.filter(m => m.r <= 40);
-  tier(bigShapes, FILL, 11, 14, 0.92, 1.18, 100, true, 24000);
-  tier(longLines, LINE_FILL, 12, 10, 0.85, 1.1, 360, false, 20000);
-  tier(smallShapes.length ? smallShapes : bigShapes, FILL, 13, 1, 0.9, 1.2, 100, false, 8000);
-  tier(tinyLines.length ? tinyLines : longLines, 0.8, 14, 2, 0.9, 1.2, 360, false, 20000);
-  tier(FILLERS, 1, 15, 6, 0.9, 1.25, 360, false, 30000);
+  // the long coral squiggle is big, so only an occasional one is slipped in
+  const withSquiggle = SQUIGGLE ? [...SHAPES, ...SHAPES, SQUIGGLE] : SHAPES;
+  place(withSquiggle, shapeCount, FILL, 11, 0.95, 1.12, 70, true);
+  place(LINES, lineCount, LINE_FILL, 12, 0.9, 1.1, 360, true);
   return placed;
 }
 
@@ -80,5 +79,5 @@ const fmt = n => Math.round(n * 10) / 10;
 /** The SVG markup. The black linework takes its colour from the page (the --abs-line variable) and the page fades the whole thing. */
 export function abstractSvg(width, height, size = "small") {
   const uses = layoutAbstract(width, height, size).map(i => `<use href="#${i.id}" transform="translate(${fmt(i.x)} ${fmt(i.y)}) rotate(${fmt(i.rot)}) scale(${Math.round(i.scale * 1000) / 1000})"/>`).join("");
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" aria-hidden="true"><defs>${MOTIF_DEFS}${FILLER_DEFS}</defs>${uses}</svg>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" aria-hidden="true"><defs>${MOTIF_DEFS}</defs>${uses}</svg>`;
 }
