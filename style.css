@@ -1255,3 +1255,10 @@ html[data-theme="dark"] .undo-toast { background: var(--surface); border: 1px so
 .info-panel p { margin: 0 0 6px; }
 .info-panel p:last-child { margin-bottom: 0; }
 #aiog-content .info-panel + .panel-card__hint, #aiog-content .aiog-head + .panel-card__hint { margin-top: 4px; }
+
+/* Undo bar: a thin countdown line that pauses while the bar is touched */
+.undo-toast::after { content: ""; position: absolute; left: 20px; right: 20px; bottom: 4px; height: 2px; border-radius: 2px; background: var(--acc-3); opacity: .75; transform-origin: left center; }
+.undo-toast.is-running::after { animation: toast-bar var(--toast-ms, 8s) linear forwards; }
+.undo-toast.is-paused::after { animation-play-state: paused; }
+@keyframes toast-bar { from { transform: scaleX(1); } to { transform: scaleX(0); } }
+@media (prefers-reduced-motion: reduce) { .undo-toast.is-running::after { animation: none; } }

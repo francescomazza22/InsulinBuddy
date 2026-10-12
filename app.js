@@ -2513,6 +2513,17 @@ import { createDialogs } from "./js/dialogs.js";
     }
   }
 
+  // Snapshot / restore of the half-built meal, so "log" and "replace" can be undone without losing what was typed.
+  function snapshotDraft() { saveDraftLocal(); try { return localStorage.getItem(DRAFT_KEY); } catch (e) { return null; } }
+  function draftIsEmpty() { return !draft.items.length && !draft.correctionOn && !draft.eatingOutOn && !draft.noInsulinOn; }
+  function restoreDraftSnapshot(raw) {
+    if (!raw || !draftIsEmpty()) return false;   // never mix a snapshot into something new the person has started since
+    try { localStorage.setItem(DRAFT_KEY, raw); } catch (e) { return false; }
+    restoreDraftIfAny();
+    showView("calculator");
+    return true;
+  }
+
   function logMeal(mealType) {
     const ratioEntry = draft._computed.ratioEntry;
     const now = new Date();
@@ -2561,9 +2572,26 @@ import { createDialogs } from "./js/dialogs.js";
     saveState();
     syncEntryToNightscout(entry);
     setReminderFor(entry);
+    const draftBefore = snapshotDraft();
+    const usedItems = draft.eatingOutOn ? [] : draft.items.map(i => ({ refType: i.refType, refId: i.refId }));
     resetDraft();
     renderActivePanel();
     renderRecentMeals();
+    const units = Math.round(((entry.mealDose || 0) + (entry.correctionDose || 0)) * 100) / 100;
+    showUndoToast(entry.noInsulin || units <= 0 ? "Logged" : `Logged ${units} u`, () => {
+      const i = state.history.findIndex(h => h.id === entry.id);
+      if (i < 0) return;
+      state.history.splice(i, 1);
+      usedItems.forEach(u => {
+        const f = u.refType === "food" ? state.library.find(x => x.id === u.refId) : state.recipes.find(x => x.id === u.refId);
+        if (f && f.usageCount > 0) f.usageCount -= 1;
+      });
+      saveState();
+      queueNsDelete(entry);
+      try { const r = readReminder(); if (r && r.mealTs === entry.ts) { localStorage.removeItem(REMINDER_KEY); renderReminder(); } } catch (e) { /* no reminder to clear */ }
+      renderHistory(); renderActivePanel(); renderRecentMeals();
+      restoreDraftSnapshot(draftBefore);
+    });
   }
 
 
@@ -3132,19 +3160,33 @@ import { createDialogs } from "./js/dialogs.js";
   // ================= Undo toast =================
   let undoTimer = null;
   let undoAction = null;
-  function showUndoToast(message, onUndo) {
+  // Stays up 8 seconds (long enough to notice and reach for), shows how long is left, and holds still while a finger or the pointer is on it.
+  let undoRemaining = 0, undoStartedAt = 0;
+  function hideUndoToast() { clearTimeout(undoTimer); el("undo-toast").hidden = true; undoAction = null; }
+  function startUndoTimer(ms) {
     clearTimeout(undoTimer);
+    undoStartedAt = Date.now(); undoRemaining = ms;
+    undoTimer = setTimeout(hideUndoToast, ms);
+    el("undo-toast").classList.remove("is-paused");
+  }
+  function showUndoToast(message, onUndo, { ms = 8000 } = {}) {
     undoAction = onUndo;
     const toast = el("undo-toast");
     el("undo-toast-message").textContent = message;
+    toast.style.setProperty("--toast-ms", ms + "ms");
     toast.hidden = false;
-    undoTimer = setTimeout(() => { toast.hidden = true; undoAction = null; }, 5000);
+    toast.classList.remove("is-running"); void toast.offsetWidth; toast.classList.add("is-running");   // restart the countdown bar
+    startUndoTimer(ms);
   }
+  el("undo-toast").addEventListener("pointerenter", () => {
+    if (!undoAction) return;
+    clearTimeout(undoTimer); undoRemaining -= Date.now() - undoStartedAt; el("undo-toast").classList.add("is-paused");
+  });
+  el("undo-toast").addEventListener("pointerleave", () => { if (undoAction && !el("undo-toast").hidden) startUndoTimer(Math.max(1500, undoRemaining)); });
   el("undo-toast-btn").addEventListener("click", () => {
-    if (undoAction) undoAction();
-    el("undo-toast").hidden = true;
-    clearTimeout(undoTimer);
-    undoAction = null;
+    const fn = undoAction;
+    hideUndoToast();
+    if (fn) fn();
   });
 
   // ================= Library =================
@@ -3269,6 +3311,11 @@ import { createDialogs } from "./js/dialogs.js";
   // Newest first. version-badge-text/version-summary-text in the Settings
   // card are always drawn from CHANGELOG[0], so the two can never drift.
   const CHANGELOG = [
+    {
+      version: "2.24.0",
+      summary: "Undo for logging, editing and replacing; calmer undo bar.",
+      changes: ["Logging a meal now shows an Undo bar: tapping it removes the entry (and its Nightscout record) and puts what you had in the Calculator back exactly as it was","Editing a meal can be undone the same way","Picking a past meal while the Calculator has something in it no longer asks 'Continue?': it just does it and offers Undo","The Undo bar stays for 8 seconds instead of 5, shows how much time is left, and holds still while you are touching it"]
+    },
     {
       version: "2.23.0",
       summary: "Glucose now loads instantly everywhere, from one shared store.",
@@ -5125,7 +5172,9 @@ import { createDialogs } from "./js/dialogs.js";
 
   function useMealAgain(entry) {
     if (isBasalEntry(entry)) return;   // a basal dose isn't a meal; nothing to put back in the calculator
-    if (draft.items.length > 0 && !confirm("This replaces what's currently in the Calculator. Continue?")) return;
+    // Not a question: do it, and offer Undo (the previous calculator contents come straight back).
+    const hadWork = !draftIsEmpty();
+    const previous = hadWork ? snapshotDraft() : null;
     draft = {
       items: entry.items.map(i => ({
         refType: i.refType, refId: i.refId, name: i.name, grams: i.grams,
@@ -5145,6 +5194,7 @@ import { createDialogs } from "./js/dialogs.js";
     ratioPicker.hidden = true; selectedPickId = null;
     renderFoodPickList(); renderMealItems(); recompute();
     showView("calculator");
+    if (previous) showUndoToast("Calculator replaced", () => { resetDraft(); restoreDraftSnapshot(previous); });
   }
 
   function toDatetimeLocalValue(ts) {
@@ -5301,6 +5351,7 @@ import { createDialogs } from "./js/dialogs.js";
     backdrop.addEventListener("click", e => { if (e.target === backdrop || e.target.id === "em-cancel" || e.target.closest("#em-close")) closeSheet(backdrop); });
     backdrop.querySelector("#em-save").addEventListener("click", () => {
       if (items.length === 0 && entry.mealType !== "correction") { dialogs.alert("A meal needs at least one item — delete it instead if you want it gone."); return; }
+      const before = structuredClone(entry);
       const totalCarbs = round1(items.reduce((s, i) => s + i.carbs, 0));
       const totalKcal = Math.round(items.reduce((s, i) => s + (i.kcal || 0), 0));
       // The same calculation the preview just showed, so what it promised is what gets saved.
@@ -5335,6 +5386,13 @@ import { createDialogs } from "./js/dialogs.js";
       renderActivePanel();
       renderRecentMeals();
       closeSheet(backdrop);
+      showUndoToast("Meal updated", () => {
+        for (const k of Object.keys(entry)) delete entry[k];
+        Object.assign(entry, before);
+        state.history.sort((a, b) => b.ts - a.ts);
+        saveState(); queueNsUpdate(entry);
+        renderHistory(); renderActivePanel(); renderRecentMeals();
+      });
     });
   }
 
