@@ -5,6 +5,7 @@ import { NightscoutClient, NsOutbox, nsToken, nsBaseUrl, nsConfigured, treatment
 import { createDiag, hookGlobalErrors } from "./js/diag.js";
 import { postMealCurves, outcomeByBracket, foodImpact, correctionEffectiveness, iobStacking, overnightStats, weekdayWeekend, lowTreatmentUsual, lastTimesFor, isfToMgdl } from "./js/insights.js";
 import { expectedFromInsulin, observedCarbs, cobAt, projectGlucose, learnAbsorption, gapSummary } from "./js/glucose-model.js";
+import { summarizeSync } from "./js/sync-status.js";
 import { fieldSvg } from "./js/doodle-field.js";
 import { abstractSvg } from "./js/abstract-field.js";
 import { percentile, dailyPatternBuckets, daysSpanned, estimatedA1c, glucoseSummaryStats, timeInRangeBreakdown, glucoseGuideRows, TIME_IN_RANGE_BANDS } from "./js/glucose-stats.js";
@@ -522,6 +523,7 @@ import { createDialogs } from "./js/dialogs.js";
     renderSyncStatus();
   }
   function renderSyncStatus() {
+    renderSyncChip();
     const el2 = document.getElementById("sync-status");
     if (!el2) return;
     el2.textContent = cloudSyncPending
@@ -3026,6 +3028,63 @@ import { createDialogs } from "./js/dialogs.js";
     if (nsOutbox.cancelDelete(entry.id)) return;
     if (entry.ns && entry.ns.ids && Object.values(entry.ns.ids).some(Boolean)) { delete entry.ns; syncEntryToNightscout(entry); }
   }
+  // ---- the sync indicator: one small chip that always says whether what you did is saved and sent ----
+  function currentSyncSummary() {
+    const jobs = (nsOutbox && nsOutbox.jobs) || [];
+    return summarizeSync({
+      online: navigator.onLine !== false,
+      cloud: { configured: !!supabaseClient, signedIn: !!currentUser, blocked: !!cloudSaveBlocked, loadOk: cloudLoadStatus.ok, loadMessage: cloudLoadStatus.message, pending: cloudSyncPending, checkedAt: cloudLoadStatus.at },
+      ns: { configured: nightscoutConfigured(), queued: jobs.length, lastError: nsOutbox ? nsOutbox.lastError() : null, oldestAt: jobs.length ? Math.min(...jobs.map(j => j.createdAt || Date.now())) : null, writeOk: nightscoutWriteStatus.ok, writeAt: nightscoutWriteStatus.at }
+    });
+  }
+  function renderSyncChip() {
+    try {
+      const chip = el("sync-chip");
+      if (!chip || !state) return;
+      const sum = currentSyncSummary();
+      chip.className = `sync-chip sync-chip--${sum.level}`;
+      el("sync-chip-text").textContent = sum.short;
+      chip.setAttribute("aria-label", `${sum.title}. Tap for details.`);
+      chip.hidden = false;
+      const body = document.getElementById("sync-sheet-body");
+      if (body) body.innerHTML = syncSheetBodyHtml(sum);
+    } catch (e) { /* not ready yet */ }
+  }
+  function syncSheetBodyHtml(sum) {
+    const dot = { ok: "ok", pending: "warn", problem: "error", off: "off" };
+    return `<p class="panel-card__hint" style="margin-top:0;"><b>${escapeHtml(sum.title)}.</b></p>` +
+      sum.rows.map(r => statusRow(escapeHtml(r.name), dot[r.level] || "off", escapeHtml(r.text))).join("") +
+      (sum.level === "pending" || sum.level === "problem" ? `<button class="btn btn--primary" id="sync-retry" type="button" style="margin-top:12px; width:100%;">Try again now</button>` : "");
+  }
+  function openSyncSheet() {
+    const backdrop = document.createElement("div");
+    backdrop.className = "sheet-backdrop";
+    backdrop.innerHTML = `
+      <div class="sheet">
+        <div class="sheet-head">
+          <h2>Sync</h2>
+          <button class="sheet-close" id="sync-close" type="button" aria-label="Close">
+            <svg viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+          </button>
+        </div>
+        <div id="sync-sheet-body">${syncSheetBodyHtml(currentSyncSummary())}</div>
+        <p class="panel-card__hint" style="margin-top:12px;">Everything you log is saved on this device first, then sent on. More detail is in Settings &gt; Data &gt; Status.</p>
+      </div>`;
+    openSheet(backdrop);
+    backdrop.addEventListener("click", async e => {
+      if (e.target === backdrop || e.target.closest("#sync-close")) return closeSheet(backdrop);
+      const retry = e.target.closest("#sync-retry");
+      if (retry) {
+        retry.disabled = true; retry.textContent = "Trying…";
+        try { await attemptReconnectSync(); await flushNightscoutQueue(true); } catch (err) { /* the summary below says what is still wrong */ }
+        renderSyncChip();
+      }
+    });
+  }
+  el("sync-chip").addEventListener("click", openSyncSheet);
+  window.addEventListener("online", renderSyncChip);
+  window.addEventListener("offline", renderSyncChip);
+
   // immediate = the user (or the network coming back) asked for a retry, so skip the back-off wait.
   async function flushNightscoutQueue(immediate) {
     const r = immediate === true ? await nsOutbox.retryAll() : await nsOutbox.flush();
@@ -3033,6 +3092,7 @@ import { createDialogs } from "./js/dialogs.js";
     return r;
   }
   function refreshNsUi() {
+    renderSyncChip();
     try {
       if (!state) return;
       if (!el("view-settings").hidden) { renderNightscoutSection(); if (!el("panel-data").hidden) renderStatusPanel(); }
@@ -3128,6 +3188,7 @@ import { createDialogs } from "./js/dialogs.js";
     const rec = { ok, via, at: Date.now(), message };
     if (kind === "read") nightscoutReadStatus = rec;
     else nightscoutWriteStatus = rec;
+    renderSyncChip();
     // Keep the System Status panel live if it's currently on screen.
     if (!el("view-settings").hidden && !el("panel-data").hidden) renderStatusPanel();
   }
@@ -3311,6 +3372,11 @@ import { createDialogs } from "./js/dialogs.js";
   // Newest first. version-badge-text/version-summary-text in the Settings
   // card are always drawn from CHANGELOG[0], so the two can never drift.
   const CHANGELOG = [
+    {
+      version: "2.25.0",
+      summary: "A sync indicator: always know whether it is saved and sent.",
+      changes: ["A small chip at the top right of every screen says Synced, Sending, Offline, Check sync or On this device. Tap it for a plain-English breakdown of this device, your cloud account and Nightscout/Gluroo (how many entries are waiting, how old, and the last problem), with a Try again now button","It updates the moment something is logged, sent, fails or you go offline or back online"]
+    },
     {
       version: "2.24.0",
       summary: "Undo for logging, editing and replacing; calmer undo bar.",
@@ -6568,6 +6634,7 @@ import { createDialogs } from "./js/dialogs.js";
     // as real time passes, not just at page load.
     nsOutbox.migrateLegacy();
     flushNightscoutQueue();
+    renderSyncChip();
     renderLiveGlucosePill();   // show the cached reading immediately, don't wait on the network
     refreshLiveGlucose();
     diag.log("info", "boot", `App started (v${CHANGELOG[0].version}); ${state.history.length} meals; cloud ${currentUser ? "signed in" : "off"}`);
@@ -6579,6 +6646,7 @@ import { createDialogs } from "./js/dialogs.js";
       if (currentUser && !cloudSyncPending && !document.hidden && ++tick % 4 === 0) pullAndMerge("periodic").catch(() => {});
       flushNightscoutQueue();
       refreshLiveGlucose();
+      renderSyncChip();   // keeps "oldest waiting 5 min" and "checked 2 min ago" honest
     }, 30000);
   }
 
