@@ -1240,3 +1240,5 @@ html[data-theme="dark"] .undo-toast { background: var(--surface); border: 1px so
 #quick-carb-row[hidden] + #quick-carb-usual { display: none; }
 .reminder-btn { border: 1px solid var(--line, rgba(128,128,128,0.35)); background: var(--surface, #fff); color: var(--ink); border-radius: 999px; padding: 7px 14px; font: inherit; font-size: 0.82rem; font-weight: 600; cursor: pointer; }
 .reminder-btn:active { transform: scale(0.97); }
+
+.aiog-h { font-size: 1rem; margin: 0 0 4px; }

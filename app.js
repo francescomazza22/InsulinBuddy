@@ -4,6 +4,7 @@ import { SCHEMA_VERSION, normalizeState as normalizeStateWith, makeFingerprint, 
 import { NightscoutClient, NsOutbox, nsToken, nsBaseUrl, nsConfigured, treatmentsForEntry, entriesToGlucoseRows } from "./js/nightscout.js";
 import { createDiag, hookGlobalErrors } from "./js/diag.js";
 import { postMealCurves, outcomeByBracket, foodImpact, correctionEffectiveness, iobStacking, overnightStats, weekdayWeekend, lowTreatmentUsual, lastTimesFor, isfToMgdl } from "./js/insights.js";
+import { expectedFromInsulin, observedCarbs, cobAt, projectGlucose, learnAbsorption, gapSummary } from "./js/glucose-model.js";
 import { fieldSvg } from "./js/doodle-field.js";
 import { abstractSvg } from "./js/abstract-field.js";
 import { percentile, dailyPatternBuckets, daysSpanned, estimatedA1c, glucoseSummaryStats, timeInRangeBreakdown, glucoseGuideRows, TIME_IN_RANGE_BANDS } from "./js/glucose-stats.js";
@@ -107,6 +108,8 @@ import { createDialogs } from "./js/dialogs.js";
         backgroundPatternSize: "small",   // "small" | "medium" | "large": how big the doodles are
         insulinModel: { preset: "rapid", peakMinutes: 75, diaMinutes: 360 },
         carbAbsorptionMinutes: { high: 120, medium: 180, low: 240, unknown: 180 },
+        useLearnedAbsorption: false,   // use the times learned from my own readings instead of the fixed ones above
+        learnedAbsorption: null,       // last learned snapshot: { high:{minutes,n}|null, ..., counts, at }
         iobAwareCorrection: false,
         nightscoutUrl: "",
         nsFormat: "combined",   // "combined" (one Meal Bolus) or "split" (carbs and insulin separately)
@@ -123,9 +126,17 @@ import { createDialogs } from "./js/dialogs.js";
 
   // ---- thin wrappers: the maths lives in js/calc.js, these bind it to live state ----
   function roundDose(value) { return roundDoseWith(value, state.settings.rounding); }
-  function calcActiveInsulinAndCarbs(atTime) { return activeAt(state.history, state.settings, atTime); }
+  // The carb timers in force: the fixed ones, or (if switched on and learned) the ones learned from this person's own readings.
+  function effectiveCarbAbsorption() {
+    const base = state.settings.carbAbsorptionMinutes, L = state.settings.learnedAbsorption;
+    if (!state.settings.useLearnedAbsorption || !L) return base;
+    const out = { ...base };
+    for (const k of ["high", "medium", "low", "unknown"]) if (L[k] && Number.isFinite(L[k].minutes)) out[k] = L[k].minutes;
+    return out;
+  }
+  function calcActiveInsulinAndCarbs(atTime) { return activeAt(state.history, { ...state.settings, carbAbsorptionMinutes: effectiveCarbAbsorption() }, atTime); }
   function normalizeState(parsed) { return normalizeStateWith(parsed, defaultState); }
-  function absorptionMinutesForEntry(entry) { return absorptionForEntry(entry, state.settings.carbAbsorptionMinutes); }
+  function absorptionMinutesForEntry(entry) { return absorptionForEntry(entry, effectiveCarbAbsorption()); }
 
   // ================= Optional passphrase lock (client-side encryption) =================
   // This is genuinely real encryption (PBKDF2 + AES-GCM via the Web Crypto API), not a
@@ -1003,16 +1014,19 @@ import { createDialogs } from "./js/dialogs.js";
   // Builds a (time, iob, cob) series for the detail graph: 30 minutes of
   // recent context, then projected forward (assuming no further doses/meals)
   // until whichever of IOB/COB clears last.
-  function buildActiveSeries() {
+  // `obs` (optional, from observedCarbs) makes the carbs line follow what the glucose readings show from now on.
+  function buildActiveSeries(obs) {
     const now = Date.now();
     const info = calcActiveInsulinAndCarbs(now);
     const startTime = now - 30 * 60000;
-    const endTime = Math.max(info.iobClearAt || now, info.cobClearAt || now, now + 30 * 60000);
+    const useObs = !!(obs && obs.observed);
+    const cobClear = useObs ? (obs.cob > 0.5 ? now + obs.finishMin * 60000 : 0) : (info.cobClearAt || now);
+    const endTime = Math.max(info.iobClearAt || now, cobClear || now, now + 30 * 60000);
     const stepMs = 5 * 60000;
     const points = [];
     for (let t = startTime; t <= endTime; t += stepMs) {
       const r = calcActiveInsulinAndCarbs(t);
-      points.push({ t, iob: r.iob, cob: r.cob });
+      points.push({ t, iob: r.iob, cob: useObs && t >= now ? Math.round(cobAt(obs, (t - now) / 60000)) : r.cob });
     }
     return { points, startTime, endTime, now, info };
   }
@@ -1757,6 +1771,135 @@ import { createDialogs } from "./js/dialogs.js";
   el("btn-glucose-guide").addEventListener("click", openGlucoseGuide);
   el("btn-log-basal").addEventListener("click", () => openBasalSheet());
 
+  // ---- Glucose model views (js/glucose-model.js): what the readings say vs what the logged insulin alone would do ----
+  function nsToReadings(entries) {
+    return (entries || []).filter(e => typeof e.sgv === "number" && Number.isFinite(e.date)).map(e => ({ at: e.date, mgdl: e.sgv })).sort((a, b) => a.at - b.at);
+  }
+  function modelEntries() { return state.history.filter(e => !isBasalEntry(e)); }
+  function modelParams() {
+    return { isfMgdl: isfToMgdl(state.settings.isf, state.settings.units), peak: state.settings.insulinModel.peakMinutes, dia: state.settings.insulinModel.diaMinutes };
+  }
+  function modelSettings() { return { ...modelParams(), absMinutes: absorptionMinutesForEntry, fallbackRatio: 10 }; }
+  const glucoseDisp = v => state.settings.units === "mmol" ? round1(convertGlucose(v, "mgdl", "mmol")) : Math.round(v);
+  const mgUnitText = () => state.settings.units === "mmol" ? "mmol/L" : "mg/dL";
+  const clockTime = t => new Date(t).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+
+  /** A small multi-line glucose chart. lines: [{ pts:[{t,v}], stroke, dash?, width? }], nowT: optional vertical marker. Values in mg/dL. */
+  function renderGlucoseLinesSVG(lines, nowT) {
+    const all = lines.flatMap(l => l.pts);
+    if (all.length < 2) return "";
+    const W = 320, H = 165, padL = 30, padR = 10, padT = 10, padB = 22;
+    const plotW = W - padL - padR, plotH = H - padT - padB;
+    const t0 = Math.min(...all.map(p => p.t)), t1 = Math.max(...all.map(p => p.t));
+    const span = Math.max(1, t1 - t0);
+    const { min: axisMin, max: axisMax } = glucoseAxisRange(all.map(p => p.v));
+    const xFor = t => padL + ((t - t0) / span) * plotW;
+    const yFor = v => padT + plotH - ((v - axisMin) / (axisMax - axisMin)) * plotH;
+    const lowY = yFor(70).toFixed(1), highY = yFor(180).toFixed(1);
+    const tickMin = [15, 30, 60, 120, 180, 240].find(m => span / (m * 60000) <= 6) || 240;
+    const tickMs = tickMin * 60000;
+    let ticks = "";
+    for (let t = Math.ceil(t0 / tickMs) * tickMs; t <= t1; t += tickMs) {
+      const x = xFor(t).toFixed(1);
+      const anchor = x < padL + 14 ? "start" : x > padL + plotW - 14 ? "end" : "middle";
+      ticks += `<line x1="${x}" y1="${padT + plotH}" x2="${x}" y2="${padT + plotH + 3}" stroke="var(--ink-soft)" stroke-width="1"/><text x="${x}" y="${H - 4}" font-size="9" fill="var(--ink-soft)" text-anchor="${anchor}">${clockTime(t)}</text>`;
+    }
+    const paths = lines.map(l => `<path d="${l.pts.map((p, i) => `${i ? "L" : "M"}${xFor(p.t).toFixed(1)},${yFor(p.v).toFixed(1)}`).join(" ")}" fill="none" stroke="${l.stroke}" stroke-width="${l.width || 2}"${l.dash ? ` stroke-dasharray="${l.dash}"` : ""} stroke-linejoin="round" stroke-linecap="round"/>`).join("");
+    const nowLine = nowT && nowT > t0 && nowT < t1 ? `<line x1="${xFor(nowT).toFixed(1)}" y1="${padT}" x2="${xFor(nowT).toFixed(1)}" y2="${padT + plotH}" stroke="var(--ink-soft)" stroke-width="1" stroke-dasharray="1,3"/>` : "";
+    return `
+      <svg viewBox="0 0 ${W} ${H}" style="width:100%; height:auto; display:block;" role="img">
+        <rect x="${padL}" y="${highY}" width="${plotW}" height="${(parseFloat(lowY) - parseFloat(highY)).toFixed(1)}" fill="#22C55E" opacity="0.08"/>
+        <line x1="${padL}" y1="${lowY}" x2="${padL + plotW}" y2="${lowY}" stroke="#EF4444" stroke-width="1" stroke-dasharray="2,3" opacity="0.6"/>
+        <line x1="${padL}" y1="${highY}" x2="${padL + plotW}" y2="${highY}" stroke="#F59E0B" stroke-width="1" stroke-dasharray="2,3" opacity="0.6"/>
+        <text x="${padL - 4}" y="${(parseFloat(lowY) + 3).toFixed(1)}" font-size="8" fill="#EF4444" text-anchor="end">${glucoseDisp(70)}</text>
+        <text x="${padL - 4}" y="${(parseFloat(highY) + 3).toFixed(1)}" font-size="8" fill="#F59E0B" text-anchor="end">${glucoseDisp(180)}</text>
+        ${nowLine}${paths}
+        <line x1="${padL}" y1="${padT + plotH}" x2="${padL + plotW}" y2="${padT + plotH}" stroke="var(--line)" stroke-width="1"/>
+        ${ticks}
+      </svg>`;
+  }
+  const keyDot = (color, dashed, text) => `<span style="display:flex; align-items:center; gap:6px; font-size:0.8rem; color:var(--ink-soft);"><span style="width:16px; height:0; border-top:2px ${dashed ? "dashed" : "solid"} ${color}; display:inline-block;"></span>${text}</span>`;
+
+  /** Glucose tab: your readings next to where the logged insulin alone would have taken you from your last meal or dose. */
+  function renderExpectedVsObservedHtml(readings) {
+    const params = modelParams();
+    if (!(params.isfMgdl > 0)) return `<h3 class="aiog-h">Observed vs expected</h3><p class="panel-card__hint">Set your correction factor in Settings to see this.</p>`;
+    const exp = expectedFromInsulin(modelEntries(), readings, { ...params, now: Date.now() });
+    if (!exp) return `<h3 class="aiog-h">Observed vs expected</h3><p class="panel-card__hint">No recent meal or insulin dose with a glucose reading beside it, so there is nothing to compare yet.</p>`;
+    const pts = exp.points.filter(p => Number.isFinite(p.actual) && Number.isFinite(p.expected));
+    const chart = renderGlucoseLinesSVG([
+      { pts: pts.map(p => ({ t: p.t, v: p.expected })), stroke: "#6B7280", dash: "5,4", width: 1.8 },
+      { pts: pts.map(p => ({ t: p.t, v: p.actual })), stroke: "#3B82F6" }
+    ]);
+    const gap = exp.now.gap, g = gapSummary(gap), u = mgUnitText(), amt = glucoseDisp(Math.abs(gap));
+    const msg = g.kind === "above" ? `Your glucose is about <b>${amt} ${u} above</b> where the insulin alone would have it. The likely reason is carbs still absorbing — but food you didn't log, stress, illness or a sensor error would look the same.`
+      : g.kind === "below" ? `Your glucose is about <b>${amt} ${u} below</b> where the insulin alone would have it — the carbs were absorbed faster than the insulin needed, or something else (activity, a stronger correction factor than the one in Settings) is lowering it.`
+      : `Your glucose is <b>tracking</b> where the insulin alone would have it (within ${glucoseDisp(15)} ${u}).`;
+    return `
+      <h3 class="aiog-h" style="margin-top:18px;">Observed vs expected</h3>
+      <p class="panel-card__hint">From ${clockTime(exp.anchor.t)} (your reading then: ${glucoseDisp(exp.anchor.mgdl)} ${u}), what logged insulin alone would do, using your Settings. It ignores basal insulin and exercise.</p>
+      ${chart}
+      <div style="display:flex; gap:16px; justify-content:center; margin-top:6px;">${keyDot("#3B82F6", false, "Your readings")}${keyDot("#6B7280", true, "Expected from insulin alone")}</div>
+      <p class="panel-card__hint" style="margin-top:8px;">${msg}</p>`;
+  }
+
+  /** Now tab, once readings are in: the carbs line adjusted to the readings, plus the projected glucose. */
+  function renderNowWithReadings(readings) {
+    const now = Date.now();
+    const entries = modelEntries(), ms = modelSettings();
+    const ok = ms.isfMgdl > 0 && readings.length > 0;
+    const obs = ok ? observedCarbs(entries, readings, ms, now) : null;
+    const u = mgUnitText();
+    let adjust = "";
+    if (obs && obs.observed) adjust = `<p class="panel-card__hint">The carbs line follows your glucose readings: about <b>${Math.round(obs.cob)} g</b> still to absorb (the fixed timers alone would say ${Math.round(obs.modelCob)} g).</p>`;
+    else if (obs && obs.cob > 0) adjust = `<p class="panel-card__hint">Not enough readings since your last meal to adjust the carbs line, so it uses your ${state.settings.useLearnedAbsorption && state.settings.learnedAbsorption ? "learned" : "fixed"} absorption times.</p>`;
+    let proj = "";
+    const p = ok ? projectGlucose(entries, readings, ms, now) : null;
+    if (p) {
+      const recent = readings.filter(r => r.at >= p.start.t - 90 * 60000 && r.at <= p.start.t);
+      const chart = renderGlucoseLinesSVG([
+        { pts: recent.map(r => ({ t: r.at, v: r.mgdl })), stroke: "#3B82F6" },
+        { pts: p.points.map(q => ({ t: q.t, v: q.mgdl })), stroke: "#8B5CF6", dash: "5,4" }
+      ], now);
+      const dips = p.low.mgdl < 70 ? `<p class="panel-card__hint" style="color:#B91C1C;">This projection dips below ${glucoseDisp(70)} ${u}. It is an estimate only.</p>` : "";
+      proj = `
+        <h3 class="aiog-h" style="margin-top:18px;">Projected glucose</h3>
+        <p class="panel-card__hint">A projection from your last reading (${glucoseDisp(p.start.mgdl)} ${u}, ${clockTime(p.start.t)}), <b>assuming no further food or insulin</b>. It is not a measurement and not dosing advice; it ignores basal insulin, exercise, illness and sensor error.</p>
+        ${chart}
+        <div style="display:flex; gap:16px; justify-content:center; margin-top:6px;">${keyDot("#3B82F6", false, "Your readings")}${keyDot("#8B5CF6", true, "Projection")}</div>
+        <p class="panel-card__hint" style="margin-top:8px;">Settles around <b>${glucoseDisp(p.end.mgdl)} ${u}</b> by ${clockTime(p.end.t)}; highest about ${glucoseDisp(p.high.mgdl)}, lowest about ${glucoseDisp(p.low.mgdl)}.</p>${dips}`;
+    } else if (ok) proj = `<h3 class="aiog-h" style="margin-top:18px;">Projected glucose</h3><p class="panel-card__hint">No glucose reading in the last 15 minutes, so there is no projection.</p>`;
+    else proj = `<h3 class="aiog-h" style="margin-top:18px;">Projected glucose</h3><p class="panel-card__hint">${ms.isfMgdl > 0 ? "No glucose readings found." : "Set your correction factor in Settings to see a projection."}</p>`;
+    return `
+      <p class="panel-card__hint">Projected forward from now assuming no further food or insulin — a real dose or meal will change this.</p>
+      ${renderActiveGraphSVG(buildActiveSeries(obs))}
+      ${aiogLegendHtml()}
+      ${adjust}
+      ${proj}`;
+  }
+
+  /** Learns how long carbs really take (per GI group) from past meals and stores the result; used when "Use my learned times" is on. */
+  async function refreshLearnedAbsorption() {
+    let readings = null, reason = "";
+    if (supabaseClient && currentUser && nightscoutConfigured()) {
+      const r = await fetchStoredGlucoseReadings(60);
+      if (r.ok && r.readings.length) readings = r.readings; else if (!r.ok) reason = r.reason;
+    }
+    if (!readings) {
+      const r = await fetchGlucoseHistory(80);
+      if (r.ok) readings = nsToReadings(r.entries); else reason = r.reason;
+    }
+    if (!readings || !readings.length) return { ok: false, reason: reason || "No glucose readings found." };
+    const params = modelParams();
+    if (!(params.isfMgdl > 0)) return { ok: false, reason: "Set your correction factor first." };
+    const res = learnAbsorption(modelEntries(), readings, { ...params, now: Date.now() });
+    state.settings.learnedAbsorption = { ...res, at: Date.now() };
+    saveState();
+    renderInsulinCarbSettings();
+    renderActivePanel();
+    return { ok: true };
+  }
+
   function aiogLegendHtml() {
     return `
       <div style="display:flex; gap:16px; justify-content:center; margin-top:8px;">
@@ -1791,13 +1934,22 @@ import { createDialogs } from "./js/dialogs.js";
 
   async function renderAiogTab(backdrop, tab) {
     const content = backdrop.querySelector("#aiog-content");
+    content.dataset.tab = tab;
     if (tab === "now") {
-      const series = buildActiveSeries();
-      content.innerHTML = `
+      const plain = () => `
         <p class="panel-card__hint">Projected forward from now assuming no further food or insulin — a real dose or meal will change this.</p>
-        ${renderActiveGraphSVG(series)}
+        ${renderActiveGraphSVG(buildActiveSeries())}
         ${aiogLegendHtml()}
       `;
+      content.innerHTML = plain();
+      if (!nightscoutConfigured()) return;
+      content.insertAdjacentHTML("beforeend", `<p class="panel-card__hint" id="aiog-live-note" style="margin-top:12px;">Checking your glucose readings…</p>`);
+      const L = state.settings.learnedAbsorption;
+      if (state.settings.useLearnedAbsorption && (!L || Date.now() - L.at > 86400_000)) refreshLearnedAbsorption().catch(() => {});
+      const result = await fetchGlucoseHistory(8);
+      if (!content.isConnected || content.dataset.tab !== "now") return;
+      if (!result.ok) { el("aiog-live-note").textContent = `Couldn't load glucose to adjust this: ${result.reason}`; return; }
+      content.innerHTML = renderNowWithReadings(nsToReadings(result.entries));
     } else if (tab === "today") {
       const series = buildTodaySeries();
       content.innerHTML = `
@@ -1825,6 +1977,7 @@ import { createDialogs } from "./js/dialogs.js";
           ${picker}
           ${svg ? svg : `<p class="panel-card__hint">No recent glucose data found.</p>`}
           ${svg ? `<p class="panel-card__hint" style="margin-top:10px;">Dashed lines mark the standard 70&ndash;180 range.</p>` : ""}
+          ${renderExpectedVsObservedHtml(nsToReadings(result.entries))}
         `;
       }
       content.querySelectorAll(".glucose-range-btn").forEach(btn => {
@@ -3009,6 +3162,16 @@ import { createDialogs } from "./js/dialogs.js";
   // Newest first. version-badge-text/version-summary-text in the Settings
   // card are always drawn from CHANGELOG[0], so the two can never drift.
   const CHANGELOG = [
+    {
+      version: "2.21.0",
+      summary: "Glucose model: observed vs expected, learned carb timers, projected glucose.",
+      changes: [
+        "Glucose tab: a new Observed vs expected chart shows your readings beside where the insulin you logged would have taken you from your last meal or dose, with the gap explained in words",
+        "Now tab: the carbs line now follows what your glucose readings show (a fast or slow meal is seen as fast or slow), instead of always a fixed timer",
+        "Now tab: a Projected glucose chart from your last reading, clearly labelled as a projection assuming no further food or insulin (not a measurement and not dosing advice)",
+        "Settings: Learn from my readings works out how long carbs really take for each GI group from past meals eaten alone, with a switch to use those times instead of the fixed ones. Estimates ignore basal insulin, exercise, illness and sensor error"
+      ]
+    },
     {
       version: "2.20.2",
       summary: "Abstract background laid out as an even staggered pattern.",
@@ -5289,7 +5452,26 @@ import { createDialogs } from "./js/dialogs.js";
     el("carb-abs-low").value = ca.low;
     el("carb-abs-unknown").value = ca.unknown;
     el("iob-aware-correction-toggle").checked = state.settings.iobAwareCorrection;
+    el("use-learned-abs-toggle").checked = !!state.settings.useLearnedAbsorption;
+    const L = state.settings.learnedAbsorption;
+    const names = { high: "High GI", medium: "Medium GI", low: "Low GI", unknown: "No GI data" };
+    el("learned-abs-result").innerHTML = !L ? "Nothing learned yet." :
+      Object.keys(names).map(k => L[k] ? `${names[k]}: <b>${L[k].minutes} min</b> (from ${L[k].n} meals)` : `${names[k]}: not enough yet (${(L.counts && L.counts[k]) || 0} of 3 meals)`).join("<br>") +
+      `<br><span style="opacity:.8">Learned ${new Date(L.at).toLocaleDateString()}</span>`;
   }
+  el("use-learned-abs-toggle").addEventListener("change", e => {
+    state.settings.useLearnedAbsorption = e.target.checked;
+    saveState();
+    renderActivePanel();
+    if (e.target.checked && !state.settings.learnedAbsorption) el("btn-learn-abs").click();
+  });
+  el("btn-learn-abs").addEventListener("click", async () => {
+    const btn = el("btn-learn-abs"), label = btn.textContent;
+    btn.disabled = true; btn.textContent = "Reading your history…";
+    const r = await refreshLearnedAbsorption().catch(e => ({ ok: false, reason: String(e && e.message || e) }));
+    btn.disabled = false; btn.textContent = label;
+    if (!r.ok) el("learned-abs-result").textContent = `Couldn't learn: ${r.reason}`;
+  });
 
   el("iob-aware-correction-toggle").addEventListener("change", e => {
     state.settings.iobAwareCorrection = e.target.checked;
