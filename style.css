@@ -905,7 +905,7 @@ html[data-theme="dark"] .pattern-card__preview--abstract { background-image: url
   .sticky-log-bar { left: var(--rail-w); right: 0; bottom: 0; max-width: none; margin: 0; justify-content: center; padding: 10px 36px calc(10px + env(safe-area-inset-bottom)); }
   .sticky-log-bar .btn--primary { flex: 0 1 440px; }
   .sticky-log-bar .btn--ghost-full { flex: 0 1 220px; }
-  .undo-toast { bottom: 88px; left: calc(50% + var(--rail-w) / 2); }
+  .undo-toast { left: calc(50% + var(--rail-w) / 2); }
   /* Pop-ups are centred cards rather than bottom drawers. */
   .sheet-backdrop { align-items: center; padding: 24px; }
   .sheet { max-width: 540px; border-radius: 20px; padding: 24px; max-height: min(88vh, calc(var(--vv-height, 100vh) - 48px)); }
@@ -934,7 +934,6 @@ html[data-theme="dark"] .pattern-card__preview--abstract { background-image: url
   .calc-side .sticky-log-bar .btn--ghost-full { flex: 1; }
   .sticky-log-spacer { display: none; }
   .food-pick-list { max-height: max(420px, calc(100vh - 380px)); max-height: max(420px, calc(100dvh - 380px)); }
-  .undo-toast { bottom: 28px; }
   /* History: more, wider entries per row; Trends: the two charts side by side. */
   .history-group { grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); }
   #history-trends-panel { display: grid; grid-template-columns: 1fr 1fr; column-gap: 24px; align-items: stretch; }
@@ -1013,12 +1012,17 @@ html[data-theme="dark"] .pattern-card__preview--abstract { background-image: url
 /* ================= Undo toast ================= */
 .undo-toast {
   position: fixed; left: 50%; transform: translateX(-50%);
-  bottom: calc(76px + env(safe-area-inset-bottom));
+  /* Just above the tab bar; on the calculator, above the Log bar too, so it never sits on top of the Log button. */
+  bottom: calc(var(--tabbar-height, 68px) + 12px);
   background: var(--ink); color: #fff; padding: 12px 12px 12px 18px;
   border-radius: 999px; display: flex; align-items: center; gap: 14px;
   box-shadow: 0 8px 24px rgba(0,0,0,0.25); z-index: 60; max-width: calc(100% - 40px);
   font-size: 0.88rem; animation: toast-in 0.2s ease;
 }
+html[data-view="calculator"] .undo-toast { bottom: calc(var(--tabbar-height, 68px) + var(--sticky-log-bar-height, 78px) + 12px); }
+/* Wide screens: no bottom tab bar. From 700px the Log bar rests along the bottom; from 1000px it moves into the side panel. */
+@media (min-width: 700px) { html .undo-toast { bottom: 28px; } html[data-view="calculator"] .undo-toast { bottom: calc(var(--sticky-log-bar-height, 78px) + 12px); } }
+@media (min-width: 1000px) { html[data-view="calculator"] .undo-toast { bottom: 28px; } }
 html[data-theme="dark"] .undo-toast { background: var(--surface); border: 1px solid var(--line); }
 .undo-toast span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 #undo-toast-btn {

@@ -607,7 +607,7 @@ import { createDialogs } from "./js/dialogs.js";
     // its height there would give the whole screen height and push the Log bar and food list off the page.
     if (tabbar) document.documentElement.style.setProperty("--tabbar-height", (window.matchMedia(RAIL_QUERY).matches ? 0 : tabbar.offsetHeight) + "px");
     const logBar = document.getElementById("cc-sticky-log-bar");
-    if (logBar) document.documentElement.style.setProperty("--sticky-log-bar-height", logBar.offsetHeight + "px");
+    if (logBar && logBar.offsetHeight > 0) document.documentElement.style.setProperty("--sticky-log-bar-height", logBar.offsetHeight + "px");   // 0 means it is hidden right now: keep the last real height
   }
 
   function showView(name) {
@@ -618,6 +618,7 @@ import { createDialogs } from "./js/dialogs.js";
       else t.removeAttribute("aria-current");
     });
     el("cc-sticky-log-bar").hidden = name !== "calculator";
+    document.documentElement.setAttribute("data-view", name);   // lets the CSS lift the undo bar clear of the Log bar on the calculator
     if (name === "calculator") renderActivePanel();
     if (name === "library") renderLibrary();
     if (name === "history") { historyLimit = PAGE_SIZE; renderHistory(); }

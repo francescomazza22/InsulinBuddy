@@ -2,6 +2,11 @@
 // summary can never drift. Bump CHANGELOG[0].version here (and CACHE_VERSION in sw.js) on every release.
 export const CHANGELOG = [
   {
+    version: "2.30.1",
+    summary: "The Undo bar no longer sits on the Log button.",
+    changes: ["On the calculator the Undo bar now floats above the Log bar instead of over the Log and Reset buttons, so a second tap can never land on the wrong thing. On other screens it sits just above the tab bar"]
+  },
+  {
     version: "2.30.0",
     summary: "Sturdier startup and tidier code.",
     changes: ["The app no longer stops starting if a button is missing from an older index.html: it skips that button and notes it in the diagnostics log","Under the hood: the release notes and the ready-made recipes moved out of app.js into js/changelog.js and js/seed-recipes.js","A GitHub check now runs the unit tests on every push"]
