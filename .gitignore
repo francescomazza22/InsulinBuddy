@@ -1,2 +1,5 @@
 node_modules/
 package-lock.json
+
+# App data exports: personal health data, never commit
+*backup*.json
