@@ -1613,7 +1613,7 @@ import { createDialogs } from "./js/dialogs.js";
     row.innerHTML = `
       <div class="history-entry__icon" style="background:${BASAL_COLOR}">${iconBasal()}</div>
       <div class="history-entry__main">
-        <p class="history-entry__title">Basal <span class="muted">· ${formatTime(entry.ts)}${slotLabel ? ` · ${slotLabel}` : ""}</span>${nsBadgeHtml(entry)}</p>
+        <p class="history-entry__title"><span class="history-entry__name">Basal</span> <span class="muted">${formatTime(entry.ts)}${slotLabel ? ` · ${slotLabel}` : ""}</span>${nsBadgeHtml(entry)}</p>
         <p class="history-entry__foods">Long-acting insulin</p>
         <div class="history-entry__detail" hidden>
           <div class="history-entry__row-actions">
@@ -3850,12 +3850,12 @@ import { createDialogs } from "./js/dialogs.js";
         row.dataset.id = entry.id;
         const doseText = entry.correctionDose > 0 ? `${entry.mealDose}+${entry.correctionDose}u` : `${entry.mealDose}u`;
         const dosePillHtml = entry.noInsulin
-          ? `<span class="dose-pill dose-pill--warn"><svg viewBox="0 0 24 24" fill="none"><path d="M12 19V5M12 19l-5-5M12 19l5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>No Insulin</span>`
+          ? `<span class="dose-pill dose-pill--warn"><svg viewBox="0 0 24 24" fill="none"><path d="M12 19V5M12 19l-5-5M12 19l5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>No insulin</span>`
           : `<span class="dose-pill"><svg viewBox="0 0 24 24" fill="none"><path d="M12 2C12 2 5 10.5 5 15.5C5 19.6 8.13 22 12 22C15.87 22 19 19.6 19 15.5C19 10.5 12 2 12 2Z" stroke="currentColor" stroke-width="2"/></svg>${doseText}</span>`;
         row.innerHTML = `
           <div class="history-entry__icon" style="background:${meal.color}">${meal.icon}</div>
           <div class="history-entry__main">
-            <p class="history-entry__title">${meal.label} <span class="muted">· ${formatTime(entry.ts)} · ${escapeHtml(entry.periodName || "")}${ratioWasApplied(entry) ? ` · 1:${round1(entry.ratioValue)}` : ""}</span>${nsBadgeHtml(entry)}</p>
+            <p class="history-entry__title"><span class="history-entry__name">${meal.label}</span> <span class="muted">${formatTime(entry.ts)}${ratioWasApplied(entry) ? `${entry.periodName ? ` · ${escapeHtml(entry.periodName)}` : ""} · 1:${round1(entry.ratioValue)}` : ""}</span>${nsBadgeHtml(entry)}</p>
             <p class="history-entry__foods">${entry.items.length ? entry.items.map(i => escapeHtml(i.name)).join(", ") : (entry.carbsUnknown ? "Eating out — carbs not logged" : "No food — correction only")}</p>
             <div class="history-entry__detail" hidden>
               ${entry.items.map(i => {
@@ -3873,12 +3873,9 @@ import { createDialogs } from "./js/dialogs.js";
             </div>
           </div>
           <div class="history-entry__stats">
-            ${entry.carbsUnknown ? `<span class="stat-grams">Carbs not logged</span>` : `
-              <span class="stat-kcal">${entry.totalKcal || 0} kcal</span>
-              <span class="stat-grams">${entry.totalCarbs}g</span>
-            `}
-            ${entry.glycemicLoad ? `<span class="gl-indicator gl-indicator--${entry.glycemicLoad.value >= 70 ? "high" : entry.glycemicLoad.value >= 56 ? "medium" : "low"} gl-indicator--compact">GI ${entry.glycemicLoad.value}${entry.glycemicLoad.partial ? "*" : ""}</span>` : ""}
             ${dosePillHtml}
+            ${entry.carbsUnknown ? `<span class="stat-line"><span class="stat-grams">Carbs not logged</span></span>` : `<span class="stat-line"><span class="stat-grams">${entry.totalCarbs}g</span><span class="stat-kcal">${entry.totalKcal || 0} kcal</span></span>`}
+            ${entry.glycemicLoad ? `<span class="gl-indicator gl-indicator--${entry.glycemicLoad.value >= 70 ? "high" : entry.glycemicLoad.value >= 56 ? "medium" : "low"} gl-indicator--compact">GI ${entry.glycemicLoad.value}${entry.glycemicLoad.partial ? "*" : ""}</span>` : ""}
           </div>
         `;
         groupEl.appendChild(row);

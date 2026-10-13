@@ -513,28 +513,35 @@ html[data-theme="dark"] .cat-snacks, html[data-theme="dark"] .cat-other { filter
 
 /* ================= HISTORY ================= */
 .history-group {
-  margin-bottom: 18px; display: grid;
+  margin-bottom: 20px; display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: 10px; align-items: start;
 }
-.history-group__date { grid-column: 1 / -1; font-size: 0.76rem; font-weight: 700; letter-spacing: 0.05em; color: var(--ink-soft); margin: 0; text-transform: uppercase; }
+.history-group__date { grid-column: 1 / -1; font-size: 0.76rem; font-weight: 700; letter-spacing: 0.06em; color: var(--ink-soft); margin: 6px 2px 0; text-transform: uppercase; }
 .history-entry {
   background: var(--surface); border: 1.5px solid var(--line); border-left-width: 4px;
-  border-radius: var(--radius-m); padding: 11px 13px; display: flex; gap: 10px; align-items: flex-start;
+  border-radius: var(--radius-m); padding: 12px 14px; display: flex; gap: 12px; align-items: flex-start;
   cursor: pointer;
 }
-.history-entry__icon { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: #fff; }
-.history-entry__icon svg { width: 15px; height: 15px; }
+.history-entry__icon { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: #fff; }
+.history-entry__icon svg { width: 17px; height: 17px; }
 .history-entry__main { flex: 1; min-width: 0; }
-.history-entry__title { font-size: 0.9rem; font-weight: 600; margin: 0; display: flex; gap: 6px; flex-wrap: wrap; align-items: baseline; }
-.history-entry__title .muted { font-weight: 400; color: var(--ink-soft); font-size: 0.8rem; }
-.history-entry__foods { font-size: 0.8rem; color: var(--ink-soft); margin: 3px 0 0; }
-.history-entry__stats { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0; }
-.stat-kcal { font-size: 0.76rem; color: var(--amber); font-weight: 600; }
-.stat-grams { font-size: 0.76rem; color: var(--ink-soft); }
+.history-entry__title { font-size: 0.95rem; font-weight: 600; margin: 0; display: flex; gap: 2px 8px; flex-wrap: wrap; align-items: center; }
+/* The meal name has a line to itself; the time, period, ratio and the NS badge share the quieter line under it. */
+.history-entry__name { flex: 0 0 100%; line-height: 1.25; }
+.history-entry__title .muted { font-weight: 400; color: var(--ink-soft); font-size: 0.78rem; }
+.history-entry__title .ns-badge { margin-left: 0; }
+.history-entry__foods { font-size: 0.82rem; color: var(--ink-soft); margin: 5px 0 0; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
+/* One column on the right, always in the same order: the dose, then carbs and calories on a single line, then the GI chip. */
+.history-entry__stats { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; flex-shrink: 0; min-width: 72px; }
+.stat-line { display: inline-flex; align-items: baseline; gap: 6px; font-size: 0.78rem; white-space: nowrap; }
+.stat-kcal { font-size: 0.74rem; color: var(--ink-soft); font-weight: 500; }
+.stat-grams { font-size: 0.8rem; color: var(--ink); font-weight: 600; }
 .gl-indicator--compact { font-size: 0.68rem; padding: 2px 8px; }
-.dose-pill { background: var(--acc-1); color: #fff; font-size: 0.78rem; font-weight: 700; padding: 4px 10px; border-radius: 999px; display: inline-flex; align-items: center; gap: 4px; }
-.dose-pill--warn { background: #FBBF24; color: #7C2D12; }
+.dose-pill { background: var(--acc-1); color: #fff; font-size: 0.82rem; font-weight: 700; padding: 4px 11px; border-radius: 999px; display: inline-flex; align-items: center; gap: 4px; line-height: 1.2; }
+/* "No insulin" is information, not an alarm: an outlined amber chip rather than a big solid block. */
+.dose-pill--warn { background: transparent; color: #B45309; border: 1.5px solid #D97706; padding: 2.5px 10px; font-weight: 600; }
+html[data-theme="dark"] .dose-pill--warn { color: #FBBF24; border-color: #FBBF2499; }
 .dose-pill svg { width: 11px; height: 11px; }
 .history-entry__detail { margin-top: 9px; padding-top: 9px; border-top: 1px dashed var(--line); font-size: 0.8rem; color: var(--ink-soft); }
 .history-entry__item { display: flex; align-items: baseline; gap: 8px; margin-bottom: 4px; }

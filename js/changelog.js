@@ -2,6 +2,11 @@
 // summary can never drift. Bump CHANGELOG[0].version here (and CACHE_VERSION in sw.js) on every release.
 export const CHANGELOG = [
   {
+    version: "2.30.2",
+    summary: "Tidier History log cards.",
+    changes: ["Each record now has the same layout: meal name, a quiet time line, and on the right the insulin dose with carbs and calories on one line and the GI chip below. The NS badge no longer wraps, the redundant period name is hidden unless a ratio was applied, 'No insulin' is a calm outlined chip, and the Basal card matches the others"]
+  },
+  {
     version: "2.30.1",
     summary: "The Undo bar no longer sits on the Log button.",
     changes: ["On the calculator the Undo bar now floats above the Log bar instead of over the Log and Reset buttons, so a second tap can never land on the wrong thing. On other screens it sits just above the tab bar"]
