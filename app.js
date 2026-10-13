@@ -1062,7 +1062,10 @@ import { createDialogs } from "./js/dialogs.js";
     const points = [];
     for (let t = startTime; t <= endTime; t += stepMs) {
       const r = calcActiveInsulinAndCarbs(t);
-      points.push({ t, iob: r.iob, cob: useObs && t >= now ? Math.round(cobAt(obs, (t - now) / 60000)) : r.cob });
+      // Right of "now" the carbs follow the readings; left of it the fixed timers. Joined as they are the line would jump at "now"
+      // by the difference between the two, so the past half-hour is eased towards the adjusted value (a drawing aid, not a record).
+      const eased = useObs && t < now ? Math.max(0, Math.round(r.cob + (obs.cob - info.cob) * ((t - startTime) / (now - startTime)))) : r.cob;
+      points.push({ t, iob: r.iob, cob: useObs && t >= now ? Math.round(cobAt(obs, (t - now) / 60000)) : eased });
     }
     return { points, startTime, endTime, now, info };
   }
@@ -3431,6 +3434,11 @@ import { createDialogs } from "./js/dialogs.js";
   // Newest first. version-badge-text/version-summary-text in the Settings
   // card are always drawn from CHANGELOG[0], so the two can never drift.
   const CHANGELOG = [
+    {
+      version: "2.28.2",
+      summary: "No more jump in the carbs line at now.",
+      changes: ["Active insulin & carbs: the carbs line jumped upwards at the now marker when your readings said more carbs were left than the fixed timers. The past half-hour is now eased into the adjusted value, so the line is smooth. Nothing about your logged meals or doses changed"]
+    },
     {
       version: "2.28.1",
       summary: "The 12h and 24h glucose windows now show the full period.",
