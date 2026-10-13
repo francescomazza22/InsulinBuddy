@@ -1,0 +1,17 @@
+# Runs the unit tests on every push and pull request. One of them (tests/unit/diagnose.test.js) fails when diagnose.html's
+# fingerprints don't match the files, so a forgotten `node tools/make-diagnose.mjs` shows up here as a red cross.
+# (GitHub Pages still publishes the branch either way; this is a warning, not a gate.)
+name: Checks
+on:
+  push:
+    branches: [main]
+  pull_request:
+jobs:
+  unit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm run test:unit

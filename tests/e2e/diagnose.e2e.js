@@ -19,12 +19,13 @@ function site(mutate = () => {}) {
   for (const f of ["index.html", "app.js", "style.css", "sw.js", "diagnose.html"]) fs.copyFileSync(path.join(DIR, f), path.join(dir, f));
   fs.cpSync(path.join(DIR, "js"), path.join(dir, "js"), { recursive: true });
   fs.cpSync(path.join(DIR, "assets"), path.join(dir, "assets"), { recursive: true });
+  fs.cpSync(path.join(DIR, "vendor"), path.join(dir, "vendor"), { recursive: true });
   mutate(dir);
   return dir;
 }
 async function check(name, dir, manifest, fn) {
   t.section(name);
-  const app = await startApp(dir, null, { "foods_data.js": FOODS, "manifest.json": manifest });
+  const app = await startApp(dir, null, { "foods_data.js": FOODS, "manifest.json": manifest, "vendor/supabase.js": null });
   const dev = await openDevice(app, { width: 420, height: 900, mobile: false, path: "diagnose.html", wait: 500 });
   await dev.waitFor(`document.getElementById("verdict").dataset.state !== "wait"`, 20000);
   await sleep(300);

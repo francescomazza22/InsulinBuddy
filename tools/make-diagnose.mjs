@@ -22,14 +22,15 @@ export function buildExpect(root) {
   // file is missing, rather than just "different". Version-bound ones follow sw.js automatically.
   const musts = {
     "index.html": ["btn-log-basal", "btn-glucose-guide", "cc-cap-note", "calc-side", "hadController", "trend-card-basal", "bg-pattern-grid", "bg-pattern-size", "cc-correction-manual-error"],
-    "app.js": [`version: "${version}"`, "capDoseParts", "isBasalEntry", "trackVisualViewport", "pagePinned", "RAIL_QUERY", "buildBasalChartSvg", "applyBackgroundPattern", "backgroundPatternSize", "backgroundPatternOf", "parseDecimalInput"],
+    "app.js": ["capDoseParts", "isBasalEntry", "trackVisualViewport", "pagePinned", "RAIL_QUERY", "buildBasalChartSvg", "applyBackgroundPattern", "backgroundPatternSize", "backgroundPatternOf", "parseDecimalInput"],
     "style.css": [".dose-card__cap-note", ".basal-add-btn", ".glucose-guide", "--vv-height", "overscroll-behavior: contain", "RESPONSIVE LAYOUT", "trend-chart__bar--basal-am", "DOODLE-PATTERN:START", "--doodle-tile", "%3Cuse%20href=", "ABSTRACT-PATTERN", ".sheet .sheet-actions", "correction-row__manual-error"],
+    "js/changelog.js": [`version: "${version}"`],
     "sw.js": [`CACHE_VERSION = "${version}"`],
     "js/calc.js": ["export function capDoseParts", "export function basalByDay"],
+  "js/util.js": ["export function parseDecimalInput"],
     "js/history.js": ["export function makeBasalEntry"],
     "js/nightscout.js": ['entryType === "basal"'],
-    "js/glucose-stats.js": ["export function glucoseGuideRows"],
-    "js/util.js": ["export function parseDecimalInput"]
+    "js/glucose-stats.js": ["export function glucoseGuideRows"]
   };
   const files = {};
   const list = dir => fs.existsSync(path.join(root, dir)) ? fs.readdirSync(path.join(root, dir)).sort().map(n => dir + "/" + n) : [];

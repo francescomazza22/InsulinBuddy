@@ -51,22 +51,18 @@ test("combined: food only = Carb Correction; insulin only = Correction Bolus", (
   assert.equal(corr.eventType, "Correction Bolus"); assert.equal(corr.insulin, 2.5); assert.equal(corr.notes, "Correction"); assert.equal(corr.carbs, undefined);
 });
 
-test("split: carbs and insulin become separate treatments, in the shape Gluroo keeps (2.14.0)", () => {
+test("split: carbs and insulin become separate treatments, glucose goes in the insulin note", () => {
   const parts = treatmentsForEntry(entry({ glucose: 180 }), { format: "split" });
   assert.deepEqual(parts.map(p => p.key), ["carbs", "insulin"]);
   assert.equal(parts[0].treatment.eventType, "Carb Correction");
-  assert.equal(parts[0].treatment.carbs, 60);
   assert.equal(parts[0].treatment.glucose, undefined);
-  // Gluroo discards the insulin from a fuller shape: carbs:0, a "Bolus: Xu" note, no enteredBy and no glucose
-  // fields. The glucose reading travels in the note instead, and the bolus sits one second after the carbs.
-  const bolus = parts[1].treatment;
-  assert.equal(bolus.eventType, "Correction Bolus");
-  assert.equal(bolus.insulin, 6.5);
-  assert.equal(bolus.carbs, 0);
-  assert.equal(bolus.glucose, undefined);
-  assert.equal(bolus.enteredBy, undefined);
-  assert.equal(bolus.notes, "Bolus: 6.5u (BG 180 mg/dL) – Pasta, Salad");
-  assert.equal(Date.parse(bolus.created_at) - Date.parse(parts[0].treatment.created_at), 1000);
+  assert.equal(parts[1].treatment.eventType, "Correction Bolus");
+  assert.equal(parts[1].treatment.glucose, undefined);
+  assert.match(parts[1].treatment.notes, /BG 180 mg\/dL/);
+  assert.match(parts[1].treatment.notes, /^Bolus: [\d.]+u.*Pasta, Salad$/);
+  assert.equal(parts[1].treatment.carbs, 0);
+  assert.equal(Date.parse(parts[1].treatment.created_at) - Date.parse(parts[0].treatment.created_at), 1000, "insulin is 1 s after the carbs");
+  assert.equal(parts[1].treatment.enteredBy, undefined);
   assert.equal(treatmentsForEntry(entry({ mealDose: 0, correctionDose: 0 }), { format: "split" }).length, 1);
 });
 

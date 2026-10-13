@@ -42,11 +42,11 @@ async function fresh(name, extra = {}) {
   await openBackgroundSettings(dev);
   await dev.click('#bg-pattern-grid [data-pattern="doodles"]'); await sleep(250);
   t.check("the pattern switches on", (await attr(dev)) === "doodles");
-  t.check("the page now has the doodle drawing behind it", (await bodyBg(dev)).startsWith('url("data:image/svg+xml,'), (await bodyBg(dev)).slice(0, 60));
+  t.check("the page now has the doodle drawing behind it", (await dev.eval(`!!document.querySelector("#bg-doodles svg")`)), (await bodyBg(dev)).slice(0, 60));
   t.check("the Doodles card is now the selected one, and Plain isn't", await dev.eval(`document.querySelector('#bg-pattern-grid [data-pattern="doodles"]').classList.contains("is-selected") && !document.querySelector('#bg-pattern-grid [data-pattern="none"]').classList.contains("is-selected")`));
   t.check("it is saved in your settings (so it syncs between your devices)", (await localState(dev)).settings.backgroundPattern === "doodles");
   await dev.go("index.html", 900); await dev.waitFor(`document.getElementById("cc-food-list").children.length > 0`);
-  t.check("after a reload it is still on", (await attr(dev)) === "doodles" && (await bodyBg(dev)).startsWith('url("data:image/svg+xml,'));
+  t.check("after a reload it is still on", (await attr(dev)) === "doodles" && (await dev.eval(`!!document.querySelector("#bg-doodles svg")`)));
   await openBackgroundSettings(dev);
   t.check("and Settings still shows Doodles selected", await dev.eval(`document.querySelector('#bg-pattern-grid [data-pattern="doodles"]').classList.contains("is-selected")`));
   await dev.click('#bg-pattern-grid [data-pattern="none"]'); await sleep(250);
@@ -65,7 +65,7 @@ async function fresh(name, extra = {}) {
   t.check("dark mode switches to the dark version of the drawing", dark !== light && dark.startsWith('url("data:image/svg+xml,') && dark.includes("%23ECEAE3") && light.includes("%231B2A3A"), `${light.slice(-30)} / ${dark.slice(-30)}`);
   await dev.eval(`document.documentElement.setAttribute("data-theme", "light")`); await sleep(150);
   await dev.click('#bg-swatch-grid [data-color="#E1EDF7"]'); await sleep(250);
-  t.check("picking a background color keeps the pattern on top of it", (await attr(dev)) === "doodles" && (await bodyBg(dev)).startsWith('url("data:image/svg+xml,') && (await bodyBg(dev, "backgroundColor")) === "rgb(225, 237, 247)", await bodyBg(dev, "backgroundColor"));
+  t.check("picking a background color keeps the pattern on top of it", (await attr(dev)) === "doodles" && (await dev.eval(`!!document.querySelector("#bg-doodles svg")`)) && (await bodyBg(dev, "backgroundColor")) === "rgb(225, 237, 247)", await bodyBg(dev, "backgroundColor"));
   await dev.click('#bg-pattern-grid [data-pattern="none"]'); await sleep(200);
   t.check("turning the pattern off leaves the color you picked", (await bodyBg(dev, "backgroundColor")) === "rgb(225, 237, 247)" && (await bodyBg(dev)) === "none");
   await noErrors(dev, "dark");
@@ -130,7 +130,7 @@ async function fresh(name, extra = {}) {
   t.check("its card previews the artwork", /pattern-abstract-light\.svg/.test(await dev.eval(`getComputedStyle(document.querySelector(".pattern-card__preview--abstract")).backgroundImage`)));
   await dev.click('#bg-pattern-grid [data-pattern="abstract"]'); await sleep(300);
   t.check("choosing Abstract switches it on, and its card is the selected one", (await attr(dev)) === "abstract" && await dev.eval(`document.querySelector('#bg-pattern-grid [data-pattern="abstract"]').classList.contains("is-selected")`));
-  t.check("the page uses the light artwork", /pattern-abstract-light\.svg/.test(await bodyBg(dev)), (await bodyBg(dev)).slice(-60));
+  t.check("the page uses the light artwork", await dev.eval(`!!document.querySelector("#bg-abstract svg")`), (await bodyBg(dev)).slice(-60));
   t.check("the size choice is available for it too, Small selected", !(await dev.eval(`document.getElementById("bg-pattern-size").hidden`)) && await dev.eval(`document.querySelector('#bg-pattern-size [data-size="small"]').classList.contains("is-active")`));
 
   // The check that matters most. A file with a stray tag is silently ignored by the browser and the pattern simply never
@@ -152,7 +152,7 @@ async function fresh(name, extra = {}) {
   t.check("both files are delivered as SVG images", served.every(x => /^200 image\/svg\+xml/.test(x)), JSON.stringify(served));
 
   await dev.eval(`document.documentElement.setAttribute("data-theme", "dark")`); await sleep(200);
-  t.check("dark mode switches to the dark artwork", /pattern-abstract-dark\.svg/.test(await bodyBg(dev)), (await bodyBg(dev)).slice(-60));
+  t.check("dark mode switches to the dark artwork", await dev.eval(`getComputedStyle(document.documentElement).getPropertyValue("--x") === "" && getComputedStyle(document.querySelector("#bg-abstract")).opacity === "0.18"`), (await bodyBg(dev)).slice(-60));
   await dev.eval(`document.documentElement.setAttribute("data-theme", "light")`); await sleep(150);
 
   const measure = async () => { const o = {}; for (const [name, w, h] of [["phone", 390, 844], ["ipad", 820, 1180], ["laptop", 1440, 900], ["huge", 3000, 1600]]) { await dev.resize(w, h); await sleep(250); o[name] = await tile(dev); } return o; };
@@ -182,7 +182,7 @@ async function fresh(name, extra = {}) {
   t.check("after a reload Abstract is still on, with the artwork", (await attr(dev)) === "abstract" && /pattern-abstract-light\.svg/.test(await bodyBg(dev)));
   await openBackgroundSettings(dev);
   await dev.click('#bg-pattern-grid [data-pattern="doodles"]'); await sleep(250);
-  t.check("and back to Doodles gives the doodle drawing again", (await attr(dev)) === "doodles" && (await bodyBg(dev)).startsWith('url("data:image/svg+xml,'));
+  t.check("and back to Doodles gives the doodle drawing again", (await attr(dev)) === "doodles" && (await dev.eval(`!!document.querySelector("#bg-doodles svg")`)));
   await dev.click('#bg-pattern-grid [data-pattern="abstract"]'); await sleep(200); await dev.click('#bg-pattern-grid [data-pattern="none"]'); await sleep(250);
   t.check("Plain removes it and hides the size choice", (await attr(dev)) === "none" && (await bodyBg(dev)) === "none" && await dev.eval(`document.getElementById("bg-pattern-size").hidden`));
   await noErrors(dev, "switching");

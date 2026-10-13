@@ -44,6 +44,26 @@ await scenario("REGRESSION: a stale second device no longer overwrites meals log
 });
 
 // ---------------------------------------------------------------------------
+await scenario("SIGN-IN BUTTONS: they share a class with the sheets' pinned Save bar but are in a Settings card, so must not be pinned or shifted", async (be, app) => {
+  const D = await open(app, { width: 390, height: 844, mobile: true, inject: fakeSupabaseSource({ signedIn: false }) });
+  await D.waitFor(`!!document.getElementById("cc-food-list").children.length`);
+  await D.tab("settings"); await D.sleep(250);
+  await D.eval(`document.querySelector('#settings-segmented [data-seg="data"]').click()`); await D.sleep(350);
+  const f = await D.eval(`(() => {
+    const bar = document.querySelector("#acct-signin-form .sheet-actions"); if (!bar) return null;
+    const c = getComputedStyle(bar), card = bar.closest(".panel-card").getBoundingClientRect(); bar.scrollIntoView({ block: "center" });
+    const r = bar.getBoundingClientRect(), b1 = document.getElementById("btn-sign-up").getBoundingClientRect(), b2 = document.getElementById("btn-sign-in").getBoundingClientRect();
+    const hit = el => { const q = el.getBoundingClientRect(), h = document.elementFromPoint(q.left + q.width / 2, q.top + q.height / 2); return h === el || el.contains(h); };
+    return { position: c.position, marginLeft: c.marginLeft, marginBottom: c.marginBottom, insideCard: r.left >= card.left - 0.5 && r.right <= card.right + 0.5,
+             bothTappable: hit(document.getElementById("btn-sign-up")) && hit(document.getElementById("btn-sign-in")), sideBySide: Math.abs(b1.top - b2.top) < 2 };
+  })()`);
+  t.check("the sign-in form is there for a signed-out device", !!f, JSON.stringify(f));
+  t.check("its button bar is an ordinary one: not pinned, with no negative margins", f && f.position === "static" && f.marginLeft === "0px" && f.marginBottom === "0px", JSON.stringify(f));
+  t.check("it stays inside its card, with both buttons side by side and tappable", f && f.insideCard && f.sideBySide && f.bothTappable, JSON.stringify(f));
+  await noErrors(D, "signed-out device");
+});
+
+// ---------------------------------------------------------------------------
 await scenario("REGRESSION: a delete on one device sticks, even when the other is stale", async (be, app) => {
   const A = await open(app, { inject: fakeSupabaseSource(sb) });
   await logMeal(A, 0, 100);

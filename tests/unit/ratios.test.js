@@ -1,0 +1,99 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { ratioWasApplied, ratioByBracket } from "../../js/calc.js";
+
+const settings = {
+  timeRatios: [{ name: "Morning", ratio: 10, color: "#1F9E93", start: "05:30", end: "11:30" }, { name: "Lunch", ratio: 8, color: "#D6A419", start: "11:30", end: "15:00" }, { name: "Night", ratio: 12, color: "#D9534F", start: "23:30", end: "05:30" }],
+  activityRatios: [{ name: "Sport", ratio: 18, color: "#8B5CF6" }]
+};
+const meal = (label, ratio, extra = {}) => ({ mealType: "lunch", ratioLabel: label, ratioValue: ratio, totalCarbs: 50, mealDose: 5, ...extra });
+
+test("the ratio counts only where it decided the meal dose", () => {
+  assert.equal(ratioWasApplied(meal("Morning", 10)), true);
+  assert.equal(ratioWasApplied(meal("Morning", 10, { noInsulin: true })), false, "a low treated without insulin");
+  assert.equal(ratioWasApplied(meal("Morning", 10, { carbsUnknown: true, totalCarbs: 0 })), false, "Eating Out");
+  assert.equal(ratioWasApplied(meal("Morning", 10, { totalCarbs: 0, mealDose: 0, correctionDose: 2 })), false, "a correction on its own");
+  assert.equal(ratioWasApplied(meal("", null)), false, "no ratio saved (older entry)");
+  assert.equal(ratioWasApplied({ entryType: "basal", mealType: "basal", ratioValue: null }), false, "basal");
+});
+
+test("average ratio per bracket, with counts and ranges; every current bracket gets a row", () => {
+  const entries = [meal("Morning", 10), meal("Morning", 12), meal("Morning", 11), meal("Lunch", 8), meal("Sport", 18),
+    meal("Morning", 10, { noInsulin: true }), { mealType: "basal", entryType: "basal" }];
+  const r = ratioByBracket(entries, settings);
+  assert.deepEqual(r.rows.map(x => x.label), ["Morning", "Lunch", "Night", "Sport"]);
+  const m = r.rows[0];
+  assert.equal(m.count, 3); assert.equal(m.avg, 11); assert.equal(m.min, 10); assert.equal(m.max, 12); assert.equal(m.current, 10);
+  assert.equal(r.rows[2].count, 0); assert.equal(r.rows[2].avg, null, "an unused bracket is still listed");
+  assert.equal(r.rows[3].kind, "activity");
+  assert.equal(r.total, 5);
+});
+
+test("a bracket that no longer exists still shows if it was used; entries without a saved ratio are counted aside", () => {
+  const r = ratioByBracket([meal("Brunch", 9), meal("", null), meal("Morning", null)], settings);
+  const brunch = r.rows.find(x => x.label === "Brunch");
+  assert.ok(brunch && brunch.avg === 9 && brunch.kind === "other");
+  assert.equal(r.rows[r.rows.length - 1].label, "Brunch", "after the current brackets");
+  assert.equal(r.unrecorded, 2);
+});
+
+test("nothing to average gives an empty result, not an error", () => {
+  const r = ratioByBracket([], settings);
+  assert.equal(r.total, 0); assert.equal(r.unrecorded, 0); assert.equal(r.rows.length, 4);
+  assert.deepEqual(ratioByBracket(null, null).rows, []);
+});
+
+import { idealRatioByBracket } from "../../js/calc.js";
+const H = 3600000, T0 = 1_700_000_000_000;
+const dosed = (ts, label, ratio, carbs, dose, extra = {}) => ({ ts, mealType: "lunch", ratioLabel: label, ratioValue: ratio, totalCarbs: carbs, mealDose: dose, correctionDose: 0, noInsulin: false, ...extra });
+const low = (ts, carbs) => ({ ts, mealType: "snack", noInsulin: true, totalCarbs: carbs, mealDose: 0, correctionDose: 0 });
+
+test("ideal ratio: low-treatment carbs within the window are counted into the meal before them", () => {
+  // 50 g at 1:10 (5 u), then 15 g to treat a low 2 h later: the same 5 u would have matched 65 g -> 1:13
+  const r = idealRatioByBracket([dosed(T0, "Morning", 10, 50, 5), low(T0 + 2 * H, 15)], settings, 3);
+  const m = r.rows[0];
+  assert.equal(m.used, 10); assert.ok(Math.abs(m.ideal - 13) < 1e-9, String(m.ideal));
+  assert.equal(m.affected, 1); assert.equal(m.rescueCarbs, 15); assert.equal(r.lowsCounted, 1); assert.equal(r.rescueCarbs, 15);
+});
+
+test("ideal ratio: a low outside the window, or before any injection, is not counted", () => {
+  const r = idealRatioByBracket([low(T0 - H, 15), dosed(T0, "Morning", 10, 50, 5), low(T0 + 3.5 * H, 15)], settings, 3);
+  assert.equal(r.rows[0].ideal, 10); assert.equal(r.rows[0].affected, 0);
+  assert.equal(r.lowsCounted, 0); assert.equal(r.lowsUnattached, 2);
+  assert.ok(idealRatioByBracket([dosed(T0, "Morning", 10, 50, 5), low(T0 + 3.5 * H, 15)], settings, 4).rows[0].affected === 1, "a wider window reaches it");
+});
+
+test("ideal ratio: the low is credited to the nearest injection before it, never twice", () => {
+  const r = idealRatioByBracket([dosed(T0, "Morning", 10, 50, 5), dosed(T0 + 2 * H, "Lunch", 8, 40, 5), low(T0 + 3 * H, 12)], settings, 3);
+  assert.equal(r.rows[0].affected, 0, "the earlier meal gets nothing");
+  assert.equal(r.rows[1].affected, 1); assert.ok(Math.abs(r.rows[1].ideal - 8 * 52 / 40) < 1e-9);
+  assert.equal(r.lowsCounted, 1);
+});
+
+test("ideal ratio: a low after a correction-only dose or an Eating Out entry has no ratio to adjust, so is set aside", () => {
+  const corr = { ts: T0, mealType: "correction", noInsulin: false, totalCarbs: 0, mealDose: 0, correctionDose: 2, ratioLabel: "Morning", ratioValue: 10 };
+  const r = idealRatioByBracket([corr, low(T0 + H, 15)], settings, 3);
+  assert.equal(r.lowsCounted, 0); assert.equal(r.lowsUnattached, 1);
+});
+
+test("ideal ratio: with no lows it equals the ratio used, and brackets are the same as the other card", () => {
+  const r = idealRatioByBracket([dosed(T0, "Morning", 10, 50, 5), dosed(T0 + 24 * H, "Morning", 12, 60, 5)], settings, 3);
+  assert.equal(r.rows[0].ideal, r.rows[0].used); assert.equal(r.rows[0].used, 11);
+  assert.deepEqual(r.rows.map(x => x.label), ["Morning", "Lunch", "Night", "Sport"]);
+  assert.equal(idealRatioByBracket(null, null).rows.length, 0);
+});
+
+import { buildTrendBuckets } from "../../js/calc.js";
+test("daily carbs are split into meal carbs and low-treatment carbs", () => {
+  const now = new Date(2026, 9, 10, 18, 0).getTime();
+  const at = h => new Date(2026, 9, 10, h, 0).getTime();
+  const hist = [
+    { id: "a", ts: at(8), mealType: "breakfast", totalCarbs: 50, mealDose: 5, correctionDose: 0 },
+    { id: "b", ts: at(11), mealType: "snack", noInsulin: true, totalCarbs: 15, mealDose: 0, correctionDose: 0 },
+    { id: "c", ts: at(13), mealType: "lunch", totalCarbs: 60, mealDose: 6, correctionDose: 0 }
+  ];
+  const { buckets } = buildTrendBuckets(hist, 3, now);
+  const today = buckets[buckets.length - 1];
+  assert.equal(today.carbs, 125); assert.equal(today.mealCarbs, 110); assert.equal(today.lowCarbs, 15);
+  assert.equal(buckets[0].mealCarbs, 0); assert.equal(buckets[0].lowCarbs, 0);
+});

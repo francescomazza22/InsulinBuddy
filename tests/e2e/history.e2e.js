@@ -133,7 +133,7 @@ async function editAndSave(dev, id, time) {
     library: [{ id: "f1", name: "TestFood", category: "grains", carbs: 45, kcal: 100, protein: null, fat: null, salt: null, gi: 50, notes: "", favorite: false, usageCount: 0 }]
   });
   const dev = await device(st, "REGRESSION: logged total always equals the displayed meal + correction");
-  await dev.eval(`document.getElementById("cc-food-list").children[0].click()`);
+  await dev.eval(`[...document.getElementById("cc-food-list").children].find(c => /TestFood/.test(c.textContent)).click()`);
   await dev.eval(`(() => { const g = document.getElementById("cc-grams"); g.value = "100"; g.dispatchEvent(new Event("input", { bubbles: true })); })()`);
   await dev.click("#cc-add-btn"); await sleep(150);
   await dev.click("#cc-correction-toggle");
@@ -1161,6 +1161,73 @@ const count = (dev, sel) => dev.eval(`document.querySelectorAll(${JSON.stringify
   await dev.eval(`document.querySelector('[data-seg="trends"]').click()`); await sleep(500);
   t.check("the card is there, built from the dose just logged", await dev.eval(`!document.getElementById("trend-card-basal").hidden`) && (await dev.text("#trend-chart-basal .trend-readout")).startsWith("Avg 14 u"), await dev.text("#trend-chart-basal .trend-readout"));
   await noErrors(dev, "device");
+  dev.close();
+}
+
+// ---------------------------------------------------------------------------
+// "I type a number but cannot press Save." The Save / Cancel bar of the tall sheets sat at the END of their content, so on a phone
+// it was below the fold, and with the number keypad up (which has no Done key to put it away) it was hidden underneath it.
+// Now the bar is pinned to the bottom of the visible part of the sheet, in every state.
+const barFacts = dev => dev.eval(`(() => {
+  const s = document.querySelector(".sheet"), bar = s.querySelector(".sheet-actions"), vis = window.visualViewport.height;
+  const hit = el => { const r = el.getBoundingClientRect(), h = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2); return h === el || el.contains(h); };
+  const within = el => { const r = el.getBoundingClientRect(); return r.top >= 0 && r.bottom <= vis + 0.5; };
+  const save = bar.querySelector(".btn--primary"), cancel = bar.querySelector(".btn--secondary"), sr = s.getBoundingClientRect(), br = bar.getBoundingClientRect();
+  return { sticky: getComputedStyle(bar).position === "sticky", saveShown: within(save) && hit(save), cancelShown: within(cancel) && hit(cancel), flush: Math.round(sr.bottom - br.bottom) };
+})()`);
+const editEntry = meal("e1", Date.now() - 3 * 3600000, { mealDose: 3, correctionDose: 1, totalCarbs: 40, glucose: 180 });
+async function openEditSheet(dev) { await ready(dev); await dev.tab("history"); await sleep(300); await dev.eval(`document.getElementById("history-groups").querySelector('[data-id="e1"]').click()`); await sleep(150); await dev.click('[data-edit="e1"]'); await sleep(400); }
+
+for (const [label, w, h, kb] of [["iPhone 16 Pro", 402, 874, 345], ["iPhone 14", 390, 844, 336], ["iPhone SE (the smallest)", 375, 667, 291]]) {
+  t.section(`Edit Meal sheet, ${label}: after typing a number, Save Changes can always be seen and pressed`);
+  const dev = await openDevice(app, { width: w, height: h, mobile: true, inject: VV_MOCK + seedLocal(stateBlob({ history: [editEntry] })), wait: 1500 });
+  await openEditSheet(dev);
+  let f = await barFacts(dev);
+  t.check("keyboard down: Save Changes and Cancel are both on screen and tappable without scrolling", f.saveShown && f.cancelShown, JSON.stringify(f));
+  t.check("the bar is pinned (sticky), sitting flush with the bottom edge of the sheet with nothing showing underneath", f.sticky && f.flush === 0, JSON.stringify(f));
+  await dev.eval(`document.getElementById("em-glucose").focus()`); await dev.eval(`window.__setVV(${h - kb})`); await sleep(400);
+  await dev.eval(`(() => { const e = document.getElementById("em-glucose"); e.value = "250"; e.dispatchEvent(new Event("input", { bubbles: true })); })()`); await sleep(250);
+  f = await barFacts(dev);
+  t.check("KEYBOARD UP, number typed: Save Changes is still on screen and tappable (it used to be hidden under the keyboard)", f.saveShown, JSON.stringify(f));
+  t.check("...and so is Cancel", f.cancelShown, JSON.stringify(f));
+  t.check("...and the bar still sits flush with the sheet's bottom edge", f.flush === 0, JSON.stringify(f));
+  await dev.eval(`(() => { const s = document.querySelector(".sheet"); s.scrollTop = s.scrollHeight; })()`); await sleep(200);
+  t.check("scrolled to the end, the last of the content is not left hidden behind the bar", await dev.eval(`document.getElementById("em-preview").getBoundingClientRect().bottom <= document.querySelector(".sheet-actions").getBoundingClientRect().top + 1`));
+  await dev.click("#em-save"); await sleep(400);
+  t.check("pressing it saves: the typed 250 is stored on the entry and the sheet closes", (await localState(dev)).history.find(x => x.id === "e1").glucose === 250 && !(await dev.eval(`document.querySelector(".sheet")`)), String((await localState(dev)).history.find(x => x.id === "e1").glucose));
+  await noErrors(dev, label);
+  dev.close();
+}
+
+for (const [label, w, h, mobile] of [["iPad", 820, 1180, true], ["desktop", 1440, 900, false]]) {
+  t.section(`Edit Meal sheet, ${label}: the centred card keeps its buttons in view, flush with the card's edge`);
+  const dev = await openDevice(app, { width: w, height: h, mobile, inject: seedLocal(stateBlob({ history: [editEntry] })), wait: 1500 });
+  await dev.eval(`Object.defineProperty(window, "visualViewport", { value: { height: innerHeight, width: innerWidth, offsetTop: 0, offsetLeft: 0, scale: 1, addEventListener() {}, removeEventListener() {} }, configurable: true })`).catch(() => {});
+  await openEditSheet(dev);
+  const f = await barFacts(dev);
+  t.check("Save Changes and Cancel are on screen and tappable", f.saveShown && f.cancelShown, JSON.stringify(f));
+  t.check("the bar is flush with the bottom of the card", f.sticky && f.flush === 0, JSON.stringify(f));
+  await noErrors(dev, label);
+  dev.close();
+}
+
+{
+  t.section("The other sheets that share the bar (basal, food, recipe) behave the same, with the keyboard up");
+  const dev = await openDevice(app, { width: 390, height: 844, mobile: true, inject: VV_MOCK + seedLocal(stateBlob({})), wait: 1500 });
+  await ready(dev);
+  const withKeyboard = async fieldSel => { await dev.eval(`(document.querySelector(${JSON.stringify(fieldSel)}) || document.querySelector(".sheet input")).focus()`); await dev.eval(`window.__setVV(${844 - 336})`); await sleep(350); const f = await barFacts(dev); await dev.eval(`window.__setVV(844)`); await sleep(200); return f; };
+  await openBasal(dev); await setBasalDose(dev, 14);
+  let f = await withKeyboard("#basal-units");
+  t.check("basal sheet: Log dose and Cancel stay in view above the keyboard", f.saveShown && f.cancelShown && f.flush === 0, JSON.stringify(f));
+  await dev.click("#basal-cancel").catch(async () => { await dev.eval(`document.querySelector(".sheet-actions .btn--secondary").click()`); }); await sleep(300);
+  await dev.tab("library"); await sleep(250); await dev.click("#lib-add-btn"); await sleep(350);
+  f = await withKeyboard('.sheet input[type="number"]');
+  t.check("food sheet: Add Food and Cancel stay in view above the keyboard", f.saveShown && f.cancelShown && f.flush === 0, JSON.stringify(f));
+  await dev.eval(`document.querySelector(".sheet-actions .btn--secondary").click()`); await sleep(300);
+  await dev.eval(`document.querySelector('#lib-segmented [data-seg="recipes"]').click()`); await sleep(250); await dev.click("#lib-add-btn"); await sleep(350);
+  f = await withKeyboard('.sheet input[type="text"]');
+  t.check("recipe sheet: Save Recipe and Cancel stay in view above the keyboard", f.saveShown && f.cancelShown && f.flush === 0, JSON.stringify(f));
+  await noErrors(dev, "other sheets");
   dev.close();
 }
 

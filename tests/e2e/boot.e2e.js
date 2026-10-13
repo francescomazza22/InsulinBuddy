@@ -54,5 +54,15 @@ t.section("PICTURES: the page's icon links load from assets/icons, and the servi
   dev.close();
 }
 
+t.section("NO EMPTY FLASH: the Loading cover is up from the first moment, and gone once the real screen is ready");
+{
+  const dev = await openDevice(app, { width: 390, height: 844, mobile: true, wait: 1800,
+    inject: `document.addEventListener("readystatechange", () => { if (document.readyState === "interactive") window.__coverAtParse = (() => { const l = document.getElementById("loading-screen"); return !!l && !l.hidden; })(); });` });
+  t.check("when the page has been read but app.js has not run yet, the Loading cover is already showing (not a bare, empty Calculator)", (await dev.eval(`window.__coverAtParse`)) === true);
+  t.check("once the app is ready the cover is gone and the Calculator is usable", await dev.eval(`document.getElementById("loading-screen").hidden && document.getElementById("cc-food-list").children.length > 0`));
+  t.check("no JS errors", (await dev.eval("window.__errs.length")) === 0 && dev.errors.length === 0);
+  dev.close();
+}
+
 await app.close();
 process.exit(t.summary() ? 0 : 1);

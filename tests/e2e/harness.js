@@ -186,7 +186,11 @@ export function fakeSupabaseSource({ userId = "user-1", email = "test@example.co
 }
 
 // ------------------------------------------------------------------- server
-export async function startApp(appDir, backend = null, virtualFiles = {}) {
+export async function startApp(appDir, backend = null, virtualFilesIn = {}) {
+  // The app ships its own copy of supabase-js (vendor/supabase.js). Tests install a FAKE one before the page boots, so
+  // by default that file is served empty and cannot overwrite it. Pass { "vendor/supabase.js": null } to serve the real one.
+  const virtualFiles = { "vendor/supabase.js": "/* e2e: the injected fake supabase stays in place */", ...virtualFilesIn };
+  if (virtualFiles["vendor/supabase.js"] === null) delete virtualFiles["vendor/supabase.js"];
   const server = http.createServer((req, res) => {
     if (backend && backend.handle(req, res)) return;
     const url = new URL(req.url, "http://x");
@@ -275,7 +279,7 @@ export async function openDevice(app, { width = 390, height = 900, mobile = true
     sleep,
     async waitFor(fnExpr, timeout = 6000, step = 60) {
       const t0 = Date.now();
-      while (Date.now() - t0 < timeout) { try { if (await dev.eval(fnExpr)) return true; } catch { /* page navigating */ } await sleep(step); }
+      while (Date.now() - t0 < timeout) { try { if (await Promise.race([dev.eval(fnExpr), sleep(1500).then(() => { throw new Error("eval stalled (page navigating)"); })])) return true; } catch { /* page navigating */ } await sleep(step); }
       throw new Error("waitFor timed out: " + fnExpr);
     },
     click: sel => dev.eval(`(() => { const e = document.querySelector(${JSON.stringify(sel)}); if (!e) throw new Error("no element: ${sel.replace(/"/g, "'")}"); e.click(); return true; })()`),

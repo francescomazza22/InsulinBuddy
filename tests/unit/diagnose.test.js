@@ -26,7 +26,7 @@ test("every check token diagnose.html uses really is in the file it is meant to 
 });
 
 test("the changelog's newest version matches the service worker's, so the page isn't vouching for a half-bumped release", () => {
-  const appVersion = /CHANGELOG = \[\s*\{\s*version: "([^"]+)"/.exec(fs.readFileSync(ROOT + "app.js", "utf8"))[1];
+  const appVersion = /CHANGELOG = \[\s*\{\s*version: "([^"]+)"/.exec(fs.readFileSync(ROOT + "js/changelog.js", "utf8"))[1];
   assert.equal(appVersion, embedded.version);
 });
 

@@ -201,14 +201,14 @@ await scenario("Glucose viewer: tapping the live pill opens straight to a colore
   const banner = await dev.eval(`(() => { const b = document.querySelector(".glucose-banner"); return b ? { cls: b.className, text: b.textContent } : null; })()`);
   t.check("banner shows in-range styling and the reading", banner && banner.cls.includes("glucose-banner--in-range") && /92/.test(banner.text) && /IN RANGE/.test(banner.text), JSON.stringify(banner));
   t.check("a trend graph is drawn below it", (await dev.eval(`document.querySelectorAll("#aiog-content svg").length`)) > 0);
-  t.check("a time-range picker with 3/6/12/24h is present, 6h active by default", await dev.eval(`[...document.querySelectorAll(".glucose-range-btn")].map(b => b.textContent).join(",")`) === "3h,6h,12h,24h" && await dev.eval(`document.querySelector('.glucose-range-btn[data-hours="6"]').classList.contains("is-active")`));
+  t.check("a time-range picker with 3/6/12/24h is present, 6h active by default", await dev.eval(`[...document.querySelectorAll("#aiog-content .glucose-range-btn")].map(b => b.textContent).join(",")`) === "3h,6h,12h,24h" && await dev.eval(`document.querySelector('#aiog-content .glucose-range-btn[data-hours="6"]').classList.contains("is-active")`));
 
   // switching the range re-fetches with a wider window and keeps the new choice highlighted
   be.log.length = 0;
   await dev.click('.glucose-range-btn[data-hours="24"]'); await sleep(400);
   const readCall = be.log.find(l => l.kind === "ns" && l.action === "read");
-  t.check("picking 24h re-queried Nightscout for a longer window", !!readCall, JSON.stringify(be.log));
-  t.check("24h is now the active choice", await dev.eval(`document.querySelector('.glucose-range-btn[data-hours="24"]').classList.contains("is-active")`));
+  t.check("picking 24h is served from the shared store (no second download of the same readings)", !readCall, JSON.stringify(be.log));
+  t.check("24h is now the active choice", await dev.eval(`document.querySelector('#aiog-content .glucose-range-btn[data-hours="24"]').classList.contains("is-active")`));
   await noErrors(dev, "device");
 });
 

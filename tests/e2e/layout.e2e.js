@@ -98,7 +98,7 @@ for (const [name, w, h, mobile] of [["IPAD LANDSCAPE (1180x820)", 1180, 820, tru
   const dose = await R(dev, ".dose-card"), food = await R(dev, "#cc-food-section"), side = await R(dev, ".calc-side");
   t.check("the Calculator is two columns: the dose is to the LEFT of the meal", dose.right + 20 <= food.left, JSON.stringify({ dose, food }));
   t.check("and they start level with each other", Math.abs(dose.top - food.top) <= 60, JSON.stringify({ dose: dose.top, food: food.top }));
-  t.check("the left column is a sensible width (340 to 400px)", side.w >= 336 && side.w <= 404, String(side.w));
+  t.check("the left column is a sensible width (360 to 445px)", side.w >= 356 && side.w <= 448, String(side.w));
   const log = await R(dev, "#cc-sticky-log-bar"), logPos = await css(dev, "#cc-sticky-log-bar", "position");
   t.check("the Log button lives under the dose in the left column, not along the bottom of the screen", logPos === "static" && log.left >= side.left - 2 && log.right <= side.right + 2 && log.top >= dose.bottom, JSON.stringify({ log, side, logPos }));
   t.check("no empty space is reserved at the bottom for a bar that isn't there", (await css(dev, ".sticky-log-spacer", "display")) === "none");
@@ -162,6 +162,22 @@ for (const [name, w, h, mobile] of [["IPAD LANDSCAPE (1180x820)", 1180, 820, tru
   t.check("and back out to desktop: two columns again", (await css(dev, "#view-calculator", "display")) === "grid");
   t.check("the meal being built survived all of it", (await dev.eval(`document.querySelectorAll("#cc-meal-items > *").length`)) === 2);
   await noErrors(dev, "resize");
+  dev.close();
+}
+
+{ // ----------------------------------------------------------------------------------------------- big screens: text size and alignment
+  const dev = await open("BIG SCREENS: text is scaled up and the Glucose tab lines up with its heading", 1248, 874);
+  const px = async w => { await dev.resize(w, 874, false); await sleep(300); return parseFloat(await dev.eval(`getComputedStyle(document.documentElement).fontSize`)); };
+  t.check("phone and tablet keep the 16px base", (await px(390)) === 16 && (await px(820)) === 16);
+  t.check("a laptop gets 18px", (await px(1248)) === 18);
+  t.check("a very large screen gets 20px", (await px(1700)) === 20);
+  await dev.resize(1248, 874, false); await sleep(300);
+  await dev.tab("history"); await dev.click('[data-seg="glucose"]'); await sleep(300);
+  const left = sel => dev.eval(`Math.round(document.querySelector(${JSON.stringify(sel)}).getBoundingClientRect().left)`);
+  const head = await left("#view-history .page-head h1");
+  t.check("the glucose range buttons start at the same left edge as the heading", Math.abs((await left("#glucose-range-segmented")) - head) <= 1, `${head} vs ${await left("#glucose-range-segmented")}`);
+  t.check("...and so does the panel itself", Math.abs((await left("#history-glucose-panel")) - head) <= 1);
+  await noErrors(dev, "big screens");
   dev.close();
 }
 
