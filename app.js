@@ -2950,7 +2950,7 @@ import { createDialogs } from "./js/dialogs.js";
   // ONE place every screen reads recent glucose from (the last 24 hours of Nightscout readings), kept on the device so it is there the
   // instant a screen opens, topped up quietly in the background with only the newest readings. Screens paint from it straight away and
   // redraw only if a refresh actually brought something new. If Nightscout can't be reached the saved readings stay on show.
-  const GLUCOSE_STORE_KEY = "insulinBuddy.glucoseRecent";
+  const GLUCOSE_STORE_KEY = "insulinBuddy.glucoseRecent2";
   const GLUCOSE_STORE_SPAN_MS = 26 * 3600_000;
   const GLUCOSE_FULL_REFRESH_MS = 20 * 60_000;   // every so often re-read the whole day, to catch gaps and edited readings
   const glucoseStore = { entries: [], at: 0, fullAt: 0, inflight: null, listeners: new Set() };   // entries newest-first: { sgv, date, direction }
@@ -2979,8 +2979,23 @@ import { createDialogs } from "./js/dialogs.js";
       try {
         const latest = glucoseStore.entries[0];
         const full = !latest || Date.now() - glucoseStore.fullAt > GLUCOSE_FULL_REFRESH_MS || Date.now() - latest.date > 6 * 3600_000;
-        const r = full ? await nsClient.read(nsCfg(), 300) : await nsClient.read(nsCfg(), 300, { after: latest.date + 1 });
-        const incoming = (Array.isArray(r.entries) ? r.entries : []).filter(e => e && typeof e.sgv === "number" && Number.isFinite(e.date));
+        // A full read must reach back the whole span. Some sensors report every minute or two, and one request holds at most 1000
+        // readings (about 17 hours at one a minute), so keep paging backwards until the span is covered (up to 4 pages).
+        let got = [];
+        if (full) {
+          const since = Date.now() - GLUCOSE_STORE_SPAN_MS;
+          let before;
+          for (let page = 0; page < 4; page++) {
+            const rr = await nsClient.read(nsCfg(), 1000, before ? { before } : {});
+            const batch = (Array.isArray(rr.entries) ? rr.entries : []).filter(e => e && Number.isFinite(e.date));
+            got = got.concat(batch);
+            if (batch.length < 1000) break;
+            const oldest = Math.min(...batch.map(e => e.date));
+            if (oldest <= since) break;
+            before = oldest;
+          }
+        } else got = (await nsClient.read(nsCfg(), 1000, { after: latest.date + 1 })).entries || [];
+        const incoming = (Array.isArray(got) ? got : []).filter(e => e && typeof e.sgv === "number" && Number.isFinite(e.date));
         const before = glucoseStore.entries.length ? `${glucoseStore.entries[0].date}:${glucoseStore.entries.length}` : "";
         const byDate = new Map(glucoseStore.entries.map(e => [e.date, e]));
         for (const e of incoming) byDate.set(e.date, { sgv: e.sgv, date: e.date, direction: e.direction || null });
@@ -3416,6 +3431,11 @@ import { createDialogs } from "./js/dialogs.js";
   // Newest first. version-badge-text/version-summary-text in the Settings
   // card are always drawn from CHANGELOG[0], so the two can never drift.
   const CHANGELOG = [
+    {
+      version: "2.28.1",
+      summary: "The 12h and 24h glucose windows now show the full period.",
+      changes: ["Glucose tab: 12h and 24h did nothing because only the latest 300 readings were kept, which at a reading every minute or two is only about 5 to 9 hours. The saved glucose now reaches back a full 26 hours, however often your sensor reports"]
+    },
     {
       version: "2.28.0",
       summary: "Observed vs expected now accounts for basal insulin.",
