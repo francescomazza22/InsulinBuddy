@@ -48,11 +48,47 @@ export function carbEffectPerGram(entry, isfMgdl, fallbackRatio = 10) {
   return isfMgdl / r;
 }
 
+const basalUnits = e => Number(e && e.basalDose) || 0;
+const isBasalDose = e => !!e && isBasal(e) && basalUnits(e) > 0 && Number.isFinite(e.ts);
+
+/**
+ * Basal insulin, judged against YOUR usual. Basal is assumed to cancel what the liver releases when it is taken as usual, so
+ * a usual dose changes nothing; only the difference from usual acts (extra units lower glucose, a short dose lets it rise).
+ * "Usual" is the median of your last 14 logged doses in that slot (am / pm) and needs at least 3. The difference is spread
+ * evenly over the slot's period (12 h when both slots are used, otherwise 24 h).
+ * Returns { logged, usual: {am, pm}, periodMs, doses: [{ ts, units, slot, extra }] }.
+ */
+export function basalContext(entries) {
+  const all = (entries || []).filter(isBasalDose).sort((a, b) => a.ts - b.ts);
+  const usual = {};
+  for (const slot of ["am", "pm"]) {
+    const d = all.filter(e => (e.basalSlot || "am") === slot).slice(-14).map(basalUnits);
+    usual[slot] = d.length >= 3 ? median(d) : null;
+  }
+  const periodMs = usual.am != null && usual.pm != null ? 12 * HOUR : 24 * HOUR;
+  const doses = all.map(e => { const slot = e.basalSlot || "am"; return { ts: e.ts, units: basalUnits(e), slot, extra: usual[slot] == null ? 0 : basalUnits(e) - usual[slot] }; });
+  return { logged: all.length, usual, periodMs, doses };
+}
+
+/** mg/dL of glucose lost between t0 and t1 because of basal doses that differ from usual (negative if a dose was short). */
+export function basalDrop(ctx, t0, t1, isfMgdl) {
+  let drop = 0;
+  for (const d of (ctx && ctx.doses) || []) {
+    if (!d.extra) continue;
+    const a = Math.max(t0, d.ts), b = Math.min(t1, d.ts + ctx.periodMs);
+    if (b > a) drop += d.extra * isfMgdl * (b - a) / ctx.periodMs;
+  }
+  return drop;
+}
+
+export const EXPECTED_FLOOR = 40;   // mg/dL: the "insulin alone" line is never drawn below this; real glucose does not keep falling
+
 /**
  * Your readings next to what insulin alone would have done, from the last logged meal or dose until now.
  * Returns { anchor: { t, mgdl }, points: [{ t, expected, actual }], now: { t, expected, actual, gap } } or null.
  */
-export function expectedFromInsulin(entries, readings, { isfMgdl, peak, dia, now, maxHours = 6 }) {
+export function expectedFromInsulin(entries, readings, { isfMgdl, peak, dia, now, maxHours = 6, basalEntries = [] }) {
+  const bctx = basalContext(basalEntries);
   const sorted = prepareReadings(readings);
   if (!sorted.length || !(isfMgdl > 0)) return null;
   const cands = (entries || []).filter(e => !isBasal(e) && Number.isFinite(e.ts) && e.ts <= now && now - e.ts <= maxHours * HOUR && (carbsOf(e) > 0 || insulinOf(e) > 0)).sort((a, b) => b.ts - a.ts);
@@ -60,13 +96,21 @@ export function expectedFromInsulin(entries, readings, { isfMgdl, peak, dia, now
     const g0 = glucoseNear(sorted, e.ts, 10);
     if (g0 == null) continue;
     const points = [];
+    let capped = false;
     for (let t = e.ts; t <= now + 1; t += STEP) {
       const actual = glucoseNear(sorted, t, 4);
-      points.push({ t, expected: g0 - insulinDrop(entries, e.ts, t, isfMgdl, peak, dia), actual });
+      const raw = g0 - insulinDrop(entries, e.ts, t, isfMgdl, peak, dia) - basalDrop(bctx, e.ts, t, isfMgdl);
+      if (raw < EXPECTED_FLOOR) capped = true;
+      points.push({ t, expected: Math.max(EXPECTED_FLOOR, raw), actual });
     }
+    const lastLogged = [...bctx.doses].reverse().find(d => d.ts <= now);
+    const inWindow = bctx.doses.filter(d => d.ts <= now && d.ts + bctx.periodMs >= e.ts);
+    const adjusted = inWindow.some(d => Math.abs(d.extra) >= 0.5);
+    const status = !bctx.logged ? "none" : (!lastLogged || now - lastLogged.ts > bctx.periodMs * 1.2) ? "missing" : adjusted ? "adjusted" : "usual";
+    const basal = { status, markers: bctx.doses.filter(d => d.ts >= e.ts && d.ts <= now), last: lastLogged || null, usual: bctx.usual, extraUnits: inWindow.reduce((s, d) => s + d.extra, 0) };
     const last = [...points].reverse().find(p => p.actual != null);
     if (!last || points.filter(p => p.actual != null).length < 4) continue;
-    return { anchor: { t: e.ts, mgdl: g0, entry: e }, points, now: { t: last.t, expected: last.expected, actual: last.actual, gap: last.actual - last.expected } };
+    return { anchor: { t: e.ts, mgdl: g0, entry: e }, basal, capped, points, now: { t: last.t, expected: last.expected, actual: last.actual, gap: last.actual - last.expected } };
   }
   return null;
 }
