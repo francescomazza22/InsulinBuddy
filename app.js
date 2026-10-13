@@ -3407,6 +3407,11 @@ import { createDialogs } from "./js/dialogs.js";
   // card are always drawn from CHANGELOG[0], so the two can never drift.
   const CHANGELOG = [
     {
+      version: "2.27.1",
+      summary: "Starts even if index.html is older than the app.",
+      changes: ["Fixed the app staying on Loading your data when index.html on the site was older than app.js (the new Fill missing food details button was missing and its handler stopped startup). A missing optional button is now skipped"]
+    },
+    {
       version: "2.27.0",
       summary: "Reopens where you left off; one home for food reference data.",
       changes: ["The app now reopens on the screen you were on, scrolled to the same place, if you left it within the last 6 hours. After a longer break it opens on the calculator as before. A meal in progress was already kept","Under the hood: the built-in glycaemic index values now live in the same file as the fill-missing-details reference, so a correction is made in one place. Nothing changes in what you see"]
@@ -6269,7 +6274,8 @@ import { createDialogs } from "./js/dialogs.js";
   el("btn-import-library").addEventListener("click", () => el("import-file-input").click());
 
   // Fill blank GI / fat / protein / salt with typical values (js/food-reference.js). Only ever fills EMPTY fields; undo is offered straight after.
-  el("btn-fill-foods").addEventListener("click", async () => {
+  const fillFoodsBtn = el("btn-fill-foods");   // absent if an older index.html is still on the site: skip rather than stop the app starting
+  if (fillFoodsBtn) fillFoodsBtn.addEventListener("click", async () => {
     const trial = fillMissingFoodDetails(structuredClone(state.library));
     if (!trial.changes.length) { await dialogs.alert("Nothing to fill: every food I have typical values for already has them.", { title: "Fill missing details" }); return; }
     const gi = trial.changes.filter(c => c.field === "gi").length, other = trial.changes.length - gi;
