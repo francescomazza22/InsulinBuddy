@@ -4,7 +4,7 @@ import { SCHEMA_VERSION, normalizeState as normalizeStateWith, makeFingerprint, 
 import { NightscoutClient, NsOutbox, nsToken, nsBaseUrl, nsConfigured, treatmentsForEntry, entriesToGlucoseRows } from "./js/nightscout.js";
 import { createDiag, hookGlobalErrors } from "./js/diag.js";
 import { postMealCurves, outcomeByBracket, foodImpact, correctionEffectiveness, iobStacking, overnightStats, weekdayWeekend, lowTreatmentUsual, lastTimesFor, isfToMgdl } from "./js/insights.js";
-import { expectedFromInsulin, observedCarbs, cobAt, projectGlucose, learnAbsorption, gapSummary } from "./js/glucose-model.js";
+import { expectedFromInsulin, EXPECTED_FLOOR, observedCarbs, cobAt, projectGlucose, learnAbsorption, gapSummary } from "./js/glucose-model.js";
 import { summarizeSync } from "./js/sync-status.js";
 import { fillMissingFoodDetails, stillBlank, applyPublishedGi } from "./js/food-reference.js";
 import { fieldSvg } from "./js/doodle-field.js";
@@ -1821,7 +1821,7 @@ import { createDialogs } from "./js/dialogs.js";
   const clockTime = t => new Date(t).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
 
   /** A small multi-line glucose chart. lines: [{ pts:[{t,v}], stroke, dash?, width? }], nowT: optional vertical marker. Values in mg/dL. */
-  function renderGlucoseLinesSVG(lines, nowT) {
+  function renderGlucoseLinesSVG(lines, nowT, markers) {
     const all = lines.flatMap(l => l.pts);
     if (all.length < 2) return "";
     const W = 320, H = 165, padL = 30, padR = 10, padT = 10, padB = 22;
@@ -1851,33 +1851,42 @@ import { createDialogs } from "./js/dialogs.js";
         <line x1="${padL}" y1="${highY}" x2="${padL + plotW}" y2="${highY}" stroke="#F59E0B" stroke-width="1" stroke-dasharray="2,3" opacity="0.6"/>
         <text x="${padL - 4}" y="${(parseFloat(lowY) + 3).toFixed(1)}" font-size="8" fill="#EF4444" text-anchor="end">${glucoseDisp(70)}</text>
         <text x="${padL - 4}" y="${(parseFloat(highY) + 3).toFixed(1)}" font-size="8" fill="#F59E0B" text-anchor="end">${glucoseDisp(180)}</text>
-        ${nowLine}${paths}
+        ${nowLine}${paths}${(markers || []).filter(m => m.t >= t0 && m.t <= t1).map(m => `<path d="M${xFor(m.t).toFixed(1)},${padT + plotH - 1} l-4,-8 h8 z" fill="#0D9488"><title>${m.label}</title></path>`).join("")}
         <line x1="${padL}" y1="${padT + plotH}" x2="${padL + plotW}" y2="${padT + plotH}" stroke="var(--line)" stroke-width="1"/>
         ${ticks}
       </svg>`;
   }
   const keyDot = (color, dashed, text) => `<span style="display:flex; align-items:center; gap:6px; font-size:0.8rem; color:var(--ink-soft);"><span style="width:16px; height:0; border-top:2px ${dashed ? "dashed" : "solid"} ${color}; display:inline-block;"></span>${text}</span>`;
 
+  function basalLine(b) {
+    const un = v => round1(v);
+    if (b.status === "none") return "No basal doses are logged, so basal is assumed to cover what your liver releases.";
+    if (b.status === "missing") return `<b>No basal dose logged in the last ${b.last ? Math.round((Date.now() - b.last.ts) / 3600000) + " h" : "while"}</b>, so this assumes it was taken as usual. If it was missed, expect glucose to sit above the dashed line.`;
+    if (b.status === "adjusted") return `Your logged basal differs from your usual by <b>${b.extraUnits > 0 ? "+" : ""}${un(b.extraUnits)} u</b>, and that is included in the dashed line.`;
+    return "Your logged basal is your usual dose, so it holds glucose steady and does not move the dashed line.";
+  }
+
   /** Glucose tab: your readings next to where the logged insulin alone would have taken you from your last meal or dose. */
   function renderExpectedVsObservedHtml(readings) {
     const params = modelParams();
     if (!(params.isfMgdl > 0)) return `${secHead("Observed vs expected", "expected")}<p class="panel-card__hint">Set your correction factor in Settings to see this.</p>`;
-    const exp = expectedFromInsulin(modelEntries(), readings, { ...params, now: Date.now() });
+    const exp = expectedFromInsulin(modelEntries(), readings, { ...params, now: Date.now(), basalEntries: state.history.filter(isBasalEntry) });
     if (!exp) return `${secHead("Observed vs expected", "expected")}<p class="panel-card__hint">No recent meal or insulin dose with a glucose reading beside it, so there is nothing to compare yet.</p>`;
     const pts = exp.points.filter(p => Number.isFinite(p.actual) && Number.isFinite(p.expected));
     const chart = renderGlucoseLinesSVG([
       { pts: pts.map(p => ({ t: p.t, v: p.expected })), stroke: "#6B7280", dash: "5,4", width: 1.8 },
       { pts: pts.map(p => ({ t: p.t, v: p.actual })), stroke: "#3B82F6" }
-    ]);
+    ], null, exp.basal.markers.map(d => ({ t: d.ts, label: `Basal ${round1(d.units)} u` })));
     const gap = exp.now.gap, g = gapSummary(gap), u = mgUnitText(), amt = glucoseDisp(Math.abs(gap));
     const msg = g.kind === "above" ? `Your glucose is about <b>${amt} ${u} above</b> where the insulin alone would have it. The likely reason is carbs still absorbing — but food you didn't log, stress, illness or a sensor error would look the same.`
       : g.kind === "below" ? `Your glucose is about <b>${amt} ${u} below</b> where the insulin alone would have it — the carbs were absorbed faster than the insulin needed, or something else (activity, a stronger correction factor than the one in Settings) is lowering it.`
       : `Your glucose is <b>tracking</b> where the insulin alone would have it (within ${glucoseDisp(15)} ${u}).`;
     return `
       ${secHead("Observed vs expected", "expected", 18)}
-      <p class="panel-card__hint">From ${clockTime(exp.anchor.t)} (your reading then: ${glucoseDisp(exp.anchor.mgdl)} ${u}), what logged insulin alone would do, using your Settings. It ignores basal insulin and exercise.</p>
+      <p class="panel-card__hint">From ${clockTime(exp.anchor.t)} (your reading then: ${glucoseDisp(exp.anchor.mgdl)} ${u}), what your logged meal and correction insulin alone would do, using your Settings. ${basalLine(exp.basal)}</p>
       ${chart}
-      <div style="display:flex; gap:16px; justify-content:center; margin-top:8px;">${keyDot("#3B82F6", false, "Your readings")}${keyDot("#6B7280", true, "Expected from insulin alone")}</div>
+      <div style="display:flex; gap:16px; justify-content:center; flex-wrap:wrap; margin-top:8px;">${keyDot("#3B82F6", false, "Your readings")}${keyDot("#6B7280", true, "Expected from insulin alone")}${exp.basal.markers.length ? `<span style="display:flex; align-items:center; gap:6px; font-size:0.8rem; color:var(--ink-soft);"><span style="color:#0D9488;">&#9650;</span>Basal dose</span>` : ""}</div>
+      ${exp.capped ? `<p class="panel-card__hint" style="margin-top:8px;">The dashed line stops at ${glucoseDisp(EXPECTED_FLOOR)} ${u}: that is only what the insulin would do with nothing else going on, and real glucose does not keep falling. Your liver, basal insulin and food all push back.</p>` : ""}
       <p class="panel-card__hint" style="margin-top:12px;">${msg}</p>`;
   }
 
@@ -1955,7 +1964,8 @@ import { createDialogs } from "./js/dialogs.js";
         <p>It assumes no further food, insulin, exercise or illness, ignores basal insulin, and can be thrown off by sensor error. It is hidden when your last reading is over 15 minutes old.</p>`,
       expected: `<p>From your last meal or dose that has a glucose reading beside it, the dashed line shows where glucose would go if <b>only the logged insulin acted</b>: that starting reading minus the insulin's effect so far (each dose &times; ${isf} ${u} per unit &times; the share already acted).</p>
         <p>The blue line is your real readings. The <b>gap</b> between them is what the insulin doesn't explain &mdash; usually carbs still being absorbed (or absorbed faster or slower than the dose assumed), but also unlogged food, stress, illness, activity or sensor error.</p>
-        <p>A gap within 15 ${u} is called "tracking". Basal insulin and exercise are not modelled.</p>`,
+        <p>A gap within 15 ${u} is called "tracking".</p>
+        <p><b>Basal:</b> taken as usual, basal is assumed to cancel what your liver releases, so it leaves the line alone &mdash; that is why the dashed line looks like glucose falling with nothing to hold it up. Only a basal dose that differs from your usual (the median of your last logged doses in that slot, at least 3 needed) changes the line, spread evenly over 12 or 24 hours. A teal triangle marks each basal dose logged in the window. The dashed line stops at ${glucoseDisp(EXPECTED_FLOOR)} ${u}. Exercise is not modelled.</p>`,
       today: `<p>The same insulin and carb curves as the Now tab, replayed for each moment since midnight using what you logged. Nothing here is predicted &mdash; it shows how much was active at each time. Carb times come from ${learned}.</p>`,
       glucose: `<p>Your real glucose readings from Nightscout for the chosen window. The green band is the standard 70&ndash;180 mg/dL range; dashed lines mark its edges.</p>`
     };
@@ -3406,6 +3416,11 @@ import { createDialogs } from "./js/dialogs.js";
   // Newest first. version-badge-text/version-summary-text in the Settings
   // card are always drawn from CHANGELOG[0], so the two can never drift.
   const CHANGELOG = [
+    {
+      version: "2.28.0",
+      summary: "Observed vs expected now accounts for basal insulin.",
+      changes: ["Observed vs expected: your logged basal doses are used. A usual dose is assumed to cancel what your liver releases, so only a dose that differs from your usual moves the dashed line; a missed basal is flagged instead of silently blamed on food","The dashed line no longer runs off the bottom: it stops at a floor, and says so. Basal doses show as teal triangles on the chart"]
+    },
     {
       version: "2.27.1",
       summary: "Starts even if index.html is older than the app.",
