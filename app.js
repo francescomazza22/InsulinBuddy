@@ -6,6 +6,7 @@ import { createDiag, hookGlobalErrors } from "./js/diag.js";
 import { postMealCurves, outcomeByBracket, foodImpact, correctionEffectiveness, iobStacking, overnightStats, weekdayWeekend, lowTreatmentUsual, lastTimesFor, isfToMgdl } from "./js/insights.js";
 import { expectedFromInsulin, observedCarbs, cobAt, projectGlucose, learnAbsorption, gapSummary } from "./js/glucose-model.js";
 import { summarizeSync } from "./js/sync-status.js";
+import { fillMissingFoodDetails, stillBlank, applyPublishedGi } from "./js/food-reference.js";
 import { fieldSvg } from "./js/doodle-field.js";
 import { abstractSvg } from "./js/abstract-field.js";
 import { percentile, dailyPatternBuckets, daysSpanned, estimatedA1c, glucoseSummaryStats, timeInRangeBreakdown, glucoseGuideRows, TIME_IN_RANGE_BANDS } from "./js/glucose-stats.js";
@@ -619,8 +620,41 @@ import { createDialogs } from "./js/dialogs.js";
     if (name === "library") renderLibrary();
     if (name === "history") { historyLimit = PAGE_SIZE; renderHistory(); }
     if (name === "settings") renderSettings();
+    if (!restoringPlace) rememberPlace(name);
   }
   tabs.forEach(t => t.addEventListener("click", () => showView(t.dataset.target)));
+
+  // ----- Reopen where you left off -----
+  // The screen you were on and how far down it you were are kept on this device; the app reopens there if it was left less than
+  // PLACE_TTL ago (after a longer break the first screen is the useful one). A meal in progress is kept separately (DRAFT_KEY).
+  const PLACE_KEY = "insulinBuddy.place";
+  const PLACE_TTL = 6 * 3600 * 1000;
+  let restoringPlace = false, placeTimer = null;
+  function readPlace() { try { return JSON.parse(localStorage.getItem(PLACE_KEY)) || null; } catch { return null; } }
+  function currentViewName() { const v = Array.from(views).find(x => !x.hidden); return v ? v.id.replace(/^view-/, "") : "calculator"; }
+  function rememberPlace(viewName) {
+    try {
+      const old = readPlace(), scroll = (old && old.scroll) || {};
+      const name = viewName || currentViewName();
+      scroll[name] = Math.round(window.scrollY || document.documentElement.scrollTop || 0);
+      localStorage.setItem(PLACE_KEY, JSON.stringify({ view: name, scroll, at: Date.now() }));
+    } catch {}
+  }
+  window.addEventListener("scroll", () => { clearTimeout(placeTimer); placeTimer = setTimeout(() => { if (!restoringPlace) rememberPlace(); }, 250); }, { passive: true });
+  document.addEventListener("visibilitychange", () => { if (document.hidden) rememberPlace(); });
+  window.addEventListener("pagehide", () => rememberPlace());
+  function restorePlace() {
+    const p = readPlace();
+    if (!p || !p.view || !Array.from(views).some(v => v.id === "view-" + p.view) || Date.now() - (p.at || 0) > PLACE_TTL) return false;
+    restoringPlace = true;
+    showView(p.view);
+    const y = (p.scroll && p.scroll[p.view]) || 0;
+    if (y > 0) {
+      const go = () => window.scrollTo(0, y);
+      go(); requestAnimationFrame(() => { go(); setTimeout(() => { go(); restoringPlace = false; }, 150); });
+    } else setTimeout(() => { restoringPlace = false; }, 150);
+    return true;
+  }
 
   // ================= Time helpers =================
   function toMinutes(hhmm) {
@@ -3324,7 +3358,7 @@ import { createDialogs } from "./js/dialogs.js";
           <p class="lib-item__name">${escapeHtml(f.name)}</p>
           <div class="lib-item__badges">
             ${categoryBadge(f.category)}
-            ${f.gi != null ? `<span class="lib-item__badge cat-other">GI ${f.gi}</span>` : ""}
+            ${f.gi != null ? `<span class="lib-item__badge cat-other"${(f.estimated || []).includes("gi") ? ` title="Filled from a typical value"` : ""}>GI ${(f.estimated || []).includes("gi") ? "~" : ""}${f.gi}</span>` : ""}
           </div>
           <p class="lib-item__meta"><span class="c-carbs">${f.carbs}g carbs</span>${f.kcal ? ` · <span class="c-kcal">~${f.kcal} kcal</span>` : ""} <span class="lib-item__usage">· ${f.usageCount || 0}×</span></p>
           ${f.unitBased ? `<p class="lib-item__note">1 ${escapeHtml(f.unitLabel)} = ${f.gramsPerUnit}g → ${round1(f.carbs * f.gramsPerUnit / 100)}g carbs</p>` : ""}
@@ -3372,6 +3406,16 @@ import { createDialogs } from "./js/dialogs.js";
   // Newest first. version-badge-text/version-summary-text in the Settings
   // card are always drawn from CHANGELOG[0], so the two can never drift.
   const CHANGELOG = [
+    {
+      version: "2.27.0",
+      summary: "Reopens where you left off; one home for food reference data.",
+      changes: ["The app now reopens on the screen you were on, scrolled to the same place, if you left it within the last 6 hours. After a longer break it opens on the calculator as before. A meal in progress was already kept","Under the hood: the built-in glycaemic index values now live in the same file as the fill-missing-details reference, so a correction is made in one place. Nothing changes in what you see"]
+    },
+    {
+      version: "2.26.0",
+      summary: "Fill in missing food details with typical values.",
+      changes: ["Settings > Data > Fill missing food details: fills blank glycaemic index, fat, protein, salt and calories with typical values for the foods you already have. It only fills empty fields, never changes anything you entered, and offers Undo. Filled GIs show as GI ~55 and the food's edit sheet says which values were estimated","Zero-carb foods (meat, fish, eggs, cheese, oil) are left without a GI on purpose, as are foods I could not estimate honestly"]
+    },
     {
       version: "2.25.1",
       summary: "The sync indicator now lives in Settings, where it can be seen.",
@@ -4121,6 +4165,7 @@ import { createDialogs } from "./js/dialogs.js";
           <label>Glycemic Index <span class="field__optional">(optional)</span></label>
           <input type="number" id="fs-gi" value="${f.gi ?? ""}" step="1" min="0" max="110" placeholder="e.g., 55">
         </div>
+        ${Array.isArray(f.estimated) && f.estimated.length ? `<p class="panel-card__hint" style="margin:-4px 0 12px;">Filled from typical values: ${f.estimated.map(k => ({ gi: "GI", fat: "fat", protein: "protein", salt: "salt", kcal: "calories" }[k] || k)).join(", ")}. Change any you know better.</p>` : ""}
 
         <div class="checkbox-row" style="margin-top:18px;">
           <label><input type="checkbox" id="fs-unit-based" ${f.unitBased ? "checked" : ""}> Log this by quantity, not weight</label>
@@ -4181,8 +4226,11 @@ import { createDialogs } from "./js/dialogs.js";
         unitLabel: unitBased ? unitLabel : null,
         gramsPerUnit: unitBased ? gramsPerUnit : null
       };
-      if (isEdit) Object.assign(f, payload);
-      else state.library.unshift({ id: "food-" + Date.now(), usageCount: 0, ...payload });
+      if (isEdit) {
+        // a value you changed is yours now, no longer an estimate
+        if (Array.isArray(f.estimated)) { const keep = f.estimated.filter(k => payload[k] === f[k]); if (keep.length) payload.estimated = keep; else delete f.estimated; }
+        Object.assign(f, payload);
+      } else state.library.unshift({ id: "food-" + Date.now(), usageCount: 0, ...payload });
       saveState();
       renderFoodsLibrary();
       closeSheet(backdrop);
@@ -6220,6 +6268,22 @@ import { createDialogs } from "./js/dialogs.js";
 
   el("btn-import-library").addEventListener("click", () => el("import-file-input").click());
 
+  // Fill blank GI / fat / protein / salt with typical values (js/food-reference.js). Only ever fills EMPTY fields; undo is offered straight after.
+  el("btn-fill-foods").addEventListener("click", async () => {
+    const trial = fillMissingFoodDetails(structuredClone(state.library));
+    if (!trial.changes.length) { await dialogs.alert("Nothing to fill: every food I have typical values for already has them.", { title: "Fill missing details" }); return; }
+    const gi = trial.changes.filter(c => c.field === "gi").length, other = trial.changes.length - gi;
+    const ok = await dialogs.confirm(`This fills ${trial.changes.length} blanks across ${trial.foodsTouched} foods: ${gi} glycaemic index values and ${other} fat / protein / salt / calorie values.\n\nThey are typical values for the food, not measurements of your exact product. Filled GIs show as "GI ~55" so you can spot them, and the GI changes how fast the app counts carbs as absorbing.\n\nNothing you already entered is changed, and you can undo right after.`, { title: "Fill missing details", confirmText: "Fill them in" });
+    if (!ok) return;
+    const before = structuredClone(state.library);
+    const done = fillMissingFoodDetails(state.library);
+    saveState(); renderLibrary(); renderSettings(); renderActivePanel();
+    const left = stillBlank(state.library).filter(x => x.missing.includes("gi") && (state.library.find(f => f.id === x.id).carbs || 0) >= 5).length;
+    showUndoToast(`Filled ${done.changes.length} blanks${left ? ` · ${left} foods still need a GI` : ""}`, () => {
+      state.library = before; saveState(); renderLibrary(); renderSettings(); renderActivePanel();
+    }, { ms: 12000 });
+  });
+
   // Imports foods and/or recipes from one file's text. A recipe CSV is recognised by its "ingredients" column
   // (it is what Export Library writes as Recipe_export.csv). Items are matched by name (case-insensitive).
   const truthy = v => /^(true|1|yes|y|vero|si|sì)$/i.test(String(v ?? "").trim());
@@ -6471,27 +6535,8 @@ import { createDialogs } from "./js/dialogs.js";
   });
 
   // ================= Init =================
-  // One-time patch: adds Glycemic Index values to existing library foods that
-  // match by name, for anyone whose library was already saved before this
-  // feature existed (seed data in foods_data.js only ever populates a BRAND
-  // NEW install — it can't retroactively update a library that's already
-  // sitting in someone's browser). Only ever sets the gi field, never touches
-  // anything else, and never overwrites a gi value someone's already set.
-  const GI_SEED_MAP = {
-    "Mela": 36, "Riso Integrale": 68, "Pane Integrale": 74, "Orange": 43, "Piselli (frozen)": 51,
-    "Polenta": 68, "Fagioli": 24, "Riso Nero": 42, "Pasta di semola": 53, "Ananas": 59, "Mango": 51,
-    "Lenticchie bollite": 32, "Fragole": 40, "Riso Cotto": 73, "Ceci cotti": 28, "Uva": 59,
-    "Apple Juice": 41, "Riso": 73, "Patate gialle": 78, "Pane comune": 75, "Pane in cassetta": 75,
-    "Ciliegie": 22, "Pasta all'uovo": 49, "Patate dolci": 63, "Latte semiskimmed": 32, "Parsnip": 52,
-    "Zucchero": 65, "Additional sugar": 65, "Gnocchi di patate": 68, "Miele": 61, "Banana": 51,
-    "Tortilla": 52, "Pesca": 42, "Oat": 55, "Lenticchie cotte": 32, "Lenticchie secche": 32,
-    "Piadina": 67, "Pear": 38, "Berries": 40, "Quinoa": 53, "Cuscus crudo": 65,
-    "Fette Biscottate (each)": 70, "Marmellata": 49, "Dried apricot": 30, "Ceci secchi": 28,
-    "Fagioli secchi": 24, "Croissant (Gails)": 67,
-    "Special K": 69, "Wrap": 52, "Gelato": 57, "Hummus": 6, "Peanut Butter": 14,
-    "Corn on Cobs": 52, "Butternut squash": 51, "Avocado": 15, "Dry roasted peanuts": 14,
-    "Croutons": 70, "Cracker misura": 65, "Pangrattato": 70, "Barley (orzo) secco": 28, "Yogurt": 35
-  };
+  // One-time patch: adds Glycemic Index values to existing library foods that match by name (the published values live in
+  // js/food-reference.js, the one place for food reference data). Only ever sets the gi field, never overwrites one that is set.
   // A food with a unit name and a weight per unit is logged by quantity. Older imports only understood the exact
   // text "true", so foods whose file said "True"/"TRUE"/"1" lost the flag but kept the unit and its weight.
   function repairQuantityFoods() {
@@ -6549,14 +6594,7 @@ import { createDialogs } from "./js/dialogs.js";
   }
 
   function applyGiSeedPatch() {
-    let changed = false;
-    state.library.forEach(f => {
-      if (f.gi == null && GI_SEED_MAP[f.name] != null) {
-        f.gi = GI_SEED_MAP[f.name];
-        changed = true;
-      }
-    });
-    if (changed) saveState();
+    if (applyPublishedGi(state.library)) saveState();
   }
 
   function isDarkModeActive() {
@@ -6631,7 +6669,7 @@ import { createDialogs } from "./js/dialogs.js";
     restoreDraftIfAny();
     renderActivePanel();
     renderRecentMeals();
-    showView("calculator");
+    if (!restorePlace()) showView("calculator");
     syncTabbarHeightVar();
     window.addEventListener("resize", syncTabbarHeightVar);
 
