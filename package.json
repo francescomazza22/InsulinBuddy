@@ -1,6 +1,6 @@
 {
   "name": "insulin-buddy",
-  "version": "2.28.2",
+  "version": "2.29.0",
   "private": true,
   "type": "module",
   "description": "Insulin Buddy: a dependency-free insulin & carb calculator PWA",
