@@ -31,7 +31,7 @@
     <g id='ring'><circle r='3.4'/></g>
     <g id='dot'><circle r='2.4'/></g>
 </defs>
-<g fill='none' stroke='%STROKE%' stroke-opacity='%OPACITY%' stroke-width='2.8' stroke-linecap='round' stroke-linejoin='round'>
+<g fill='none' stroke='%STROKE%' stroke-opacity='%OPACITY%' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'>
   <use href='#cup' transform='translate(56.8 105.5) rotate(16.2) scale(1.2)'/>
   <use href='#apple' transform='translate(242.4 302.7) rotate(-36.9) scale(1.28)'/>
   <use href='#carrot' transform='translate(79.1 277.6) rotate(-39.5) scale(1.16)'/>

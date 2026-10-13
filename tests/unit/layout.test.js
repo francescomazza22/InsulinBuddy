@@ -13,7 +13,7 @@ test("the rail breakpoint in app.js is the same one the CSS uses (else the Log b
   assert.ok(js, "RAIL_QUERY not found in app.js");
   const breakpoints = [...block.matchAll(/@media \(min-width: (\d+)px\)/g)].map(m => m[1]);
   assert.ok(breakpoints.includes(js[1]), `app.js says ${js[1]}px but the CSS responsive block uses ${breakpoints.join(", ")}`);
-  assert.deepEqual(breakpoints, [js[1], "1000"], "the block should be exactly the rail breakpoint, then the wide one");
+  assert.deepEqual(breakpoints, [js[1], "1000", "1500"], "the block should be exactly the rail breakpoint, the wide one, then the large-screen one");
 });
 
 test("the responsive block exists, sits before the print rules, and the old partial wide-screen rules are gone", () => {

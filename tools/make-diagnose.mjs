@@ -21,20 +21,21 @@ export function buildExpect(root) {
   // Tokens a file must contain to count as "this version". They are what lets the page say WHICH feature an old
   // file is missing, rather than just "different". Version-bound ones follow sw.js automatically.
   const musts = {
-    "index.html": ["btn-log-basal", "btn-glucose-guide", "cc-cap-note", "calc-side", "hadController", "trend-card-basal", "bg-pattern-grid", "bg-pattern-size"],
-    "app.js": [`version: "${version}"`, "capDoseParts", "isBasalEntry", "trackVisualViewport", "pagePinned", "RAIL_QUERY", "buildBasalChartSvg", "applyBackgroundPattern", "backgroundPatternSize", "backgroundPatternOf"],
-    "style.css": [".dose-card__cap-note", ".basal-add-btn", ".glucose-guide", "--vv-height", "overscroll-behavior: contain", "RESPONSIVE LAYOUT", "trend-chart__bar--basal-am", "DOODLE-PATTERN:START", "--doodle-tile", "%3Cuse%20href=", "ABSTRACT-PATTERN"],
+    "index.html": ["btn-log-basal", "btn-glucose-guide", "cc-cap-note", "calc-side", "hadController", "trend-card-basal", "bg-pattern-grid", "bg-pattern-size", "cc-correction-manual-error"],
+    "app.js": [`version: "${version}"`, "capDoseParts", "isBasalEntry", "trackVisualViewport", "pagePinned", "RAIL_QUERY", "buildBasalChartSvg", "applyBackgroundPattern", "backgroundPatternSize", "backgroundPatternOf", "parseDecimalInput"],
+    "style.css": [".dose-card__cap-note", ".basal-add-btn", ".glucose-guide", "--vv-height", "overscroll-behavior: contain", "RESPONSIVE LAYOUT", "trend-chart__bar--basal-am", "DOODLE-PATTERN:START", "--doodle-tile", "%3Cuse%20href=", "ABSTRACT-PATTERN", ".sheet .sheet-actions", "correction-row__manual-error"],
     "sw.js": [`CACHE_VERSION = "${version}"`],
     "js/calc.js": ["export function capDoseParts", "export function basalByDay"],
     "js/history.js": ["export function makeBasalEntry"],
     "js/nightscout.js": ['entryType === "basal"'],
-    "js/glucose-stats.js": ["export function glucoseGuideRows"]
+    "js/glucose-stats.js": ["export function glucoseGuideRows"],
+    "js/util.js": ["export function parseDecimalInput"]
   };
   const files = {};
   const list = dir => fs.existsSync(path.join(root, dir)) ? fs.readdirSync(path.join(root, dir)).sort().map(n => dir + "/" + n) : [];
   const patternFiles = list("assets/patterns").filter(f => f.endsWith(".svg"));      // the Abstract background's artwork: fingerprinted
   const iconFiles = list("assets/icons").filter(f => /\.(png|svg|ico)$/.test(f));       // the icons: they only need to be there
-  for (const f of ["index.html", "app.js", "style.css", "sw.js", ...patternFiles, ...fs.readdirSync(path.join(root, "js")).filter(n => n.endsWith(".js")).sort().map(n => "js/" + n)]) {
+  for (const f of ["index.html", "app.js", "style.css", "sw.js", "vendor/supabase.js", ...patternFiles, ...fs.readdirSync(path.join(root, "js")).filter(n => n.endsWith(".js")).sort().map(n => "js/" + n)]) {
     const data = read(f);
     files[f] = { sha: sha(fingerprint(f, data)), size: data.length, must: musts[f] || [] };
   }

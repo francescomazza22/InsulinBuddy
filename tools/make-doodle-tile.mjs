@@ -11,7 +11,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 export const TILE = 360;
-export const STROKE = 2.8;
+export const STROKE = 1.5;
 export const SEED = 20261007;
 
 // Simple original line art, drawn around (0, 0). r is a generous radius used to keep doodles from touching.
