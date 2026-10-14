@@ -2,6 +2,11 @@
 // summary can never drift. Bump CHANGELOG[0].version here (and CACHE_VERSION in sw.js) on every release.
 export const CHANGELOG = [
   {
+    version: "2.32.0",
+    summary: "Under the hood: one storage layer for everything saved on your device.",
+    changes: ["Nothing should look different. Every read and write of saved data now goes through one tested module, so a blocked or full device can't crash the app, failures are written to the diagnostics log, and saved data now has a version number so future changes can upgrade it safely"]
+  },
+  {
     version: "2.31.0",
     summary: "Under the hood: the app's logic now lives in separate, tested modules.",
     changes: ["Nothing should look or behave differently. Meal logging, library import and export, recipe totals and the time-of-day ratio logic moved out of the screen code into a new js/core folder with its own tests, a first step toward a native app"]

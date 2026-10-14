@@ -19,6 +19,7 @@ import { createDialogs } from "./js/dialogs.js";
 import { toMinutes, inRange, ratioAt, autoMealType, formatDuration, clampNum } from "./js/core/time.js";
 import { toCsv, parseCsv, recipeTotals as recipeTotalsWith, parseLibraryFile, mergeLibrary } from "./js/core/library.js";
 import { buildMealEntry, adjustUsage } from "./js/core/meal-entry.js";
+import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS } from "./js/core/storage.js";
 
 
   const STORAGE_KEY = "insulinBuddy.v2";
@@ -47,8 +48,10 @@ import { buildMealEntry, adjustUsage } from "./js/core/meal-entry.js";
   let lastKnownCloudHistoryCount = null; // baseline for the data-loss guard in saveStateCloud()
   let lastKnownCloudHistoryIds = null;   // ...and exactly WHICH meals the cloud had, so a deliberate delete can be told from an accident
   let cloudSaveBlocked = null; // { fromCount, toCount } when the guard below trips, else null
+  // All device storage goes through this one object (js/core/storage.js); failures are noted in the diagnostics log.
+  const store = createStorage(localStorageBackend(), { onError: (op, key, err) => { try { diag.log("warn", "storage", `${op} failed for ${key}: ${err && err.message}`); } catch { /* diag not ready yet */ } } });
   const PENDING_SYNC_KEY = "insulinBuddy.pendingSync";
-  let cloudSyncPending = localStorage.getItem(PENDING_SYNC_KEY) === "1";
+  let cloudSyncPending = store.getItem(PENDING_SYNC_KEY) === "1";
 
   const CATEGORIES = [
     { id: "fruits", label: "Fruits" },
@@ -156,7 +159,7 @@ import { buildMealEntry, adjustUsage } from "./js/core/meal-entry.js";
   let encryptionKey = null; // the derived CryptoKey, kept in memory (plus sessionStorage, see above) only while unlocked
 
   function getLockConfig() {
-    try { return JSON.parse(localStorage.getItem(LOCK_KEY) || "null"); } catch { return null; }
+    try { return JSON.parse(store.getItem(LOCK_KEY) || "null"); } catch { return null; }
   }
   function isLockEnabled() { return !!getLockConfig(); }
 
@@ -201,7 +204,7 @@ import { buildMealEntry, adjustUsage } from "./js/core/meal-entry.js";
   })();
   function faceIdSupported() { return faceIdHardwareAvailable; }
   faceIdHardwareCheck.then(() => { if (state && !el("view-settings").hidden) renderPrivacySection(); });
-  function isFaceIdEnabled() { return !!localStorage.getItem(FACEID_CRED_KEY); }
+  function isFaceIdEnabled() { return !!store.getItem(FACEID_CRED_KEY); }
 
   /** Registers a new platform-authenticator (Face ID / Touch ID) credential, then stashes the
    * *already-unlocked* key so a future WebAuthn success can reveal it without retyping the
@@ -222,12 +225,12 @@ import { buildMealEntry, adjustUsage } from "./js/core/meal-entry.js";
         timeout: 60000
       }
     });
-    localStorage.setItem(FACEID_CRED_KEY, toB64(new Uint8Array(cred.rawId)));
-    localStorage.setItem(DURABLE_KEY_STORAGE, await exportKeyRaw(encryptionKey));
+    store.mustSet(FACEID_CRED_KEY, toB64(new Uint8Array(cred.rawId)));
+    store.mustSet(DURABLE_KEY_STORAGE, await exportKeyRaw(encryptionKey));
   }
   function disableFaceId() {
-    localStorage.removeItem(FACEID_CRED_KEY);
-    localStorage.removeItem(DURABLE_KEY_STORAGE);
+    store.removeItem(FACEID_CRED_KEY);
+    store.removeItem(DURABLE_KEY_STORAGE);
   }
   /** Prompts Face ID / Touch ID; on success, reveals the stashed key and re-verifies it against
    * the account's own check value before trusting it (same defensive pattern as
@@ -235,13 +238,13 @@ import { buildMealEntry, adjustUsage } from "./js/core/meal-entry.js";
    * misbehaving). Returns false on any failure, cancellation, or unavailability -- callers
    * always keep the plain passphrase field as a fallback, never Face-ID-only. */
   async function unlockWithFaceId(lockCfg) {
-    const credId = localStorage.getItem(FACEID_CRED_KEY);
+    const credId = store.getItem(FACEID_CRED_KEY);
     if (!credId || !lockCfg) return false;
     try {
       await navigator.credentials.get({
         publicKey: { challenge: randomBytes(32), allowCredentials: [{ id: fromB64(credId), type: "public-key" }], userVerification: "required", timeout: 60000 }
       });
-      const raw = localStorage.getItem(DURABLE_KEY_STORAGE);
+      const raw = store.getItem(DURABLE_KEY_STORAGE);
       if (!raw) return false;
       const key = await importKeyRaw(raw);
       const check = await decryptString(key, lockCfg.verifier);
@@ -258,7 +261,7 @@ import { buildMealEntry, adjustUsage } from "./js/core/meal-entry.js";
     const salt = randomBytes(16);
     const key = await deriveKey(passphrase, salt);
     const verifier = await encryptString(key, "insulin-buddy-unlock-check");
-    localStorage.setItem(LOCK_KEY, JSON.stringify({ salt: toB64(salt), verifier }));
+    store.mustSet(LOCK_KEY, JSON.stringify({ salt: toB64(salt), verifier }));
     encryptionKey = key;
     disableFaceId(); // any previously-enrolled Face ID unlock was tied to the old passphrase's key
     await persistSessionKey(key);
@@ -281,7 +284,7 @@ import { buildMealEntry, adjustUsage } from "./js/core/meal-entry.js";
   }
   async function removePassphrase() {
     await saveStateRaw(state, null); // force a plaintext local write while we still have the key
-    localStorage.removeItem(LOCK_KEY);
+    store.removeItem(LOCK_KEY);
     encryptionKey = null;
     clearSessionKey();
     disableFaceId();
@@ -291,7 +294,7 @@ import { buildMealEntry, adjustUsage } from "./js/core/meal-entry.js";
   let localWasLegacy = false; // true when the saved copy predates the versioned schema (or doesn't exist)
   function loadStatePlain() {
     try {
-      const raw = localStorage.getItem(STORAGE_KEY);
+      const raw = store.getItem(STORAGE_KEY);
       if (!raw) { localWasLegacy = true; return normalizeState({}); }
       const parsed = JSON.parse(raw);
       localWasLegacy = parsed.schemaVersion !== SCHEMA_VERSION;
@@ -304,7 +307,7 @@ import { buildMealEntry, adjustUsage } from "./js/core/meal-entry.js";
     }
   }
   async function loadStateEncrypted(key) {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = store.getItem(STORAGE_KEY);
     if (!raw) { localWasLegacy = true; return normalizeState({}); }
     const payload = JSON.parse(raw);
     const json = await decryptString(key, payload);
@@ -328,7 +331,7 @@ import { buildMealEntry, adjustUsage } from "./js/core/meal-entry.js";
   // ================= Services: dialogs, diagnostics, local backups, Nightscout =================
   const dialogs = createDialogs(document);
   const diagSecrets = () => { try { return [nightscoutToken()]; } catch { return []; } };
-  const diag = createDiag({ storage: localStorage, secrets: diagSecrets });
+  const diag = createDiag({ storage: store, secrets: diagSecrets });
   hookGlobalErrors(window, diag);
 
   // Rolling local snapshots: a safety net under sync/merge, import and delete-all.
@@ -342,13 +345,13 @@ import { buildMealEntry, adjustUsage } from "./js/core/meal-entry.js";
       let payload = json, encrypted = false;
       if (encryptionKey) { payload = JSON.stringify(await encryptString(encryptionKey, json)); encrypted = true; }
       await backups.snapshot(payload, { reason, meals: st.history.length, foods: st.library.length, encrypted });
-      localStorage.setItem(LAST_SNAPSHOT_KEY, String(Date.now()));
+      store.setItem(LAST_SNAPSHOT_KEY, String(Date.now()));
       diag.log("info", "backup", `Snapshot saved (${reason}): ${st.history.length} meals`);
     } catch (e) { diag.log("warn", "backup", "Snapshot failed: " + ((e && e.message) || e)); }
   }
   function maybeAutoSnapshot() {
-    const last = Number(localStorage.getItem(LAST_SNAPSHOT_KEY)) || 0;
-    if (shouldAutoSnapshot(last, Date.now())) { localStorage.setItem(LAST_SNAPSHOT_KEY, String(Date.now())); snapshotNow("auto"); }
+    const last = Number(store.getItem(LAST_SNAPSHOT_KEY)) || 0;
+    if (shouldAutoSnapshot(last, Date.now())) { store.setItem(LAST_SNAPSHOT_KEY, String(Date.now())); snapshotNow("auto"); }
   }
 
   // Nightscout: one client (proxy first, direct fallback) + a persistent outbox.
@@ -360,7 +363,7 @@ import { buildMealEntry, adjustUsage } from "./js/core/meal-entry.js";
     onStatus: (kind, ok, via, message) => recordNightscoutStatus(kind, ok, via, message)
   });
   const nsOutbox = new NsOutbox({
-    storage: localStorage, client: nsClient, diag,
+    storage: store, client: nsClient, diag,
     getConfig: () => nsCfg(),
     onEntryPatch: (entryId, patch) => {
       const entry = state.history.find(h => h.id === entryId);
@@ -520,12 +523,12 @@ import { buildMealEntry, adjustUsage } from "./js/core/meal-entry.js";
   }
   function markPending() {
     cloudSyncPending = true;
-    localStorage.setItem(PENDING_SYNC_KEY, "1");
+    store.mustSet(PENDING_SYNC_KEY, "1");
     renderSyncStatus();
   }
   function markSynced() {
     cloudSyncPending = false;
-    localStorage.removeItem(PENDING_SYNC_KEY);
+    store.removeItem(PENDING_SYNC_KEY);
     renderSyncStatus();
   }
   function renderSyncStatus() {
@@ -571,9 +574,9 @@ import { buildMealEntry, adjustUsage } from "./js/core/meal-entry.js";
   async function saveStateRaw(s, key) {
     if (key) {
       const payload = await encryptString(key, JSON.stringify(s));
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+      store.mustSet(STORAGE_KEY, JSON.stringify(payload));
     } else {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(s));
+      store.mustSet(STORAGE_KEY, JSON.stringify(s));
     }
   }
   async function saveState() {
@@ -636,14 +639,14 @@ import { buildMealEntry, adjustUsage } from "./js/core/meal-entry.js";
   const PLACE_KEY = "insulinBuddy.place";
   const PLACE_TTL = 6 * 3600 * 1000;
   let restoringPlace = false, placeTimer = null;
-  function readPlace() { try { return JSON.parse(localStorage.getItem(PLACE_KEY)) || null; } catch { return null; } }
+  function readPlace() { try { return JSON.parse(store.getItem(PLACE_KEY)) || null; } catch { return null; } }
   function currentViewName() { const v = Array.from(views).find(x => !x.hidden); return v ? v.id.replace(/^view-/, "") : "calculator"; }
   function rememberPlace(viewName) {
     try {
       const old = readPlace(), scroll = (old && old.scroll) || {};
       const name = viewName || currentViewName();
       scroll[name] = Math.round(window.scrollY || document.documentElement.scrollTop || 0);
-      localStorage.setItem(PLACE_KEY, JSON.stringify({ view: name, scroll, at: Date.now() }));
+      store.setItem(PLACE_KEY, JSON.stringify({ view: name, scroll, at: Date.now() }));
     } catch {}
   }
   window.addEventListener("scroll", () => { clearTimeout(placeTimer); placeTimer = setTimeout(() => { if (!restoringPlace) rememberPlace(); }, 250); }, { passive: true });
@@ -2345,7 +2348,7 @@ import { buildMealEntry, adjustUsage } from "./js/core/meal-entry.js";
   const DRAFT_KEY = "insulinBuddy.draft";
   function saveDraftLocal() {
     try {
-      localStorage.setItem(DRAFT_KEY, JSON.stringify({
+      store.setItem(DRAFT_KEY, JSON.stringify({
         items: draft.items,
         correctionOn: draft.correctionOn,
         correctionManual: draft.correctionManual,
@@ -2361,11 +2364,11 @@ import { buildMealEntry, adjustUsage } from "./js/core/meal-entry.js";
   }
   function loadDraftLocal() {
     try {
-      const raw = localStorage.getItem(DRAFT_KEY);
+      const raw = store.getItem(DRAFT_KEY);
       return raw ? JSON.parse(raw) : null;
     } catch (e) { return null; }
   }
-  function clearDraftLocal() { localStorage.removeItem(DRAFT_KEY); }
+  function clearDraftLocal() { store.removeItem(DRAFT_KEY); }
 
   function restoreDraftIfAny() {
     const saved = loadDraftLocal();
@@ -2523,11 +2526,11 @@ import { buildMealEntry, adjustUsage } from "./js/core/meal-entry.js";
   }
 
   // Snapshot / restore of the half-built meal, so "log" and "replace" can be undone without losing what was typed.
-  function snapshotDraft() { saveDraftLocal(); try { return localStorage.getItem(DRAFT_KEY); } catch (e) { return null; } }
+  function snapshotDraft() { saveDraftLocal(); try { return store.getItem(DRAFT_KEY); } catch (e) { return null; } }
   function draftIsEmpty() { return !draft.items.length && !draft.correctionOn && !draft.eatingOutOn && !draft.noInsulinOn; }
   function restoreDraftSnapshot(raw) {
     if (!raw || !draftIsEmpty()) return false;   // never mix a snapshot into something new the person has started since
-    try { localStorage.setItem(DRAFT_KEY, raw); } catch (e) { return false; }
+    try { store.setItem(DRAFT_KEY, raw); } catch (e) { return false; }
     restoreDraftIfAny();
     showView("calculator");
     return true;
@@ -2563,7 +2566,7 @@ import { buildMealEntry, adjustUsage } from "./js/core/meal-entry.js";
       adjustUsage(state.library, state.recipes, usedItems, -1);
       saveState();
       queueNsDelete(entry);
-      try { const r = readReminder(); if (r && r.mealTs === entry.ts) { localStorage.removeItem(REMINDER_KEY); renderReminder(); } } catch (e) { /* no reminder to clear */ }
+      try { const r = readReminder(); if (r && r.mealTs === entry.ts) { store.removeItem(REMINDER_KEY); renderReminder(); } } catch (e) { /* no reminder to clear */ }
       renderHistory(); renderActivePanel(); renderRecentMeals();
       restoreDraftSnapshot(draftBefore);
     });
@@ -2631,18 +2634,18 @@ import { buildMealEntry, adjustUsage } from "./js/core/meal-entry.js";
 
   // After-meal glucose check: a note on the calculator, plus a calendar event (with an alert) you can add in one tap.
   const REMINDER_KEY = "insulinBuddy.checkReminder";
-  const readReminder = () => { try { return JSON.parse(localStorage.getItem(REMINDER_KEY)); } catch { return null; } };
+  const readReminder = () => { try { return JSON.parse(store.getItem(REMINDER_KEY)); } catch { return null; } };
   function setReminderFor(entry) {
     const hrs = Number(state.settings.checkAfterHours) || 0;
     if (!hrs || entry.noInsulin || (Number(entry.mealDose) || 0) + (Number(entry.correctionDose) || 0) <= 0) return;
-    try { localStorage.setItem(REMINDER_KEY, JSON.stringify({ due: entry.ts + hrs * 3600000, mealTs: entry.ts, hours: hrs, label: entry.mealType || "meal" })); } catch { /* no storage: no reminder */ }
+    try { store.setItem(REMINDER_KEY, JSON.stringify({ due: entry.ts + hrs * 3600000, mealTs: entry.ts, hours: hrs, label: entry.mealType || "meal" })); } catch { /* no storage: no reminder */ }
     renderReminder();
   }
   function renderReminder() {
     const box = el("cc-reminder");
     if (!box) return;
     const r = readReminder();
-    if (!r || !(Number(state.settings.checkAfterHours) > 0) || Date.now() > r.due + 6 * 3600000) { box.hidden = true; if (r && Date.now() > r.due + 6 * 3600000) { try { localStorage.removeItem(REMINDER_KEY); } catch { /* */ } } return; }
+    if (!r || !(Number(state.settings.checkAfterHours) > 0) || Date.now() > r.due + 6 * 3600000) { box.hidden = true; if (r && Date.now() > r.due + 6 * 3600000) { try { store.removeItem(REMINDER_KEY); } catch { /* */ } } return; }
     const due = new Date(r.due), time = due.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
     const mins = Math.round((r.due - Date.now()) / 60000);
     const isDue = mins <= 0;
@@ -2657,7 +2660,7 @@ import { buildMealEntry, adjustUsage } from "./js/core/meal-entry.js";
       "SUMMARY:Check glucose (Insulin Buddy)", `DESCRIPTION:${r.hours} h after your ${r.label}.`, "BEGIN:VALARM", "TRIGGER:PT0S", "ACTION:DISPLAY", "DESCRIPTION:Check glucose", "END:VALARM", "END:VEVENT", "END:VCALENDAR"].join("\r\n");
   }
   document.addEventListener("click", e => {
-    if (e.target.closest && e.target.closest("#reminder-done")) { try { localStorage.removeItem(REMINDER_KEY); } catch { /* */ } renderReminder(); return; }
+    if (e.target.closest && e.target.closest("#reminder-done")) { try { store.removeItem(REMINDER_KEY); } catch { /* */ } renderReminder(); return; }
     if (e.target.closest && e.target.closest("#reminder-ics")) { const r = readReminder(); if (r) downloadText("check-glucose.ics", reminderIcs(r), "text/calendar"); }
   });
   setInterval(() => { if (!document.hidden) renderReminder(); }, 30000);
@@ -2873,7 +2876,7 @@ import { buildMealEntry, adjustUsage } from "./js/core/meal-entry.js";
   const LIVE_GLUCOSE_CACHE_KEY = "insulinBuddy.liveGlucose";
   const LIVE_GLUCOSE_STALE_MS = 15 * 60 * 1000;
   let liveGlucose = null; // { mgdl, direction, at } -- cached across reloads so the pill isn't blank while the first fetch is in flight
-  try { liveGlucose = JSON.parse(localStorage.getItem(LIVE_GLUCOSE_CACHE_KEY)); } catch (e) { liveGlucose = null; }
+  try { liveGlucose = JSON.parse(store.getItem(LIVE_GLUCOSE_CACHE_KEY)); } catch (e) { liveGlucose = null; }
 
   // ---- the shared glucose store ----
   // ONE place every screen reads recent glucose from (the last 24 hours of Nightscout readings), kept on the device so it is there the
@@ -2884,7 +2887,7 @@ import { buildMealEntry, adjustUsage } from "./js/core/meal-entry.js";
   const GLUCOSE_FULL_REFRESH_MS = 20 * 60_000;   // every so often re-read the whole day, to catch gaps and edited readings
   const glucoseStore = { entries: [], at: 0, fullAt: 0, inflight: null, listeners: new Set() };   // entries newest-first: { sgv, date, direction }
   try {
-    const saved = JSON.parse(localStorage.getItem(GLUCOSE_STORE_KEY) || "null");
+    const saved = JSON.parse(store.getItem(GLUCOSE_STORE_KEY) || "null");
     if (saved && Array.isArray(saved.entries)) { glucoseStore.entries = saved.entries.filter(e => e && typeof e.sgv === "number" && Number.isFinite(e.date)); glucoseStore.at = saved.at || 0; glucoseStore.fullAt = saved.fullAt || 0; }
   } catch (e) { /* no saved readings -- the first refresh fills it */ }
   function glucoseEntriesWithin(hours) {
@@ -2892,11 +2895,11 @@ import { buildMealEntry, adjustUsage } from "./js/core/meal-entry.js";
     return glucoseStore.entries.filter(e => e.date >= from);
   }
   function persistGlucoseStore() {
-    try { localStorage.setItem(GLUCOSE_STORE_KEY, JSON.stringify({ entries: glucoseStore.entries, at: glucoseStore.at, fullAt: glucoseStore.fullAt })); } catch (e) { /* storage full or blocked: still works in memory */ }
+    try { store.setItem(GLUCOSE_STORE_KEY, JSON.stringify({ entries: glucoseStore.entries, at: glucoseStore.at, fullAt: glucoseStore.fullAt })); } catch (e) { /* storage full or blocked: still works in memory */ }
   }
   function resetGlucoseStore() {
     glucoseStore.entries = []; glucoseStore.at = 0; glucoseStore.fullAt = 0;
-    try { localStorage.removeItem(GLUCOSE_STORE_KEY); } catch (e) { /* nothing to do */ }
+    try { store.removeItem(GLUCOSE_STORE_KEY); } catch (e) { /* nothing to do */ }
   }
   function onGlucoseUpdate(fn) { glucoseStore.listeners.add(fn); return () => glucoseStore.listeners.delete(fn); }
   /** Tops the store up. Returns { ok, changed, reason }. Calls made while one is already running share its result. */
@@ -2935,7 +2938,7 @@ import { buildMealEntry, adjustUsage } from "./js/core/meal-entry.js";
         const top = glucoseStore.entries[0];
         if (top) {
           liveGlucose = { mgdl: top.sgv, direction: top.direction || null, at: top.date };
-          try { localStorage.setItem(LIVE_GLUCOSE_CACHE_KEY, JSON.stringify(liveGlucose)); } catch (e) { /* ignore */ }
+          try { store.setItem(LIVE_GLUCOSE_CACHE_KEY, JSON.stringify(liveGlucose)); } catch (e) { /* ignore */ }
         }
         if (incoming.length) saveGlucoseReadings(incoming); // fire-and-forget: the database that History reads keeps accumulating
         persistGlucoseStore();
@@ -4289,13 +4292,13 @@ import { buildMealEntry, adjustUsage } from "./js/core/meal-entry.js";
   // afterwards had been counted into it. The look-back window is the person's choice (2, 3 or 4 hours; 3 by default).
   const IDEAL_WINDOWS = [2, 3, 4], IDEAL_WINDOW_KEY = "insulinBuddy.idealWindowHours";
   let idealWindowHours = 3;
-  try { const v = Number(localStorage.getItem(IDEAL_WINDOW_KEY)); if (IDEAL_WINDOWS.includes(v)) idealWindowHours = v; } catch (e) { /* storage unavailable: keep the default */ }
+  try { const v = Number(store.getItem(IDEAL_WINDOW_KEY)); if (IDEAL_WINDOWS.includes(v)) idealWindowHours = v; } catch (e) { /* storage unavailable: keep the default */ }
   let lastIdealEntries = [];
   const idealPicker = el("trend-ideal-window");
   if (idealPicker) idealPicker.addEventListener("click", ev => {
     const b = ev.target.closest("[data-hours]"); if (!b) return;
     idealWindowHours = Number(b.dataset.hours);
-    try { localStorage.setItem(IDEAL_WINDOW_KEY, String(idealWindowHours)); } catch (e) { /* not essential */ }
+    try { store.setItem(IDEAL_WINDOW_KEY, String(idealWindowHours)); } catch (e) { /* not essential */ }
     renderIdealRatioTrend(lastIdealEntries);
   });
 
@@ -5641,11 +5644,11 @@ import { buildMealEntry, adjustUsage } from "./js/core/meal-entry.js";
     // URL changes it may be stale or from a different site entirely, so drop it rather
     // than show a number that looks live but isn't.
     liveGlucose = null;
-    localStorage.removeItem(LIVE_GLUCOSE_CACHE_KEY);
+    store.removeItem(LIVE_GLUCOSE_CACHE_KEY);
     resetGlucoseStore();
     renderLiveGlucosePill();
   });
-  bind("set-check-after", "change", e => { state.settings.checkAfterHours = Number(e.target.value) || 0; saveState(); if (!state.settings.checkAfterHours) { try { localStorage.removeItem(REMINDER_KEY); } catch { /* */ } } renderReminder(); });
+  bind("set-check-after", "change", e => { state.settings.checkAfterHours = Number(e.target.value) || 0; saveState(); if (!state.settings.checkAfterHours) { try { store.removeItem(REMINDER_KEY); } catch { /* */ } } renderReminder(); });
   bind("ns-format", "change", e => { state.settings.nsFormat = e.target.value === "split" ? "split" : "combined"; saveState(); });
   bind("ns-sync-edits", "change", e => { state.settings.nsSyncEdits = e.target.checked; saveState(); });
   bind("btn-ns-test", "click", () => { testNightscoutConnection(); });
@@ -5660,8 +5663,8 @@ import { buildMealEntry, adjustUsage } from "./js/core/meal-entry.js";
 
   bind("btn-delete-all", "click", async () => {
     if (!confirm("This deletes ALL data — settings, library, recipes and history — permanently. This can't be undone. Continue?")) return;
-    localStorage.removeItem(STORAGE_KEY);
-    localStorage.removeItem(LOCK_KEY);
+    store.removeItem(STORAGE_KEY);
+    store.removeItem(LOCK_KEY);
     encryptionKey = null;
     if (supabaseClient && currentUser) {
       await supabaseClient.from("app_state").delete().eq("user_id", currentUser.id);
@@ -5669,7 +5672,7 @@ import { buildMealEntry, adjustUsage } from "./js/core/meal-entry.js";
     }
     try { await backups.clear(); } catch (e) { /* none */ }
     nsOutbox.jobs = []; nsOutbox._save();
-    [PENDING_SYNC_KEY, LAST_SNAPSHOT_KEY, "insulinBuddy.diag", "insulinBuddy.nsQueue", LIVE_GLUCOSE_CACHE_KEY, GLUCOSE_STORE_KEY].forEach(k => localStorage.removeItem(k));
+    [PENDING_SYNC_KEY, LAST_SNAPSHOT_KEY, "insulinBuddy.diag", "insulinBuddy.nsQueue", LIVE_GLUCOSE_CACHE_KEY, GLUCOSE_STORE_KEY].forEach(k => store.removeItem(k));
     liveGlucose = null;
     diag.clear();
     cloudSyncPending = false; lastKnownCloudUpdatedAt = null; lastKnownCloudHistoryCount = null; lastKnownCloudHistoryIds = null;
@@ -5882,6 +5885,7 @@ import { buildMealEntry, adjustUsage } from "./js/core/meal-entry.js";
   }
 
   async function boot() {
+    runMigrations(store, STORAGE_MIGRATIONS, (lvl, msg, e) => diag.log(lvl, "storage", `${msg}: ${e && e.message}`));
     if (supabaseClient) {
       const loading = el("loading-screen");
       loading.hidden = false;
@@ -5930,7 +5934,7 @@ import { buildMealEntry, adjustUsage } from "./js/core/meal-entry.js";
               // a different one since -- either way, adopt the account's config so this
               // device can be unlocked with the same passphrase (never the passphrase itself,
               // just the salt and a verifier that proves a guess right or wrong).
-              localStorage.setItem(LOCK_KEY, JSON.stringify(requiredLock));
+              store.mustSet(LOCK_KEY, JSON.stringify(requiredLock));
             }
             if (!(await tryRestoreSessionKey(requiredLock))) await showLockScreen();
           }
