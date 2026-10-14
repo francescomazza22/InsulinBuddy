@@ -1,6 +1,6 @@
 import { escapeHtml, escapeAttr, round1, formatQty, dayKeyFromTs, timeAgo, makeId, redact, parseDecimalInput } from "./js/util.js";
 import { convertGlucose, roundDose as roundDoseWith, activeAt, compoundGiInfo, computeDose, checkDoseConsistency, planDose, planEditDose, capDoseParts, giBand, niceScale, buildTrendBuckets, summarizeTrends, mealTypeBreakdown, absorptionMinutesForEntry as absorptionForEntry, iobFraction, cobGrams, glucoseTrendArrow, glucoseRangeClass, glucoseRangeLabel, basalByDay, summarizeBasal, ratioWasApplied, ratioByBracket, idealRatioByBracket } from "./js/calc.js";
-import { SCHEMA_VERSION, normalizeState as normalizeStateWith, makeFingerprint, stampChanges, mergeStates, statesEquivalent, prepareRestoredState, unexplainedEmptying } from "./js/state.js";
+import { SCHEMA_VERSION, normalizeState as normalizeStateWith, makeFingerprint, stampChanges, mergeStates, statesEquivalent, prepareRestoredState } from "./js/state.js";
 import { NightscoutClient, NsOutbox, nsToken, nsBaseUrl, nsConfigured, treatmentsForEntry, entriesToGlucoseRows } from "./js/nightscout.js";
 import { createDiag, hookGlobalErrors } from "./js/diag.js";
 import { postMealCurves, outcomeByBracket, foodImpact, correctionEffectiveness, iobStacking, overnightStats, weekdayWeekend, lowTreatmentUsual, lastTimesFor, isfToMgdl } from "./js/insights.js";
@@ -20,6 +20,7 @@ import { toMinutes, inRange, ratioAt, autoMealType, formatDuration, clampNum } f
 import { toCsv, parseCsv, recipeTotals as recipeTotalsWith, parseLibraryFile, mergeLibrary } from "./js/core/library.js";
 import { buildMealEntry, adjustUsage } from "./js/core/meal-entry.js";
 import { validateState, validateEntry, validateFood, validateRecipe, hasErrors, summarizeProblems } from "./js/core/schema.js";
+import { createCloudSync, supabaseCloudTarget } from "./js/core/cloud-sync.js";
 import { groupEvents, logHealth, isSyncStuck } from "./js/core/problems.js";
 import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS } from "./js/core/storage.js";
 
@@ -47,9 +48,6 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
   // via: "proxy" | "direct" | null (null = never attempted yet)
   let nightscoutReadStatus = { ok: null, via: null, at: null, message: "" };
   let nightscoutWriteStatus = { ok: null, via: null, at: null, message: "" };
-  let lastKnownCloudHistoryCount = null; // baseline for the data-loss guard in saveStateCloud()
-  let lastKnownCloudHistoryIds = null;   // ...and exactly WHICH meals the cloud had, so a deliberate delete can be told from an accident
-  let cloudSaveBlocked = null; // { fromCount, toCount } when the guard below trips, else null
   // All device storage goes through this one object (js/core/storage.js); failures are noted in the diagnostics log.
   const store = createStorage(localStorageBackend(), { onError: (op, key, err) => { try { diag.log("warn", "storage", `${op} failed for ${key}: ${err && err.message}`); } catch { /* diag not ready yet */ } } });
   const PENDING_SYNC_KEY = "insulinBuddy.pendingSync";
@@ -396,98 +394,33 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
   // `prefetched`, when given, is a { data, error } already fetched by the caller (boot() merges
   // this with its own lock-config check into one round-trip, since both need the same row) --
   // skips the query entirely rather than fetching the same row twice.
-  async function loadStateCloud(prefetched) {
-    const { data, error } = prefetched || await supabaseClient
-      .from("app_state").select("data, updated_at, lock").eq("user_id", currentUser.id).maybeSingle();
-    if (error) {
-      console.error("Cloud load failed:", error);
-      diag.log("error", "sync", "Cloud load failed: " + (error.message || error));
-      return { ok: false }; // couldn't reach the cloud -- NOT the same as "no data exists yet"
-    }
-    if (!data) return { ok: true, state: null }; // first sign-in, no row yet -- safe to initialize
-    let raw = data.data;
-    if (isEncryptedPayload(raw)) {
-      // The account is passphrase-protected. By the time we get here boot()'s sign-in
-      // flow should already have made sure encryptionKey is set (adopting this device
-      // to the account's lock config and prompting to unlock first) -- but if it isn't,
-      // fail gracefully rather than trying to treat ciphertext as a state object.
-      if (!encryptionKey) { diag.log("warn", "sync", "Cloud data is encrypted but this device hasn't unlocked yet"); return { ok: false }; }
-      try { raw = JSON.parse(await decryptString(encryptionKey, raw)); }
-      catch (e) { diag.log("error", "sync", "Couldn't decrypt cloud data: " + ((e && e.message) || e)); return { ok: false }; }
-    }
-    return { ok: true, state: normalizeState(raw), updatedAt: data.updated_at };
-  }
-
-  let cloudSaveTimer = null;
+  // The cloud copy's rules (when to upload, when to pull, the data-loss guard) live in js/core/cloud-sync.js; this only plugs
+  // Supabase and the screen into it.
+  const cloudTarget = supabaseCloudTarget({
+    getClient: () => supabaseClient, getUserId: () => currentUser.id, getKey: () => encryptionKey, getLock: () => getLockConfig(),
+    isEncrypted: isEncryptedPayload, encrypt: encryptString, decrypt: decryptString, normalize: normalizeState,
+    log: (level, msg) => diag.log(level, "sync", msg)
+  });
+  const cloud = createCloudSync({
+    target: cloudTarget, getState: () => state,
+    mergeRemote: (remote, reason) => applyRemoteState(remote, reason),
+    onPending: () => markPending(), onSynced: () => markSynced(), onBlocked: () => renderStatusPanel(),
+    log: (level, msg) => diag.log(level, "sync", msg)
+  });
+  const loadStateCloud = prefetched => cloud.fetch(prefetched);
   async function saveStateCloud(force) {
     if (!supabaseClient || !currentUser) return;
-
-    // Data-loss guard: never silently push a history that's collapsed to zero
-    // compared to the last count we confirmed was really in the cloud.
-    // An empty history is only allowed through if every meal the cloud had was
-    // deliberately deleted (each leaves a deletion marker). Anything else that
-    // empties the history is a bug, not a decision, so it must not reach the cloud.
-    if (!force && state.history.length === 0 && lastKnownCloudHistoryIds && lastKnownCloudHistoryIds.size > 0) {
-      const unexplained = unexplainedEmptying(state, lastKnownCloudHistoryIds);
-      if (unexplained.length > 0) {
-        cloudSaveBlocked = { fromCount: lastKnownCloudHistoryIds.size, toCount: 0 };
-        console.error(`Cloud save blocked: history would drop from ${lastKnownCloudHistoryIds.size} to 0.`);
-        diag.log("error", "sync", `Cloud save blocked: history would drop from ${lastKnownCloudHistoryIds.size} to 0 with ${unexplained.length} meals not deliberately deleted`);
-        markPending();
-        renderStatusPanel();
-        return;
-      }
-    }
-
-    clearTimeout(cloudSaveTimer);
-    await new Promise(resolve => {
-      cloudSaveTimer = setTimeout(async () => {
-        try {
-          // Merge first: if another device wrote since we last synced, fold its
-          // changes in BEFORE uploading, so nothing it saved can be overwritten.
-          await pullAndMerge("before save");
-          // When a passphrase is set, upload the encrypted blob, not the raw data -- and carry
-          // the (non-secret) lock config along so any other device signing into this account
-          // knows a passphrase is required, without either of them ever transmitting it.
-          const payloadData = encryptionKey ? await encryptString(encryptionKey, JSON.stringify(state)) : state;
-          const { data: up, error } = await supabaseClient.from("app_state")
-            .upsert({ user_id: currentUser.id, data: payloadData, lock: getLockConfig(), updated_at: new Date().toISOString() })
-            .select("updated_at").maybeSingle();
-          if (error) throw error;
-          lastKnownCloudUpdatedAt = up ? up.updated_at : null;   // unknown => next save re-checks (safe)
-          cloudSaveBlocked = null;
-          lastKnownCloudHistoryCount = state.history.length;
-          lastKnownCloudHistoryIds = new Set(state.history.map(h => h.id));
-          markSynced();
-        } catch (e) {
-          console.error("Cloud save failed (offline?) -- will retry once back online:", e);
-          diag.log("warn", "sync", "Cloud save failed, will retry: " + ((e && e.message) || e));
-          markPending();
-        }
-        resolve();
-      }, 500);
-    });
+    await cloud.save(force);
   }
   // Escape hatch for the rare genuine case (someone really did delete all their
   // history) — bypasses the guard above exactly once, on explicit request.
   // ---- multi-device merge (see js/state.js for the rules) ----
-  let lastKnownCloudUpdatedAt = null; // the cloud row's updated_at as of our last sync
   let stateFp = null;                 // fingerprint of the last saved state, to spot what changed
-  let lastPullAt = 0;
 
   // Cheap check first (just updated_at); only download + merge when someone else wrote.
   async function pullAndMerge(reason) {
     if (!supabaseClient || !currentUser) return false;
-    const head = await supabaseClient.from("app_state").select("updated_at").eq("user_id", currentUser.id).maybeSingle();
-    if (head.error) throw head.error;
-    if (!head.data) return false;
-    lastPullAt = Date.now();
-    if (head.data.updated_at === lastKnownCloudUpdatedAt) return false;
-    const full = await loadStateCloud();
-    if (!full.ok) throw new Error("Couldn't download the cloud copy");
-    if (!full.state) return false;
-    lastKnownCloudUpdatedAt = full.updatedAt;
-    return applyRemoteState(full.state, reason);
+    return cloud.pull(reason);
   }
 
   function applyRemoteState(remote, reason) {
@@ -519,7 +452,7 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
   }
 
   async function forceSyncNow() {
-    cloudSaveBlocked = null;
+    cloud.unblock();
     await saveStateCloud(true);
     renderStatusPanel();
   }
@@ -554,7 +487,7 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
     if (currentUser) {
       try {
         if (cloudSyncPending) await saveStateCloud();                       // merges, then uploads
-        else if (Date.now() - lastPullAt > 15000) await pullAndMerge("returned to app");
+        else if (Date.now() - cloud.lastPullAt > 15000) await pullAndMerge("returned to app");
       } catch (e) { diag.log("warn", "sync", "Background sync failed: " + ((e && e.message) || e)); }
       flushNightscoutQueue();
       return;
@@ -3021,7 +2954,7 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
     const jobs = (nsOutbox && nsOutbox.jobs) || [];
     return summarizeSync({
       online: navigator.onLine !== false,
-      cloud: { configured: !!supabaseClient, signedIn: !!currentUser, blocked: !!cloudSaveBlocked, loadOk: cloudLoadStatus.ok, loadMessage: cloudLoadStatus.message, pending: cloudSyncPending, checkedAt: cloudLoadStatus.at },
+      cloud: { configured: !!supabaseClient, signedIn: !!currentUser, blocked: !!cloud.blocked, loadOk: cloudLoadStatus.ok, loadMessage: cloudLoadStatus.message, pending: cloudSyncPending, checkedAt: cloudLoadStatus.at },
       ns: { configured: nightscoutConfigured(), queued: jobs.length, lastError: nsOutbox ? nsOutbox.lastError() : null, oldestAt: jobs.length ? Math.min(...jobs.map(j => j.createdAt || Date.now())) : null, writeOk: nightscoutWriteStatus.ok, writeAt: nightscoutWriteStatus.at }
     });
   }
@@ -4887,7 +4820,7 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
       "time zone offset (min)": new Date().getTimezoneOffset(),
       "cloud": currentUser ? "signed in" : (supabaseClient ? "signed out" : "not configured"),
       "cloud sync pending": cloudSyncPending,
-      "cloud row updated_at": lastKnownCloudUpdatedAt || "unknown",
+      "cloud row updated_at": cloud.lastUpdatedAt || "unknown",
       "meals / foods / recipes": `${state.history.length} / ${state.library.length} / ${state.recipes.length}`,
       "data check": summarizeProblems(validateState(state)),
       "nightscout host": nsHost,
@@ -4962,8 +4895,8 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
       rows.push(statusRow("Cloud Sync", "off", "Not set up — everything stays only on this device."));
     } else if (!currentUser) {
       rows.push(statusRow("Cloud Sync", "off", "Not signed in — everything stays only on this device."));
-    } else if (cloudSaveBlocked) {
-      rows.push(`<div class="status-row"><span class="status-dot status-dot--error"></span><div><p class="status-row__title">Cloud Sync</p><p class="status-row__detail">Paused — your history would have dropped from ${cloudSaveBlocked.fromCount} to ${cloudSaveBlocked.toCount} entries, which looks like a bug rather than something you did on purpose. Nothing has been synced to protect your data. If you genuinely meant to clear your history, you can override this below.</p><button class="dashed-btn" id="btn-force-sync" type="button" style="margin-top:8px;">Sync anyway</button></div></div>`);
+    } else if (cloud.blocked) {
+      rows.push(`<div class="status-row"><span class="status-dot status-dot--error"></span><div><p class="status-row__title">Cloud Sync</p><p class="status-row__detail">Paused — your history would have dropped from ${cloud.blocked.fromCount} to ${cloud.blocked.toCount} entries, which looks like a bug rather than something you did on purpose. Nothing has been synced to protect your data. If you genuinely meant to clear your history, you can override this below.</p><button class="dashed-btn" id="btn-force-sync" type="button" style="margin-top:8px;">Sync anyway</button></div></div>`);
     } else if (!cloudLoadStatus.ok) {
       rows.push(statusRow("Cloud Sync", "error", cloudLoadStatus.message));
     } else if (cloudSyncPending) {
@@ -5715,7 +5648,7 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
     [PENDING_SYNC_KEY, LAST_SNAPSHOT_KEY, "insulinBuddy.diag", "insulinBuddy.nsQueue", LIVE_GLUCOSE_CACHE_KEY, GLUCOSE_STORE_KEY].forEach(k => store.removeItem(k));
     liveGlucose = null;
     diag.clear();
-    cloudSyncPending = false; lastKnownCloudUpdatedAt = null; lastKnownCloudHistoryCount = null; lastKnownCloudHistoryIds = null;
+    cloudSyncPending = false; cloud.reset();
     state = normalizeState({});
     stateFp = makeFingerprint(state);
     renderEverything();
@@ -5990,9 +5923,7 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
             state = local;
           } else if (result.state) {
             cloudLoadStatus = { ok: true, message: "", at: Date.now() };
-            lastKnownCloudUpdatedAt = result.updatedAt;
-            lastKnownCloudHistoryCount = result.state.history.length;
-            lastKnownCloudHistoryIds = new Set(result.state.history.map(h => h.id));
+            cloud.baseline({ updatedAt: result.updatedAt, history: result.state.history });
             if (localLegacy && !cloudSyncPending) {
               // First run after upgrading (or a brand-new device): the old local copy
               // has no change markers, so the cloud copy is authoritative -- exactly
@@ -6009,8 +5940,7 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
             // device (don't discard it) and create the row from it.
             cloudLoadStatus = { ok: true, message: "", at: Date.now() };
             state = local;
-            lastKnownCloudHistoryCount = 0;
-            lastKnownCloudHistoryIds = new Set();
+            cloud.baseline({ updatedAt: cloud.lastUpdatedAt, history: [] });
             stateFp = makeFingerprint(state);
             await saveStateCloud();
           }

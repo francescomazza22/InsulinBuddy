@@ -2,6 +2,11 @@
 // summary can never drift. Bump CHANGELOG[0].version here (and CACHE_VERSION in sw.js) on every release.
 export const CHANGELOG = [
   {
+    version: "2.37.0",
+    summary: "Under the hood: cloud sync's safety rules are now separate and tested.",
+    changes: ["Nothing should look different. When to upload, when to pull other devices' changes, and the guard that refuses to upload an emptied history now live in one tested module, with Supabase plugged in as the first destination. One real fix: if you saved twice within half a second, the first save used to wait forever instead of finishing"]
+  },
+  {
     version: "2.36.0",
     summary: "A readable event log, and a red dot when sync is stuck.",
     changes: ["Settings > Diagnostics has a new View log button: recent events newest first, in plain names (Nightscout sending, Cloud sync...), repeats folded together, problems picked out in colour, with a Problems only switch", "The Settings tab shows a red dot when sending is genuinely stuck: a real sync problem, or entries waiting more than 30 minutes while you are online. Being offline does not trigger it, and Diagnostics then says what needs attention"]
