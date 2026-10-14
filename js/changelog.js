@@ -2,6 +2,11 @@
 // summary can never drift. Bump CHANGELOG[0].version here (and CACHE_VERSION in sw.js) on every release.
 export const CHANGELOG = [
   {
+    version: "2.34.0",
+    summary: "Under the hood: one dose calculation, fixed test table, and a last check before saving.",
+    changes: ["Doses are now worked out in exactly one place. The calculator and the edit-meal sheet used to each have their own copy of the maths; they now share one, proven identical to the old behaviour on 40,000 random cases, so the dose you see and the dose that is saved cannot disagree", "A table of 38 hand-checked dose scenarios is now part of the tests, so any future change to how doses are calculated has to be deliberate", "Log now re-works the dose from what is on screen and refuses to save if the parts don't add up to the number shown, with a clear message instead"]
+  },
+  {
     version: "2.33.0",
     summary: "Under the hood: a written data contract, checked in code.",
     changes: ["Nothing should look different. The exact shape of your saved data (meals, basal doses, foods, recipes, settings) is now written down in docs/DATA-CONTRACT.md and enforced by a tested checker. Importing a backup skips, and tells you about, any record that would break the app, and Settings diagnostics shows a data check line"]

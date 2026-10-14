@@ -1,5 +1,5 @@
 import { escapeHtml, escapeAttr, round1, formatQty, dayKeyFromTs, timeAgo, makeId, redact, parseDecimalInput } from "./js/util.js";
-import { convertGlucose, roundDose as roundDoseWith, activeAt, compoundGiInfo, computeDose, capDoseParts, giBand, niceScale, buildTrendBuckets, summarizeTrends, mealTypeBreakdown, absorptionMinutesForEntry as absorptionForEntry, iobFraction, cobGrams, glucoseTrendArrow, glucoseRangeClass, glucoseRangeLabel, basalByDay, summarizeBasal, ratioWasApplied, ratioByBracket, idealRatioByBracket } from "./js/calc.js";
+import { convertGlucose, roundDose as roundDoseWith, activeAt, compoundGiInfo, computeDose, checkDoseConsistency, planDose, planEditDose, capDoseParts, giBand, niceScale, buildTrendBuckets, summarizeTrends, mealTypeBreakdown, absorptionMinutesForEntry as absorptionForEntry, iobFraction, cobGrams, glucoseTrendArrow, glucoseRangeClass, glucoseRangeLabel, basalByDay, summarizeBasal, ratioWasApplied, ratioByBracket, idealRatioByBracket } from "./js/calc.js";
 import { SCHEMA_VERSION, normalizeState as normalizeStateWith, makeFingerprint, stampChanges, mergeStates, statesEquivalent, prepareRestoredState, unexplainedEmptying } from "./js/state.js";
 import { NightscoutClient, NsOutbox, nsToken, nsBaseUrl, nsConfigured, treatmentsForEntry, entriesToGlucoseRows } from "./js/nightscout.js";
 import { createDiag, hookGlobalErrors } from "./js/diag.js";
@@ -2095,37 +2095,21 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
     const ratioEntry = activeRatioEntry();
     ratioValueLabel.textContent = ratioEntry ? `1:${ratioEntry.ratio}` : "—";
 
-    // Used exactly as entered, not rounded to the dose step -- like manual correction, this is
-    // a precise record of a decision already made, not a formula's suggestion.
-    let mealPart = ratioEntry && ratioEntry.ratio > 0 ? carbs / ratioEntry.ratio : 0;
-    let mealPartIsManual = false;
-    if (draft.eatingOutOn) {
-      const manualMeal = parseDecimalInput(el("cc-eating-out-dose").value);
-      mealPart = !isNaN(manualMeal) && manualMeal > 0 ? manualMeal : 0;
-      mealPartIsManual = true;
-    }
-
-    let correctionPart = 0;
-    let iobSubtracted = 0;
-    let rawCorrectionPart = 0;
-    let correctionIsManual = false;
+    // All the dose maths lives in planDose (js/calc.js); this screen only gathers what was typed and shows the result.
+    const typedMeal = draft.eatingOutOn ? parseDecimalInput(el("cc-eating-out-dose").value) : NaN;
+    const correctionMode = draft.correctionOn ? (draft.correctionManual ? "manual" : "auto") : "off";
     showDoseEntryProblem("cc-eating-out-dose", "cc-eating-out-error", draft.eatingOutOn);
     showDoseEntryProblem("cc-correction-manual-input", "cc-correction-manual-error", draft.correctionOn && draft.correctionManual);
-    if (draft.correctionOn && draft.correctionManual) {
-      const manual = parseDecimalInput(el("cc-correction-manual-input").value);
-      if (!isNaN(manual) && manual > 0) { correctionPart = manual; correctionIsManual = true; }
-    } else if (draft.correctionOn) {
-      const bg = parseFloat(glucoseInput.value);
-      if (!isNaN(bg) && bg > 0 && state.settings.isf > 0) {
-        const bgInSettingsUnit = convertGlucose(bg, draft.glucoseUnit, state.settings.units);
-        rawCorrectionPart = Math.max(0, (bgInSettingsUnit - state.settings.target) / state.settings.isf);
-        if (state.settings.iobAwareCorrection) {
-          const currentIob = calcActiveInsulinAndCarbs().iob;
-          iobSubtracted = Math.min(rawCorrectionPart, currentIob);
-        }
-        correctionPart = rawCorrectionPart - iobSubtracted;
-      }
-    }
+    const plan = planDose({
+      carbs, ratio: ratioEntry ? ratioEntry.ratio : 0,
+      mealUnits: draft.eatingOutOn ? (!isNaN(typedMeal) && typedMeal > 0 ? typedMeal : 0) : null,
+      correction: correctionMode, glucose: glucoseInput.value, glucoseUnit: draft.glucoseUnit,
+      correctionUnits: parseDecimalInput(el("cc-correction-manual-input").value),
+      iob: correctionMode === "auto" && state.settings.iobAwareCorrection ? calcActiveInsulinAndCarbs().iob : 0,
+      noInsulin: draft.noInsulinOn, settings: state.settings
+    });
+    const { mealPart, correctionPart, iobSubtracted } = plan;
+    const rawCorrectionPart = plan.rawCorrection;
     // Show the working, so a correction can be checked at a glance against the Settings it came from.
     const workingEl = el("cc-correction-working");
     if (workingEl) {
@@ -2147,38 +2131,19 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
       iobNote.hidden = true;
     }
 
-    // Round each part first, then add the already-rounded numbers -- rounding the raw (unrounded)
-    // sum instead can disagree with what the meal and correction pills actually show (e.g. a
-    // 3.15u meal shown as "3u" plus a 0.7u correction shown as "0.5u" should total 3.5u, not the
-    // 4u you'd get by rounding 3.85 on its own).
-    let loggedMealDose = mealPartIsManual ? Math.round(mealPart * 100) / 100 : roundDose(mealPart);
-    // Manual entries are used exactly as typed, not rounded to the usual dose step -- the
-    // point of typing a number directly is precise control, so silently rounding "1.3" to
-    // "1.5" would work against the reason someone chose manual in the first place.
-    let loggedCorrectionDose = correctionIsManual ? Math.round(correctionPart * 100) / 100 : roundDose(correctionPart);
-    // The maximum-dose cap has to reduce the PARTS, not just the number on screen: the entry is saved from these
-    // parts, and capping only the display is how a card showing 15.0 produced a 19.5u log. A dose the person
-    // typed (Eating Out, manual correction) is never altered -- it warns instead.
-    const cap = capDoseParts({ meal: loggedMealDose, correction: loggedCorrectionDose, maxDose: state.settings.maxDose, typed: mealPartIsManual || correctionIsManual });
-    loggedMealDose = cap.meal;
-    loggedCorrectionDose = cap.correction;
-    let finalDose = Math.max(0, cap.total);
-    if (draft.noInsulinOn) {
-      finalDose = 0;
-      loggedMealDose = 0;
-      loggedCorrectionDose = 0;
-    }
+    // The cap reduces the parts that get saved, not just the number shown, and a typed dose is never altered (see planDose).
+    const { mealDose: loggedMealDose, correctionDose: loggedCorrectionDose, finalDose } = plan;
     doseNumber.textContent = finalDose.toFixed(1);
     const capNote = el("cc-cap-note");
-    const showCapNote = !draft.noInsulinOn && (cap.capped || cap.overMax);
+    const showCapNote = !draft.noInsulinOn && (plan.capped || plan.overMax);
     capNote.hidden = !showCapNote;
     if (showCapNote) {
-      capNote.textContent = cap.capped
-        ? `Capped at your ${state.settings.maxDose} u maximum. The calculation came to ${cap.requested} u.`
-        : `${cap.total} u is above your ${state.settings.maxDose} u maximum dose. You typed it, so it hasn't been changed. Check it is right.`;
+      capNote.textContent = plan.capped
+        ? `Capped at your ${state.settings.maxDose} u maximum. The calculation came to ${plan.requested} u.`
+        : `${finalDose} u is above your ${state.settings.maxDose} u maximum dose. You typed it, so it hasn't been changed. Check it is right.`;
     }
 
-    const hasSomethingToLog = draft.noInsulinOn ? carbs > 0 : (carbs > 0 || correctionPart > 0 || mealPart > 0);
+    const hasSomethingToLog = plan.hasDose;
     logBtn.disabled = !hasSomethingToLog;
     // When Log is off, say why, in words, so a greyed-out button is never a mystery.
     const whyEl = el("cc-log-why");
@@ -2209,7 +2174,7 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
       glIndicator.hidden = true;
     }
 
-    draft._computed = { carbs, mealDose: loggedMealDose, correctionDose: loggedCorrectionDose, finalDose, ratioEntry, requested: cap.requested, capped: cap.capped && !draft.noInsulinOn };
+    draft._computed = { carbs, mealDose: loggedMealDose, correctionDose: loggedCorrectionDose, finalDose, ratioEntry, requested: plan.requested, capped: plan.capped };
   }
 
   // Manual correction mode: lets a dose be entered directly, skipping the glucose/ISF formula
@@ -2538,6 +2503,13 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
   }
 
   function logMeal(mealType) {
+    recompute();   // never log from a stale calculation: work the dose out again from what is on screen right now
+    const doseProblem = checkDoseConsistency({ ...draft._computed, shownText: doseNumber.textContent, noInsulin: draft.noInsulinOn });
+    if (doseProblem) {
+      diag.log("error", "dose", `Refused to log: ${doseProblem}`);
+      dialogs.alert(`Nothing was logged. ${doseProblem} Please check the numbers and try again.`, { title: "Dose check failed" });
+      return;
+    }
     const ratioEntry = draft._computed.ratioEntry;
     const now = new Date();
     const periodEntry = currentTimeRatio(now);
@@ -4648,17 +4620,8 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
     // 19.5u -- and re-saving an already-capped meal would have quietly put the 19.5u back.)
     function editDoseParts(totalCarbs) {
       const glucoseEl = backdrop.querySelector("#em-glucose");
-      let correction, correctionTyped = false;
-      if (entry.noInsulin) correction = 0;                                   // "Treating a low" entries never carry insulin
-      else if (glucoseEl) {                                                  // a glucose reading is on screen: recalculate from it
-        const g = parseFloat(glucoseEl.value);
-        correction = g > 0 ? roundDose(Math.max(0, (g - state.settings.target) / state.settings.isf)) : 0;
-      } else {                                                               // no reading was ever recorded, so a correction here was typed in: keep it
-        correction = entry.correctionDose || 0;
-        correctionTyped = correction > 0 && entry.glucose == null;
-      }
-      const meal = entry.noInsulin ? 0 : (selectedRatioValue ? roundDose(totalCarbs / selectedRatioValue) : (entry.mealDose || 0));
-      return capDoseParts({ meal, correction, maxDose: state.settings.maxDose, typed: correctionTyped });
+      const plan = planEditDose({ entry, totalCarbs, ratio: selectedRatioValue, glucoseText: glucoseEl ? glucoseEl.value : null, settings: state.settings });
+      return { meal: plan.mealDose, correction: plan.correctionDose, total: plan.finalDose, requested: plan.requested, capped: plan.capped, overMax: plan.overMax };
     }
 
     function updatePreview() {

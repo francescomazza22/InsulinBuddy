@@ -128,59 +128,112 @@ export function capDoseParts({ meal = 0, correction = 0, maxDose = 0, typed = fa
   return { meal: keptMeal, correction: keptCorrection, total: round2(keptMeal + keptCorrection), requested, capped: true, overMax: false };
 }
 
-export function computeDose({ carbs, ratio, correctionOn, glucose, glucoseUnit, settings, iob = 0, noInsulin = false }) {
-  const unitLbl = settings.units === "mmol" ? "mmol/L" : "mg/dL";
-  const lines = [];
+const round2d = v => Math.round(v * 100) / 100;
 
-  const mealPart = ratio && ratio > 0 ? carbs / ratio : 0;
-  if (ratio && ratio > 0) lines.push(`Meal: ${round1(carbs)} g ÷ ${ratio} g per unit = ${fmtU(mealPart)} u`);
-  else lines.push("Meal: no ratio set, so no meal insulin");
+/**
+ * THE one place a dose is worked out. The calculator screen, the edit-meal sheet and computeDose's step-by-step text all call
+ * this, so the number on screen and the number saved can never come from different maths.
+ *
+ *   carbs                 grams counted (0 for Eating Out)
+ *   ratio                 grams of carb per unit; none/0 means no meal insulin
+ *   mealUnits             a meal dose typed by hand (Eating Out), or null. Used as typed, never altered.
+ *   mealTyped             default true when mealUnits is given; false = still subject to the maximum-dose cap
+ *   correction            "off" | "auto" (from glucose) | "manual" (typed)
+ *   glucose, glucoseUnit  the reading for "auto" (glucoseUnit falls back to the Settings unit)
+ *   correctionUnits       the typed dose for "manual"
+ *   correctionTyped       default true for "manual"; false = still subject to the maximum-dose cap
+ *   iob                   insulin on board, only subtracted when settings.iobAwareCorrection is on
+ *   noInsulin             treating a low: carbs logged, zero insulin
+ *   settings              { units, isf, target, rounding, maxDose, iobAwareCorrection }
+ */
+export function planDose({ carbs = 0, ratio = 0, mealUnits = null, mealTyped, correctionTyped, correction = "off", glucose, glucoseUnit, correctionUnits, iob = 0, noInsulin = false, settings }) {
+  const mealIsManual = mealUnits != null;
+  let mealPart = ratio && ratio > 0 ? carbs / ratio : 0;
+  if (mealIsManual) mealPart = mealUnits > 0 ? mealUnits : 0;
 
-  let rawCorrection = 0, iobSubtracted = 0, correctionPart = 0, correctionApplied = false;
-  if (correctionOn) {
+  let rawCorrection = 0, iobSubtracted = 0, correctionPart = 0, correctionApplied = false, correctionIsManual = false, bgInSettingsUnit = null;
+  if (correction === "manual") {
+    if (Number.isFinite(correctionUnits) && correctionUnits > 0) { correctionPart = correctionUnits; correctionIsManual = true; }
+  } else if (correction === "auto") {
     const bg = parseFloat(glucose);
     if (!isNaN(bg) && bg > 0 && settings.isf > 0) {
       correctionApplied = true;
-      const bgSettings = convertGlucose(bg, glucoseUnit || settings.units, settings.units);
-      rawCorrection = Math.max(0, (bgSettings - settings.target) / settings.isf);
-      if (bgSettings <= settings.target) {
-        lines.push(`Correction: ${round1(bgSettings)} ${unitLbl} is at or below your ${settings.target} target, so none needed`);
-      } else {
-        lines.push(`Correction: (${round1(bgSettings)} − ${settings.target}) ÷ ${settings.isf} = ${fmtU(rawCorrection)} u`);
-      }
+      bgInSettingsUnit = convertGlucose(bg, glucoseUnit || settings.units, settings.units);
+      rawCorrection = Math.max(0, (bgInSettingsUnit - settings.target) / settings.isf);
       if (settings.iobAwareCorrection) iobSubtracted = Math.min(rawCorrection, iob);
       correctionPart = rawCorrection - iobSubtracted;
+    }
+  }
+
+  // Round each part first, then add the already-rounded numbers: rounding the raw sum can disagree with the parts shown
+  // (a 3.15u meal shown as 3u plus a 0.7u correction shown as 0.5u is 3.5u, not the 4u that rounding 3.85 gives).
+  // Typed doses are used exactly as typed (to 2 decimals), since choosing to type one is a precise decision.
+  let mealDose = mealIsManual ? round2d(mealPart) : roundDose(mealPart, settings.rounding);
+  let correctionDose = correctionIsManual ? round2d(correctionPart) : roundDose(correctionPart, settings.rounding);
+  // The cap has to reduce the PARTS (the entry is saved from them), never just the number on screen. A typed dose is never altered.
+  const typed = (mealIsManual && mealTyped !== false) || (correctionIsManual && correctionTyped !== false);
+  const cap = capDoseParts({ meal: mealDose, correction: correctionDose, maxDose: settings.maxDose, typed });
+  mealDose = cap.meal; correctionDose = cap.correction;
+  let finalDose = Math.max(0, cap.total);
+  let capped = cap.capped;
+  if (noInsulin) { finalDose = 0; mealDose = 0; correctionDose = 0; capped = false; }
+
+  const hasDose = noInsulin ? carbs > 0 : (carbs > 0 || correctionPart > 0 || mealPart > 0);
+  return {
+    mealPart, rawCorrection, iobSubtracted, correctionPart, correctionApplied, correctionIsManual, mealIsManual, bgInSettingsUnit,
+    totalBeforeCap: mealPart + correctionPart, mealDose, correctionDose, finalDose, requested: noInsulin ? 0 : cap.requested, capped, overMax: cap.overMax && !noInsulin, hasDose
+  };
+}
+
+/**
+ * The dose shown while editing a logged meal. Same maths as the calculator (planDose), with the edit sheet's own rules:
+ * a glucose box on screen means the correction is recalculated from it (in the Settings unit, ignoring insulin on board);
+ * no box means the correction was typed originally, so it is kept; "treating a low" entries never carry insulin; and with no
+ * ratio chosen the saved meal dose is kept.
+ */
+export function planEditDose({ entry, totalCarbs, ratio, glucoseText, settings }) {
+  const base = { settings: { ...settings, iobAwareCorrection: false }, noInsulin: !!entry.noInsulin, carbs: totalCarbs, ratio: ratio || 0 };
+  const meal = ratio ? {} : { mealUnits: entry.mealDose || 0, mealTyped: false };
+  if (glucoseText != null) return planDose({ ...base, ...meal, correction: "auto", glucose: glucoseText, glucoseUnit: settings.units });
+  const kept = entry.correctionDose || 0;
+  return planDose({ ...base, ...meal, correction: kept > 0 ? "manual" : "off", correctionUnits: kept, correctionTyped: kept > 0 && entry.glucose == null });
+}
+
+export function computeDose({ carbs, ratio, correctionOn, glucose, glucoseUnit, settings, iob = 0, noInsulin = false }) {
+  const unitLbl = settings.units === "mmol" ? "mmol/L" : "mg/dL";
+  const plan = planDose({ carbs, ratio, correction: correctionOn ? "auto" : "off", glucose, glucoseUnit, iob, noInsulin, settings });
+  const { mealPart, rawCorrection, iobSubtracted, correctionPart, correctionApplied, totalBeforeCap, capped, finalDose } = plan;
+  const loggedMeal = plan.mealDose, loggedCorrection = plan.correctionDose;
+  const lines = [];
+
+  if (ratio && ratio > 0) lines.push(`Meal: ${round1(carbs)} g ÷ ${ratio} g per unit = ${fmtU(mealPart)} u`);
+  else lines.push("Meal: no ratio set, so no meal insulin");
+
+  if (correctionOn) {
+    if (correctionApplied) {
+      if (plan.bgInSettingsUnit <= settings.target) {
+        lines.push(`Correction: ${round1(plan.bgInSettingsUnit)} ${unitLbl} is at or below your ${settings.target} target, so none needed`);
+      } else {
+        lines.push(`Correction: (${round1(plan.bgInSettingsUnit)} − ${settings.target}) ÷ ${settings.isf} = ${fmtU(rawCorrection)} u`);
+      }
       if (iobSubtracted > 0.05) lines.push(`Minus active insulin: ${fmtU(rawCorrection)} − ${fmtU(iobSubtracted)} = ${fmtU(correctionPart)} u`);
     } else {
       lines.push("Correction is on, but no glucose reading has been entered yet");
     }
   }
 
-  const totalBeforeCap = mealPart + correctionPart;
-  // Round each part first, then add the already-rounded numbers together. Rounding the raw
-  // (unrounded) sum instead can disagree with what the meal and correction lines actually show --
-  // e.g. a 3.15u meal (shown as "3u") plus a 0.7u correction (shown as "0.5u") sum to 3.5u, but
-  // rounding 3.85 on its own lands on 4u. The displayed breakdown must always add up to the total.
-  let loggedMeal = roundDose(mealPart, settings.rounding);
-  let loggedCorrection = roundDose(correctionPart, settings.rounding);
-  const cap = capDoseParts({ meal: loggedMeal, correction: loggedCorrection, maxDose: settings.maxDose });
-  loggedMeal = cap.meal; loggedCorrection = cap.correction;   // the parts must add up to the total that is shown
-  let finalDose = Math.max(0, cap.total);
-  const capped = cap.capped;
-
   if (noInsulin) {
-    finalDose = 0; loggedMeal = 0; loggedCorrection = 0;
     lines.length = 0;
     lines.push("Treating a low: carbs are logged but no insulin is recorded");
   } else {
     if (mealPart > 0 && correctionPart > 0) lines.push(`Raw sum before rounding: ${fmtU(mealPart)} + ${fmtU(correctionPart)} = ${fmtU(totalBeforeCap)} u`);
-    if (capped) lines.push(`Capped at your ${settings.maxDose} u maximum dose (the calculation came to ${fmtU(cap.requested)} u)`);
+    if (capped) lines.push(`Capped at your ${settings.maxDose} u maximum dose (the calculation came to ${fmtU(plan.requested)} u)`);
     lines.push(mealPart > 0 && correctionPart > 0
       ? `Meal and correction are each rounded to the nearest ${settings.rounding} u first, then added: ${fmtU(loggedMeal)} + ${fmtU(loggedCorrection)} = ${finalDose.toFixed(1)} u`
       : `Rounded to the nearest ${settings.rounding} u: ${finalDose.toFixed(1)} u`);
   }
 
-  return { mealPart, rawCorrection, iobSubtracted, correctionPart, correctionApplied, totalBeforeCap, capped, requestedDose: cap.requested, finalDose, loggedMeal, loggedCorrection, lines };
+  return { mealPart, rawCorrection, iobSubtracted, correctionPart, correctionApplied, totalBeforeCap, capped, requestedDose: plan.requested, finalDose, loggedMeal, loggedCorrection, lines };
 }
 
 // ----------------------------------------------------------------- trends
@@ -418,4 +471,20 @@ export function idealRatioByBracket(entries, settings, windowHours = 3) {
   for (const r of (settings && settings.activityRatios) || []) add(r.name, "activity", { color: r.color, current: r.ratio });
   for (const name of groups.keys()) if (!seen.has(name)) add(name || "Unnamed", "other", { color: null, current: null });
   return { rows, lowsCounted, lowsUnattached, rescueCarbs, windowHours: windowMs / 3600000, total: rows.reduce((s, r) => s + r.count, 0) };
+}
+
+/**
+ * Last check before a dose is saved: the parts about to be saved must add up to the dose the calculation produced, and that
+ * must be the number the screen is showing. Returns null when all is well, else a plain-English reason to refuse.
+ * (A past bug saved 19.5 u from a card showing 15.0 u.)
+ */
+export function checkDoseConsistency({ mealDose, correctionDose, finalDose, shownText, noInsulin = false }) {
+  const parts = [mealDose, correctionDose, finalDose].map(Number);
+  if (parts.some(v => !Number.isFinite(v) || v < 0)) return "The dose could not be worked out.";
+  if (noInsulin) return parts[0] === 0 && parts[1] === 0 ? null : "A 'no insulin' entry would have carried insulin.";
+  const saved = Math.round((parts[0] + parts[1]) * 100) / 100;
+  if (Math.abs(saved - parts[2]) > 0.005) return `The parts to save (${saved} u) do not match the calculated dose (${parts[2]} u).`;
+  const shown = parseFloat(shownText);
+  if (!Number.isFinite(shown) || Math.abs(shown - parts[2]) > 0.051) return `The number on screen (${shownText} u) does not match the dose to save (${parts[2]} u).`;
+  return null;
 }

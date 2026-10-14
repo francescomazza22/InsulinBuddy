@@ -1,0 +1,935 @@
+[
+ {
+  "name": "plain meal 60g at 1:10",
+  "input": {
+   "carbs": 60,
+   "ratio": 10
+  },
+  "settings": {
+   "units": "mgdl",
+   "isf": 50,
+   "target": 100,
+   "rounding": "0.5",
+   "maxDose": 15,
+   "iobAwareCorrection": false
+  },
+  "expect": {
+   "mealDose": 6,
+   "correctionDose": 0,
+   "finalDose": 6,
+   "capped": false,
+   "overMax": false
+  }
+ },
+ {
+  "name": "rounds to nearest 0.5 (53.3g at 1:10 = 5.33)",
+  "input": {
+   "carbs": 53.3,
+   "ratio": 10
+  },
+  "settings": {
+   "units": "mgdl",
+   "isf": 50,
+   "target": 100,
+   "rounding": "0.5",
+   "maxDose": 15,
+   "iobAwareCorrection": false
+  },
+  "expect": {
+   "mealDose": 5.5,
+   "correctionDose": 0,
+   "finalDose": 5.5,
+   "capped": false,
+   "overMax": false
+  }
+ },
+ {
+  "name": "rounds up at .25 boundary (62.5g at 1:10 = 6.25)",
+  "input": {
+   "carbs": 62.5,
+   "ratio": 10
+  },
+  "settings": {
+   "units": "mgdl",
+   "isf": 50,
+   "target": 100,
+   "rounding": "0.5",
+   "maxDose": 15,
+   "iobAwareCorrection": false
+  },
+  "expect": {
+   "mealDose": 6.5,
+   "correctionDose": 0,
+   "finalDose": 6.5,
+   "capped": false,
+   "overMax": false
+  }
+ },
+ {
+  "name": "0.1 step",
+  "input": {
+   "carbs": 53.3,
+   "ratio": 10
+  },
+  "settings": {
+   "units": "mgdl",
+   "isf": 50,
+   "target": 100,
+   "rounding": "0.1",
+   "maxDose": 15,
+   "iobAwareCorrection": false
+  },
+  "expect": {
+   "mealDose": 5.3,
+   "correctionDose": 0,
+   "finalDose": 5.3,
+   "capped": false,
+   "overMax": false
+  }
+ },
+ {
+  "name": "1 unit step",
+  "input": {
+   "carbs": 53.3,
+   "ratio": 10
+  },
+  "settings": {
+   "units": "mgdl",
+   "isf": 50,
+   "target": 100,
+   "rounding": "1",
+   "maxDose": 15,
+   "iobAwareCorrection": false
+  },
+  "expect": {
+   "mealDose": 5,
+   "correctionDose": 0,
+   "finalDose": 5,
+   "capped": false,
+   "overMax": false
+  }
+ },
+ {
+  "name": "no ratio set = no meal insulin",
+  "input": {
+   "carbs": 80,
+   "ratio": 0
+  },
+  "settings": {
+   "units": "mgdl",
+   "isf": 50,
+   "target": 100,
+   "rounding": "0.5",
+   "maxDose": 15,
+   "iobAwareCorrection": false
+  },
+  "expect": {
+   "mealDose": 0,
+   "correctionDose": 0,
+   "finalDose": 0,
+   "capped": false,
+   "overMax": false
+  }
+ },
+ {
+  "name": "correction only, 175 mg/dL",
+  "input": {
+   "carbs": 0,
+   "ratio": 10,
+   "correction": "auto",
+   "glucose": "175",
+   "glucoseUnit": "mgdl"
+  },
+  "settings": {
+   "units": "mgdl",
+   "isf": 50,
+   "target": 100,
+   "rounding": "0.5",
+   "maxDose": 15,
+   "iobAwareCorrection": false
+  },
+  "expect": {
+   "mealDose": 0,
+   "correctionDose": 1.5,
+   "finalDose": 1.5,
+   "capped": false,
+   "overMax": false
+  }
+ },
+ {
+  "name": "correction at target = none",
+  "input": {
+   "carbs": 0,
+   "ratio": 10,
+   "correction": "auto",
+   "glucose": "100",
+   "glucoseUnit": "mgdl"
+  },
+  "settings": {
+   "units": "mgdl",
+   "isf": 50,
+   "target": 100,
+   "rounding": "0.5",
+   "maxDose": 15,
+   "iobAwareCorrection": false
+  },
+  "expect": {
+   "mealDose": 0,
+   "correctionDose": 0,
+   "finalDose": 0,
+   "capped": false,
+   "overMax": false
+  }
+ },
+ {
+  "name": "correction below target = none",
+  "input": {
+   "carbs": 0,
+   "ratio": 10,
+   "correction": "auto",
+   "glucose": "80",
+   "glucoseUnit": "mgdl"
+  },
+  "settings": {
+   "units": "mgdl",
+   "isf": 50,
+   "target": 100,
+   "rounding": "0.5",
+   "maxDose": 15,
+   "iobAwareCorrection": false
+  },
+  "expect": {
+   "mealDose": 0,
+   "correctionDose": 0,
+   "finalDose": 0,
+   "capped": false,
+   "overMax": false
+  }
+ },
+ {
+  "name": "217 mg/dL, ISF 50, target 100 (2.34 -> 2.5)",
+  "input": {
+   "carbs": 0,
+   "ratio": 10,
+   "correction": "auto",
+   "glucose": "217",
+   "glucoseUnit": "mgdl"
+  },
+  "settings": {
+   "units": "mgdl",
+   "isf": 50,
+   "target": 100,
+   "rounding": "0.5",
+   "maxDose": 15,
+   "iobAwareCorrection": false
+  },
+  "expect": {
+   "mealDose": 0,
+   "correctionDose": 2.5,
+   "finalDose": 2.5,
+   "capped": false,
+   "overMax": false
+  }
+ },
+ {
+  "name": "217 mg/dL, ISF 80, target 120 (1.21 -> 1.0)",
+  "input": {
+   "carbs": 0,
+   "ratio": 10,
+   "correction": "auto",
+   "glucose": "217",
+   "glucoseUnit": "mgdl"
+  },
+  "settings": {
+   "units": "mgdl",
+   "isf": 80,
+   "target": 120,
+   "rounding": "0.5",
+   "maxDose": 15,
+   "iobAwareCorrection": false
+  },
+  "expect": {
+   "mealDose": 0,
+   "correctionDose": 1,
+   "finalDose": 1,
+   "capped": false,
+   "overMax": false
+  }
+ },
+ {
+  "name": "meal + correction rounded separately (3.15 + 0.7)",
+  "input": {
+   "carbs": 31.5,
+   "ratio": 10,
+   "correction": "auto",
+   "glucose": "135",
+   "glucoseUnit": "mgdl"
+  },
+  "settings": {
+   "units": "mgdl",
+   "isf": 50,
+   "target": 100,
+   "rounding": "0.5",
+   "maxDose": 15,
+   "iobAwareCorrection": false
+  },
+  "expect": {
+   "mealDose": 3,
+   "correctionDose": 0.5,
+   "finalDose": 3.5,
+   "capped": false,
+   "overMax": false
+  }
+ },
+ {
+  "name": "mmol/L reading, Settings in mmol (10.0, ISF 2.8, target 6)",
+  "input": {
+   "carbs": 0,
+   "ratio": 10,
+   "correction": "auto",
+   "glucose": "10",
+   "glucoseUnit": "mmol"
+  },
+  "settings": {
+   "units": "mmol",
+   "isf": 2.8,
+   "target": 6,
+   "rounding": "0.5",
+   "maxDose": 15,
+   "iobAwareCorrection": false
+  },
+  "expect": {
+   "mealDose": 0,
+   "correctionDose": 1.5,
+   "finalDose": 1.5,
+   "capped": false,
+   "overMax": false
+  }
+ },
+ {
+  "name": "mmol/L reading typed while Settings are mg/dL (10 mmol = 180 mg/dL)",
+  "input": {
+   "carbs": 0,
+   "ratio": 10,
+   "correction": "auto",
+   "glucose": "10",
+   "glucoseUnit": "mmol"
+  },
+  "settings": {
+   "units": "mgdl",
+   "isf": 50,
+   "target": 100,
+   "rounding": "0.5",
+   "maxDose": 15,
+   "iobAwareCorrection": false
+  },
+  "expect": {
+   "mealDose": 0,
+   "correctionDose": 1.5,
+   "finalDose": 1.5,
+   "capped": false,
+   "overMax": false
+  }
+ },
+ {
+  "name": "mg/dL reading typed while Settings are mmol (180 = 10 mmol)",
+  "input": {
+   "carbs": 0,
+   "ratio": 10,
+   "correction": "auto",
+   "glucose": "180",
+   "glucoseUnit": "mgdl"
+  },
+  "settings": {
+   "units": "mmol",
+   "isf": 2.8,
+   "target": 6,
+   "rounding": "0.5",
+   "maxDose": 15,
+   "iobAwareCorrection": false
+  },
+  "expect": {
+   "mealDose": 0,
+   "correctionDose": 1.5,
+   "finalDose": 1.5,
+   "capped": false,
+   "overMax": false
+  }
+ },
+ {
+  "name": "no glucose entered",
+  "input": {
+   "carbs": 20,
+   "ratio": 10,
+   "correction": "auto",
+   "glucose": "",
+   "glucoseUnit": "mgdl"
+  },
+  "settings": {
+   "units": "mgdl",
+   "isf": 50,
+   "target": 100,
+   "rounding": "0.5",
+   "maxDose": 15,
+   "iobAwareCorrection": false
+  },
+  "expect": {
+   "mealDose": 2,
+   "correctionDose": 0,
+   "finalDose": 2,
+   "capped": false,
+   "overMax": false
+  }
+ },
+ {
+  "name": "ISF of 0 gives no correction",
+  "input": {
+   "carbs": 0,
+   "ratio": 10,
+   "correction": "auto",
+   "glucose": "300",
+   "glucoseUnit": "mgdl"
+  },
+  "settings": {
+   "units": "mgdl",
+   "isf": 0,
+   "target": 100,
+   "rounding": "0.5",
+   "maxDose": 15,
+   "iobAwareCorrection": false
+  },
+  "expect": {
+   "mealDose": 0,
+   "correctionDose": 0,
+   "finalDose": 0,
+   "capped": false,
+   "overMax": false
+  }
+ },
+ {
+  "name": "IOB ignored when not IOB-aware",
+  "input": {
+   "carbs": 0,
+   "ratio": 10,
+   "correction": "auto",
+   "glucose": "200",
+   "glucoseUnit": "mgdl",
+   "iob": 1
+  },
+  "settings": {
+   "units": "mgdl",
+   "isf": 50,
+   "target": 100,
+   "rounding": "0.5",
+   "maxDose": 15,
+   "iobAwareCorrection": false
+  },
+  "expect": {
+   "mealDose": 0,
+   "correctionDose": 2,
+   "finalDose": 2,
+   "capped": false,
+   "overMax": false
+  }
+ },
+ {
+  "name": "IOB subtracted from correction when IOB-aware",
+  "input": {
+   "carbs": 0,
+   "ratio": 10,
+   "correction": "auto",
+   "glucose": "200",
+   "glucoseUnit": "mgdl",
+   "iob": 1
+  },
+  "settings": {
+   "units": "mgdl",
+   "isf": 50,
+   "target": 100,
+   "rounding": "0.5",
+   "maxDose": 15,
+   "iobAwareCorrection": true
+  },
+  "expect": {
+   "mealDose": 0,
+   "correctionDose": 1,
+   "finalDose": 1,
+   "capped": false,
+   "overMax": false
+  }
+ },
+ {
+  "name": "IOB larger than correction leaves none",
+  "input": {
+   "carbs": 0,
+   "ratio": 10,
+   "correction": "auto",
+   "glucose": "150",
+   "glucoseUnit": "mgdl",
+   "iob": 3
+  },
+  "settings": {
+   "units": "mgdl",
+   "isf": 50,
+   "target": 100,
+   "rounding": "0.5",
+   "maxDose": 15,
+   "iobAwareCorrection": true
+  },
+  "expect": {
+   "mealDose": 0,
+   "correctionDose": 0,
+   "finalDose": 0,
+   "capped": false,
+   "overMax": false
+  }
+ },
+ {
+  "name": "IOB never touches the meal dose",
+  "input": {
+   "carbs": 50,
+   "ratio": 10,
+   "correction": "off",
+   "iob": 4
+  },
+  "settings": {
+   "units": "mgdl",
+   "isf": 50,
+   "target": 100,
+   "rounding": "0.5",
+   "maxDose": 15,
+   "iobAwareCorrection": true
+  },
+  "expect": {
+   "mealDose": 5,
+   "correctionDose": 0,
+   "finalDose": 5,
+   "capped": false,
+   "overMax": false
+  }
+ },
+ {
+  "name": "cap: meal alone over the max",
+  "input": {
+   "carbs": 300,
+   "ratio": 10
+  },
+  "settings": {
+   "units": "mgdl",
+   "isf": 50,
+   "target": 100,
+   "rounding": "0.5",
+   "maxDose": 15,
+   "iobAwareCorrection": false
+  },
+  "expect": {
+   "mealDose": 15,
+   "correctionDose": 0,
+   "finalDose": 15,
+   "capped": true,
+   "overMax": false
+  }
+ },
+ {
+  "name": "cap: correction trimmed first, meal kept",
+  "input": {
+   "carbs": 120,
+   "ratio": 10,
+   "correction": "auto",
+   "glucose": "300",
+   "glucoseUnit": "mgdl"
+  },
+  "settings": {
+   "units": "mgdl",
+   "isf": 50,
+   "target": 100,
+   "rounding": "0.5",
+   "maxDose": 15,
+   "iobAwareCorrection": false
+  },
+  "expect": {
+   "mealDose": 12,
+   "correctionDose": 3,
+   "finalDose": 15,
+   "capped": true,
+   "overMax": false
+  }
+ },
+ {
+  "name": "cap: exactly at the max is not capped",
+  "input": {
+   "carbs": 150,
+   "ratio": 10
+  },
+  "settings": {
+   "units": "mgdl",
+   "isf": 50,
+   "target": 100,
+   "rounding": "0.5",
+   "maxDose": 15,
+   "iobAwareCorrection": false
+  },
+  "expect": {
+   "mealDose": 15,
+   "correctionDose": 0,
+   "finalDose": 15,
+   "capped": false,
+   "overMax": false
+  }
+ },
+ {
+  "name": "no max set (0) = no cap",
+  "input": {
+   "carbs": 400,
+   "ratio": 10
+  },
+  "settings": {
+   "units": "mgdl",
+   "isf": 50,
+   "target": 100,
+   "rounding": "0.5",
+   "maxDose": 0,
+   "iobAwareCorrection": false
+  },
+  "expect": {
+   "mealDose": 40,
+   "correctionDose": 0,
+   "finalDose": 40,
+   "capped": false,
+   "overMax": false
+  }
+ },
+ {
+  "name": "treating a low: carbs logged, zero insulin",
+  "input": {
+   "carbs": 40,
+   "ratio": 10,
+   "noInsulin": true
+  },
+  "settings": {
+   "units": "mgdl",
+   "isf": 50,
+   "target": 100,
+   "rounding": "0.5",
+   "maxDose": 15,
+   "iobAwareCorrection": false
+  },
+  "expect": {
+   "mealDose": 0,
+   "correctionDose": 0,
+   "finalDose": 0,
+   "capped": false,
+   "overMax": false
+  }
+ },
+ {
+  "name": "treating a low ignores correction too",
+  "input": {
+   "carbs": 40,
+   "ratio": 10,
+   "noInsulin": true,
+   "correction": "auto",
+   "glucose": "300",
+   "glucoseUnit": "mgdl"
+  },
+  "settings": {
+   "units": "mgdl",
+   "isf": 50,
+   "target": 100,
+   "rounding": "0.5",
+   "maxDose": 15,
+   "iobAwareCorrection": false
+  },
+  "expect": {
+   "mealDose": 0,
+   "correctionDose": 0,
+   "finalDose": 0,
+   "capped": false,
+   "overMax": false
+  }
+ },
+ {
+  "name": "manual correction used as typed (1.3, not 1.5)",
+  "input": {
+   "carbs": 0,
+   "ratio": 10,
+   "correction": "manual",
+   "correctionUnits": 1.3
+  },
+  "settings": {
+   "units": "mgdl",
+   "isf": 50,
+   "target": 100,
+   "rounding": "0.5",
+   "maxDose": 15,
+   "iobAwareCorrection": false
+  },
+  "expect": {
+   "mealDose": 0,
+   "correctionDose": 1.3,
+   "finalDose": 1.3,
+   "capped": false,
+   "overMax": false
+  }
+ },
+ {
+  "name": "manual correction 0 = nothing",
+  "input": {
+   "carbs": 0,
+   "ratio": 10,
+   "correction": "manual",
+   "correctionUnits": 0
+  },
+  "settings": {
+   "units": "mgdl",
+   "isf": 50,
+   "target": 100,
+   "rounding": "0.5",
+   "maxDose": 15,
+   "iobAwareCorrection": false
+  },
+  "expect": {
+   "mealDose": 0,
+   "correctionDose": 0,
+   "finalDose": 0,
+   "capped": false,
+   "overMax": false
+  }
+ },
+ {
+  "name": "manual correction not a number = nothing",
+  "input": {
+   "carbs": 0,
+   "ratio": 10,
+   "correction": "manual",
+   "correctionUnits": "NaN"
+  },
+  "settings": {
+   "units": "mgdl",
+   "isf": 50,
+   "target": 100,
+   "rounding": "0.5",
+   "maxDose": 15,
+   "iobAwareCorrection": false
+  },
+  "expect": {
+   "mealDose": 0,
+   "correctionDose": 0,
+   "finalDose": 0,
+   "capped": false,
+   "overMax": false
+  }
+ },
+ {
+  "name": "manual correction over the max is kept, flagged",
+  "input": {
+   "carbs": 0,
+   "ratio": 10,
+   "correction": "manual",
+   "correctionUnits": 18
+  },
+  "settings": {
+   "units": "mgdl",
+   "isf": 50,
+   "target": 100,
+   "rounding": "0.5",
+   "maxDose": 15,
+   "iobAwareCorrection": false
+  },
+  "expect": {
+   "mealDose": 0,
+   "correctionDose": 18,
+   "finalDose": 18,
+   "capped": false,
+   "overMax": true
+  }
+ },
+ {
+  "name": "manual correction added to a meal",
+  "input": {
+   "carbs": 40,
+   "ratio": 10,
+   "correction": "manual",
+   "correctionUnits": 1.25
+  },
+  "settings": {
+   "units": "mgdl",
+   "isf": 50,
+   "target": 100,
+   "rounding": "0.5",
+   "maxDose": 15,
+   "iobAwareCorrection": false
+  },
+  "expect": {
+   "mealDose": 4,
+   "correctionDose": 1.25,
+   "finalDose": 5.25,
+   "capped": false,
+   "overMax": false
+  }
+ },
+ {
+  "name": "Eating Out dose used as typed (3.25)",
+  "input": {
+   "carbs": 0,
+   "ratio": 10,
+   "mealUnits": 3.25
+  },
+  "settings": {
+   "units": "mgdl",
+   "isf": 50,
+   "target": 100,
+   "rounding": "0.5",
+   "maxDose": 15,
+   "iobAwareCorrection": false
+  },
+  "expect": {
+   "mealDose": 3.25,
+   "correctionDose": 0,
+   "finalDose": 3.25,
+   "capped": false,
+   "overMax": false
+  }
+ },
+ {
+  "name": "Eating Out dose of 0 = nothing to log",
+  "input": {
+   "carbs": 0,
+   "ratio": 10,
+   "mealUnits": 0
+  },
+  "settings": {
+   "units": "mgdl",
+   "isf": 50,
+   "target": 100,
+   "rounding": "0.5",
+   "maxDose": 15,
+   "iobAwareCorrection": false
+  },
+  "expect": {
+   "mealDose": 0,
+   "correctionDose": 0,
+   "finalDose": 0,
+   "capped": false,
+   "overMax": false
+  }
+ },
+ {
+  "name": "Eating Out dose over the max is kept, flagged",
+  "input": {
+   "carbs": 0,
+   "ratio": 10,
+   "mealUnits": 20
+  },
+  "settings": {
+   "units": "mgdl",
+   "isf": 50,
+   "target": 100,
+   "rounding": "0.5",
+   "maxDose": 15,
+   "iobAwareCorrection": false
+  },
+  "expect": {
+   "mealDose": 20,
+   "correctionDose": 0,
+   "finalDose": 20,
+   "capped": false,
+   "overMax": true
+  }
+ },
+ {
+  "name": "Eating Out dose with an auto correction: typed meal stops the cap trimming anything (flagged over max)",
+  "input": {
+   "carbs": 0,
+   "ratio": 10,
+   "mealUnits": 4,
+   "correction": "auto",
+   "glucose": "250",
+   "glucoseUnit": "mgdl"
+  },
+  "settings": {
+   "units": "mgdl",
+   "isf": 50,
+   "target": 100,
+   "rounding": "0.5",
+   "maxDose": 5,
+   "iobAwareCorrection": false
+  },
+  "expect": {
+   "mealDose": 4,
+   "correctionDose": 3,
+   "finalDose": 7,
+   "capped": false,
+   "overMax": true
+  }
+ },
+ {
+  "name": "tiny carbs round to zero",
+  "input": {
+   "carbs": 2,
+   "ratio": 12
+  },
+  "settings": {
+   "units": "mgdl",
+   "isf": 50,
+   "target": 100,
+   "rounding": "0.5",
+   "maxDose": 15,
+   "iobAwareCorrection": false
+  },
+  "expect": {
+   "mealDose": 0,
+   "correctionDose": 0,
+   "finalDose": 0,
+   "capped": false,
+   "overMax": false
+  }
+ },
+ {
+  "name": "fractional ratio",
+  "input": {
+   "carbs": 45,
+   "ratio": 7.5
+  },
+  "settings": {
+   "units": "mgdl",
+   "isf": 50,
+   "target": 100,
+   "rounding": "0.5",
+   "maxDose": 15,
+   "iobAwareCorrection": false
+  },
+  "expect": {
+   "mealDose": 6,
+   "correctionDose": 0,
+   "finalDose": 6,
+   "capped": false,
+   "overMax": false
+  }
+ },
+ {
+  "name": "very high glucose, big correction under the cap",
+  "input": {
+   "carbs": 0,
+   "ratio": 10,
+   "correction": "auto",
+   "glucose": "500",
+   "glucoseUnit": "mgdl"
+  },
+  "settings": {
+   "units": "mgdl",
+   "isf": 50,
+   "target": 100,
+   "rounding": "0.5",
+   "maxDose": 15,
+   "iobAwareCorrection": false
+  },
+  "expect": {
+   "mealDose": 0,
+   "correctionDose": 8,
+   "finalDose": 8,
+   "capped": false,
+   "overMax": false
+  }
+ }
+]
