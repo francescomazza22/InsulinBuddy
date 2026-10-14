@@ -426,8 +426,8 @@ input.meal-item__grams-input:focus { outline: none; }
 .filter-panel__row select { padding: 8px 10px; font-size: 16px; }
 .filter-panel__row label { display: flex; align-items: center; gap: 8px; font-weight: 600; }
 
-.lib-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 8px; align-items: stretch; }
-.lib-item { background: var(--surface); border: 1.5px solid var(--line); border-radius: var(--radius-m); padding: 10px 12px 28px; display: flex; align-items: flex-start; gap: 9px; position: relative; }
+.lib-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 8px; align-items: start; }
+.lib-item { background: var(--surface); border: 1.5px solid var(--line); border-radius: var(--radius-m); padding: 10px 12px; display: flex; align-items: flex-start; gap: 9px; position: relative; }
 .lib-item__star { background: none; border: none; cursor: pointer; padding: 2px; color: var(--line); flex-shrink: 0; margin-top: 1px; }
 .lib-item__star svg { width: 18px; height: 18px; }
 .lib-item__star.is-fav { color: #E8A93D; }
@@ -439,7 +439,7 @@ input.meal-item__grams-input:focus { outline: none; }
 .lib-item__meta { font-size: 0.78rem; margin: 4px 0 0; }
 .lib-item__meta .c-carbs { color: var(--green); font-weight: 600; }
 .lib-item__meta .c-kcal { color: var(--amber); }
-.lib-item__usage { position: absolute; right: 10px; bottom: 7px; display: inline-flex; align-items: center; gap: 3px; font-size: 0.7rem; font-weight: 500; color: var(--ink-soft); opacity: 0.6; font-variant-numeric: tabular-nums; pointer-events: none; }
+.lib-item__usage { position: absolute; right: 9px; bottom: 6px; display: inline-flex; align-items: center; gap: 3px; font-size: 0.7rem; font-weight: 500; color: var(--ink-soft); opacity: 0.6; font-variant-numeric: tabular-nums; pointer-events: none; }
 .lib-item__usage svg { width: 11px; height: 11px; }
 .lib-item__note { font-size: 0.74rem; font-style: italic; color: var(--ink-soft); margin: 3px 0 0; }
 .lib-item__actions { display: flex; gap: 1px; flex-shrink: 0; }

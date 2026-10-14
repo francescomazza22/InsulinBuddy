@@ -2,6 +2,11 @@
 // summary can never drift. Bump CHANGELOG[0].version here (and CACHE_VERSION in sw.js) on every release.
 export const CHANGELOG = [
   {
+    version: "2.39.1",
+    summary: "Library tiles back to their compact size.",
+    changes: ["The usage count in the corner no longer adds empty space: tiles are as short as before, and the count sits in the bottom right of the tile"]
+  },
+  {
     version: "2.39.0",
     summary: "Library tiles are tidier: usage count moved to a quiet corner.",
     changes: ["In Foods and Recipes, how many times you have used an item now sits as a small light icon and number in the bottom right of its tile, on every screen size, instead of wrapping onto the details line", "Tiles in the same row are now the same height, so wide screens look neater"]
