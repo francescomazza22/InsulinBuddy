@@ -2,6 +2,11 @@
 // summary can never drift. Bump CHANGELOG[0].version here (and CACHE_VERSION in sw.js) on every release.
 export const CHANGELOG = [
   {
+    version: "2.39.0",
+    summary: "Library tiles are tidier: usage count moved to a quiet corner.",
+    changes: ["In Foods and Recipes, how many times you have used an item now sits as a small light icon and number in the bottom right of its tile, on every screen size, instead of wrapping onto the details line", "Tiles in the same row are now the same height, so wide screens look neater"]
+  },
+  {
     version: "2.38.0",
     summary: "Under the hood: ready for a real iOS app with Health and notifications.",
     changes: ["Nothing should look different. Saving files, copying text and the after-meal reminder now go through one device layer, so a future iPhone app can plug in real notifications, Apple Health and Face ID by swapping that one piece. An Apple Health destination for the sending queue is built and tested but stays switched off on the web", "355 shared test cases now pin down every dose, glucose and sync calculation, so a Swift version can be proven to give identical answers"]

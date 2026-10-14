@@ -3238,10 +3238,11 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
             ${categoryBadge(f.category)}
             ${f.gi != null ? `<span class="lib-item__badge cat-other"${(f.estimated || []).includes("gi") ? ` title="Filled from a typical value"` : ""}>GI ${(f.estimated || []).includes("gi") ? "~" : ""}${f.gi}</span>` : ""}
           </div>
-          <p class="lib-item__meta"><span class="c-carbs">${f.carbs}g carbs</span>${f.kcal ? ` · <span class="c-kcal">~${f.kcal} kcal</span>` : ""} <span class="lib-item__usage">· ${f.usageCount || 0}×</span></p>
+          <p class="lib-item__meta"><span class="c-carbs">${f.carbs}g carbs</span>${f.kcal ? ` · <span class="c-kcal">~${f.kcal} kcal</span>` : ""}</p>
           ${f.unitBased ? `<p class="lib-item__note">1 ${escapeHtml(f.unitLabel)} = ${f.gramsPerUnit}g → ${round1(f.carbs * f.gramsPerUnit / 100)}g carbs</p>` : ""}
           ${f.notes ? `<p class="lib-item__note">${escapeHtml(f.notes)}</p>` : ""}
         </div>
+        <span class="lib-item__usage" title="Times used" aria-label="Used ${f.usageCount || 0} times"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 12a8 8 0 0114-5.3M20 12a8 8 0 01-14 5.3M18 3v4h-4M6 21v-4h4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>${f.usageCount || 0}</span>
         <div class="lib-item__actions">
           <button data-act="edit" data-id="${f.id}" aria-label="Edit"><svg viewBox="0 0 24 24" fill="none"><path d="M4 20l4-1 11-11-3-3L5 16z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg></button>
           <button data-act="copy" data-id="${f.id}" aria-label="Duplicate"><svg viewBox="0 0 24 24" fill="none"><rect x="9" y="9" width="11" height="11" rx="2" stroke="currentColor" stroke-width="1.6"/><path d="M5 15V6a2 2 0 012-2h9" stroke="currentColor" stroke-width="1.6"/></svg></button>
@@ -3456,12 +3457,13 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
         <div class="lib-item__main">
           <p class="lib-item__name">${escapeHtml(r.name)}</p>
           <div class="lib-item__badges">${categoryBadge(r.category || "other")}</div>
-          <p class="lib-item__meta">${perG} <span class="lib-item__usage">· ${r.usageCount || 0}×</span></p>
+          <p class="lib-item__meta">${perG}</p>
           <p class="lib-item__note">${r.items.map(it => {
             const name = it.name || (state.library.find(x => x.id === it.foodId) || {}).name;
             return name ? `${name} (${it.grams}g)` : "";
           }).filter(Boolean).join(", ")}${r.finalWeight ? ` — final weight ${r.finalWeight}g` : ""}</p>
         </div>
+        <span class="lib-item__usage" title="Times used" aria-label="Used ${r.usageCount || 0} times"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 12a8 8 0 0114-5.3M20 12a8 8 0 01-14 5.3M18 3v4h-4M6 21v-4h4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>${r.usageCount || 0}</span>
         <div class="lib-item__actions">
           <button data-act="edit" data-id="${r.id}" aria-label="Edit"><svg viewBox="0 0 24 24" fill="none"><path d="M4 20l4-1 11-11-3-3L5 16z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg></button>
           <button class="danger" data-act="delete" data-id="${r.id}" aria-label="Delete"><svg viewBox="0 0 24 24" fill="none"><path d="M5 7h14M9 7V5a1 1 0 011-1h4a1 1 0 011 1v2m-9 0l1 12a2 2 0 002 2h6a2 2 0 002-2l1-12" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
