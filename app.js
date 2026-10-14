@@ -2968,29 +2968,49 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
     }
   }
 
-  // ---- delivery: everything goes through the outbox so it survives being offline ----
+  // ---- delivery: everything goes through an outbox so it survives being offline ----
+  // Each place a logged entry is sent to is one SyncTarget behind an Outbox (js/core/outbox.js). Today that is Nightscout only;
+  // a second destination is one more item in this list, and the four functions below need no change.
+  const entryTargets = [{
+    name: "nightscout", outbox: nsOutbox,
+    enabled: () => nightscoutConfigured(),
+    followsEdits: () => state.settings.nsSyncEdits !== false,
+    opts: () => ({ format: nsFormat(), units: state.settings.units }),
+    statusOf: entry => entry.ns,
+    flush: () => flushNightscoutQueue()
+  }];
   function syncEntryToNightscout(entry) {
-    if (!nightscoutConfigured()) return;
-    nsOutbox.enqueueCreate(entry, { format: nsFormat(), units: state.settings.units });
-    flushNightscoutQueue();
+    for (const t of entryTargets) {
+      if (!t.enabled()) continue;
+      t.outbox.enqueueCreate(entry, t.opts());
+      t.flush();
+    }
   }
   // Edits/deletes only follow a meal that has actually been (or is about to be) sent.
   function queueNsUpdate(entry) {
-    if (!nightscoutConfigured() || state.settings.nsSyncEdits === false) return;
-    if (!entry.ns && !nsOutbox.pendingFor(entry.id)) return;
-    nsOutbox.enqueueUpdate(entry, { format: nsFormat(), units: state.settings.units });
-    flushNightscoutQueue();
+    for (const t of entryTargets) {
+      if (!t.enabled() || !t.followsEdits()) continue;
+      if (!t.statusOf(entry) && !t.outbox.pendingFor(entry.id)) continue;
+      t.outbox.enqueueUpdate(entry, t.opts());
+      t.flush();
+    }
   }
   function queueNsDelete(entry) {
-    if (!nightscoutConfigured() || state.settings.nsSyncEdits === false) return;
-    nsOutbox.enqueueDelete(entry.id, entry.ns && entry.ns.ids);
-    flushNightscoutQueue();
+    for (const t of entryTargets) {
+      if (!t.enabled() || !t.followsEdits()) continue;
+      const st = t.statusOf(entry);
+      t.outbox.enqueueDelete(entry.id, st && st.ids);
+      t.flush();
+    }
   }
   // Undo of a delete: cancel the pending removal, or re-send if it already went out.
   function undoNsDelete(entry) {
-    if (!nightscoutConfigured()) return;
-    if (nsOutbox.cancelDelete(entry.id)) return;
-    if (entry.ns && entry.ns.ids && Object.values(entry.ns.ids).some(Boolean)) { delete entry.ns; syncEntryToNightscout(entry); }
+    for (const t of entryTargets) {
+      if (!t.enabled()) continue;
+      if (t.outbox.cancelDelete(entry.id)) continue;
+      const st = t.statusOf(entry);
+      if (st && st.ids && Object.values(st.ids).some(Boolean)) { delete entry[t.outbox.target.statusKey]; t.outbox.enqueueCreate(entry, t.opts()); t.flush(); }
+    }
   }
   // ---- the sync indicator: one small chip that always says whether what you did is saved and sent ----
   function currentSyncSummary() {
