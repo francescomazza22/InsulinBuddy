@@ -2,6 +2,11 @@
 // summary can never drift. Bump CHANGELOG[0].version here (and CACHE_VERSION in sw.js) on every release.
 export const CHANGELOG = [
   {
+    version: "2.38.0",
+    summary: "Under the hood: ready for a real iOS app with Health and notifications.",
+    changes: ["Nothing should look different. Saving files, copying text and the after-meal reminder now go through one device layer, so a future iPhone app can plug in real notifications, Apple Health and Face ID by swapping that one piece. An Apple Health destination for the sending queue is built and tested but stays switched off on the web", "355 shared test cases now pin down every dose, glucose and sync calculation, so a Swift version can be proven to give identical answers"]
+  },
+  {
     version: "2.37.0",
     summary: "Under the hood: cloud sync's safety rules are now separate and tested.",
     changes: ["Nothing should look different. When to upload, when to pull other devices' changes, and the guard that refuses to upload an emptied history now live in one tested module, with Supabase plugged in as the first destination. One real fix: if you saved twice within half a second, the first save used to wait forever instead of finishing"]

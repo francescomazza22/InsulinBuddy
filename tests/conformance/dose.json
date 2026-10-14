@@ -1,0 +1,3331 @@
+[
+ {
+  "name": "planDose: plain meal 60g at 1:10",
+  "fn": "planDose",
+  "args": [
+   {
+    "carbs": 60,
+    "ratio": 10,
+    "settings": {
+     "units": "mgdl",
+     "isf": 50,
+     "target": 100,
+     "rounding": "0.5",
+     "maxDose": 15,
+     "iobAwareCorrection": false
+    }
+   }
+  ],
+  "expect": {
+   "mealPart": 6,
+   "rawCorrection": 0,
+   "iobSubtracted": 0,
+   "correctionPart": 0,
+   "correctionApplied": false,
+   "correctionIsManual": false,
+   "mealIsManual": false,
+   "bgInSettingsUnit": null,
+   "totalBeforeCap": 6,
+   "mealDose": 6,
+   "correctionDose": 0,
+   "finalDose": 6,
+   "requested": 6,
+   "capped": false,
+   "overMax": false,
+   "hasDose": true
+  }
+ },
+ {
+  "name": "planDose: rounds to nearest 0.5 (53.3g at 1:10 = 5.33)",
+  "fn": "planDose",
+  "args": [
+   {
+    "carbs": 53.3,
+    "ratio": 10,
+    "settings": {
+     "units": "mgdl",
+     "isf": 50,
+     "target": 100,
+     "rounding": "0.5",
+     "maxDose": 15,
+     "iobAwareCorrection": false
+    }
+   }
+  ],
+  "expect": {
+   "mealPart": 5.33,
+   "rawCorrection": 0,
+   "iobSubtracted": 0,
+   "correctionPart": 0,
+   "correctionApplied": false,
+   "correctionIsManual": false,
+   "mealIsManual": false,
+   "bgInSettingsUnit": null,
+   "totalBeforeCap": 5.33,
+   "mealDose": 5.5,
+   "correctionDose": 0,
+   "finalDose": 5.5,
+   "requested": 5.5,
+   "capped": false,
+   "overMax": false,
+   "hasDose": true
+  }
+ },
+ {
+  "name": "planDose: rounds up at .25 boundary (62.5g at 1:10 = 6.25)",
+  "fn": "planDose",
+  "args": [
+   {
+    "carbs": 62.5,
+    "ratio": 10,
+    "settings": {
+     "units": "mgdl",
+     "isf": 50,
+     "target": 100,
+     "rounding": "0.5",
+     "maxDose": 15,
+     "iobAwareCorrection": false
+    }
+   }
+  ],
+  "expect": {
+   "mealPart": 6.25,
+   "rawCorrection": 0,
+   "iobSubtracted": 0,
+   "correctionPart": 0,
+   "correctionApplied": false,
+   "correctionIsManual": false,
+   "mealIsManual": false,
+   "bgInSettingsUnit": null,
+   "totalBeforeCap": 6.25,
+   "mealDose": 6.5,
+   "correctionDose": 0,
+   "finalDose": 6.5,
+   "requested": 6.5,
+   "capped": false,
+   "overMax": false,
+   "hasDose": true
+  }
+ },
+ {
+  "name": "planDose: 0.1 step",
+  "fn": "planDose",
+  "args": [
+   {
+    "carbs": 53.3,
+    "ratio": 10,
+    "settings": {
+     "units": "mgdl",
+     "isf": 50,
+     "target": 100,
+     "rounding": "0.1",
+     "maxDose": 15,
+     "iobAwareCorrection": false
+    }
+   }
+  ],
+  "expect": {
+   "mealPart": 5.33,
+   "rawCorrection": 0,
+   "iobSubtracted": 0,
+   "correctionPart": 0,
+   "correctionApplied": false,
+   "correctionIsManual": false,
+   "mealIsManual": false,
+   "bgInSettingsUnit": null,
+   "totalBeforeCap": 5.33,
+   "mealDose": 5.3,
+   "correctionDose": 0,
+   "finalDose": 5.3,
+   "requested": 5.3,
+   "capped": false,
+   "overMax": false,
+   "hasDose": true
+  }
+ },
+ {
+  "name": "planDose: 1 unit step",
+  "fn": "planDose",
+  "args": [
+   {
+    "carbs": 53.3,
+    "ratio": 10,
+    "settings": {
+     "units": "mgdl",
+     "isf": 50,
+     "target": 100,
+     "rounding": "1",
+     "maxDose": 15,
+     "iobAwareCorrection": false
+    }
+   }
+  ],
+  "expect": {
+   "mealPart": 5.33,
+   "rawCorrection": 0,
+   "iobSubtracted": 0,
+   "correctionPart": 0,
+   "correctionApplied": false,
+   "correctionIsManual": false,
+   "mealIsManual": false,
+   "bgInSettingsUnit": null,
+   "totalBeforeCap": 5.33,
+   "mealDose": 5,
+   "correctionDose": 0,
+   "finalDose": 5,
+   "requested": 5,
+   "capped": false,
+   "overMax": false,
+   "hasDose": true
+  }
+ },
+ {
+  "name": "planDose: no ratio set = no meal insulin",
+  "fn": "planDose",
+  "args": [
+   {
+    "carbs": 80,
+    "ratio": 0,
+    "settings": {
+     "units": "mgdl",
+     "isf": 50,
+     "target": 100,
+     "rounding": "0.5",
+     "maxDose": 15,
+     "iobAwareCorrection": false
+    }
+   }
+  ],
+  "expect": {
+   "mealPart": 0,
+   "rawCorrection": 0,
+   "iobSubtracted": 0,
+   "correctionPart": 0,
+   "correctionApplied": false,
+   "correctionIsManual": false,
+   "mealIsManual": false,
+   "bgInSettingsUnit": null,
+   "totalBeforeCap": 0,
+   "mealDose": 0,
+   "correctionDose": 0,
+   "finalDose": 0,
+   "requested": 0,
+   "capped": false,
+   "overMax": false,
+   "hasDose": true
+  }
+ },
+ {
+  "name": "planDose: correction only, 175 mg/dL",
+  "fn": "planDose",
+  "args": [
+   {
+    "carbs": 0,
+    "ratio": 10,
+    "correction": "auto",
+    "glucose": "175",
+    "glucoseUnit": "mgdl",
+    "settings": {
+     "units": "mgdl",
+     "isf": 50,
+     "target": 100,
+     "rounding": "0.5",
+     "maxDose": 15,
+     "iobAwareCorrection": false
+    }
+   }
+  ],
+  "expect": {
+   "mealPart": 0,
+   "rawCorrection": 1.5,
+   "iobSubtracted": 0,
+   "correctionPart": 1.5,
+   "correctionApplied": true,
+   "correctionIsManual": false,
+   "mealIsManual": false,
+   "bgInSettingsUnit": 175,
+   "totalBeforeCap": 1.5,
+   "mealDose": 0,
+   "correctionDose": 1.5,
+   "finalDose": 1.5,
+   "requested": 1.5,
+   "capped": false,
+   "overMax": false,
+   "hasDose": true
+  }
+ },
+ {
+  "name": "planDose: correction at target = none",
+  "fn": "planDose",
+  "args": [
+   {
+    "carbs": 0,
+    "ratio": 10,
+    "correction": "auto",
+    "glucose": "100",
+    "glucoseUnit": "mgdl",
+    "settings": {
+     "units": "mgdl",
+     "isf": 50,
+     "target": 100,
+     "rounding": "0.5",
+     "maxDose": 15,
+     "iobAwareCorrection": false
+    }
+   }
+  ],
+  "expect": {
+   "mealPart": 0,
+   "rawCorrection": 0,
+   "iobSubtracted": 0,
+   "correctionPart": 0,
+   "correctionApplied": true,
+   "correctionIsManual": false,
+   "mealIsManual": false,
+   "bgInSettingsUnit": 100,
+   "totalBeforeCap": 0,
+   "mealDose": 0,
+   "correctionDose": 0,
+   "finalDose": 0,
+   "requested": 0,
+   "capped": false,
+   "overMax": false,
+   "hasDose": false
+  }
+ },
+ {
+  "name": "planDose: correction below target = none",
+  "fn": "planDose",
+  "args": [
+   {
+    "carbs": 0,
+    "ratio": 10,
+    "correction": "auto",
+    "glucose": "80",
+    "glucoseUnit": "mgdl",
+    "settings": {
+     "units": "mgdl",
+     "isf": 50,
+     "target": 100,
+     "rounding": "0.5",
+     "maxDose": 15,
+     "iobAwareCorrection": false
+    }
+   }
+  ],
+  "expect": {
+   "mealPart": 0,
+   "rawCorrection": 0,
+   "iobSubtracted": 0,
+   "correctionPart": 0,
+   "correctionApplied": true,
+   "correctionIsManual": false,
+   "mealIsManual": false,
+   "bgInSettingsUnit": 80,
+   "totalBeforeCap": 0,
+   "mealDose": 0,
+   "correctionDose": 0,
+   "finalDose": 0,
+   "requested": 0,
+   "capped": false,
+   "overMax": false,
+   "hasDose": false
+  }
+ },
+ {
+  "name": "planDose: 217 mg/dL, ISF 50, target 100 (2.34 -> 2.5)",
+  "fn": "planDose",
+  "args": [
+   {
+    "carbs": 0,
+    "ratio": 10,
+    "correction": "auto",
+    "glucose": "217",
+    "glucoseUnit": "mgdl",
+    "settings": {
+     "units": "mgdl",
+     "isf": 50,
+     "target": 100,
+     "rounding": "0.5",
+     "maxDose": 15,
+     "iobAwareCorrection": false
+    }
+   }
+  ],
+  "expect": {
+   "mealPart": 0,
+   "rawCorrection": 2.34,
+   "iobSubtracted": 0,
+   "correctionPart": 2.34,
+   "correctionApplied": true,
+   "correctionIsManual": false,
+   "mealIsManual": false,
+   "bgInSettingsUnit": 217,
+   "totalBeforeCap": 2.34,
+   "mealDose": 0,
+   "correctionDose": 2.5,
+   "finalDose": 2.5,
+   "requested": 2.5,
+   "capped": false,
+   "overMax": false,
+   "hasDose": true
+  }
+ },
+ {
+  "name": "planDose: 217 mg/dL, ISF 80, target 120 (1.21 -> 1.0)",
+  "fn": "planDose",
+  "args": [
+   {
+    "carbs": 0,
+    "ratio": 10,
+    "correction": "auto",
+    "glucose": "217",
+    "glucoseUnit": "mgdl",
+    "settings": {
+     "units": "mgdl",
+     "isf": 80,
+     "target": 120,
+     "rounding": "0.5",
+     "maxDose": 15,
+     "iobAwareCorrection": false
+    }
+   }
+  ],
+  "expect": {
+   "mealPart": 0,
+   "rawCorrection": 1.2125,
+   "iobSubtracted": 0,
+   "correctionPart": 1.2125,
+   "correctionApplied": true,
+   "correctionIsManual": false,
+   "mealIsManual": false,
+   "bgInSettingsUnit": 217,
+   "totalBeforeCap": 1.2125,
+   "mealDose": 0,
+   "correctionDose": 1,
+   "finalDose": 1,
+   "requested": 1,
+   "capped": false,
+   "overMax": false,
+   "hasDose": true
+  }
+ },
+ {
+  "name": "planDose: meal + correction rounded separately (3.15 + 0.7)",
+  "fn": "planDose",
+  "args": [
+   {
+    "carbs": 31.5,
+    "ratio": 10,
+    "correction": "auto",
+    "glucose": "135",
+    "glucoseUnit": "mgdl",
+    "settings": {
+     "units": "mgdl",
+     "isf": 50,
+     "target": 100,
+     "rounding": "0.5",
+     "maxDose": 15,
+     "iobAwareCorrection": false
+    }
+   }
+  ],
+  "expect": {
+   "mealPart": 3.15,
+   "rawCorrection": 0.7,
+   "iobSubtracted": 0,
+   "correctionPart": 0.7,
+   "correctionApplied": true,
+   "correctionIsManual": false,
+   "mealIsManual": false,
+   "bgInSettingsUnit": 135,
+   "totalBeforeCap": 3.8499999999999996,
+   "mealDose": 3,
+   "correctionDose": 0.5,
+   "finalDose": 3.5,
+   "requested": 3.5,
+   "capped": false,
+   "overMax": false,
+   "hasDose": true
+  }
+ },
+ {
+  "name": "planDose: mmol/L reading, Settings in mmol (10.0, ISF 2.8, target 6)",
+  "fn": "planDose",
+  "args": [
+   {
+    "carbs": 0,
+    "ratio": 10,
+    "correction": "auto",
+    "glucose": "10",
+    "glucoseUnit": "mmol",
+    "settings": {
+     "units": "mmol",
+     "isf": 2.8,
+     "target": 6,
+     "rounding": "0.5",
+     "maxDose": 15,
+     "iobAwareCorrection": false
+    }
+   }
+  ],
+  "expect": {
+   "mealPart": 0,
+   "rawCorrection": 1.4285714285714286,
+   "iobSubtracted": 0,
+   "correctionPart": 1.4285714285714286,
+   "correctionApplied": true,
+   "correctionIsManual": false,
+   "mealIsManual": false,
+   "bgInSettingsUnit": 10,
+   "totalBeforeCap": 1.4285714285714286,
+   "mealDose": 0,
+   "correctionDose": 1.5,
+   "finalDose": 1.5,
+   "requested": 1.5,
+   "capped": false,
+   "overMax": false,
+   "hasDose": true
+  }
+ },
+ {
+  "name": "planDose: mmol/L reading typed while Settings are mg/dL (10 mmol = 180 mg/dL)",
+  "fn": "planDose",
+  "args": [
+   {
+    "carbs": 0,
+    "ratio": 10,
+    "correction": "auto",
+    "glucose": "10",
+    "glucoseUnit": "mmol",
+    "settings": {
+     "units": "mgdl",
+     "isf": 50,
+     "target": 100,
+     "rounding": "0.5",
+     "maxDose": 15,
+     "iobAwareCorrection": false
+    }
+   }
+  ],
+  "expect": {
+   "mealPart": 0,
+   "rawCorrection": 1.6036400000000004,
+   "iobSubtracted": 0,
+   "correctionPart": 1.6036400000000004,
+   "correctionApplied": true,
+   "correctionIsManual": false,
+   "mealIsManual": false,
+   "bgInSettingsUnit": 180.18200000000002,
+   "totalBeforeCap": 1.6036400000000004,
+   "mealDose": 0,
+   "correctionDose": 1.5,
+   "finalDose": 1.5,
+   "requested": 1.5,
+   "capped": false,
+   "overMax": false,
+   "hasDose": true
+  }
+ },
+ {
+  "name": "planDose: mg/dL reading typed while Settings are mmol (180 = 10 mmol)",
+  "fn": "planDose",
+  "args": [
+   {
+    "carbs": 0,
+    "ratio": 10,
+    "correction": "auto",
+    "glucose": "180",
+    "glucoseUnit": "mgdl",
+    "settings": {
+     "units": "mmol",
+     "isf": 2.8,
+     "target": 6,
+     "rounding": "0.5",
+     "maxDose": 15,
+     "iobAwareCorrection": false
+    }
+   }
+  ],
+  "expect": {
+   "mealPart": 0,
+   "rawCorrection": 1.4249639650068109,
+   "iobSubtracted": 0,
+   "correctionPart": 1.4249639650068109,
+   "correctionApplied": true,
+   "correctionIsManual": false,
+   "mealIsManual": false,
+   "bgInSettingsUnit": 9.98989910201907,
+   "totalBeforeCap": 1.4249639650068109,
+   "mealDose": 0,
+   "correctionDose": 1.5,
+   "finalDose": 1.5,
+   "requested": 1.5,
+   "capped": false,
+   "overMax": false,
+   "hasDose": true
+  }
+ },
+ {
+  "name": "planDose: no glucose entered",
+  "fn": "planDose",
+  "args": [
+   {
+    "carbs": 20,
+    "ratio": 10,
+    "correction": "auto",
+    "glucose": "",
+    "glucoseUnit": "mgdl",
+    "settings": {
+     "units": "mgdl",
+     "isf": 50,
+     "target": 100,
+     "rounding": "0.5",
+     "maxDose": 15,
+     "iobAwareCorrection": false
+    }
+   }
+  ],
+  "expect": {
+   "mealPart": 2,
+   "rawCorrection": 0,
+   "iobSubtracted": 0,
+   "correctionPart": 0,
+   "correctionApplied": false,
+   "correctionIsManual": false,
+   "mealIsManual": false,
+   "bgInSettingsUnit": null,
+   "totalBeforeCap": 2,
+   "mealDose": 2,
+   "correctionDose": 0,
+   "finalDose": 2,
+   "requested": 2,
+   "capped": false,
+   "overMax": false,
+   "hasDose": true
+  }
+ },
+ {
+  "name": "planDose: ISF of 0 gives no correction",
+  "fn": "planDose",
+  "args": [
+   {
+    "carbs": 0,
+    "ratio": 10,
+    "correction": "auto",
+    "glucose": "300",
+    "glucoseUnit": "mgdl",
+    "settings": {
+     "units": "mgdl",
+     "isf": 0,
+     "target": 100,
+     "rounding": "0.5",
+     "maxDose": 15,
+     "iobAwareCorrection": false
+    }
+   }
+  ],
+  "expect": {
+   "mealPart": 0,
+   "rawCorrection": 0,
+   "iobSubtracted": 0,
+   "correctionPart": 0,
+   "correctionApplied": false,
+   "correctionIsManual": false,
+   "mealIsManual": false,
+   "bgInSettingsUnit": null,
+   "totalBeforeCap": 0,
+   "mealDose": 0,
+   "correctionDose": 0,
+   "finalDose": 0,
+   "requested": 0,
+   "capped": false,
+   "overMax": false,
+   "hasDose": false
+  }
+ },
+ {
+  "name": "planDose: IOB ignored when not IOB-aware",
+  "fn": "planDose",
+  "args": [
+   {
+    "carbs": 0,
+    "ratio": 10,
+    "correction": "auto",
+    "glucose": "200",
+    "glucoseUnit": "mgdl",
+    "iob": 1,
+    "settings": {
+     "units": "mgdl",
+     "isf": 50,
+     "target": 100,
+     "rounding": "0.5",
+     "maxDose": 15,
+     "iobAwareCorrection": false
+    }
+   }
+  ],
+  "expect": {
+   "mealPart": 0,
+   "rawCorrection": 2,
+   "iobSubtracted": 0,
+   "correctionPart": 2,
+   "correctionApplied": true,
+   "correctionIsManual": false,
+   "mealIsManual": false,
+   "bgInSettingsUnit": 200,
+   "totalBeforeCap": 2,
+   "mealDose": 0,
+   "correctionDose": 2,
+   "finalDose": 2,
+   "requested": 2,
+   "capped": false,
+   "overMax": false,
+   "hasDose": true
+  }
+ },
+ {
+  "name": "planDose: IOB subtracted from correction when IOB-aware",
+  "fn": "planDose",
+  "args": [
+   {
+    "carbs": 0,
+    "ratio": 10,
+    "correction": "auto",
+    "glucose": "200",
+    "glucoseUnit": "mgdl",
+    "iob": 1,
+    "settings": {
+     "units": "mgdl",
+     "isf": 50,
+     "target": 100,
+     "rounding": "0.5",
+     "maxDose": 15,
+     "iobAwareCorrection": true
+    }
+   }
+  ],
+  "expect": {
+   "mealPart": 0,
+   "rawCorrection": 2,
+   "iobSubtracted": 1,
+   "correctionPart": 1,
+   "correctionApplied": true,
+   "correctionIsManual": false,
+   "mealIsManual": false,
+   "bgInSettingsUnit": 200,
+   "totalBeforeCap": 1,
+   "mealDose": 0,
+   "correctionDose": 1,
+   "finalDose": 1,
+   "requested": 1,
+   "capped": false,
+   "overMax": false,
+   "hasDose": true
+  }
+ },
+ {
+  "name": "planDose: IOB larger than correction leaves none",
+  "fn": "planDose",
+  "args": [
+   {
+    "carbs": 0,
+    "ratio": 10,
+    "correction": "auto",
+    "glucose": "150",
+    "glucoseUnit": "mgdl",
+    "iob": 3,
+    "settings": {
+     "units": "mgdl",
+     "isf": 50,
+     "target": 100,
+     "rounding": "0.5",
+     "maxDose": 15,
+     "iobAwareCorrection": true
+    }
+   }
+  ],
+  "expect": {
+   "mealPart": 0,
+   "rawCorrection": 1,
+   "iobSubtracted": 1,
+   "correctionPart": 0,
+   "correctionApplied": true,
+   "correctionIsManual": false,
+   "mealIsManual": false,
+   "bgInSettingsUnit": 150,
+   "totalBeforeCap": 0,
+   "mealDose": 0,
+   "correctionDose": 0,
+   "finalDose": 0,
+   "requested": 0,
+   "capped": false,
+   "overMax": false,
+   "hasDose": false
+  }
+ },
+ {
+  "name": "planDose: IOB never touches the meal dose",
+  "fn": "planDose",
+  "args": [
+   {
+    "carbs": 50,
+    "ratio": 10,
+    "correction": "off",
+    "iob": 4,
+    "settings": {
+     "units": "mgdl",
+     "isf": 50,
+     "target": 100,
+     "rounding": "0.5",
+     "maxDose": 15,
+     "iobAwareCorrection": true
+    }
+   }
+  ],
+  "expect": {
+   "mealPart": 5,
+   "rawCorrection": 0,
+   "iobSubtracted": 0,
+   "correctionPart": 0,
+   "correctionApplied": false,
+   "correctionIsManual": false,
+   "mealIsManual": false,
+   "bgInSettingsUnit": null,
+   "totalBeforeCap": 5,
+   "mealDose": 5,
+   "correctionDose": 0,
+   "finalDose": 5,
+   "requested": 5,
+   "capped": false,
+   "overMax": false,
+   "hasDose": true
+  }
+ },
+ {
+  "name": "planDose: cap: meal alone over the max",
+  "fn": "planDose",
+  "args": [
+   {
+    "carbs": 300,
+    "ratio": 10,
+    "settings": {
+     "units": "mgdl",
+     "isf": 50,
+     "target": 100,
+     "rounding": "0.5",
+     "maxDose": 15,
+     "iobAwareCorrection": false
+    }
+   }
+  ],
+  "expect": {
+   "mealPart": 30,
+   "rawCorrection": 0,
+   "iobSubtracted": 0,
+   "correctionPart": 0,
+   "correctionApplied": false,
+   "correctionIsManual": false,
+   "mealIsManual": false,
+   "bgInSettingsUnit": null,
+   "totalBeforeCap": 30,
+   "mealDose": 15,
+   "correctionDose": 0,
+   "finalDose": 15,
+   "requested": 30,
+   "capped": true,
+   "overMax": false,
+   "hasDose": true
+  }
+ },
+ {
+  "name": "planDose: cap: correction trimmed first, meal kept",
+  "fn": "planDose",
+  "args": [
+   {
+    "carbs": 120,
+    "ratio": 10,
+    "correction": "auto",
+    "glucose": "300",
+    "glucoseUnit": "mgdl",
+    "settings": {
+     "units": "mgdl",
+     "isf": 50,
+     "target": 100,
+     "rounding": "0.5",
+     "maxDose": 15,
+     "iobAwareCorrection": false
+    }
+   }
+  ],
+  "expect": {
+   "mealPart": 12,
+   "rawCorrection": 4,
+   "iobSubtracted": 0,
+   "correctionPart": 4,
+   "correctionApplied": true,
+   "correctionIsManual": false,
+   "mealIsManual": false,
+   "bgInSettingsUnit": 300,
+   "totalBeforeCap": 16,
+   "mealDose": 12,
+   "correctionDose": 3,
+   "finalDose": 15,
+   "requested": 16,
+   "capped": true,
+   "overMax": false,
+   "hasDose": true
+  }
+ },
+ {
+  "name": "planDose: cap: exactly at the max is not capped",
+  "fn": "planDose",
+  "args": [
+   {
+    "carbs": 150,
+    "ratio": 10,
+    "settings": {
+     "units": "mgdl",
+     "isf": 50,
+     "target": 100,
+     "rounding": "0.5",
+     "maxDose": 15,
+     "iobAwareCorrection": false
+    }
+   }
+  ],
+  "expect": {
+   "mealPart": 15,
+   "rawCorrection": 0,
+   "iobSubtracted": 0,
+   "correctionPart": 0,
+   "correctionApplied": false,
+   "correctionIsManual": false,
+   "mealIsManual": false,
+   "bgInSettingsUnit": null,
+   "totalBeforeCap": 15,
+   "mealDose": 15,
+   "correctionDose": 0,
+   "finalDose": 15,
+   "requested": 15,
+   "capped": false,
+   "overMax": false,
+   "hasDose": true
+  }
+ },
+ {
+  "name": "planDose: no max set (0) = no cap",
+  "fn": "planDose",
+  "args": [
+   {
+    "carbs": 400,
+    "ratio": 10,
+    "settings": {
+     "units": "mgdl",
+     "isf": 50,
+     "target": 100,
+     "rounding": "0.5",
+     "maxDose": 0,
+     "iobAwareCorrection": false
+    }
+   }
+  ],
+  "expect": {
+   "mealPart": 40,
+   "rawCorrection": 0,
+   "iobSubtracted": 0,
+   "correctionPart": 0,
+   "correctionApplied": false,
+   "correctionIsManual": false,
+   "mealIsManual": false,
+   "bgInSettingsUnit": null,
+   "totalBeforeCap": 40,
+   "mealDose": 40,
+   "correctionDose": 0,
+   "finalDose": 40,
+   "requested": 40,
+   "capped": false,
+   "overMax": false,
+   "hasDose": true
+  }
+ },
+ {
+  "name": "planDose: treating a low: carbs logged, zero insulin",
+  "fn": "planDose",
+  "args": [
+   {
+    "carbs": 40,
+    "ratio": 10,
+    "noInsulin": true,
+    "settings": {
+     "units": "mgdl",
+     "isf": 50,
+     "target": 100,
+     "rounding": "0.5",
+     "maxDose": 15,
+     "iobAwareCorrection": false
+    }
+   }
+  ],
+  "expect": {
+   "mealPart": 4,
+   "rawCorrection": 0,
+   "iobSubtracted": 0,
+   "correctionPart": 0,
+   "correctionApplied": false,
+   "correctionIsManual": false,
+   "mealIsManual": false,
+   "bgInSettingsUnit": null,
+   "totalBeforeCap": 4,
+   "mealDose": 0,
+   "correctionDose": 0,
+   "finalDose": 0,
+   "requested": 0,
+   "capped": false,
+   "overMax": false,
+   "hasDose": true
+  }
+ },
+ {
+  "name": "planDose: treating a low ignores correction too",
+  "fn": "planDose",
+  "args": [
+   {
+    "carbs": 40,
+    "ratio": 10,
+    "noInsulin": true,
+    "correction": "auto",
+    "glucose": "300",
+    "glucoseUnit": "mgdl",
+    "settings": {
+     "units": "mgdl",
+     "isf": 50,
+     "target": 100,
+     "rounding": "0.5",
+     "maxDose": 15,
+     "iobAwareCorrection": false
+    }
+   }
+  ],
+  "expect": {
+   "mealPart": 4,
+   "rawCorrection": 4,
+   "iobSubtracted": 0,
+   "correctionPart": 4,
+   "correctionApplied": true,
+   "correctionIsManual": false,
+   "mealIsManual": false,
+   "bgInSettingsUnit": 300,
+   "totalBeforeCap": 8,
+   "mealDose": 0,
+   "correctionDose": 0,
+   "finalDose": 0,
+   "requested": 0,
+   "capped": false,
+   "overMax": false,
+   "hasDose": true
+  }
+ },
+ {
+  "name": "planDose: manual correction used as typed (1.3, not 1.5)",
+  "fn": "planDose",
+  "args": [
+   {
+    "carbs": 0,
+    "ratio": 10,
+    "correction": "manual",
+    "correctionUnits": 1.3,
+    "settings": {
+     "units": "mgdl",
+     "isf": 50,
+     "target": 100,
+     "rounding": "0.5",
+     "maxDose": 15,
+     "iobAwareCorrection": false
+    }
+   }
+  ],
+  "expect": {
+   "mealPart": 0,
+   "rawCorrection": 0,
+   "iobSubtracted": 0,
+   "correctionPart": 1.3,
+   "correctionApplied": false,
+   "correctionIsManual": true,
+   "mealIsManual": false,
+   "bgInSettingsUnit": null,
+   "totalBeforeCap": 1.3,
+   "mealDose": 0,
+   "correctionDose": 1.3,
+   "finalDose": 1.3,
+   "requested": 1.3,
+   "capped": false,
+   "overMax": false,
+   "hasDose": true
+  }
+ },
+ {
+  "name": "planDose: manual correction 0 = nothing",
+  "fn": "planDose",
+  "args": [
+   {
+    "carbs": 0,
+    "ratio": 10,
+    "correction": "manual",
+    "correctionUnits": 0,
+    "settings": {
+     "units": "mgdl",
+     "isf": 50,
+     "target": 100,
+     "rounding": "0.5",
+     "maxDose": 15,
+     "iobAwareCorrection": false
+    }
+   }
+  ],
+  "expect": {
+   "mealPart": 0,
+   "rawCorrection": 0,
+   "iobSubtracted": 0,
+   "correctionPart": 0,
+   "correctionApplied": false,
+   "correctionIsManual": false,
+   "mealIsManual": false,
+   "bgInSettingsUnit": null,
+   "totalBeforeCap": 0,
+   "mealDose": 0,
+   "correctionDose": 0,
+   "finalDose": 0,
+   "requested": 0,
+   "capped": false,
+   "overMax": false,
+   "hasDose": false
+  }
+ },
+ {
+  "name": "planDose: manual correction not a number = nothing",
+  "fn": "planDose",
+  "args": [
+   {
+    "carbs": 0,
+    "ratio": 10,
+    "correction": "manual",
+    "correctionUnits": "NaN",
+    "settings": {
+     "units": "mgdl",
+     "isf": 50,
+     "target": 100,
+     "rounding": "0.5",
+     "maxDose": 15,
+     "iobAwareCorrection": false
+    }
+   }
+  ],
+  "expect": {
+   "mealPart": 0,
+   "rawCorrection": 0,
+   "iobSubtracted": 0,
+   "correctionPart": 0,
+   "correctionApplied": false,
+   "correctionIsManual": false,
+   "mealIsManual": false,
+   "bgInSettingsUnit": null,
+   "totalBeforeCap": 0,
+   "mealDose": 0,
+   "correctionDose": 0,
+   "finalDose": 0,
+   "requested": 0,
+   "capped": false,
+   "overMax": false,
+   "hasDose": false
+  }
+ },
+ {
+  "name": "planDose: manual correction over the max is kept, flagged",
+  "fn": "planDose",
+  "args": [
+   {
+    "carbs": 0,
+    "ratio": 10,
+    "correction": "manual",
+    "correctionUnits": 18,
+    "settings": {
+     "units": "mgdl",
+     "isf": 50,
+     "target": 100,
+     "rounding": "0.5",
+     "maxDose": 15,
+     "iobAwareCorrection": false
+    }
+   }
+  ],
+  "expect": {
+   "mealPart": 0,
+   "rawCorrection": 0,
+   "iobSubtracted": 0,
+   "correctionPart": 18,
+   "correctionApplied": false,
+   "correctionIsManual": true,
+   "mealIsManual": false,
+   "bgInSettingsUnit": null,
+   "totalBeforeCap": 18,
+   "mealDose": 0,
+   "correctionDose": 18,
+   "finalDose": 18,
+   "requested": 18,
+   "capped": false,
+   "overMax": true,
+   "hasDose": true
+  }
+ },
+ {
+  "name": "planDose: manual correction added to a meal",
+  "fn": "planDose",
+  "args": [
+   {
+    "carbs": 40,
+    "ratio": 10,
+    "correction": "manual",
+    "correctionUnits": 1.25,
+    "settings": {
+     "units": "mgdl",
+     "isf": 50,
+     "target": 100,
+     "rounding": "0.5",
+     "maxDose": 15,
+     "iobAwareCorrection": false
+    }
+   }
+  ],
+  "expect": {
+   "mealPart": 4,
+   "rawCorrection": 0,
+   "iobSubtracted": 0,
+   "correctionPart": 1.25,
+   "correctionApplied": false,
+   "correctionIsManual": true,
+   "mealIsManual": false,
+   "bgInSettingsUnit": null,
+   "totalBeforeCap": 5.25,
+   "mealDose": 4,
+   "correctionDose": 1.25,
+   "finalDose": 5.25,
+   "requested": 5.25,
+   "capped": false,
+   "overMax": false,
+   "hasDose": true
+  }
+ },
+ {
+  "name": "planDose: Eating Out dose used as typed (3.25)",
+  "fn": "planDose",
+  "args": [
+   {
+    "carbs": 0,
+    "ratio": 10,
+    "mealUnits": 3.25,
+    "settings": {
+     "units": "mgdl",
+     "isf": 50,
+     "target": 100,
+     "rounding": "0.5",
+     "maxDose": 15,
+     "iobAwareCorrection": false
+    }
+   }
+  ],
+  "expect": {
+   "mealPart": 3.25,
+   "rawCorrection": 0,
+   "iobSubtracted": 0,
+   "correctionPart": 0,
+   "correctionApplied": false,
+   "correctionIsManual": false,
+   "mealIsManual": true,
+   "bgInSettingsUnit": null,
+   "totalBeforeCap": 3.25,
+   "mealDose": 3.25,
+   "correctionDose": 0,
+   "finalDose": 3.25,
+   "requested": 3.25,
+   "capped": false,
+   "overMax": false,
+   "hasDose": true
+  }
+ },
+ {
+  "name": "planDose: Eating Out dose of 0 = nothing to log",
+  "fn": "planDose",
+  "args": [
+   {
+    "carbs": 0,
+    "ratio": 10,
+    "mealUnits": 0,
+    "settings": {
+     "units": "mgdl",
+     "isf": 50,
+     "target": 100,
+     "rounding": "0.5",
+     "maxDose": 15,
+     "iobAwareCorrection": false
+    }
+   }
+  ],
+  "expect": {
+   "mealPart": 0,
+   "rawCorrection": 0,
+   "iobSubtracted": 0,
+   "correctionPart": 0,
+   "correctionApplied": false,
+   "correctionIsManual": false,
+   "mealIsManual": true,
+   "bgInSettingsUnit": null,
+   "totalBeforeCap": 0,
+   "mealDose": 0,
+   "correctionDose": 0,
+   "finalDose": 0,
+   "requested": 0,
+   "capped": false,
+   "overMax": false,
+   "hasDose": false
+  }
+ },
+ {
+  "name": "planDose: Eating Out dose over the max is kept, flagged",
+  "fn": "planDose",
+  "args": [
+   {
+    "carbs": 0,
+    "ratio": 10,
+    "mealUnits": 20,
+    "settings": {
+     "units": "mgdl",
+     "isf": 50,
+     "target": 100,
+     "rounding": "0.5",
+     "maxDose": 15,
+     "iobAwareCorrection": false
+    }
+   }
+  ],
+  "expect": {
+   "mealPart": 20,
+   "rawCorrection": 0,
+   "iobSubtracted": 0,
+   "correctionPart": 0,
+   "correctionApplied": false,
+   "correctionIsManual": false,
+   "mealIsManual": true,
+   "bgInSettingsUnit": null,
+   "totalBeforeCap": 20,
+   "mealDose": 20,
+   "correctionDose": 0,
+   "finalDose": 20,
+   "requested": 20,
+   "capped": false,
+   "overMax": true,
+   "hasDose": true
+  }
+ },
+ {
+  "name": "planDose: Eating Out dose with an auto correction: typed meal stops the cap trimming anything (flagged over max)",
+  "fn": "planDose",
+  "args": [
+   {
+    "carbs": 0,
+    "ratio": 10,
+    "mealUnits": 4,
+    "correction": "auto",
+    "glucose": "250",
+    "glucoseUnit": "mgdl",
+    "settings": {
+     "units": "mgdl",
+     "isf": 50,
+     "target": 100,
+     "rounding": "0.5",
+     "maxDose": 5,
+     "iobAwareCorrection": false
+    }
+   }
+  ],
+  "expect": {
+   "mealPart": 4,
+   "rawCorrection": 3,
+   "iobSubtracted": 0,
+   "correctionPart": 3,
+   "correctionApplied": true,
+   "correctionIsManual": false,
+   "mealIsManual": true,
+   "bgInSettingsUnit": 250,
+   "totalBeforeCap": 7,
+   "mealDose": 4,
+   "correctionDose": 3,
+   "finalDose": 7,
+   "requested": 7,
+   "capped": false,
+   "overMax": true,
+   "hasDose": true
+  }
+ },
+ {
+  "name": "planDose: tiny carbs round to zero",
+  "fn": "planDose",
+  "args": [
+   {
+    "carbs": 2,
+    "ratio": 12,
+    "settings": {
+     "units": "mgdl",
+     "isf": 50,
+     "target": 100,
+     "rounding": "0.5",
+     "maxDose": 15,
+     "iobAwareCorrection": false
+    }
+   }
+  ],
+  "expect": {
+   "mealPart": 0.16666666666666666,
+   "rawCorrection": 0,
+   "iobSubtracted": 0,
+   "correctionPart": 0,
+   "correctionApplied": false,
+   "correctionIsManual": false,
+   "mealIsManual": false,
+   "bgInSettingsUnit": null,
+   "totalBeforeCap": 0.16666666666666666,
+   "mealDose": 0,
+   "correctionDose": 0,
+   "finalDose": 0,
+   "requested": 0,
+   "capped": false,
+   "overMax": false,
+   "hasDose": true
+  }
+ },
+ {
+  "name": "planDose: fractional ratio",
+  "fn": "planDose",
+  "args": [
+   {
+    "carbs": 45,
+    "ratio": 7.5,
+    "settings": {
+     "units": "mgdl",
+     "isf": 50,
+     "target": 100,
+     "rounding": "0.5",
+     "maxDose": 15,
+     "iobAwareCorrection": false
+    }
+   }
+  ],
+  "expect": {
+   "mealPart": 6,
+   "rawCorrection": 0,
+   "iobSubtracted": 0,
+   "correctionPart": 0,
+   "correctionApplied": false,
+   "correctionIsManual": false,
+   "mealIsManual": false,
+   "bgInSettingsUnit": null,
+   "totalBeforeCap": 6,
+   "mealDose": 6,
+   "correctionDose": 0,
+   "finalDose": 6,
+   "requested": 6,
+   "capped": false,
+   "overMax": false,
+   "hasDose": true
+  }
+ },
+ {
+  "name": "planDose: very high glucose, big correction under the cap",
+  "fn": "planDose",
+  "args": [
+   {
+    "carbs": 0,
+    "ratio": 10,
+    "correction": "auto",
+    "glucose": "500",
+    "glucoseUnit": "mgdl",
+    "settings": {
+     "units": "mgdl",
+     "isf": 50,
+     "target": 100,
+     "rounding": "0.5",
+     "maxDose": 15,
+     "iobAwareCorrection": false
+    }
+   }
+  ],
+  "expect": {
+   "mealPart": 0,
+   "rawCorrection": 8,
+   "iobSubtracted": 0,
+   "correctionPart": 8,
+   "correctionApplied": true,
+   "correctionIsManual": false,
+   "mealIsManual": false,
+   "bgInSettingsUnit": 500,
+   "totalBeforeCap": 8,
+   "mealDose": 0,
+   "correctionDose": 8,
+   "finalDose": 8,
+   "requested": 8,
+   "capped": false,
+   "overMax": false,
+   "hasDose": true
+  }
+ },
+ {
+  "name": "planEditDose: ratio chosen, glucose box: recalculated",
+  "fn": "planEditDose",
+  "args": [
+   {
+    "entry": {
+     "noInsulin": false,
+     "mealDose": 3,
+     "correctionDose": 0,
+     "glucose": null
+    },
+    "totalCarbs": 50,
+    "ratio": 10,
+    "glucoseText": "200",
+    "settings": {
+     "units": "mgdl",
+     "isf": 50,
+     "target": 100,
+     "rounding": "0.5",
+     "maxDose": 15,
+     "iobAwareCorrection": false
+    }
+   }
+  ],
+  "expect": {
+   "mealPart": 5,
+   "rawCorrection": 2,
+   "iobSubtracted": 0,
+   "correctionPart": 2,
+   "correctionApplied": true,
+   "correctionIsManual": false,
+   "mealIsManual": false,
+   "bgInSettingsUnit": 200,
+   "totalBeforeCap": 7,
+   "mealDose": 5,
+   "correctionDose": 2,
+   "finalDose": 7,
+   "requested": 7,
+   "capped": false,
+   "overMax": false,
+   "hasDose": true
+  }
+ },
+ {
+  "name": "planEditDose: ratio chosen, glucose box emptied",
+  "fn": "planEditDose",
+  "args": [
+   {
+    "entry": {
+     "noInsulin": false,
+     "mealDose": 3,
+     "correctionDose": 0,
+     "glucose": null
+    },
+    "totalCarbs": 50,
+    "ratio": 10,
+    "glucoseText": "",
+    "settings": {
+     "units": "mgdl",
+     "isf": 50,
+     "target": 100,
+     "rounding": "0.5",
+     "maxDose": 15,
+     "iobAwareCorrection": false
+    }
+   }
+  ],
+  "expect": {
+   "mealPart": 5,
+   "rawCorrection": 0,
+   "iobSubtracted": 0,
+   "correctionPart": 0,
+   "correctionApplied": false,
+   "correctionIsManual": false,
+   "mealIsManual": false,
+   "bgInSettingsUnit": null,
+   "totalBeforeCap": 5,
+   "mealDose": 5,
+   "correctionDose": 0,
+   "finalDose": 5,
+   "requested": 5,
+   "capped": false,
+   "overMax": false,
+   "hasDose": true
+  }
+ },
+ {
+  "name": "planEditDose: no ratio: the saved meal dose is kept",
+  "fn": "planEditDose",
+  "args": [
+   {
+    "entry": {
+     "noInsulin": false,
+     "mealDose": 4.25,
+     "correctionDose": 0,
+     "glucose": null
+    },
+    "totalCarbs": 80,
+    "ratio": 0,
+    "glucoseText": null,
+    "settings": {
+     "units": "mgdl",
+     "isf": 50,
+     "target": 100,
+     "rounding": "0.5",
+     "maxDose": 15,
+     "iobAwareCorrection": false
+    }
+   }
+  ],
+  "expect": {
+   "mealPart": 4.25,
+   "rawCorrection": 0,
+   "iobSubtracted": 0,
+   "correctionPart": 0,
+   "correctionApplied": false,
+   "correctionIsManual": false,
+   "mealIsManual": true,
+   "bgInSettingsUnit": null,
+   "totalBeforeCap": 4.25,
+   "mealDose": 4.25,
+   "correctionDose": 0,
+   "finalDose": 4.25,
+   "requested": 4.25,
+   "capped": false,
+   "overMax": false,
+   "hasDose": true
+  }
+ },
+ {
+  "name": "planEditDose: no glucose box: a typed correction is kept",
+  "fn": "planEditDose",
+  "args": [
+   {
+    "entry": {
+     "noInsulin": false,
+     "mealDose": 3,
+     "correctionDose": 1.3,
+     "glucose": null
+    },
+    "totalCarbs": 40,
+    "ratio": 10,
+    "glucoseText": null,
+    "settings": {
+     "units": "mgdl",
+     "isf": 50,
+     "target": 100,
+     "rounding": "0.5",
+     "maxDose": 15,
+     "iobAwareCorrection": false
+    }
+   }
+  ],
+  "expect": {
+   "mealPart": 4,
+   "rawCorrection": 0,
+   "iobSubtracted": 0,
+   "correctionPart": 1.3,
+   "correctionApplied": false,
+   "correctionIsManual": true,
+   "mealIsManual": false,
+   "bgInSettingsUnit": null,
+   "totalBeforeCap": 5.3,
+   "mealDose": 4,
+   "correctionDose": 1.3,
+   "finalDose": 5.3,
+   "requested": 5.3,
+   "capped": false,
+   "overMax": false,
+   "hasDose": true
+  }
+ },
+ {
+  "name": "planEditDose: no glucose box, correction from a reading: still capped",
+  "fn": "planEditDose",
+  "args": [
+   {
+    "entry": {
+     "noInsulin": false,
+     "mealDose": 3,
+     "correctionDose": 9,
+     "glucose": 250
+    },
+    "totalCarbs": 100,
+    "ratio": 10,
+    "glucoseText": null,
+    "settings": {
+     "units": "mgdl",
+     "isf": 50,
+     "target": 100,
+     "rounding": "0.5",
+     "maxDose": 15,
+     "iobAwareCorrection": false
+    }
+   }
+  ],
+  "expect": {
+   "mealPart": 10,
+   "rawCorrection": 0,
+   "iobSubtracted": 0,
+   "correctionPart": 9,
+   "correctionApplied": false,
+   "correctionIsManual": true,
+   "mealIsManual": false,
+   "bgInSettingsUnit": null,
+   "totalBeforeCap": 19,
+   "mealDose": 10,
+   "correctionDose": 5,
+   "finalDose": 15,
+   "requested": 19,
+   "capped": true,
+   "overMax": false,
+   "hasDose": true
+  }
+ },
+ {
+  "name": "planEditDose: treating a low: never any insulin",
+  "fn": "planEditDose",
+  "args": [
+   {
+    "entry": {
+     "noInsulin": true,
+     "mealDose": 3,
+     "correctionDose": 0,
+     "glucose": null
+    },
+    "totalCarbs": 30,
+    "ratio": 10,
+    "glucoseText": "250",
+    "settings": {
+     "units": "mgdl",
+     "isf": 50,
+     "target": 100,
+     "rounding": "0.5",
+     "maxDose": 15,
+     "iobAwareCorrection": false
+    }
+   }
+  ],
+  "expect": {
+   "mealPart": 3,
+   "rawCorrection": 3,
+   "iobSubtracted": 0,
+   "correctionPart": 3,
+   "correctionApplied": true,
+   "correctionIsManual": false,
+   "mealIsManual": false,
+   "bgInSettingsUnit": 250,
+   "totalBeforeCap": 6,
+   "mealDose": 0,
+   "correctionDose": 0,
+   "finalDose": 0,
+   "requested": 0,
+   "capped": false,
+   "overMax": false,
+   "hasDose": true
+  }
+ },
+ {
+  "name": "planEditDose: edited carbs over the cap",
+  "fn": "planEditDose",
+  "args": [
+   {
+    "entry": {
+     "noInsulin": false,
+     "mealDose": 3,
+     "correctionDose": 0,
+     "glucose": null
+    },
+    "totalCarbs": 250,
+    "ratio": 10,
+    "glucoseText": "300",
+    "settings": {
+     "units": "mgdl",
+     "isf": 50,
+     "target": 100,
+     "rounding": "0.5",
+     "maxDose": 15,
+     "iobAwareCorrection": false
+    }
+   }
+  ],
+  "expect": {
+   "mealPart": 25,
+   "rawCorrection": 4,
+   "iobSubtracted": 0,
+   "correctionPart": 4,
+   "correctionApplied": true,
+   "correctionIsManual": false,
+   "mealIsManual": false,
+   "bgInSettingsUnit": 300,
+   "totalBeforeCap": 29,
+   "mealDose": 15,
+   "correctionDose": 0,
+   "finalDose": 15,
+   "requested": 29,
+   "capped": true,
+   "overMax": false,
+   "hasDose": true
+  }
+ },
+ {
+  "name": "planEditDose: mmol settings, glucose box in mmol",
+  "fn": "planEditDose",
+  "args": [
+   {
+    "entry": {
+     "noInsulin": false,
+     "mealDose": 3,
+     "correctionDose": 0,
+     "glucose": null
+    },
+    "totalCarbs": 30,
+    "ratio": 10,
+    "glucoseText": "10",
+    "settings": {
+     "units": "mmol",
+     "isf": 2.8,
+     "target": 6,
+     "rounding": "0.5",
+     "maxDose": 15,
+     "iobAwareCorrection": false
+    }
+   }
+  ],
+  "expect": {
+   "mealPart": 3,
+   "rawCorrection": 1.4285714285714286,
+   "iobSubtracted": 0,
+   "correctionPart": 1.4285714285714286,
+   "correctionApplied": true,
+   "correctionIsManual": false,
+   "mealIsManual": false,
+   "bgInSettingsUnit": 10,
+   "totalBeforeCap": 4.428571428571429,
+   "mealDose": 3,
+   "correctionDose": 1.5,
+   "finalDose": 4.5,
+   "requested": 4.5,
+   "capped": false,
+   "overMax": false,
+   "hasDose": true
+  }
+ },
+ {
+  "name": "planEditDose: IOB-aware setting is ignored when editing",
+  "fn": "planEditDose",
+  "args": [
+   {
+    "entry": {
+     "noInsulin": false,
+     "mealDose": 3,
+     "correctionDose": 0,
+     "glucose": null
+    },
+    "totalCarbs": 0,
+    "ratio": 10,
+    "glucoseText": "200",
+    "settings": {
+     "units": "mgdl",
+     "isf": 50,
+     "target": 100,
+     "rounding": "0.5",
+     "maxDose": 15,
+     "iobAwareCorrection": true
+    }
+   }
+  ],
+  "expect": {
+   "mealPart": 0,
+   "rawCorrection": 2,
+   "iobSubtracted": 0,
+   "correctionPart": 2,
+   "correctionApplied": true,
+   "correctionIsManual": false,
+   "mealIsManual": false,
+   "bgInSettingsUnit": 200,
+   "totalBeforeCap": 2,
+   "mealDose": 0,
+   "correctionDose": 2,
+   "finalDose": 2,
+   "requested": 2,
+   "capped": false,
+   "overMax": false,
+   "hasDose": true
+  }
+ },
+ {
+  "name": "capDoseParts meal 3 + correction 1, max 15",
+  "fn": "capDoseParts",
+  "args": [
+   {
+    "meal": 3,
+    "correction": 1,
+    "maxDose": 15,
+    "typed": false
+   }
+  ],
+  "expect": {
+   "meal": 3,
+   "correction": 1,
+   "total": 4,
+   "requested": 4,
+   "capped": false,
+   "overMax": false
+  }
+ },
+ {
+  "name": "capDoseParts meal 12 + correction 6, max 15",
+  "fn": "capDoseParts",
+  "args": [
+   {
+    "meal": 12,
+    "correction": 6,
+    "maxDose": 15,
+    "typed": false
+   }
+  ],
+  "expect": {
+   "meal": 12,
+   "correction": 3,
+   "total": 15,
+   "requested": 18,
+   "capped": true,
+   "overMax": false
+  }
+ },
+ {
+  "name": "capDoseParts meal 20 + correction 0, max 15",
+  "fn": "capDoseParts",
+  "args": [
+   {
+    "meal": 20,
+    "correction": 0,
+    "maxDose": 15,
+    "typed": false
+   }
+  ],
+  "expect": {
+   "meal": 15,
+   "correction": 0,
+   "total": 15,
+   "requested": 20,
+   "capped": true,
+   "overMax": false
+  }
+ },
+ {
+  "name": "capDoseParts meal 10 + correction 2, max 0",
+  "fn": "capDoseParts",
+  "args": [
+   {
+    "meal": 10,
+    "correction": 2,
+    "maxDose": 0,
+    "typed": false
+   }
+  ],
+  "expect": {
+   "meal": 10,
+   "correction": 2,
+   "total": 12,
+   "requested": 12,
+   "capped": false,
+   "overMax": false
+  }
+ },
+ {
+  "name": "capDoseParts meal 20 + correction 0, max 15, typed",
+  "fn": "capDoseParts",
+  "args": [
+   {
+    "meal": 20,
+    "correction": 0,
+    "maxDose": 15,
+    "typed": true
+   }
+  ],
+  "expect": {
+   "meal": 20,
+   "correction": 0,
+   "total": 20,
+   "requested": 20,
+   "capped": false,
+   "overMax": true
+  }
+ },
+ {
+  "name": "capDoseParts meal 3 + correction 15, max 15, typed",
+  "fn": "capDoseParts",
+  "args": [
+   {
+    "meal": 3,
+    "correction": 15,
+    "maxDose": 15,
+    "typed": true
+   }
+  ],
+  "expect": {
+   "meal": 3,
+   "correction": 15,
+   "total": 18,
+   "requested": 18,
+   "capped": false,
+   "overMax": true
+  }
+ },
+ {
+  "name": "capDoseParts meal 0 + correction 0, max 5",
+  "fn": "capDoseParts",
+  "args": [
+   {
+    "meal": 0,
+    "correction": 0,
+    "maxDose": 5,
+    "typed": false
+   }
+  ],
+  "expect": {
+   "meal": 0,
+   "correction": 0,
+   "total": 0,
+   "requested": 0,
+   "capped": false,
+   "overMax": false
+  }
+ },
+ {
+  "name": "capDoseParts meal 7.5 + correction 7.5, max 15",
+  "fn": "capDoseParts",
+  "args": [
+   {
+    "meal": 7.5,
+    "correction": 7.5,
+    "maxDose": 15,
+    "typed": false
+   }
+  ],
+  "expect": {
+   "meal": 7.5,
+   "correction": 7.5,
+   "total": 15,
+   "requested": 15,
+   "capped": false,
+   "overMax": false
+  }
+ },
+ {
+  "name": "capDoseParts meal 5 + correction 2.5, max 6",
+  "fn": "capDoseParts",
+  "args": [
+   {
+    "meal": 5,
+    "correction": 2.5,
+    "maxDose": 6,
+    "typed": false
+   }
+  ],
+  "expect": {
+   "meal": 5,
+   "correction": 1,
+   "total": 6,
+   "requested": 7.5,
+   "capped": true,
+   "overMax": false
+  }
+ },
+ {
+  "name": "roundDose 5.33 to 0.5",
+  "fn": "roundDose",
+  "args": [
+   5.33,
+   "0.5"
+  ],
+  "expect": 5.5
+ },
+ {
+  "name": "roundDose 6.25 to 0.5",
+  "fn": "roundDose",
+  "args": [
+   6.25,
+   "0.5"
+  ],
+  "expect": 6.5
+ },
+ {
+  "name": "roundDose 6.24 to 0.5",
+  "fn": "roundDose",
+  "args": [
+   6.24,
+   "0.5"
+  ],
+  "expect": 6
+ },
+ {
+  "name": "roundDose 0.24 to 0.5",
+  "fn": "roundDose",
+  "args": [
+   0.24,
+   "0.5"
+  ],
+  "expect": 0
+ },
+ {
+  "name": "roundDose 0.25 to 0.5",
+  "fn": "roundDose",
+  "args": [
+   0.25,
+   "0.5"
+  ],
+  "expect": 0.5
+ },
+ {
+  "name": "roundDose 2.34 to 0.5",
+  "fn": "roundDose",
+  "args": [
+   2.34,
+   "0.5"
+  ],
+  "expect": 2.5
+ },
+ {
+  "name": "roundDose 5.33 to 0.1",
+  "fn": "roundDose",
+  "args": [
+   5.33,
+   "0.1"
+  ],
+  "expect": 5.3
+ },
+ {
+  "name": "roundDose 5.35 to 0.1",
+  "fn": "roundDose",
+  "args": [
+   5.35,
+   "0.1"
+  ],
+  "expect": 5.3
+ },
+ {
+  "name": "roundDose 5.33 to 1",
+  "fn": "roundDose",
+  "args": [
+   5.33,
+   "1"
+  ],
+  "expect": 5
+ },
+ {
+  "name": "roundDose 5.5 to 1",
+  "fn": "roundDose",
+  "args": [
+   5.5,
+   "1"
+  ],
+  "expect": 6
+ },
+ {
+  "name": "roundDose 0 to 0.5",
+  "fn": "roundDose",
+  "args": [
+   0,
+   "0.5"
+  ],
+  "expect": 0
+ },
+ {
+  "name": "roundDose 10.74 to 0.5",
+  "fn": "roundDose",
+  "args": [
+   10.74,
+   "0.5"
+  ],
+  "expect": 10.5
+ },
+ {
+  "name": "roundDose 3.3 to bad",
+  "fn": "roundDose",
+  "args": [
+   3.3,
+   "bad"
+  ],
+  "expect": 3.5
+ },
+ {
+  "name": "roundDose 1.05 to 0.1",
+  "fn": "roundDose",
+  "args": [
+   1.05,
+   "0.1"
+  ],
+  "expect": 1.1
+ },
+ {
+  "name": "convertGlucose 100 mgdl->mgdl",
+  "fn": "convertGlucose",
+  "args": [
+   100,
+   "mgdl",
+   "mgdl"
+  ],
+  "expect": 100
+ },
+ {
+  "name": "convertGlucose 180 mgdl->mmol",
+  "fn": "convertGlucose",
+  "args": [
+   180,
+   "mgdl",
+   "mmol"
+  ],
+  "expect": 9.98989910201907
+ },
+ {
+  "name": "convertGlucose 10 mmol->mgdl",
+  "fn": "convertGlucose",
+  "args": [
+   10,
+   "mmol",
+   "mgdl"
+  ],
+  "expect": 180.18200000000002
+ },
+ {
+  "name": "convertGlucose 5.5 mmol->mgdl",
+  "fn": "convertGlucose",
+  "args": [
+   5.5,
+   "mmol",
+   "mgdl"
+  ],
+  "expect": 99.1001
+ },
+ {
+  "name": "convertGlucose 70 mgdl->mmol",
+  "fn": "convertGlucose",
+  "args": [
+   70,
+   "mgdl",
+   "mmol"
+  ],
+  "expect": 3.8849607618963047
+ },
+ {
+  "name": "convertGlucose 0 mgdl->mmol",
+  "fn": "convertGlucose",
+  "args": [
+   0,
+   "mgdl",
+   "mmol"
+  ],
+  "expect": 0
+ },
+ {
+  "name": "convertGlucose 400 mgdl->mmol",
+  "fn": "convertGlucose",
+  "args": [
+   400,
+   "mgdl",
+   "mmol"
+  ],
+  "expect": 22.1997757822646
+ },
+ {
+  "name": "parseDecimalInput \"1.5\"",
+  "fn": "parseDecimalInput",
+  "args": [
+   "1.5"
+  ],
+  "expect": 1.5
+ },
+ {
+  "name": "parseDecimalInput \"1,5\"",
+  "fn": "parseDecimalInput",
+  "args": [
+   "1,5"
+  ],
+  "expect": 1.5
+ },
+ {
+  "name": "parseDecimalInput \",5\"",
+  "fn": "parseDecimalInput",
+  "args": [
+   ",5"
+  ],
+  "expect": 0.5
+ },
+ {
+  "name": "parseDecimalInput \".5\"",
+  "fn": "parseDecimalInput",
+  "args": [
+   ".5"
+  ],
+  "expect": 0.5
+ },
+ {
+  "name": "parseDecimalInput \"2.\"",
+  "fn": "parseDecimalInput",
+  "args": [
+   "2."
+  ],
+  "expect": 2
+ },
+ {
+  "name": "parseDecimalInput \"abc\"",
+  "fn": "parseDecimalInput",
+  "args": [
+   "abc"
+  ],
+  "expect": "NaN"
+ },
+ {
+  "name": "parseDecimalInput \"\"",
+  "fn": "parseDecimalInput",
+  "args": [
+   ""
+  ],
+  "expect": "NaN"
+ },
+ {
+  "name": "parseDecimalInput \"  3 \"",
+  "fn": "parseDecimalInput",
+  "args": [
+   "  3 "
+  ],
+  "expect": 3
+ },
+ {
+  "name": "parseDecimalInput \"1.2.3\"",
+  "fn": "parseDecimalInput",
+  "args": [
+   "1.2.3"
+  ],
+  "expect": "NaN"
+ },
+ {
+  "name": "parseDecimalInput \"-1\"",
+  "fn": "parseDecimalInput",
+  "args": [
+   "-1"
+  ],
+  "expect": "NaN"
+ },
+ {
+  "name": "parseDecimalInput \"10\"",
+  "fn": "parseDecimalInput",
+  "args": [
+   "10"
+  ],
+  "expect": 10
+ },
+ {
+  "name": "parseDecimalInput \"0\"",
+  "fn": "parseDecimalInput",
+  "args": [
+   "0"
+  ],
+  "expect": 0
+ },
+ {
+  "name": "parseDecimalInput null",
+  "fn": "parseDecimalInput",
+  "args": [
+   null
+  ],
+  "expect": "NaN"
+ },
+ {
+  "name": "parseDecimalInput \"1e2\"",
+  "fn": "parseDecimalInput",
+  "args": [
+   "1e2"
+  ],
+  "expect": "NaN"
+ },
+ {
+  "name": "checkDoseConsistency {\"mealDose\":3,\"correctionDose\":0.5,\"finalDose\":3.5,\"shownText\":\"3.5\"}",
+  "fn": "checkDoseConsistency",
+  "args": [
+   {
+    "mealDose": 3,
+    "correctionDose": 0.5,
+    "finalDose": 3.5,
+    "shownText": "3.5"
+   }
+  ],
+  "expect": null
+ },
+ {
+  "name": "checkDoseConsistency {\"mealDose\":3.25,\"correctionDose\":0,\"finalDose\":3.25,\"shownText\":\"3.3\"}",
+  "fn": "checkDoseConsistency",
+  "args": [
+   {
+    "mealDose": 3.25,
+    "correctionDose": 0,
+    "finalDose": 3.25,
+    "shownText": "3.3"
+   }
+  ],
+  "expect": null
+ },
+ {
+  "name": "checkDoseConsistency {\"mealDose\":3,\"correctionDose\":4,\"finalDose\":3.5,\"shownText\":\"3.5\"}",
+  "fn": "checkDoseConsistency",
+  "args": [
+   {
+    "mealDose": 3,
+    "correctionDose": 4,
+    "finalDose": 3.5,
+    "shownText": "3.5"
+   }
+  ],
+  "expect": "The parts to save (7 u) do not match the calculated dose (3.5 u)."
+ },
+ {
+  "name": "checkDoseConsistency {\"mealDose\":3,\"correctionDose\":0.5,\"finalDose\":3.5,\"shownText\":\"15.0\"}",
+  "fn": "checkDoseConsistency",
+  "args": [
+   {
+    "mealDose": 3,
+    "correctionDose": 0.5,
+    "finalDose": 3.5,
+    "shownText": "15.0"
+   }
+  ],
+  "expect": "The number on screen (15.0 u) does not match the dose to save (3.5 u)."
+ },
+ {
+  "name": "checkDoseConsistency {\"mealDose\":null,\"correctionDose\":0,\"finalDose\":0,\"shownText\":\"0.0\"}",
+  "fn": "checkDoseConsistency",
+  "args": [
+   {
+    "mealDose": null,
+    "correctionDose": 0,
+    "finalDose": 0,
+    "shownText": "0.0"
+   }
+  ],
+  "expect": null
+ },
+ {
+  "name": "checkDoseConsistency {\"mealDose\":-1,\"correctionDose\":0,\"finalDose\":0,\"shownText\":\"0.0\"}",
+  "fn": "checkDoseConsistency",
+  "args": [
+   {
+    "mealDose": -1,
+    "correctionDose": 0,
+    "finalDose": 0,
+    "shownText": "0.0"
+   }
+  ],
+  "expect": "The dose could not be worked out."
+ },
+ {
+  "name": "checkDoseConsistency {\"mealDose\":0,\"correctionDose\":0,\"finalDose\":0,\"shownText\":\"0.0\",\"noInsulin\":true}",
+  "fn": "checkDoseConsistency",
+  "args": [
+   {
+    "mealDose": 0,
+    "correctionDose": 0,
+    "finalDose": 0,
+    "shownText": "0.0",
+    "noInsulin": true
+   }
+  ],
+  "expect": null
+ },
+ {
+  "name": "checkDoseConsistency {\"mealDose\":2,\"correctionDose\":0,\"finalDose\":0,\"shownText\":\"0.0\",\"noInsulin\":true}",
+  "fn": "checkDoseConsistency",
+  "args": [
+   {
+    "mealDose": 2,
+    "correctionDose": 0,
+    "finalDose": 0,
+    "shownText": "0.0",
+    "noInsulin": true
+   }
+  ],
+  "expect": "A 'no insulin' entry would have carried insulin."
+ },
+ {
+  "name": "iobFraction -5 min (peak 75, DIA 360)",
+  "fn": "iobFraction",
+  "args": [
+   -5,
+   75,
+   360
+  ],
+  "expect": 1
+ },
+ {
+  "name": "iobFraction 0 min (peak 75, DIA 360)",
+  "fn": "iobFraction",
+  "args": [
+   0,
+   75,
+   360
+  ],
+  "expect": 1
+ },
+ {
+  "name": "iobFraction 10 min (peak 75, DIA 360)",
+  "fn": "iobFraction",
+  "args": [
+   10,
+   75,
+   360
+  ],
+  "expect": 0.990755193396457
+ },
+ {
+  "name": "iobFraction 30 min (peak 75, DIA 360)",
+  "fn": "iobFraction",
+  "args": [
+   30,
+   75,
+   360
+  ],
+  "expect": 0.9295208629730758
+ },
+ {
+  "name": "iobFraction 60 min (peak 75, DIA 360)",
+  "fn": "iobFraction",
+  "args": [
+   60,
+   75,
+   360
+  ],
+  "expect": 0.7792959813945408
+ },
+ {
+  "name": "iobFraction 75 min (peak 75, DIA 360)",
+  "fn": "iobFraction",
+  "args": [
+   75,
+   75,
+   360
+  ],
+  "expect": 0.6942633437181706
+ },
+ {
+  "name": "iobFraction 120 min (peak 75, DIA 360)",
+  "fn": "iobFraction",
+  "args": [
+   120,
+   75,
+   360
+  ],
+  "expect": 0.44975231269576144
+ },
+ {
+  "name": "iobFraction 180 min (peak 75, DIA 360)",
+  "fn": "iobFraction",
+  "args": [
+   180,
+   75,
+   360
+  ],
+  "expect": 0.20817073431377964
+ },
+ {
+  "name": "iobFraction 240 min (peak 75, DIA 360)",
+  "fn": "iobFraction",
+  "args": [
+   240,
+   75,
+   360
+  ],
+  "expect": 0.07266610353203562
+ },
+ {
+  "name": "iobFraction 299 min (peak 75, DIA 360)",
+  "fn": "iobFraction",
+  "args": [
+   299,
+   75,
+   360
+  ],
+  "expect": 0.01445172660115368
+ },
+ {
+  "name": "iobFraction 300 min (peak 75, DIA 360)",
+  "fn": "iobFraction",
+  "args": [
+   300,
+   75,
+   360
+  ],
+  "expect": 0.013918062554445276
+ },
+ {
+  "name": "iobFraction 359 min (peak 75, DIA 360)",
+  "fn": "iobFraction",
+  "args": [
+   359,
+   75,
+   360
+  ],
+  "expect": 0.0000029395799523435073
+ },
+ {
+  "name": "iobFraction 360 min (peak 75, DIA 360)",
+  "fn": "iobFraction",
+  "args": [
+   360,
+   75,
+   360
+  ],
+  "expect": 0
+ },
+ {
+  "name": "iobFraction 400 min (peak 75, DIA 360)",
+  "fn": "iobFraction",
+  "args": [
+   400,
+   75,
+   360
+  ],
+  "expect": 0
+ },
+ {
+  "name": "iobFraction -5 min (peak 55, DIA 300)",
+  "fn": "iobFraction",
+  "args": [
+   -5,
+   55,
+   300
+  ],
+  "expect": 1
+ },
+ {
+  "name": "iobFraction 0 min (peak 55, DIA 300)",
+  "fn": "iobFraction",
+  "args": [
+   0,
+   55,
+   300
+  ],
+  "expect": 1
+ },
+ {
+  "name": "iobFraction 10 min (peak 55, DIA 300)",
+  "fn": "iobFraction",
+  "args": [
+   10,
+   55,
+   300
+  ],
+  "expect": 0.9838594377920662
+ },
+ {
+  "name": "iobFraction 30 min (peak 55, DIA 300)",
+  "fn": "iobFraction",
+  "args": [
+   30,
+   55,
+   300
+  ],
+  "expect": 0.8843166919212472
+ },
+ {
+  "name": "iobFraction 60 min (peak 55, DIA 300)",
+  "fn": "iobFraction",
+  "args": [
+   60,
+   55,
+   300
+  ],
+  "expect": 0.6679385666679527
+ },
+ {
+  "name": "iobFraction 55 min (peak 55, DIA 300)",
+  "fn": "iobFraction",
+  "args": [
+   55,
+   55,
+   300
+  ],
+  "expect": 0.7053625074116086
+ },
+ {
+  "name": "iobFraction 120 min (peak 55, DIA 300)",
+  "fn": "iobFraction",
+  "args": [
+   120,
+   55,
+   300
+  ],
+  "expect": 0.2882542500311185
+ },
+ {
+  "name": "iobFraction 180 min (peak 55, DIA 300)",
+  "fn": "iobFraction",
+  "args": [
+   180,
+   55,
+   300
+  ],
+  "expect": 0.0883831674425879
+ },
+ {
+  "name": "iobFraction 240 min (peak 55, DIA 300)",
+  "fn": "iobFraction",
+  "args": [
+   240,
+   55,
+   300
+  ],
+  "expect": 0.014588049084755417
+ },
+ {
+  "name": "iobFraction 299 min (peak 55, DIA 300)",
+  "fn": "iobFraction",
+  "args": [
+   299,
+   55,
+   300
+  ],
+  "expect": 0.0000026556572324532013
+ },
+ {
+  "name": "iobFraction 300 min (peak 55, DIA 300)",
+  "fn": "iobFraction",
+  "args": [
+   300,
+   55,
+   300
+  ],
+  "expect": 0
+ },
+ {
+  "name": "iobFraction 359 min (peak 55, DIA 300)",
+  "fn": "iobFraction",
+  "args": [
+   359,
+   55,
+   300
+  ],
+  "expect": 0
+ },
+ {
+  "name": "iobFraction 360 min (peak 55, DIA 300)",
+  "fn": "iobFraction",
+  "args": [
+   360,
+   55,
+   300
+  ],
+  "expect": 0
+ },
+ {
+  "name": "iobFraction 400 min (peak 55, DIA 300)",
+  "fn": "iobFraction",
+  "args": [
+   400,
+   55,
+   300
+  ],
+  "expect": 0
+ },
+ {
+  "name": "cobGrams -5 min, 50 g, 180 min absorption",
+  "fn": "cobGrams",
+  "args": [
+   -5,
+   50,
+   180
+  ],
+  "expect": 50
+ },
+ {
+  "name": "cobGrams 0 min, 50 g, 180 min absorption",
+  "fn": "cobGrams",
+  "args": [
+   0,
+   50,
+   180
+  ],
+  "expect": 50
+ },
+ {
+  "name": "cobGrams 45 min, 50 g, 180 min absorption",
+  "fn": "cobGrams",
+  "args": [
+   45,
+   50,
+   180
+  ],
+  "expect": 37.5
+ },
+ {
+  "name": "cobGrams 90 min, 50 g, 180 min absorption",
+  "fn": "cobGrams",
+  "args": [
+   90,
+   50,
+   180
+  ],
+  "expect": 25
+ },
+ {
+  "name": "cobGrams 179 min, 50 g, 180 min absorption",
+  "fn": "cobGrams",
+  "args": [
+   179,
+   50,
+   180
+  ],
+  "expect": 0.2777777777777768
+ },
+ {
+  "name": "cobGrams 180 min, 50 g, 180 min absorption",
+  "fn": "cobGrams",
+  "args": [
+   180,
+   50,
+   180
+  ],
+  "expect": 0
+ },
+ {
+  "name": "cobGrams 240 min, 50 g, 180 min absorption",
+  "fn": "cobGrams",
+  "args": [
+   240,
+   50,
+   180
+  ],
+  "expect": 0
+ },
+ {
+  "name": "compoundGiInfo []",
+  "fn": "compoundGiInfo",
+  "args": [
+   []
+  ],
+  "expect": null
+ },
+ {
+  "name": "compoundGiInfo [{\"gi\":70,\"carbs\":30}]",
+  "fn": "compoundGiInfo",
+  "args": [
+   [
+    {
+     "gi": 70,
+     "carbs": 30
+    }
+   ]
+  ],
+  "expect": {
+   "value": 70,
+   "partial": false
+  }
+ },
+ {
+  "name": "compoundGiInfo [{\"gi\":70,\"carbs\":30},{\"gi\":30,\"carbs\":30}]",
+  "fn": "compoundGiInfo",
+  "args": [
+   [
+    {
+     "gi": 70,
+     "carbs": 30
+    },
+    {
+     "gi": 30,
+     "carbs": 30
+    }
+   ]
+  ],
+  "expect": {
+   "value": 50,
+   "partial": false
+  }
+ },
+ {
+  "name": "compoundGiInfo [{\"gi\":80,\"carbs\":20},{\"gi\":null,\"carbs\":40}]",
+  "fn": "compoundGiInfo",
+  "args": [
+   [
+    {
+     "gi": 80,
+     "carbs": 20
+    },
+    {
+     "gi": null,
+     "carbs": 40
+    }
+   ]
+  ],
+  "expect": {
+   "value": 80,
+   "partial": true
+  }
+ },
+ {
+  "name": "compoundGiInfo [{\"gi\":50,\"carbs\":0}]",
+  "fn": "compoundGiInfo",
+  "args": [
+   [
+    {
+     "gi": 50,
+     "carbs": 0
+    }
+   ]
+  ],
+  "expect": null
+ },
+ {
+  "name": "compoundGiInfo [{\"gi\":null,\"carbs\":25}]",
+  "fn": "compoundGiInfo",
+  "args": [
+   [
+    {
+     "gi": null,
+     "carbs": 25
+    }
+   ]
+  ],
+  "expect": null
+ },
+ {
+  "name": "giBand 0",
+  "fn": "giBand",
+  "args": [
+   0
+  ],
+  "expect": "low"
+ },
+ {
+  "name": "giBand 55",
+  "fn": "giBand",
+  "args": [
+   55
+  ],
+  "expect": "low"
+ },
+ {
+  "name": "giBand 56",
+  "fn": "giBand",
+  "args": [
+   56
+  ],
+  "expect": "medium"
+ },
+ {
+  "name": "giBand 69",
+  "fn": "giBand",
+  "args": [
+   69
+  ],
+  "expect": "medium"
+ },
+ {
+  "name": "giBand 70",
+  "fn": "giBand",
+  "args": [
+   70
+  ],
+  "expect": "high"
+ },
+ {
+  "name": "giBand 100",
+  "fn": "giBand",
+  "args": [
+   100
+  ],
+  "expect": "high"
+ },
+ {
+  "name": "absorptionMinutesForEntry no GL",
+  "fn": "absorptionMinutesForEntry",
+  "args": [
+   {},
+   {
+    "high": 120,
+    "medium": 180,
+    "low": 240,
+    "unknown": 180
+   }
+  ],
+  "expect": 180
+ },
+ {
+  "name": "absorptionMinutesForEntry high",
+  "fn": "absorptionMinutesForEntry",
+  "args": [
+   {
+    "glycemicLoad": {
+     "value": 80
+    }
+   },
+   {
+    "high": 120,
+    "medium": 180,
+    "low": 240,
+    "unknown": 180
+   }
+  ],
+  "expect": 120
+ },
+ {
+  "name": "absorptionMinutesForEntry medium",
+  "fn": "absorptionMinutesForEntry",
+  "args": [
+   {
+    "glycemicLoad": {
+     "value": 60
+    }
+   },
+   {
+    "high": 120,
+    "medium": 180,
+    "low": 240,
+    "unknown": 180
+   }
+  ],
+  "expect": 180
+ },
+ {
+  "name": "absorptionMinutesForEntry low",
+  "fn": "absorptionMinutesForEntry",
+  "args": [
+   {
+    "glycemicLoad": {
+     "value": 30
+    }
+   },
+   {
+    "high": 120,
+    "medium": 180,
+    "low": 240,
+    "unknown": 180
+   }
+  ],
+  "expect": 240
+ },
+ {
+  "name": "activeAt: one meal 1 hour ago",
+  "fn": "activeAt",
+  "args": [
+   [
+    {
+     "id": "a",
+     "ts": 1790852400000,
+     "mealType": "lunch",
+     "periodName": "day",
+     "items": [
+      {
+       "refType": "food",
+       "refId": "f1",
+       "name": "Rice",
+       "grams": 100,
+       "carbs": 28,
+       "kcal": 130,
+       "carbsPer100g": 28,
+       "kcalPer100g": 130,
+       "gi": 70
+      }
+     ],
+     "totalCarbs": 40,
+     "totalKcal": 130,
+     "glycemicLoad": {
+      "value": 70,
+      "partial": false
+     },
+     "carbsUnknown": false,
+     "mealDose": 4,
+     "correctionDose": 0,
+     "noInsulin": false,
+     "glucose": null,
+     "ratioLabel": "Day",
+     "ratioValue": 10
+    }
+   ],
+   {
+    "insulinModel": {
+     "peakMinutes": 75,
+     "diaMinutes": 360
+    },
+    "carbAbsorptionMinutes": {
+     "high": 120,
+     "medium": 180,
+     "low": 240,
+     "unknown": 180
+    }
+   },
+   1790856000000
+  ],
+  "expect": {
+   "iob": 3.1,
+   "cob": 20,
+   "iobClearAt": 1790874000000,
+   "cobClearAt": 1790859600000
+  }
+ },
+ {
+  "name": "activeAt: stacked meals and a correction",
+  "fn": "activeAt",
+  "args": [
+   [
+    {
+     "id": "a",
+     "ts": 1790854200000,
+     "mealType": "lunch",
+     "periodName": "day",
+     "items": [
+      {
+       "refType": "food",
+       "refId": "f1",
+       "name": "Rice",
+       "grams": 100,
+       "carbs": 28,
+       "kcal": 130,
+       "carbsPer100g": 28,
+       "kcalPer100g": 130,
+       "gi": 70
+      }
+     ],
+     "totalCarbs": 30,
+     "totalKcal": 130,
+     "glycemicLoad": {
+      "value": 70,
+      "partial": false
+     },
+     "carbsUnknown": false,
+     "mealDose": 3,
+     "correctionDose": 0,
+     "noInsulin": false,
+     "glucose": null,
+     "ratioLabel": "Day",
+     "ratioValue": 10
+    },
+    {
+     "id": "b",
+     "ts": 1790848800000,
+     "mealType": "lunch",
+     "periodName": "day",
+     "items": [
+      {
+       "refType": "food",
+       "refId": "f1",
+       "name": "Rice",
+       "grams": 100,
+       "carbs": 28,
+       "kcal": 130,
+       "carbsPer100g": 28,
+       "kcalPer100g": 130,
+       "gi": 70
+      }
+     ],
+     "totalCarbs": 60,
+     "totalKcal": 130,
+     "glycemicLoad": {
+      "value": 30
+     },
+     "carbsUnknown": false,
+     "mealDose": 5,
+     "correctionDose": 0,
+     "noInsulin": false,
+     "glucose": null,
+     "ratioLabel": "Day",
+     "ratioValue": 10
+    },
+    {
+     "id": "c",
+     "ts": 1790850600000,
+     "mealType": "lunch",
+     "periodName": "day",
+     "items": [],
+     "totalCarbs": 0,
+     "totalKcal": 130,
+     "glycemicLoad": {
+      "value": 70,
+      "partial": false
+     },
+     "carbsUnknown": false,
+     "mealDose": 0,
+     "correctionDose": 2,
+     "noInsulin": false,
+     "glucose": null,
+     "ratioLabel": "Day",
+     "ratioValue": 10
+    }
+   ],
+   {
+    "insulinModel": {
+     "peakMinutes": 75,
+     "diaMinutes": 360
+    },
+    "carbAbsorptionMinutes": {
+     "high": 120,
+     "medium": 180,
+     "low": 240,
+     "unknown": 180
+    }
+   },
+   1790856000000
+  ],
+  "expect": {
+   "iob": 6.3,
+   "cob": 53,
+   "iobClearAt": 1790875800000,
+   "cobClearAt": 1790863200000
+  }
+ },
+ {
+  "name": "activeAt: everything has worn off",
+  "fn": "activeAt",
+  "args": [
+   [
+    {
+     "id": "a",
+     "ts": 1790830800000,
+     "mealType": "lunch",
+     "periodName": "day",
+     "items": [
+      {
+       "refType": "food",
+       "refId": "f1",
+       "name": "Rice",
+       "grams": 100,
+       "carbs": 28,
+       "kcal": 130,
+       "carbsPer100g": 28,
+       "kcalPer100g": 130,
+       "gi": 70
+      }
+     ],
+     "totalCarbs": 40,
+     "totalKcal": 130,
+     "glycemicLoad": {
+      "value": 70,
+      "partial": false
+     },
+     "carbsUnknown": false,
+     "mealDose": 4,
+     "correctionDose": 0,
+     "noInsulin": false,
+     "glucose": null,
+     "ratioLabel": "Day",
+     "ratioValue": 10
+    }
+   ],
+   {
+    "insulinModel": {
+     "peakMinutes": 75,
+     "diaMinutes": 360
+    },
+    "carbAbsorptionMinutes": {
+     "high": 120,
+     "medium": 180,
+     "low": 240,
+     "unknown": 180
+    }
+   },
+   1790856000000
+  ],
+  "expect": {
+   "iob": 0,
+   "cob": 0,
+   "iobClearAt": null,
+   "cobClearAt": null
+  }
+ },
+ {
+  "name": "activeAt: an entry in the future is ignored",
+  "fn": "activeAt",
+  "args": [
+   [
+    {
+     "id": "a",
+     "ts": 1790859600000,
+     "mealType": "lunch",
+     "periodName": "day",
+     "items": [
+      {
+       "refType": "food",
+       "refId": "f1",
+       "name": "Rice",
+       "grams": 100,
+       "carbs": 28,
+       "kcal": 130,
+       "carbsPer100g": 28,
+       "kcalPer100g": 130,
+       "gi": 70
+      }
+     ],
+     "totalCarbs": 28,
+     "totalKcal": 130,
+     "glycemicLoad": {
+      "value": 70,
+      "partial": false
+     },
+     "carbsUnknown": false,
+     "mealDose": 2.5,
+     "correctionDose": 0,
+     "noInsulin": false,
+     "glucose": null,
+     "ratioLabel": "Day",
+     "ratioValue": 10
+    }
+   ],
+   {
+    "insulinModel": {
+     "peakMinutes": 75,
+     "diaMinutes": 360
+    },
+    "carbAbsorptionMinutes": {
+     "high": 120,
+     "medium": 180,
+     "low": 240,
+     "unknown": 180
+    }
+   },
+   1790856000000
+  ],
+  "expect": {
+   "iob": 0,
+   "cob": 0,
+   "iobClearAt": null,
+   "cobClearAt": null
+  }
+ },
+ {
+  "name": "activeAt: empty history",
+  "fn": "activeAt",
+  "args": [
+   [],
+   {
+    "insulinModel": {
+     "peakMinutes": 75,
+     "diaMinutes": 360
+    },
+    "carbAbsorptionMinutes": {
+     "high": 120,
+     "medium": 180,
+     "low": 240,
+     "unknown": 180
+    }
+   },
+   1790856000000
+  ],
+  "expect": {
+   "iob": 0,
+   "cob": 0,
+   "iobClearAt": null,
+   "cobClearAt": null
+  }
+ }
+]

@@ -1,0 +1,5078 @@
+[
+ {
+  "name": "expectedFromInsulin: a 60 g meal, 2 h in",
+  "fn": "expectedFromInsulin",
+  "args": [
+   [
+    {
+     "id": "m1",
+     "ts": 1790856000000,
+     "mealType": "lunch",
+     "periodName": "day",
+     "items": [
+      {
+       "refType": "food",
+       "refId": "f1",
+       "name": "Rice",
+       "grams": 100,
+       "carbs": 28,
+       "kcal": 130,
+       "carbsPer100g": 28,
+       "kcalPer100g": 130,
+       "gi": 70
+      }
+     ],
+     "totalCarbs": 60,
+     "totalKcal": 130,
+     "glycemicLoad": {
+      "value": 70,
+      "partial": false
+     },
+     "carbsUnknown": false,
+     "mealDose": 3,
+     "correctionDose": 0,
+     "noInsulin": false,
+     "glucose": null,
+     "ratioLabel": "Day",
+     "ratioValue": 10
+    }
+   ],
+   [
+    {
+     "at": 1790854200000,
+     "mgdl": 200
+    },
+    {
+     "at": 1790854500000,
+     "mgdl": 200
+    },
+    {
+     "at": 1790854800000,
+     "mgdl": 200
+    },
+    {
+     "at": 1790855100000,
+     "mgdl": 200
+    },
+    {
+     "at": 1790855400000,
+     "mgdl": 200
+    },
+    {
+     "at": 1790855700000,
+     "mgdl": 200
+    },
+    {
+     "at": 1790856000000,
+     "mgdl": 200
+    },
+    {
+     "at": 1790856300000,
+     "mgdl": 212.1
+    },
+    {
+     "at": 1790856600000,
+     "mgdl": 223.6
+    },
+    {
+     "at": 1790856900000,
+     "mgdl": 234.5
+    },
+    {
+     "at": 1790857200000,
+     "mgdl": 244.9
+    },
+    {
+     "at": 1790857500000,
+     "mgdl": 254.8
+    },
+    {
+     "at": 1790857800000,
+     "mgdl": 264.4
+    },
+    {
+     "at": 1790858100000,
+     "mgdl": 273.7
+    },
+    {
+     "at": 1790858400000,
+     "mgdl": 282.7
+    },
+    {
+     "at": 1790858700000,
+     "mgdl": 291.5
+    },
+    {
+     "at": 1790859000000,
+     "mgdl": 300.1
+    },
+    {
+     "at": 1790859300000,
+     "mgdl": 308.5
+    },
+    {
+     "at": 1790859600000,
+     "mgdl": 316.9
+    },
+    {
+     "at": 1790859900000,
+     "mgdl": 325.2
+    },
+    {
+     "at": 1790860200000,
+     "mgdl": 333.4
+    },
+    {
+     "at": 1790860500000,
+     "mgdl": 341.6
+    },
+    {
+     "at": 1790860800000,
+     "mgdl": 349.9
+    },
+    {
+     "at": 1790861100000,
+     "mgdl": 358.1
+    },
+    {
+     "at": 1790861400000,
+     "mgdl": 366.4
+    },
+    {
+     "at": 1790861700000,
+     "mgdl": 374.7
+    },
+    {
+     "at": 1790862000000,
+     "mgdl": 383.1
+    },
+    {
+     "at": 1790862300000,
+     "mgdl": 391.5
+    },
+    {
+     "at": 1790862600000,
+     "mgdl": 400.1
+    },
+    {
+     "at": 1790862900000,
+     "mgdl": 408.7
+    },
+    {
+     "at": 1790863200000,
+     "mgdl": 417.5
+    },
+    {
+     "at": 1790863500000,
+     "mgdl": 413.8
+    },
+    {
+     "at": 1790863800000,
+     "mgdl": 410.3
+    },
+    {
+     "at": 1790864100000,
+     "mgdl": 406.8
+    },
+    {
+     "at": 1790864400000,
+     "mgdl": 403.5
+    },
+    {
+     "at": 1790864700000,
+     "mgdl": 400.3
+    },
+    {
+     "at": 1790865000000,
+     "mgdl": 397.2
+    },
+    {
+     "at": 1790865300000,
+     "mgdl": 394.3
+    },
+    {
+     "at": 1790865600000,
+     "mgdl": 391.4
+    },
+    {
+     "at": 1790865900000,
+     "mgdl": 388.7
+    },
+    {
+     "at": 1790866200000,
+     "mgdl": 386.1
+    },
+    {
+     "at": 1790866500000,
+     "mgdl": 383.6
+    },
+    {
+     "at": 1790866800000,
+     "mgdl": 381.2
+    },
+    {
+     "at": 1790867100000,
+     "mgdl": 379
+    },
+    {
+     "at": 1790867400000,
+     "mgdl": 376.8
+    },
+    {
+     "at": 1790867700000,
+     "mgdl": 374.8
+    },
+    {
+     "at": 1790868000000,
+     "mgdl": 372.9
+    },
+    {
+     "at": 1790868300000,
+     "mgdl": 371
+    },
+    {
+     "at": 1790868600000,
+     "mgdl": 369.3
+    },
+    {
+     "at": 1790868900000,
+     "mgdl": 367.7
+    },
+    {
+     "at": 1790869200000,
+     "mgdl": 366.1
+    },
+    {
+     "at": 1790869500000,
+     "mgdl": 364.7
+    },
+    {
+     "at": 1790869800000,
+     "mgdl": 363.3
+    },
+    {
+     "at": 1790870100000,
+     "mgdl": 362.1
+    },
+    {
+     "at": 1790870400000,
+     "mgdl": 360.9
+    },
+    {
+     "at": 1790870700000,
+     "mgdl": 359.8
+    },
+    {
+     "at": 1790871000000,
+     "mgdl": 358.8
+    },
+    {
+     "at": 1790871300000,
+     "mgdl": 357.8
+    },
+    {
+     "at": 1790871600000,
+     "mgdl": 356.9
+    },
+    {
+     "at": 1790871900000,
+     "mgdl": 356.1
+    },
+    {
+     "at": 1790872200000,
+     "mgdl": 355.4
+    },
+    {
+     "at": 1790872500000,
+     "mgdl": 354.7
+    },
+    {
+     "at": 1790872800000,
+     "mgdl": 354.1
+    },
+    {
+     "at": 1790873100000,
+     "mgdl": 353.5
+    },
+    {
+     "at": 1790873400000,
+     "mgdl": 353
+    },
+    {
+     "at": 1790873700000,
+     "mgdl": 352.5
+    },
+    {
+     "at": 1790874000000,
+     "mgdl": 352.1
+    }
+   ],
+   {
+    "isfMgdl": 50,
+    "peak": 75,
+    "dia": 360,
+    "now": 1790863200000
+   }
+  ],
+  "expect": {
+   "anchor": {
+    "t": 1790856000000,
+    "mgdl": 200,
+    "entry": {
+     "id": "m1",
+     "ts": 1790856000000,
+     "mealType": "lunch",
+     "periodName": "day",
+     "items": [
+      {
+       "refType": "food",
+       "refId": "f1",
+       "name": "Rice",
+       "grams": 100,
+       "carbs": 28,
+       "kcal": 130,
+       "carbsPer100g": 28,
+       "kcalPer100g": 130,
+       "gi": 70
+      }
+     ],
+     "totalCarbs": 60,
+     "totalKcal": 130,
+     "glycemicLoad": {
+      "value": 70,
+      "partial": false
+     },
+     "carbsUnknown": false,
+     "mealDose": 3,
+     "correctionDose": 0,
+     "noInsulin": false,
+     "glucose": null,
+     "ratioLabel": "Day",
+     "ratioValue": 10
+    }
+   },
+   "basal": {
+    "status": "none",
+    "markers": [],
+    "last": null,
+    "usual": {
+     "am": null,
+     "pm": null
+    },
+    "extraUnits": 0
+   },
+   "capped": false,
+   "points": [
+    {
+     "t": 1790856000000,
+     "expected": 200,
+     "actual": 200
+    },
+    {
+     "t": 1790856300000,
+     "expected": 199.63851448626727,
+     "actual": 212.1
+    },
+    {
+     "t": 1790856600000,
+     "expected": 198.61327900946856,
+     "actual": 223.6
+    },
+    {
+     "t": 1790856900000,
+     "expected": 197.00728337960885,
+     "actual": 234.5
+    },
+    {
+     "t": 1790857200000,
+     "expected": 194.89619825071225,
+     "actual": 244.9
+    },
+    {
+     "t": 1790857500000,
+     "expected": 192.34892868875352,
+     "actual": 254.8
+    },
+    {
+     "t": 1790857800000,
+     "expected": 189.42812944596136,
+     "actual": 264.4
+    },
+    {
+     "t": 1790858100000,
+     "expected": 186.19068443856497,
+     "actual": 273.7
+    },
+    {
+     "t": 1790858400000,
+     "expected": 182.6881527689591,
+     "actual": 282.7
+    },
+    {
+     "t": 1790858700000,
+     "expected": 178.9671834866225,
+     "actual": 291.5
+    },
+    {
+     "t": 1790859000000,
+     "expected": 175.06990114437548,
+     "actual": 300.1
+    },
+    {
+     "t": 1790859300000,
+     "expected": 171.03426407718027,
+     "actual": 308.5
+    },
+    {
+     "t": 1790859600000,
+     "expected": 166.89439720918114,
+     "actual": 316.9
+    },
+    {
+     "t": 1790859900000,
+     "expected": 162.68090108057632,
+     "actual": 325.2
+    },
+    {
+     "t": 1790860200000,
+     "expected": 158.42113867877745,
+     "actual": 333.4
+    },
+    {
+     "t": 1790860500000,
+     "expected": 154.13950155772557,
+     "actual": 341.6
+    },
+    {
+     "t": 1790860800000,
+     "expected": 149.85765663481055,
+     "actual": 349.9
+    },
+    {
+     "t": 1790861100000,
+     "expected": 145.59477496620997,
+     "actual": 358.1
+    },
+    {
+     "t": 1790861400000,
+     "expected": 141.36774371828426,
+     "actual": 366.4
+    },
+    {
+     "t": 1790861700000,
+     "expected": 137.19136247460705,
+     "actual": 374.7
+    },
+    {
+     "t": 1790862000000,
+     "expected": 133.0785249449687,
+     "actual": 383.1
+    },
+    {
+     "t": 1790862300000,
+     "expected": 129.04038707397842,
+     "actual": 391.5
+    },
+    {
+     "t": 1790862600000,
+     "expected": 125.08652248243251,
+     "actual": 400.1
+    },
+    {
+     "t": 1790862900000,
+     "expected": 121.22506611416081,
+     "actual": 408.7
+    },
+    {
+     "t": 1790863200000,
+     "expected": 117.46284690436421,
+     "actual": 413.8
+    }
+   ],
+   "now": {
+    "t": 1790863200000,
+    "expected": 117.46284690436421,
+    "actual": 413.8,
+    "gap": 296.3371530956358
+   }
+  }
+ },
+ {
+  "name": "expectedFromInsulin: no readings",
+  "fn": "expectedFromInsulin",
+  "args": [
+   [
+    {
+     "id": "m1",
+     "ts": 1790856000000,
+     "mealType": "lunch",
+     "periodName": "day",
+     "items": [
+      {
+       "refType": "food",
+       "refId": "f1",
+       "name": "Rice",
+       "grams": 100,
+       "carbs": 28,
+       "kcal": 130,
+       "carbsPer100g": 28,
+       "kcalPer100g": 130,
+       "gi": 70
+      }
+     ],
+     "totalCarbs": 60,
+     "totalKcal": 130,
+     "glycemicLoad": {
+      "value": 70,
+      "partial": false
+     },
+     "carbsUnknown": false,
+     "mealDose": 3,
+     "correctionDose": 0,
+     "noInsulin": false,
+     "glucose": null,
+     "ratioLabel": "Day",
+     "ratioValue": 10
+    }
+   ],
+   [],
+   {
+    "isfMgdl": 50,
+    "peak": 75,
+    "dia": 360,
+    "now": 1790863200000
+   }
+  ],
+  "expect": null
+ },
+ {
+  "name": "expectedFromInsulin: nothing logged recently",
+  "fn": "expectedFromInsulin",
+  "args": [
+   [
+    {
+     "id": "m1",
+     "ts": 1790856000000,
+     "mealType": "lunch",
+     "periodName": "day",
+     "items": [
+      {
+       "refType": "food",
+       "refId": "f1",
+       "name": "Rice",
+       "grams": 100,
+       "carbs": 28,
+       "kcal": 130,
+       "carbsPer100g": 28,
+       "kcalPer100g": 130,
+       "gi": 70
+      }
+     ],
+     "totalCarbs": 60,
+     "totalKcal": 130,
+     "glycemicLoad": {
+      "value": 70,
+      "partial": false
+     },
+     "carbsUnknown": false,
+     "mealDose": 3,
+     "correctionDose": 0,
+     "noInsulin": false,
+     "glucose": null,
+     "ratioLabel": "Day",
+     "ratioValue": 10
+    }
+   ],
+   [
+    {
+     "at": 1790854200000,
+     "mgdl": 200
+    },
+    {
+     "at": 1790854500000,
+     "mgdl": 200
+    },
+    {
+     "at": 1790854800000,
+     "mgdl": 200
+    },
+    {
+     "at": 1790855100000,
+     "mgdl": 200
+    },
+    {
+     "at": 1790855400000,
+     "mgdl": 200
+    },
+    {
+     "at": 1790855700000,
+     "mgdl": 200
+    },
+    {
+     "at": 1790856000000,
+     "mgdl": 200
+    },
+    {
+     "at": 1790856300000,
+     "mgdl": 212.1
+    },
+    {
+     "at": 1790856600000,
+     "mgdl": 223.6
+    },
+    {
+     "at": 1790856900000,
+     "mgdl": 234.5
+    },
+    {
+     "at": 1790857200000,
+     "mgdl": 244.9
+    },
+    {
+     "at": 1790857500000,
+     "mgdl": 254.8
+    },
+    {
+     "at": 1790857800000,
+     "mgdl": 264.4
+    },
+    {
+     "at": 1790858100000,
+     "mgdl": 273.7
+    },
+    {
+     "at": 1790858400000,
+     "mgdl": 282.7
+    },
+    {
+     "at": 1790858700000,
+     "mgdl": 291.5
+    },
+    {
+     "at": 1790859000000,
+     "mgdl": 300.1
+    },
+    {
+     "at": 1790859300000,
+     "mgdl": 308.5
+    },
+    {
+     "at": 1790859600000,
+     "mgdl": 316.9
+    },
+    {
+     "at": 1790859900000,
+     "mgdl": 325.2
+    },
+    {
+     "at": 1790860200000,
+     "mgdl": 333.4
+    },
+    {
+     "at": 1790860500000,
+     "mgdl": 341.6
+    },
+    {
+     "at": 1790860800000,
+     "mgdl": 349.9
+    },
+    {
+     "at": 1790861100000,
+     "mgdl": 358.1
+    },
+    {
+     "at": 1790861400000,
+     "mgdl": 366.4
+    },
+    {
+     "at": 1790861700000,
+     "mgdl": 374.7
+    },
+    {
+     "at": 1790862000000,
+     "mgdl": 383.1
+    },
+    {
+     "at": 1790862300000,
+     "mgdl": 391.5
+    },
+    {
+     "at": 1790862600000,
+     "mgdl": 400.1
+    },
+    {
+     "at": 1790862900000,
+     "mgdl": 408.7
+    },
+    {
+     "at": 1790863200000,
+     "mgdl": 417.5
+    },
+    {
+     "at": 1790863500000,
+     "mgdl": 413.8
+    },
+    {
+     "at": 1790863800000,
+     "mgdl": 410.3
+    },
+    {
+     "at": 1790864100000,
+     "mgdl": 406.8
+    },
+    {
+     "at": 1790864400000,
+     "mgdl": 403.5
+    },
+    {
+     "at": 1790864700000,
+     "mgdl": 400.3
+    },
+    {
+     "at": 1790865000000,
+     "mgdl": 397.2
+    },
+    {
+     "at": 1790865300000,
+     "mgdl": 394.3
+    },
+    {
+     "at": 1790865600000,
+     "mgdl": 391.4
+    },
+    {
+     "at": 1790865900000,
+     "mgdl": 388.7
+    },
+    {
+     "at": 1790866200000,
+     "mgdl": 386.1
+    },
+    {
+     "at": 1790866500000,
+     "mgdl": 383.6
+    },
+    {
+     "at": 1790866800000,
+     "mgdl": 381.2
+    },
+    {
+     "at": 1790867100000,
+     "mgdl": 379
+    },
+    {
+     "at": 1790867400000,
+     "mgdl": 376.8
+    },
+    {
+     "at": 1790867700000,
+     "mgdl": 374.8
+    },
+    {
+     "at": 1790868000000,
+     "mgdl": 372.9
+    },
+    {
+     "at": 1790868300000,
+     "mgdl": 371
+    },
+    {
+     "at": 1790868600000,
+     "mgdl": 369.3
+    },
+    {
+     "at": 1790868900000,
+     "mgdl": 367.7
+    },
+    {
+     "at": 1790869200000,
+     "mgdl": 366.1
+    },
+    {
+     "at": 1790869500000,
+     "mgdl": 364.7
+    },
+    {
+     "at": 1790869800000,
+     "mgdl": 363.3
+    },
+    {
+     "at": 1790870100000,
+     "mgdl": 362.1
+    },
+    {
+     "at": 1790870400000,
+     "mgdl": 360.9
+    },
+    {
+     "at": 1790870700000,
+     "mgdl": 359.8
+    },
+    {
+     "at": 1790871000000,
+     "mgdl": 358.8
+    },
+    {
+     "at": 1790871300000,
+     "mgdl": 357.8
+    },
+    {
+     "at": 1790871600000,
+     "mgdl": 356.9
+    },
+    {
+     "at": 1790871900000,
+     "mgdl": 356.1
+    },
+    {
+     "at": 1790872200000,
+     "mgdl": 355.4
+    },
+    {
+     "at": 1790872500000,
+     "mgdl": 354.7
+    },
+    {
+     "at": 1790872800000,
+     "mgdl": 354.1
+    },
+    {
+     "at": 1790873100000,
+     "mgdl": 353.5
+    },
+    {
+     "at": 1790873400000,
+     "mgdl": 353
+    },
+    {
+     "at": 1790873700000,
+     "mgdl": 352.5
+    },
+    {
+     "at": 1790874000000,
+     "mgdl": 352.1
+    }
+   ],
+   {
+    "isfMgdl": 50,
+    "peak": 75,
+    "dia": 360,
+    "now": 1790888400000
+   }
+  ],
+  "expect": null
+ },
+ {
+  "name": "expectedFromInsulin: usual basal changes nothing",
+  "fn": "expectedFromInsulin",
+  "args": [
+   [
+    {
+     "id": "m1",
+     "ts": 1790856000000,
+     "mealType": "lunch",
+     "periodName": "day",
+     "items": [
+      {
+       "refType": "food",
+       "refId": "f1",
+       "name": "Rice",
+       "grams": 100,
+       "carbs": 28,
+       "kcal": 130,
+       "carbsPer100g": 28,
+       "kcalPer100g": 130,
+       "gi": 70
+      }
+     ],
+     "totalCarbs": 60,
+     "totalKcal": 130,
+     "glycemicLoad": {
+      "value": 70,
+      "partial": false
+     },
+     "carbsUnknown": false,
+     "mealDose": 3,
+     "correctionDose": 0,
+     "noInsulin": false,
+     "glucose": null,
+     "ratioLabel": "Day",
+     "ratioValue": 10
+    }
+   ],
+   [
+    {
+     "at": 1790854200000,
+     "mgdl": 200
+    },
+    {
+     "at": 1790854500000,
+     "mgdl": 200
+    },
+    {
+     "at": 1790854800000,
+     "mgdl": 200
+    },
+    {
+     "at": 1790855100000,
+     "mgdl": 200
+    },
+    {
+     "at": 1790855400000,
+     "mgdl": 200
+    },
+    {
+     "at": 1790855700000,
+     "mgdl": 200
+    },
+    {
+     "at": 1790856000000,
+     "mgdl": 200
+    },
+    {
+     "at": 1790856300000,
+     "mgdl": 212.1
+    },
+    {
+     "at": 1790856600000,
+     "mgdl": 223.6
+    },
+    {
+     "at": 1790856900000,
+     "mgdl": 234.5
+    },
+    {
+     "at": 1790857200000,
+     "mgdl": 244.9
+    },
+    {
+     "at": 1790857500000,
+     "mgdl": 254.8
+    },
+    {
+     "at": 1790857800000,
+     "mgdl": 264.4
+    },
+    {
+     "at": 1790858100000,
+     "mgdl": 273.7
+    },
+    {
+     "at": 1790858400000,
+     "mgdl": 282.7
+    },
+    {
+     "at": 1790858700000,
+     "mgdl": 291.5
+    },
+    {
+     "at": 1790859000000,
+     "mgdl": 300.1
+    },
+    {
+     "at": 1790859300000,
+     "mgdl": 308.5
+    },
+    {
+     "at": 1790859600000,
+     "mgdl": 316.9
+    },
+    {
+     "at": 1790859900000,
+     "mgdl": 325.2
+    },
+    {
+     "at": 1790860200000,
+     "mgdl": 333.4
+    },
+    {
+     "at": 1790860500000,
+     "mgdl": 341.6
+    },
+    {
+     "at": 1790860800000,
+     "mgdl": 349.9
+    },
+    {
+     "at": 1790861100000,
+     "mgdl": 358.1
+    },
+    {
+     "at": 1790861400000,
+     "mgdl": 366.4
+    },
+    {
+     "at": 1790861700000,
+     "mgdl": 374.7
+    },
+    {
+     "at": 1790862000000,
+     "mgdl": 383.1
+    },
+    {
+     "at": 1790862300000,
+     "mgdl": 391.5
+    },
+    {
+     "at": 1790862600000,
+     "mgdl": 400.1
+    },
+    {
+     "at": 1790862900000,
+     "mgdl": 408.7
+    },
+    {
+     "at": 1790863200000,
+     "mgdl": 417.5
+    },
+    {
+     "at": 1790863500000,
+     "mgdl": 413.8
+    },
+    {
+     "at": 1790863800000,
+     "mgdl": 410.3
+    },
+    {
+     "at": 1790864100000,
+     "mgdl": 406.8
+    },
+    {
+     "at": 1790864400000,
+     "mgdl": 403.5
+    },
+    {
+     "at": 1790864700000,
+     "mgdl": 400.3
+    },
+    {
+     "at": 1790865000000,
+     "mgdl": 397.2
+    },
+    {
+     "at": 1790865300000,
+     "mgdl": 394.3
+    },
+    {
+     "at": 1790865600000,
+     "mgdl": 391.4
+    },
+    {
+     "at": 1790865900000,
+     "mgdl": 388.7
+    },
+    {
+     "at": 1790866200000,
+     "mgdl": 386.1
+    },
+    {
+     "at": 1790866500000,
+     "mgdl": 383.6
+    },
+    {
+     "at": 1790866800000,
+     "mgdl": 381.2
+    },
+    {
+     "at": 1790867100000,
+     "mgdl": 379
+    },
+    {
+     "at": 1790867400000,
+     "mgdl": 376.8
+    },
+    {
+     "at": 1790867700000,
+     "mgdl": 374.8
+    },
+    {
+     "at": 1790868000000,
+     "mgdl": 372.9
+    },
+    {
+     "at": 1790868300000,
+     "mgdl": 371
+    },
+    {
+     "at": 1790868600000,
+     "mgdl": 369.3
+    },
+    {
+     "at": 1790868900000,
+     "mgdl": 367.7
+    },
+    {
+     "at": 1790869200000,
+     "mgdl": 366.1
+    },
+    {
+     "at": 1790869500000,
+     "mgdl": 364.7
+    },
+    {
+     "at": 1790869800000,
+     "mgdl": 363.3
+    },
+    {
+     "at": 1790870100000,
+     "mgdl": 362.1
+    },
+    {
+     "at": 1790870400000,
+     "mgdl": 360.9
+    },
+    {
+     "at": 1790870700000,
+     "mgdl": 359.8
+    },
+    {
+     "at": 1790871000000,
+     "mgdl": 358.8
+    },
+    {
+     "at": 1790871300000,
+     "mgdl": 357.8
+    },
+    {
+     "at": 1790871600000,
+     "mgdl": 356.9
+    },
+    {
+     "at": 1790871900000,
+     "mgdl": 356.1
+    },
+    {
+     "at": 1790872200000,
+     "mgdl": 355.4
+    },
+    {
+     "at": 1790872500000,
+     "mgdl": 354.7
+    },
+    {
+     "at": 1790872800000,
+     "mgdl": 354.1
+    },
+    {
+     "at": 1790873100000,
+     "mgdl": 353.5
+    },
+    {
+     "at": 1790873400000,
+     "mgdl": 353
+    },
+    {
+     "at": 1790873700000,
+     "mgdl": 352.5
+    },
+    {
+     "at": 1790874000000,
+     "mgdl": 352.1
+    }
+   ],
+   {
+    "isfMgdl": 50,
+    "peak": 75,
+    "dia": 360,
+    "now": 1790863200000,
+    "basalEntries": [
+     {
+      "id": "b0",
+      "ts": 1790409600000,
+      "entryType": "basal",
+      "mealType": "basal",
+      "periodName": "evening",
+      "basalDose": 16,
+      "basalSlot": "pm",
+      "items": [],
+      "totalCarbs": 0,
+      "totalKcal": 0,
+      "glycemicLoad": null,
+      "mealDose": 0,
+      "correctionDose": 0,
+      "noInsulin": false,
+      "glucose": null,
+      "ratioLabel": "",
+      "ratioValue": null
+     },
+     {
+      "id": "b1",
+      "ts": 1790496000000,
+      "entryType": "basal",
+      "mealType": "basal",
+      "periodName": "evening",
+      "basalDose": 16,
+      "basalSlot": "pm",
+      "items": [],
+      "totalCarbs": 0,
+      "totalKcal": 0,
+      "glycemicLoad": null,
+      "mealDose": 0,
+      "correctionDose": 0,
+      "noInsulin": false,
+      "glucose": null,
+      "ratioLabel": "",
+      "ratioValue": null
+     },
+     {
+      "id": "b2",
+      "ts": 1790582400000,
+      "entryType": "basal",
+      "mealType": "basal",
+      "periodName": "evening",
+      "basalDose": 16,
+      "basalSlot": "pm",
+      "items": [],
+      "totalCarbs": 0,
+      "totalKcal": 0,
+      "glycemicLoad": null,
+      "mealDose": 0,
+      "correctionDose": 0,
+      "noInsulin": false,
+      "glucose": null,
+      "ratioLabel": "",
+      "ratioValue": null
+     },
+     {
+      "id": "b3",
+      "ts": 1790668800000,
+      "entryType": "basal",
+      "mealType": "basal",
+      "periodName": "evening",
+      "basalDose": 16,
+      "basalSlot": "pm",
+      "items": [],
+      "totalCarbs": 0,
+      "totalKcal": 0,
+      "glycemicLoad": null,
+      "mealDose": 0,
+      "correctionDose": 0,
+      "noInsulin": false,
+      "glucose": null,
+      "ratioLabel": "",
+      "ratioValue": null
+     },
+     {
+      "id": "b4",
+      "ts": 1790755200000,
+      "entryType": "basal",
+      "mealType": "basal",
+      "periodName": "evening",
+      "basalDose": 16,
+      "basalSlot": "pm",
+      "items": [],
+      "totalCarbs": 0,
+      "totalKcal": 0,
+      "glycemicLoad": null,
+      "mealDose": 0,
+      "correctionDose": 0,
+      "noInsulin": false,
+      "glucose": null,
+      "ratioLabel": "",
+      "ratioValue": null
+     },
+     {
+      "id": "b9",
+      "ts": 1790848800000,
+      "entryType": "basal",
+      "mealType": "basal",
+      "periodName": "evening",
+      "basalDose": 16,
+      "basalSlot": "pm",
+      "items": [],
+      "totalCarbs": 0,
+      "totalKcal": 0,
+      "glycemicLoad": null,
+      "mealDose": 0,
+      "correctionDose": 0,
+      "noInsulin": false,
+      "glucose": null,
+      "ratioLabel": "",
+      "ratioValue": null
+     }
+    ]
+   }
+  ],
+  "expect": {
+   "anchor": {
+    "t": 1790856000000,
+    "mgdl": 200,
+    "entry": {
+     "id": "m1",
+     "ts": 1790856000000,
+     "mealType": "lunch",
+     "periodName": "day",
+     "items": [
+      {
+       "refType": "food",
+       "refId": "f1",
+       "name": "Rice",
+       "grams": 100,
+       "carbs": 28,
+       "kcal": 130,
+       "carbsPer100g": 28,
+       "kcalPer100g": 130,
+       "gi": 70
+      }
+     ],
+     "totalCarbs": 60,
+     "totalKcal": 130,
+     "glycemicLoad": {
+      "value": 70,
+      "partial": false
+     },
+     "carbsUnknown": false,
+     "mealDose": 3,
+     "correctionDose": 0,
+     "noInsulin": false,
+     "glucose": null,
+     "ratioLabel": "Day",
+     "ratioValue": 10
+    }
+   },
+   "basal": {
+    "status": "usual",
+    "markers": [],
+    "last": {
+     "ts": 1790848800000,
+     "units": 16,
+     "slot": "pm",
+     "extra": 0
+    },
+    "usual": {
+     "am": null,
+     "pm": 16
+    },
+    "extraUnits": 0
+   },
+   "capped": false,
+   "points": [
+    {
+     "t": 1790856000000,
+     "expected": 200,
+     "actual": 200
+    },
+    {
+     "t": 1790856300000,
+     "expected": 199.63851448626727,
+     "actual": 212.1
+    },
+    {
+     "t": 1790856600000,
+     "expected": 198.61327900946856,
+     "actual": 223.6
+    },
+    {
+     "t": 1790856900000,
+     "expected": 197.00728337960885,
+     "actual": 234.5
+    },
+    {
+     "t": 1790857200000,
+     "expected": 194.89619825071225,
+     "actual": 244.9
+    },
+    {
+     "t": 1790857500000,
+     "expected": 192.34892868875352,
+     "actual": 254.8
+    },
+    {
+     "t": 1790857800000,
+     "expected": 189.42812944596136,
+     "actual": 264.4
+    },
+    {
+     "t": 1790858100000,
+     "expected": 186.19068443856497,
+     "actual": 273.7
+    },
+    {
+     "t": 1790858400000,
+     "expected": 182.6881527689591,
+     "actual": 282.7
+    },
+    {
+     "t": 1790858700000,
+     "expected": 178.9671834866225,
+     "actual": 291.5
+    },
+    {
+     "t": 1790859000000,
+     "expected": 175.06990114437548,
+     "actual": 300.1
+    },
+    {
+     "t": 1790859300000,
+     "expected": 171.03426407718027,
+     "actual": 308.5
+    },
+    {
+     "t": 1790859600000,
+     "expected": 166.89439720918114,
+     "actual": 316.9
+    },
+    {
+     "t": 1790859900000,
+     "expected": 162.68090108057632,
+     "actual": 325.2
+    },
+    {
+     "t": 1790860200000,
+     "expected": 158.42113867877745,
+     "actual": 333.4
+    },
+    {
+     "t": 1790860500000,
+     "expected": 154.13950155772557,
+     "actual": 341.6
+    },
+    {
+     "t": 1790860800000,
+     "expected": 149.85765663481055,
+     "actual": 349.9
+    },
+    {
+     "t": 1790861100000,
+     "expected": 145.59477496620997,
+     "actual": 358.1
+    },
+    {
+     "t": 1790861400000,
+     "expected": 141.36774371828426,
+     "actual": 366.4
+    },
+    {
+     "t": 1790861700000,
+     "expected": 137.19136247460705,
+     "actual": 374.7
+    },
+    {
+     "t": 1790862000000,
+     "expected": 133.0785249449687,
+     "actual": 383.1
+    },
+    {
+     "t": 1790862300000,
+     "expected": 129.04038707397842,
+     "actual": 391.5
+    },
+    {
+     "t": 1790862600000,
+     "expected": 125.08652248243251,
+     "actual": 400.1
+    },
+    {
+     "t": 1790862900000,
+     "expected": 121.22506611416081,
+     "actual": 408.7
+    },
+    {
+     "t": 1790863200000,
+     "expected": 117.46284690436421,
+     "actual": 413.8
+    }
+   ],
+   "now": {
+    "t": 1790863200000,
+    "expected": 117.46284690436421,
+    "actual": 413.8,
+    "gap": 296.3371530956358
+   }
+  }
+ },
+ {
+  "name": "expectedFromInsulin: 4 extra basal units lower the line",
+  "fn": "expectedFromInsulin",
+  "args": [
+   [
+    {
+     "id": "m1",
+     "ts": 1790856000000,
+     "mealType": "lunch",
+     "periodName": "day",
+     "items": [
+      {
+       "refType": "food",
+       "refId": "f1",
+       "name": "Rice",
+       "grams": 100,
+       "carbs": 28,
+       "kcal": 130,
+       "carbsPer100g": 28,
+       "kcalPer100g": 130,
+       "gi": 70
+      }
+     ],
+     "totalCarbs": 60,
+     "totalKcal": 130,
+     "glycemicLoad": {
+      "value": 70,
+      "partial": false
+     },
+     "carbsUnknown": false,
+     "mealDose": 3,
+     "correctionDose": 0,
+     "noInsulin": false,
+     "glucose": null,
+     "ratioLabel": "Day",
+     "ratioValue": 10
+    }
+   ],
+   [
+    {
+     "at": 1790854200000,
+     "mgdl": 200
+    },
+    {
+     "at": 1790854500000,
+     "mgdl": 200
+    },
+    {
+     "at": 1790854800000,
+     "mgdl": 200
+    },
+    {
+     "at": 1790855100000,
+     "mgdl": 200
+    },
+    {
+     "at": 1790855400000,
+     "mgdl": 200
+    },
+    {
+     "at": 1790855700000,
+     "mgdl": 200
+    },
+    {
+     "at": 1790856000000,
+     "mgdl": 200
+    },
+    {
+     "at": 1790856300000,
+     "mgdl": 212.1
+    },
+    {
+     "at": 1790856600000,
+     "mgdl": 223.6
+    },
+    {
+     "at": 1790856900000,
+     "mgdl": 234.5
+    },
+    {
+     "at": 1790857200000,
+     "mgdl": 244.9
+    },
+    {
+     "at": 1790857500000,
+     "mgdl": 254.8
+    },
+    {
+     "at": 1790857800000,
+     "mgdl": 264.4
+    },
+    {
+     "at": 1790858100000,
+     "mgdl": 273.7
+    },
+    {
+     "at": 1790858400000,
+     "mgdl": 282.7
+    },
+    {
+     "at": 1790858700000,
+     "mgdl": 291.5
+    },
+    {
+     "at": 1790859000000,
+     "mgdl": 300.1
+    },
+    {
+     "at": 1790859300000,
+     "mgdl": 308.5
+    },
+    {
+     "at": 1790859600000,
+     "mgdl": 316.9
+    },
+    {
+     "at": 1790859900000,
+     "mgdl": 325.2
+    },
+    {
+     "at": 1790860200000,
+     "mgdl": 333.4
+    },
+    {
+     "at": 1790860500000,
+     "mgdl": 341.6
+    },
+    {
+     "at": 1790860800000,
+     "mgdl": 349.9
+    },
+    {
+     "at": 1790861100000,
+     "mgdl": 358.1
+    },
+    {
+     "at": 1790861400000,
+     "mgdl": 366.4
+    },
+    {
+     "at": 1790861700000,
+     "mgdl": 374.7
+    },
+    {
+     "at": 1790862000000,
+     "mgdl": 383.1
+    },
+    {
+     "at": 1790862300000,
+     "mgdl": 391.5
+    },
+    {
+     "at": 1790862600000,
+     "mgdl": 400.1
+    },
+    {
+     "at": 1790862900000,
+     "mgdl": 408.7
+    },
+    {
+     "at": 1790863200000,
+     "mgdl": 417.5
+    },
+    {
+     "at": 1790863500000,
+     "mgdl": 413.8
+    },
+    {
+     "at": 1790863800000,
+     "mgdl": 410.3
+    },
+    {
+     "at": 1790864100000,
+     "mgdl": 406.8
+    },
+    {
+     "at": 1790864400000,
+     "mgdl": 403.5
+    },
+    {
+     "at": 1790864700000,
+     "mgdl": 400.3
+    },
+    {
+     "at": 1790865000000,
+     "mgdl": 397.2
+    },
+    {
+     "at": 1790865300000,
+     "mgdl": 394.3
+    },
+    {
+     "at": 1790865600000,
+     "mgdl": 391.4
+    },
+    {
+     "at": 1790865900000,
+     "mgdl": 388.7
+    },
+    {
+     "at": 1790866200000,
+     "mgdl": 386.1
+    },
+    {
+     "at": 1790866500000,
+     "mgdl": 383.6
+    },
+    {
+     "at": 1790866800000,
+     "mgdl": 381.2
+    },
+    {
+     "at": 1790867100000,
+     "mgdl": 379
+    },
+    {
+     "at": 1790867400000,
+     "mgdl": 376.8
+    },
+    {
+     "at": 1790867700000,
+     "mgdl": 374.8
+    },
+    {
+     "at": 1790868000000,
+     "mgdl": 372.9
+    },
+    {
+     "at": 1790868300000,
+     "mgdl": 371
+    },
+    {
+     "at": 1790868600000,
+     "mgdl": 369.3
+    },
+    {
+     "at": 1790868900000,
+     "mgdl": 367.7
+    },
+    {
+     "at": 1790869200000,
+     "mgdl": 366.1
+    },
+    {
+     "at": 1790869500000,
+     "mgdl": 364.7
+    },
+    {
+     "at": 1790869800000,
+     "mgdl": 363.3
+    },
+    {
+     "at": 1790870100000,
+     "mgdl": 362.1
+    },
+    {
+     "at": 1790870400000,
+     "mgdl": 360.9
+    },
+    {
+     "at": 1790870700000,
+     "mgdl": 359.8
+    },
+    {
+     "at": 1790871000000,
+     "mgdl": 358.8
+    },
+    {
+     "at": 1790871300000,
+     "mgdl": 357.8
+    },
+    {
+     "at": 1790871600000,
+     "mgdl": 356.9
+    },
+    {
+     "at": 1790871900000,
+     "mgdl": 356.1
+    },
+    {
+     "at": 1790872200000,
+     "mgdl": 355.4
+    },
+    {
+     "at": 1790872500000,
+     "mgdl": 354.7
+    },
+    {
+     "at": 1790872800000,
+     "mgdl": 354.1
+    },
+    {
+     "at": 1790873100000,
+     "mgdl": 353.5
+    },
+    {
+     "at": 1790873400000,
+     "mgdl": 353
+    },
+    {
+     "at": 1790873700000,
+     "mgdl": 352.5
+    },
+    {
+     "at": 1790874000000,
+     "mgdl": 352.1
+    }
+   ],
+   {
+    "isfMgdl": 50,
+    "peak": 75,
+    "dia": 360,
+    "now": 1790863200000,
+    "basalEntries": [
+     {
+      "id": "b0",
+      "ts": 1790409600000,
+      "entryType": "basal",
+      "mealType": "basal",
+      "periodName": "evening",
+      "basalDose": 16,
+      "basalSlot": "pm",
+      "items": [],
+      "totalCarbs": 0,
+      "totalKcal": 0,
+      "glycemicLoad": null,
+      "mealDose": 0,
+      "correctionDose": 0,
+      "noInsulin": false,
+      "glucose": null,
+      "ratioLabel": "",
+      "ratioValue": null
+     },
+     {
+      "id": "b1",
+      "ts": 1790496000000,
+      "entryType": "basal",
+      "mealType": "basal",
+      "periodName": "evening",
+      "basalDose": 16,
+      "basalSlot": "pm",
+      "items": [],
+      "totalCarbs": 0,
+      "totalKcal": 0,
+      "glycemicLoad": null,
+      "mealDose": 0,
+      "correctionDose": 0,
+      "noInsulin": false,
+      "glucose": null,
+      "ratioLabel": "",
+      "ratioValue": null
+     },
+     {
+      "id": "b2",
+      "ts": 1790582400000,
+      "entryType": "basal",
+      "mealType": "basal",
+      "periodName": "evening",
+      "basalDose": 16,
+      "basalSlot": "pm",
+      "items": [],
+      "totalCarbs": 0,
+      "totalKcal": 0,
+      "glycemicLoad": null,
+      "mealDose": 0,
+      "correctionDose": 0,
+      "noInsulin": false,
+      "glucose": null,
+      "ratioLabel": "",
+      "ratioValue": null
+     },
+     {
+      "id": "b3",
+      "ts": 1790668800000,
+      "entryType": "basal",
+      "mealType": "basal",
+      "periodName": "evening",
+      "basalDose": 16,
+      "basalSlot": "pm",
+      "items": [],
+      "totalCarbs": 0,
+      "totalKcal": 0,
+      "glycemicLoad": null,
+      "mealDose": 0,
+      "correctionDose": 0,
+      "noInsulin": false,
+      "glucose": null,
+      "ratioLabel": "",
+      "ratioValue": null
+     },
+     {
+      "id": "b4",
+      "ts": 1790755200000,
+      "entryType": "basal",
+      "mealType": "basal",
+      "periodName": "evening",
+      "basalDose": 16,
+      "basalSlot": "pm",
+      "items": [],
+      "totalCarbs": 0,
+      "totalKcal": 0,
+      "glycemicLoad": null,
+      "mealDose": 0,
+      "correctionDose": 0,
+      "noInsulin": false,
+      "glucose": null,
+      "ratioLabel": "",
+      "ratioValue": null
+     },
+     {
+      "id": "b9",
+      "ts": 1790848800000,
+      "entryType": "basal",
+      "mealType": "basal",
+      "periodName": "evening",
+      "basalDose": 20,
+      "basalSlot": "pm",
+      "items": [],
+      "totalCarbs": 0,
+      "totalKcal": 0,
+      "glycemicLoad": null,
+      "mealDose": 0,
+      "correctionDose": 0,
+      "noInsulin": false,
+      "glucose": null,
+      "ratioLabel": "",
+      "ratioValue": null
+     }
+    ]
+   }
+  ],
+  "expect": {
+   "anchor": {
+    "t": 1790856000000,
+    "mgdl": 200,
+    "entry": {
+     "id": "m1",
+     "ts": 1790856000000,
+     "mealType": "lunch",
+     "periodName": "day",
+     "items": [
+      {
+       "refType": "food",
+       "refId": "f1",
+       "name": "Rice",
+       "grams": 100,
+       "carbs": 28,
+       "kcal": 130,
+       "carbsPer100g": 28,
+       "kcalPer100g": 130,
+       "gi": 70
+      }
+     ],
+     "totalCarbs": 60,
+     "totalKcal": 130,
+     "glycemicLoad": {
+      "value": 70,
+      "partial": false
+     },
+     "carbsUnknown": false,
+     "mealDose": 3,
+     "correctionDose": 0,
+     "noInsulin": false,
+     "glucose": null,
+     "ratioLabel": "Day",
+     "ratioValue": 10
+    }
+   },
+   "basal": {
+    "status": "adjusted",
+    "markers": [],
+    "last": {
+     "ts": 1790848800000,
+     "units": 20,
+     "slot": "pm",
+     "extra": 4
+    },
+    "usual": {
+     "am": null,
+     "pm": 16
+    },
+    "extraUnits": 4
+   },
+   "capped": false,
+   "points": [
+    {
+     "t": 1790856000000,
+     "expected": 200,
+     "actual": 200
+    },
+    {
+     "t": 1790856300000,
+     "expected": 198.9440700418228,
+     "actual": 212.1
+    },
+    {
+     "t": 1790856600000,
+     "expected": 197.22439012057967,
+     "actual": 223.6
+    },
+    {
+     "t": 1790856900000,
+     "expected": 194.9239500462755,
+     "actual": 234.5
+    },
+    {
+     "t": 1790857200000,
+     "expected": 192.11842047293447,
+     "actual": 244.9
+    },
+    {
+     "t": 1790857500000,
+     "expected": 188.8767064665313,
+     "actual": 254.8
+    },
+    {
+     "t": 1790857800000,
+     "expected": 185.2614627792947,
+     "actual": 264.4
+    },
+    {
+     "t": 1790858100000,
+     "expected": 181.32957332745386,
+     "actual": 273.7
+    },
+    {
+     "t": 1790858400000,
+     "expected": 177.13259721340356,
+     "actual": 282.7
+    },
+    {
+     "t": 1790858700000,
+     "expected": 172.7171834866225,
+     "actual": 291.5
+    },
+    {
+     "t": 1790859000000,
+     "expected": 168.12545669993102,
+     "actual": 300.1
+    },
+    {
+     "t": 1790859300000,
+     "expected": 163.39537518829138,
+     "actual": 308.5
+    },
+    {
+     "t": 1790859600000,
+     "expected": 158.5610638758478,
+     "actual": 316.9
+    },
+    {
+     "t": 1790859900000,
+     "expected": 153.65312330279855,
+     "actual": 325.2
+    },
+    {
+     "t": 1790860200000,
+     "expected": 148.69891645655522,
+     "actual": 333.4
+    },
+    {
+     "t": 1790860500000,
+     "expected": 143.7228348910589,
+     "actual": 341.6
+    },
+    {
+     "t": 1790860800000,
+     "expected": 138.74654552369944,
+     "actual": 349.9
+    },
+    {
+     "t": 1790861100000,
+     "expected": 133.78921941065443,
+     "actual": 358.1
+    },
+    {
+     "t": 1790861400000,
+     "expected": 128.86774371828426,
+     "actual": 366.4
+    },
+    {
+     "t": 1790861700000,
+     "expected": 123.9969180301626,
+     "actual": 374.7
+    },
+    {
+     "t": 1790862000000,
+     "expected": 119.18963605607982,
+     "actual": 383.1
+    },
+    {
+     "t": 1790862300000,
+     "expected": 114.4570537406451,
+     "actual": 391.5
+    },
+    {
+     "t": 1790862600000,
+     "expected": 109.80874470465474,
+     "actual": 400.1
+    },
+    {
+     "t": 1790862900000,
+     "expected": 105.2528438919386,
+     "actual": 408.7
+    },
+    {
+     "t": 1790863200000,
+     "expected": 100.79618023769754,
+     "actual": 413.8
+    }
+   ],
+   "now": {
+    "t": 1790863200000,
+    "expected": 100.79618023769754,
+    "actual": 413.8,
+    "gap": 313.00381976230244
+   }
+  }
+ },
+ {
+  "name": "expectedFromInsulin: very large dose hits the floor",
+  "fn": "expectedFromInsulin",
+  "args": [
+   [
+    {
+     "id": "big",
+     "ts": 1790856000000,
+     "mealType": "lunch",
+     "periodName": "day",
+     "items": [
+      {
+       "refType": "food",
+       "refId": "f1",
+       "name": "Rice",
+       "grams": 100,
+       "carbs": 28,
+       "kcal": 130,
+       "carbsPer100g": 28,
+       "kcalPer100g": 130,
+       "gi": 70
+      }
+     ],
+     "totalCarbs": 0,
+     "totalKcal": 130,
+     "glycemicLoad": {
+      "value": 70,
+      "partial": false
+     },
+     "carbsUnknown": false,
+     "mealDose": 12,
+     "correctionDose": 0,
+     "noInsulin": false,
+     "glucose": null,
+     "ratioLabel": "Day",
+     "ratioValue": 10
+    }
+   ],
+   [
+    {
+     "at": 1790854200000,
+     "mgdl": 200
+    },
+    {
+     "at": 1790854500000,
+     "mgdl": 200
+    },
+    {
+     "at": 1790854800000,
+     "mgdl": 200
+    },
+    {
+     "at": 1790855100000,
+     "mgdl": 200
+    },
+    {
+     "at": 1790855400000,
+     "mgdl": 200
+    },
+    {
+     "at": 1790855700000,
+     "mgdl": 200
+    },
+    {
+     "at": 1790856000000,
+     "mgdl": 200
+    },
+    {
+     "at": 1790856300000,
+     "mgdl": 212.1
+    },
+    {
+     "at": 1790856600000,
+     "mgdl": 223.6
+    },
+    {
+     "at": 1790856900000,
+     "mgdl": 234.5
+    },
+    {
+     "at": 1790857200000,
+     "mgdl": 244.9
+    },
+    {
+     "at": 1790857500000,
+     "mgdl": 254.8
+    },
+    {
+     "at": 1790857800000,
+     "mgdl": 264.4
+    },
+    {
+     "at": 1790858100000,
+     "mgdl": 273.7
+    },
+    {
+     "at": 1790858400000,
+     "mgdl": 282.7
+    },
+    {
+     "at": 1790858700000,
+     "mgdl": 291.5
+    },
+    {
+     "at": 1790859000000,
+     "mgdl": 300.1
+    },
+    {
+     "at": 1790859300000,
+     "mgdl": 308.5
+    },
+    {
+     "at": 1790859600000,
+     "mgdl": 316.9
+    },
+    {
+     "at": 1790859900000,
+     "mgdl": 325.2
+    },
+    {
+     "at": 1790860200000,
+     "mgdl": 333.4
+    },
+    {
+     "at": 1790860500000,
+     "mgdl": 341.6
+    },
+    {
+     "at": 1790860800000,
+     "mgdl": 349.9
+    },
+    {
+     "at": 1790861100000,
+     "mgdl": 358.1
+    },
+    {
+     "at": 1790861400000,
+     "mgdl": 366.4
+    },
+    {
+     "at": 1790861700000,
+     "mgdl": 374.7
+    },
+    {
+     "at": 1790862000000,
+     "mgdl": 383.1
+    },
+    {
+     "at": 1790862300000,
+     "mgdl": 391.5
+    },
+    {
+     "at": 1790862600000,
+     "mgdl": 400.1
+    },
+    {
+     "at": 1790862900000,
+     "mgdl": 408.7
+    },
+    {
+     "at": 1790863200000,
+     "mgdl": 417.5
+    },
+    {
+     "at": 1790863500000,
+     "mgdl": 413.8
+    },
+    {
+     "at": 1790863800000,
+     "mgdl": 410.3
+    },
+    {
+     "at": 1790864100000,
+     "mgdl": 406.8
+    },
+    {
+     "at": 1790864400000,
+     "mgdl": 403.5
+    },
+    {
+     "at": 1790864700000,
+     "mgdl": 400.3
+    },
+    {
+     "at": 1790865000000,
+     "mgdl": 397.2
+    },
+    {
+     "at": 1790865300000,
+     "mgdl": 394.3
+    },
+    {
+     "at": 1790865600000,
+     "mgdl": 391.4
+    },
+    {
+     "at": 1790865900000,
+     "mgdl": 388.7
+    },
+    {
+     "at": 1790866200000,
+     "mgdl": 386.1
+    },
+    {
+     "at": 1790866500000,
+     "mgdl": 383.6
+    },
+    {
+     "at": 1790866800000,
+     "mgdl": 381.2
+    },
+    {
+     "at": 1790867100000,
+     "mgdl": 379
+    },
+    {
+     "at": 1790867400000,
+     "mgdl": 376.8
+    },
+    {
+     "at": 1790867700000,
+     "mgdl": 374.8
+    },
+    {
+     "at": 1790868000000,
+     "mgdl": 372.9
+    },
+    {
+     "at": 1790868300000,
+     "mgdl": 371
+    },
+    {
+     "at": 1790868600000,
+     "mgdl": 369.3
+    },
+    {
+     "at": 1790868900000,
+     "mgdl": 367.7
+    },
+    {
+     "at": 1790869200000,
+     "mgdl": 366.1
+    },
+    {
+     "at": 1790869500000,
+     "mgdl": 364.7
+    },
+    {
+     "at": 1790869800000,
+     "mgdl": 363.3
+    },
+    {
+     "at": 1790870100000,
+     "mgdl": 362.1
+    },
+    {
+     "at": 1790870400000,
+     "mgdl": 360.9
+    },
+    {
+     "at": 1790870700000,
+     "mgdl": 359.8
+    },
+    {
+     "at": 1790871000000,
+     "mgdl": 358.8
+    },
+    {
+     "at": 1790871300000,
+     "mgdl": 357.8
+    },
+    {
+     "at": 1790871600000,
+     "mgdl": 356.9
+    },
+    {
+     "at": 1790871900000,
+     "mgdl": 356.1
+    },
+    {
+     "at": 1790872200000,
+     "mgdl": 355.4
+    },
+    {
+     "at": 1790872500000,
+     "mgdl": 354.7
+    },
+    {
+     "at": 1790872800000,
+     "mgdl": 354.1
+    },
+    {
+     "at": 1790873100000,
+     "mgdl": 353.5
+    },
+    {
+     "at": 1790873400000,
+     "mgdl": 353
+    },
+    {
+     "at": 1790873700000,
+     "mgdl": 352.5
+    },
+    {
+     "at": 1790874000000,
+     "mgdl": 352.1
+    }
+   ],
+   {
+    "isfMgdl": 50,
+    "peak": 75,
+    "dia": 360,
+    "now": 1790870400000
+   }
+  ],
+  "expect": {
+   "anchor": {
+    "t": 1790856000000,
+    "mgdl": 200,
+    "entry": {
+     "id": "big",
+     "ts": 1790856000000,
+     "mealType": "lunch",
+     "periodName": "day",
+     "items": [
+      {
+       "refType": "food",
+       "refId": "f1",
+       "name": "Rice",
+       "grams": 100,
+       "carbs": 28,
+       "kcal": 130,
+       "carbsPer100g": 28,
+       "kcalPer100g": 130,
+       "gi": 70
+      }
+     ],
+     "totalCarbs": 0,
+     "totalKcal": 130,
+     "glycemicLoad": {
+      "value": 70,
+      "partial": false
+     },
+     "carbsUnknown": false,
+     "mealDose": 12,
+     "correctionDose": 0,
+     "noInsulin": false,
+     "glucose": null,
+     "ratioLabel": "Day",
+     "ratioValue": 10
+    }
+   },
+   "basal": {
+    "status": "none",
+    "markers": [],
+    "last": null,
+    "usual": {
+     "am": null,
+     "pm": null
+    },
+    "extraUnits": 0
+   },
+   "capped": true,
+   "points": [
+    {
+     "t": 1790856000000,
+     "expected": 200,
+     "actual": 200
+    },
+    {
+     "t": 1790856300000,
+     "expected": 198.55405794506913,
+     "actual": 212.1
+    },
+    {
+     "t": 1790856600000,
+     "expected": 194.4531160378742,
+     "actual": 223.6
+    },
+    {
+     "t": 1790856900000,
+     "expected": 188.02913351843534,
+     "actual": 234.5
+    },
+    {
+     "t": 1790857200000,
+     "expected": 179.58479300284893,
+     "actual": 244.9
+    },
+    {
+     "t": 1790857500000,
+     "expected": 169.39571475501404,
+     "actual": 254.8
+    },
+    {
+     "t": 1790857800000,
+     "expected": 157.71251778384547,
+     "actual": 264.4
+    },
+    {
+     "t": 1790858100000,
+     "expected": 144.76273775425992,
+     "actual": 273.7
+    },
+    {
+     "t": 1790858400000,
+     "expected": 130.7526110758364,
+     "actual": 282.7
+    },
+    {
+     "t": 1790858700000,
+     "expected": 115.86873394649004,
+     "actual": 291.5
+    },
+    {
+     "t": 1790859000000,
+     "expected": 100.27960457750191,
+     "actual": 300.1
+    },
+    {
+     "t": 1790859300000,
+     "expected": 84.13705630872104,
+     "actual": 308.5
+    },
+    {
+     "t": 1790859600000,
+     "expected": 67.57758883672449,
+     "actual": 316.9
+    },
+    {
+     "t": 1790859900000,
+     "expected": 50.72360432230528,
+     "actual": 325.2
+    },
+    {
+     "t": 1790860200000,
+     "expected": 40,
+     "actual": 333.4
+    },
+    {
+     "t": 1790860500000,
+     "expected": 40,
+     "actual": 341.6
+    },
+    {
+     "t": 1790860800000,
+     "expected": 40,
+     "actual": 349.9
+    },
+    {
+     "t": 1790861100000,
+     "expected": 40,
+     "actual": 358.1
+    },
+    {
+     "t": 1790861400000,
+     "expected": 40,
+     "actual": 366.4
+    },
+    {
+     "t": 1790861700000,
+     "expected": 40,
+     "actual": 374.7
+    },
+    {
+     "t": 1790862000000,
+     "expected": 40,
+     "actual": 383.1
+    },
+    {
+     "t": 1790862300000,
+     "expected": 40,
+     "actual": 391.5
+    },
+    {
+     "t": 1790862600000,
+     "expected": 40,
+     "actual": 400.1
+    },
+    {
+     "t": 1790862900000,
+     "expected": 40,
+     "actual": 408.7
+    },
+    {
+     "t": 1790863200000,
+     "expected": 40,
+     "actual": 413.8
+    },
+    {
+     "t": 1790863500000,
+     "expected": 40,
+     "actual": 413.8
+    },
+    {
+     "t": 1790863800000,
+     "expected": 40,
+     "actual": 410.3
+    },
+    {
+     "t": 1790864100000,
+     "expected": 40,
+     "actual": 406.8
+    },
+    {
+     "t": 1790864400000,
+     "expected": 40,
+     "actual": 403.5
+    },
+    {
+     "t": 1790864700000,
+     "expected": 40,
+     "actual": 400.3
+    },
+    {
+     "t": 1790865000000,
+     "expected": 40,
+     "actual": 397.2
+    },
+    {
+     "t": 1790865300000,
+     "expected": 40,
+     "actual": 394.3
+    },
+    {
+     "t": 1790865600000,
+     "expected": 40,
+     "actual": 391.4
+    },
+    {
+     "t": 1790865900000,
+     "expected": 40,
+     "actual": 388.7
+    },
+    {
+     "t": 1790866200000,
+     "expected": 40,
+     "actual": 386.1
+    },
+    {
+     "t": 1790866500000,
+     "expected": 40,
+     "actual": 383.6
+    },
+    {
+     "t": 1790866800000,
+     "expected": 40,
+     "actual": 381.2
+    },
+    {
+     "t": 1790867100000,
+     "expected": 40,
+     "actual": 379
+    },
+    {
+     "t": 1790867400000,
+     "expected": 40,
+     "actual": 376.8
+    },
+    {
+     "t": 1790867700000,
+     "expected": 40,
+     "actual": 374.8
+    },
+    {
+     "t": 1790868000000,
+     "expected": 40,
+     "actual": 372.9
+    },
+    {
+     "t": 1790868300000,
+     "expected": 40,
+     "actual": 371
+    },
+    {
+     "t": 1790868600000,
+     "expected": 40,
+     "actual": 369.3
+    },
+    {
+     "t": 1790868900000,
+     "expected": 40,
+     "actual": 367.7
+    },
+    {
+     "t": 1790869200000,
+     "expected": 40,
+     "actual": 366.1
+    },
+    {
+     "t": 1790869500000,
+     "expected": 40,
+     "actual": 364.7
+    },
+    {
+     "t": 1790869800000,
+     "expected": 40,
+     "actual": 363.3
+    },
+    {
+     "t": 1790870100000,
+     "expected": 40,
+     "actual": 362.1
+    },
+    {
+     "t": 1790870400000,
+     "expected": 40,
+     "actual": 360.9
+    }
+   ],
+   "now": {
+    "t": 1790870400000,
+    "expected": 40,
+    "actual": 360.9,
+    "gap": 320.9
+   }
+  }
+ },
+ {
+  "name": "basalContext: needs 3 doses per slot",
+  "fn": "basalContext",
+  "args": [
+   [
+    {
+     "id": "x1",
+     "ts": 1790845200000,
+     "entryType": "basal",
+     "mealType": "basal",
+     "periodName": "morning",
+     "basalDose": 16,
+     "basalSlot": "am",
+     "items": [],
+     "totalCarbs": 0,
+     "totalKcal": 0,
+     "glycemicLoad": null,
+     "mealDose": 0,
+     "correctionDose": 0,
+     "noInsulin": false,
+     "glucose": null,
+     "ratioLabel": "",
+     "ratioValue": null
+    },
+    {
+     "id": "x2",
+     "ts": 1790848800000,
+     "entryType": "basal",
+     "mealType": "basal",
+     "periodName": "morning",
+     "basalDose": 16,
+     "basalSlot": "am",
+     "items": [],
+     "totalCarbs": 0,
+     "totalKcal": 0,
+     "glycemicLoad": null,
+     "mealDose": 0,
+     "correctionDose": 0,
+     "noInsulin": false,
+     "glucose": null,
+     "ratioLabel": "",
+     "ratioValue": null
+    }
+   ]
+  ],
+  "expect": {
+   "logged": 2,
+   "usual": {
+    "am": null,
+    "pm": null
+   },
+   "periodMs": 86400000,
+   "doses": [
+    {
+     "ts": 1790845200000,
+     "units": 16,
+     "slot": "am",
+     "extra": 0
+    },
+    {
+     "ts": 1790848800000,
+     "units": 16,
+     "slot": "am",
+     "extra": 0
+    }
+   ]
+  }
+ },
+ {
+  "name": "basalContext: both slots give a 12 h period",
+  "fn": "basalContext",
+  "args": [
+   [
+    {
+     "id": "am1",
+     "ts": 1790769600000,
+     "entryType": "basal",
+     "mealType": "basal",
+     "periodName": "morning",
+     "basalDose": 12,
+     "basalSlot": "am",
+     "items": [],
+     "totalCarbs": 0,
+     "totalKcal": 0,
+     "glycemicLoad": null,
+     "mealDose": 0,
+     "correctionDose": 0,
+     "noInsulin": false,
+     "glucose": null,
+     "ratioLabel": "",
+     "ratioValue": null
+    },
+    {
+     "id": "am2",
+     "ts": 1790683200000,
+     "entryType": "basal",
+     "mealType": "basal",
+     "periodName": "morning",
+     "basalDose": 12,
+     "basalSlot": "am",
+     "items": [],
+     "totalCarbs": 0,
+     "totalKcal": 0,
+     "glycemicLoad": null,
+     "mealDose": 0,
+     "correctionDose": 0,
+     "noInsulin": false,
+     "glucose": null,
+     "ratioLabel": "",
+     "ratioValue": null
+    },
+    {
+     "id": "am3",
+     "ts": 1790596800000,
+     "entryType": "basal",
+     "mealType": "basal",
+     "periodName": "morning",
+     "basalDose": 12,
+     "basalSlot": "am",
+     "items": [],
+     "totalCarbs": 0,
+     "totalKcal": 0,
+     "glycemicLoad": null,
+     "mealDose": 0,
+     "correctionDose": 0,
+     "noInsulin": false,
+     "glucose": null,
+     "ratioLabel": "",
+     "ratioValue": null
+    },
+    {
+     "id": "pm1",
+     "ts": 1790726400000,
+     "entryType": "basal",
+     "mealType": "basal",
+     "periodName": "evening",
+     "basalDose": 14,
+     "basalSlot": "pm",
+     "items": [],
+     "totalCarbs": 0,
+     "totalKcal": 0,
+     "glycemicLoad": null,
+     "mealDose": 0,
+     "correctionDose": 0,
+     "noInsulin": false,
+     "glucose": null,
+     "ratioLabel": "",
+     "ratioValue": null
+    },
+    {
+     "id": "pm2",
+     "ts": 1790640000000,
+     "entryType": "basal",
+     "mealType": "basal",
+     "periodName": "evening",
+     "basalDose": 14,
+     "basalSlot": "pm",
+     "items": [],
+     "totalCarbs": 0,
+     "totalKcal": 0,
+     "glycemicLoad": null,
+     "mealDose": 0,
+     "correctionDose": 0,
+     "noInsulin": false,
+     "glucose": null,
+     "ratioLabel": "",
+     "ratioValue": null
+    },
+    {
+     "id": "pm3",
+     "ts": 1790553600000,
+     "entryType": "basal",
+     "mealType": "basal",
+     "periodName": "evening",
+     "basalDose": 14,
+     "basalSlot": "pm",
+     "items": [],
+     "totalCarbs": 0,
+     "totalKcal": 0,
+     "glycemicLoad": null,
+     "mealDose": 0,
+     "correctionDose": 0,
+     "noInsulin": false,
+     "glucose": null,
+     "ratioLabel": "",
+     "ratioValue": null
+    },
+    {
+     "id": "last",
+     "ts": 1790852400000,
+     "entryType": "basal",
+     "mealType": "basal",
+     "periodName": "evening",
+     "basalDose": 15,
+     "basalSlot": "pm",
+     "items": [],
+     "totalCarbs": 0,
+     "totalKcal": 0,
+     "glycemicLoad": null,
+     "mealDose": 0,
+     "correctionDose": 0,
+     "noInsulin": false,
+     "glucose": null,
+     "ratioLabel": "",
+     "ratioValue": null
+    }
+   ]
+  ],
+  "expect": {
+   "logged": 7,
+   "usual": {
+    "am": 12,
+    "pm": 14
+   },
+   "periodMs": 43200000,
+   "doses": [
+    {
+     "ts": 1790553600000,
+     "units": 14,
+     "slot": "pm",
+     "extra": 0
+    },
+    {
+     "ts": 1790596800000,
+     "units": 12,
+     "slot": "am",
+     "extra": 0
+    },
+    {
+     "ts": 1790640000000,
+     "units": 14,
+     "slot": "pm",
+     "extra": 0
+    },
+    {
+     "ts": 1790683200000,
+     "units": 12,
+     "slot": "am",
+     "extra": 0
+    },
+    {
+     "ts": 1790726400000,
+     "units": 14,
+     "slot": "pm",
+     "extra": 0
+    },
+    {
+     "ts": 1790769600000,
+     "units": 12,
+     "slot": "am",
+     "extra": 0
+    },
+    {
+     "ts": 1790852400000,
+     "units": 15,
+     "slot": "pm",
+     "extra": 1
+    }
+   ]
+  }
+ },
+ {
+  "name": "basalDrop: 2 extra units over half the period",
+  "fn": "basalDrop",
+  "args": [
+   {
+    "logged": 1,
+    "usual": {
+     "am": null,
+     "pm": 14
+    },
+    "periodMs": 43200000,
+    "doses": [
+     {
+      "ts": 1790856000000,
+      "units": 16,
+      "slot": "pm",
+      "extra": 2
+     }
+    ]
+   },
+   1790856000000,
+   1790877600000,
+   50
+  ],
+  "expect": 50
+ },
+ {
+  "name": "insulinDrop: whole dose over its duration",
+  "fn": "insulinDrop",
+  "args": [
+   [
+    {
+     "ts": 1790856000000,
+     "mealDose": 2,
+     "correctionDose": 0
+    }
+   ],
+   1790856000000,
+   1790877600000,
+   50,
+   75,
+   360
+  ],
+  "expect": 100
+ },
+ {
+  "name": "insulinDrop: basal entries are ignored",
+  "fn": "insulinDrop",
+  "args": [
+   [
+    {
+     "ts": 1790856000000,
+     "entryType": "basal",
+     "mealDose": 5
+    }
+   ],
+   1790856000000,
+   1790859600000,
+   50,
+   75,
+   360
+  ],
+  "expect": 0
+ },
+ {
+  "name": "gapSummary -40",
+  "fn": "gapSummary",
+  "args": [
+   -40
+  ],
+  "expect": {
+   "kind": "below"
+  }
+ },
+ {
+  "name": "gapSummary -14",
+  "fn": "gapSummary",
+  "args": [
+   -14
+  ],
+  "expect": {
+   "kind": "tracking"
+  }
+ },
+ {
+  "name": "gapSummary 0",
+  "fn": "gapSummary",
+  "args": [
+   0
+  ],
+  "expect": {
+   "kind": "tracking"
+  }
+ },
+ {
+  "name": "gapSummary 14",
+  "fn": "gapSummary",
+  "args": [
+   14
+  ],
+  "expect": {
+   "kind": "tracking"
+  }
+ },
+ {
+  "name": "gapSummary 15",
+  "fn": "gapSummary",
+  "args": [
+   15
+  ],
+  "expect": {
+   "kind": "above"
+  }
+ },
+ {
+  "name": "gapSummary 60",
+  "fn": "gapSummary",
+  "args": [
+   60
+  ],
+  "expect": {
+   "kind": "above"
+  }
+ },
+ {
+  "name": "gapSummary 160",
+  "fn": "gapSummary",
+  "args": [
+   160
+  ],
+  "expect": {
+   "kind": "above"
+  }
+ },
+ {
+  "name": "prepareReadings: sorts, drops junk, smooths a spike",
+  "fn": "prepareReadings",
+  "args": [
+   [
+    {
+     "at": 1790856600000,
+     "mgdl": 120
+    },
+    {
+     "at": 1790856000000,
+     "mgdl": 100
+    },
+    {
+     "at": 1790856300000,
+     "mgdl": 220
+    },
+    {
+     "at": null,
+     "mgdl": 5
+    },
+    {
+     "at": 1790856900000,
+     "mgdl": 124
+    },
+    {
+     "at": 1790857200000,
+     "mgdl": 126
+    }
+   ]
+  ],
+  "expect": [
+   {
+    "at": 1790856000000,
+    "mgdl": 100
+   },
+   {
+    "at": 1790856300000,
+    "mgdl": 120
+   },
+   {
+    "at": 1790856600000,
+    "mgdl": 124
+   },
+   {
+    "at": 1790856900000,
+    "mgdl": 124
+   },
+   {
+    "at": 1790857200000,
+    "mgdl": 126
+   }
+  ]
+ },
+ {
+  "name": "glucoseNear: within tolerance",
+  "fn": "glucoseNear",
+  "args": [
+   [
+    {
+     "at": 1790856000000,
+     "mgdl": 100
+    },
+    {
+     "at": 1790856300000,
+     "mgdl": 110
+    }
+   ],
+   1790856180000,
+   4
+  ],
+  "expect": 110
+ },
+ {
+  "name": "glucoseNear: too far away",
+  "fn": "glucoseNear",
+  "args": [
+   [
+    {
+     "at": 1790856000000,
+     "mgdl": 100
+    }
+   ],
+   1790857800000,
+   4
+  ],
+  "expect": null
+ },
+ {
+  "name": "observedCarbs: usual pace, 1 h in",
+  "fn": "observedCarbs",
+  "args": [
+   [
+    {
+     "id": "m1",
+     "ts": 1790856000000,
+     "mealType": "lunch",
+     "periodName": "day",
+     "items": [
+      {
+       "refType": "food",
+       "refId": "f1",
+       "name": "Rice",
+       "grams": 100,
+       "carbs": 28,
+       "kcal": 130,
+       "carbsPer100g": 28,
+       "kcalPer100g": 130,
+       "gi": 70
+      }
+     ],
+     "totalCarbs": 60,
+     "totalKcal": 130,
+     "glycemicLoad": {
+      "value": 70,
+      "partial": false
+     },
+     "carbsUnknown": false,
+     "mealDose": 3,
+     "correctionDose": 0,
+     "noInsulin": false,
+     "glucose": null,
+     "ratioLabel": "Day",
+     "ratioValue": 10
+    }
+   ],
+   [
+    {
+     "at": 1790854200000,
+     "mgdl": 200
+    },
+    {
+     "at": 1790854500000,
+     "mgdl": 200
+    },
+    {
+     "at": 1790854800000,
+     "mgdl": 200
+    },
+    {
+     "at": 1790855100000,
+     "mgdl": 200
+    },
+    {
+     "at": 1790855400000,
+     "mgdl": 200
+    },
+    {
+     "at": 1790855700000,
+     "mgdl": 200
+    },
+    {
+     "at": 1790856000000,
+     "mgdl": 200
+    },
+    {
+     "at": 1790856300000,
+     "mgdl": 212.1
+    },
+    {
+     "at": 1790856600000,
+     "mgdl": 223.6
+    },
+    {
+     "at": 1790856900000,
+     "mgdl": 234.5
+    },
+    {
+     "at": 1790857200000,
+     "mgdl": 244.9
+    },
+    {
+     "at": 1790857500000,
+     "mgdl": 254.8
+    },
+    {
+     "at": 1790857800000,
+     "mgdl": 264.4
+    },
+    {
+     "at": 1790858100000,
+     "mgdl": 273.7
+    },
+    {
+     "at": 1790858400000,
+     "mgdl": 282.7
+    },
+    {
+     "at": 1790858700000,
+     "mgdl": 291.5
+    },
+    {
+     "at": 1790859000000,
+     "mgdl": 300.1
+    },
+    {
+     "at": 1790859300000,
+     "mgdl": 308.5
+    },
+    {
+     "at": 1790859600000,
+     "mgdl": 316.9
+    }
+   ],
+   {
+    "isfMgdl": 50,
+    "peak": 75,
+    "dia": 360,
+    "absMinutes": 120,
+    "fallbackRatio": 10
+   },
+   1790859600000
+  ],
+  "expect": {
+   "meals": [
+    {
+     "e": {
+      "id": "m1",
+      "ts": 1790856000000,
+      "mealType": "lunch",
+      "periodName": "day",
+      "items": [
+       {
+        "refType": "food",
+        "refId": "f1",
+        "name": "Rice",
+        "grams": 100,
+        "carbs": 28,
+        "kcal": 130,
+        "carbsPer100g": 28,
+        "kcalPer100g": 130,
+        "gi": 70
+       }
+      ],
+      "totalCarbs": 60,
+      "totalKcal": 130,
+      "glycemicLoad": {
+       "value": 70,
+       "partial": false
+      },
+      "carbsUnknown": false,
+      "mealDose": 3,
+      "correctionDose": 0,
+      "noInsulin": false,
+      "glucose": null,
+      "ratioLabel": "Day",
+      "ratioValue": 10
+     },
+     "ts": 1790856000000,
+     "carbs": 60,
+     "T": 120,
+     "csf": 5,
+     "absorbed": 30.00112055816377,
+     "modelRemaining": 30,
+     "remaining": 29.99887944183623,
+     "paceVsUsual": 1.0000373519387924
+    }
+   ],
+   "cob": 29.99887944183623,
+   "modelCob": 30,
+   "observed": true,
+   "ratePerMin": 0.500224881578535,
+   "finishMin": 59.97078623352411,
+   "csf": 5
+  }
+ },
+ {
+  "name": "observedCarbs: no readings falls back to the plain model",
+  "fn": "observedCarbs",
+  "args": [
+   [
+    {
+     "id": "m1",
+     "ts": 1790856000000,
+     "mealType": "lunch",
+     "periodName": "day",
+     "items": [
+      {
+       "refType": "food",
+       "refId": "f1",
+       "name": "Rice",
+       "grams": 100,
+       "carbs": 28,
+       "kcal": 130,
+       "carbsPer100g": 28,
+       "kcalPer100g": 130,
+       "gi": 70
+      }
+     ],
+     "totalCarbs": 60,
+     "totalKcal": 130,
+     "glycemicLoad": {
+      "value": 70,
+      "partial": false
+     },
+     "carbsUnknown": false,
+     "mealDose": 3,
+     "correctionDose": 0,
+     "noInsulin": false,
+     "glucose": null,
+     "ratioLabel": "Day",
+     "ratioValue": 10
+    }
+   ],
+   [],
+   {
+    "isfMgdl": 50,
+    "peak": 75,
+    "dia": 360,
+    "absMinutes": 120,
+    "fallbackRatio": 10
+   },
+   1790859600000
+  ],
+  "expect": {
+   "meals": [
+    {
+     "e": {
+      "id": "m1",
+      "ts": 1790856000000,
+      "mealType": "lunch",
+      "periodName": "day",
+      "items": [
+       {
+        "refType": "food",
+        "refId": "f1",
+        "name": "Rice",
+        "grams": 100,
+        "carbs": 28,
+        "kcal": 130,
+        "carbsPer100g": 28,
+        "kcalPer100g": 130,
+        "gi": 70
+       }
+      ],
+      "totalCarbs": 60,
+      "totalKcal": 130,
+      "glycemicLoad": {
+       "value": 70,
+       "partial": false
+      },
+      "carbsUnknown": false,
+      "mealDose": 3,
+      "correctionDose": 0,
+      "noInsulin": false,
+      "glucose": null,
+      "ratioLabel": "Day",
+      "ratioValue": 10
+     },
+     "ts": 1790856000000,
+     "carbs": 60,
+     "T": 120,
+     "csf": 5,
+     "absorbed": 19.999999999999993,
+     "modelRemaining": 30,
+     "remaining": 30,
+     "paceVsUsual": null
+    }
+   ],
+   "cob": 30,
+   "modelCob": 30,
+   "observed": false,
+   "ratePerMin": 0,
+   "finishMin": 60,
+   "csf": 5
+  }
+ },
+ {
+  "name": "observedCarbs: nothing logged",
+  "fn": "observedCarbs",
+  "args": [
+   [],
+   [
+    {
+     "at": 1790854200000,
+     "mgdl": 200
+    },
+    {
+     "at": 1790854500000,
+     "mgdl": 200
+    },
+    {
+     "at": 1790854800000,
+     "mgdl": 200
+    },
+    {
+     "at": 1790855100000,
+     "mgdl": 200
+    },
+    {
+     "at": 1790855400000,
+     "mgdl": 200
+    },
+    {
+     "at": 1790855700000,
+     "mgdl": 200
+    },
+    {
+     "at": 1790856000000,
+     "mgdl": 200
+    },
+    {
+     "at": 1790856300000,
+     "mgdl": 212.1
+    },
+    {
+     "at": 1790856600000,
+     "mgdl": 223.6
+    },
+    {
+     "at": 1790856900000,
+     "mgdl": 234.5
+    },
+    {
+     "at": 1790857200000,
+     "mgdl": 244.9
+    },
+    {
+     "at": 1790857500000,
+     "mgdl": 254.8
+    },
+    {
+     "at": 1790857800000,
+     "mgdl": 264.4
+    },
+    {
+     "at": 1790858100000,
+     "mgdl": 273.7
+    },
+    {
+     "at": 1790858400000,
+     "mgdl": 282.7
+    },
+    {
+     "at": 1790858700000,
+     "mgdl": 291.5
+    },
+    {
+     "at": 1790859000000,
+     "mgdl": 300.1
+    },
+    {
+     "at": 1790859300000,
+     "mgdl": 308.5
+    },
+    {
+     "at": 1790859600000,
+     "mgdl": 316.9
+    },
+    {
+     "at": 1790859900000,
+     "mgdl": 325.2
+    },
+    {
+     "at": 1790860200000,
+     "mgdl": 333.4
+    },
+    {
+     "at": 1790860500000,
+     "mgdl": 341.6
+    },
+    {
+     "at": 1790860800000,
+     "mgdl": 349.9
+    },
+    {
+     "at": 1790861100000,
+     "mgdl": 358.1
+    },
+    {
+     "at": 1790861400000,
+     "mgdl": 366.4
+    },
+    {
+     "at": 1790861700000,
+     "mgdl": 374.7
+    },
+    {
+     "at": 1790862000000,
+     "mgdl": 383.1
+    },
+    {
+     "at": 1790862300000,
+     "mgdl": 391.5
+    },
+    {
+     "at": 1790862600000,
+     "mgdl": 400.1
+    },
+    {
+     "at": 1790862900000,
+     "mgdl": 408.7
+    },
+    {
+     "at": 1790863200000,
+     "mgdl": 417.5
+    },
+    {
+     "at": 1790863500000,
+     "mgdl": 413.8
+    },
+    {
+     "at": 1790863800000,
+     "mgdl": 410.3
+    },
+    {
+     "at": 1790864100000,
+     "mgdl": 406.8
+    },
+    {
+     "at": 1790864400000,
+     "mgdl": 403.5
+    },
+    {
+     "at": 1790864700000,
+     "mgdl": 400.3
+    },
+    {
+     "at": 1790865000000,
+     "mgdl": 397.2
+    },
+    {
+     "at": 1790865300000,
+     "mgdl": 394.3
+    },
+    {
+     "at": 1790865600000,
+     "mgdl": 391.4
+    },
+    {
+     "at": 1790865900000,
+     "mgdl": 388.7
+    },
+    {
+     "at": 1790866200000,
+     "mgdl": 386.1
+    },
+    {
+     "at": 1790866500000,
+     "mgdl": 383.6
+    },
+    {
+     "at": 1790866800000,
+     "mgdl": 381.2
+    },
+    {
+     "at": 1790867100000,
+     "mgdl": 379
+    },
+    {
+     "at": 1790867400000,
+     "mgdl": 376.8
+    },
+    {
+     "at": 1790867700000,
+     "mgdl": 374.8
+    },
+    {
+     "at": 1790868000000,
+     "mgdl": 372.9
+    },
+    {
+     "at": 1790868300000,
+     "mgdl": 371
+    },
+    {
+     "at": 1790868600000,
+     "mgdl": 369.3
+    },
+    {
+     "at": 1790868900000,
+     "mgdl": 367.7
+    },
+    {
+     "at": 1790869200000,
+     "mgdl": 366.1
+    },
+    {
+     "at": 1790869500000,
+     "mgdl": 364.7
+    },
+    {
+     "at": 1790869800000,
+     "mgdl": 363.3
+    },
+    {
+     "at": 1790870100000,
+     "mgdl": 362.1
+    },
+    {
+     "at": 1790870400000,
+     "mgdl": 360.9
+    },
+    {
+     "at": 1790870700000,
+     "mgdl": 359.8
+    },
+    {
+     "at": 1790871000000,
+     "mgdl": 358.8
+    },
+    {
+     "at": 1790871300000,
+     "mgdl": 357.8
+    },
+    {
+     "at": 1790871600000,
+     "mgdl": 356.9
+    },
+    {
+     "at": 1790871900000,
+     "mgdl": 356.1
+    },
+    {
+     "at": 1790872200000,
+     "mgdl": 355.4
+    },
+    {
+     "at": 1790872500000,
+     "mgdl": 354.7
+    },
+    {
+     "at": 1790872800000,
+     "mgdl": 354.1
+    },
+    {
+     "at": 1790873100000,
+     "mgdl": 353.5
+    },
+    {
+     "at": 1790873400000,
+     "mgdl": 353
+    },
+    {
+     "at": 1790873700000,
+     "mgdl": 352.5
+    },
+    {
+     "at": 1790874000000,
+     "mgdl": 352.1
+    }
+   ],
+   {
+    "isfMgdl": 50,
+    "peak": 75,
+    "dia": 360,
+    "absMinutes": 120,
+    "fallbackRatio": 10
+   },
+   1790859600000
+  ],
+  "expect": {
+   "meals": [],
+   "cob": 0,
+   "modelCob": 0,
+   "observed": false,
+   "ratePerMin": 0,
+   "finishMin": 0,
+   "csf": 5
+  }
+ },
+ {
+  "name": "observedCarbs: fast meal",
+  "fn": "observedCarbs",
+  "args": [
+   [
+    {
+     "id": "m1",
+     "ts": 1790856000000,
+     "mealType": "lunch",
+     "periodName": "day",
+     "items": [
+      {
+       "refType": "food",
+       "refId": "f1",
+       "name": "Rice",
+       "grams": 100,
+       "carbs": 28,
+       "kcal": 130,
+       "carbsPer100g": 28,
+       "kcalPer100g": 130,
+       "gi": 70
+      }
+     ],
+     "totalCarbs": 60,
+     "totalKcal": 130,
+     "glycemicLoad": {
+      "value": 70,
+      "partial": false
+     },
+     "carbsUnknown": false,
+     "mealDose": 3,
+     "correctionDose": 0,
+     "noInsulin": false,
+     "glucose": null,
+     "ratioLabel": "Day",
+     "ratioValue": 10
+    }
+   ],
+   [
+    {
+     "at": 1790854200000,
+     "mgdl": 200
+    },
+    {
+     "at": 1790854500000,
+     "mgdl": 200
+    },
+    {
+     "at": 1790854800000,
+     "mgdl": 200
+    },
+    {
+     "at": 1790855100000,
+     "mgdl": 200
+    },
+    {
+     "at": 1790855400000,
+     "mgdl": 200
+    },
+    {
+     "at": 1790855700000,
+     "mgdl": 200
+    },
+    {
+     "at": 1790856000000,
+     "mgdl": 200
+    },
+    {
+     "at": 1790856300000,
+     "mgdl": 224.6
+    },
+    {
+     "at": 1790856600000,
+     "mgdl": 248.6
+    },
+    {
+     "at": 1790856900000,
+     "mgdl": 272
+    },
+    {
+     "at": 1790857200000,
+     "mgdl": 294.9
+    },
+    {
+     "at": 1790857500000,
+     "mgdl": 317.3
+    },
+    {
+     "at": 1790857800000,
+     "mgdl": 339.4
+    },
+    {
+     "at": 1790858100000,
+     "mgdl": 361.2
+    },
+    {
+     "at": 1790858400000,
+     "mgdl": 382.7
+    },
+    {
+     "at": 1790858700000,
+     "mgdl": 404
+    },
+    {
+     "at": 1790859000000,
+     "mgdl": 425.1
+    },
+    {
+     "at": 1790859300000,
+     "mgdl": 446
+    },
+    {
+     "at": 1790859600000,
+     "mgdl": 466.9
+    }
+   ],
+   {
+    "isfMgdl": 50,
+    "peak": 75,
+    "dia": 360,
+    "absMinutes": 180,
+    "fallbackRatio": 10
+   },
+   1790859600000
+  ],
+  "expect": {
+   "meals": [
+    {
+     "e": {
+      "id": "m1",
+      "ts": 1790856000000,
+      "mealType": "lunch",
+      "periodName": "day",
+      "items": [
+       {
+        "refType": "food",
+        "refId": "f1",
+        "name": "Rice",
+        "grams": 100,
+        "carbs": 28,
+        "kcal": 130,
+        "carbsPer100g": 28,
+        "kcalPer100g": 130,
+        "gi": 70
+       }
+      ],
+      "totalCarbs": 60,
+      "totalKcal": 130,
+      "glycemicLoad": {
+       "value": 70,
+       "partial": false
+      },
+      "carbsUnknown": false,
+      "mealDose": 3,
+      "correctionDose": 0,
+      "noInsulin": false,
+      "glucose": null,
+      "ratioLabel": "Day",
+      "ratioValue": 10
+     },
+     "ts": 1790856000000,
+     "carbs": 60,
+     "T": 180,
+     "csf": 5,
+     "absorbed": 60,
+     "modelRemaining": 40.00000000000001,
+     "remaining": 0,
+     "paceVsUsual": 3.000000000000001
+    }
+   ],
+   "cob": 0,
+   "modelCob": 40.00000000000001,
+   "observed": true,
+   "ratePerMin": 1.0001875296397424,
+   "finishMin": 0,
+   "csf": 0
+  }
+ },
+ {
+  "name": "cobAt: halfway through the finish time",
+  "fn": "cobAt",
+  "args": [
+   {
+    "cob": 40,
+    "finishMin": 80
+   },
+   40
+  ],
+  "expect": 20
+ },
+ {
+  "name": "cobAt: nothing left",
+  "fn": "cobAt",
+  "args": [
+   {
+    "cob": 0.2,
+    "finishMin": 80
+   },
+   10
+  ],
+  "expect": 0
+ },
+ {
+  "name": "projectGlucose: 30 min after a meal",
+  "fn": "projectGlucose",
+  "args": [
+   [
+    {
+     "id": "m1",
+     "ts": 1790856000000,
+     "mealType": "lunch",
+     "periodName": "day",
+     "items": [
+      {
+       "refType": "food",
+       "refId": "f1",
+       "name": "Rice",
+       "grams": 100,
+       "carbs": 28,
+       "kcal": 130,
+       "carbsPer100g": 28,
+       "kcalPer100g": 130,
+       "gi": 70
+      }
+     ],
+     "totalCarbs": 60,
+     "totalKcal": 130,
+     "glycemicLoad": {
+      "value": 70,
+      "partial": false
+     },
+     "carbsUnknown": false,
+     "mealDose": 3,
+     "correctionDose": 0,
+     "noInsulin": false,
+     "glucose": null,
+     "ratioLabel": "Day",
+     "ratioValue": 10
+    }
+   ],
+   [
+    {
+     "at": 1790854200000,
+     "mgdl": 200
+    },
+    {
+     "at": 1790854500000,
+     "mgdl": 200
+    },
+    {
+     "at": 1790854800000,
+     "mgdl": 200
+    },
+    {
+     "at": 1790855100000,
+     "mgdl": 200
+    },
+    {
+     "at": 1790855400000,
+     "mgdl": 200
+    },
+    {
+     "at": 1790855700000,
+     "mgdl": 200
+    },
+    {
+     "at": 1790856000000,
+     "mgdl": 200
+    },
+    {
+     "at": 1790856300000,
+     "mgdl": 212.1
+    },
+    {
+     "at": 1790856600000,
+     "mgdl": 223.6
+    },
+    {
+     "at": 1790856900000,
+     "mgdl": 234.5
+    },
+    {
+     "at": 1790857200000,
+     "mgdl": 244.9
+    },
+    {
+     "at": 1790857500000,
+     "mgdl": 254.8
+    },
+    {
+     "at": 1790857800000,
+     "mgdl": 264.4
+    }
+   ],
+   {
+    "isfMgdl": 50,
+    "peak": 75,
+    "dia": 360,
+    "absMinutes": 120,
+    "fallbackRatio": 10
+   },
+   1790857800000
+  ],
+  "expect": {
+   "start": {
+    "t": 1790857800000,
+    "mgdl": 264.4
+   },
+   "points": [
+    {
+     "t": 1790857800000,
+     "mgdl": 264.4
+    },
+    {
+     "t": 1790858100000,
+     "mgdl": 273.65786675161
+    },
+    {
+     "t": 1790858400000,
+     "mgdl": 282.6506468410106
+    },
+    {
+     "t": 1790858700000,
+     "mgdl": 291.42498931768046
+    },
+    {
+     "t": 1790859000000,
+     "mgdl": 300.02301873443986
+    },
+    {
+     "t": 1790859300000,
+     "mgdl": 308.48269342625105
+    },
+    {
+     "t": 1790859600000,
+     "mgdl": 316.8381383172583
+    },
+    {
+     "t": 1790859900000,
+     "mgdl": 325.11995394766
+    },
+    {
+     "t": 1790860200000,
+     "mgdl": 333.35550330486757
+    },
+    {
+     "t": 1790860500000,
+     "mgdl": 341.5691779428221
+    },
+    {
+     "t": 1790860800000,
+     "mgdl": 349.78264477891355
+    },
+    {
+     "t": 1790861100000,
+     "mgdl": 358.0150748693194
+    },
+    {
+     "t": 1790861400000,
+     "mgdl": 366.2833553804001
+    },
+    {
+     "t": 1790861700000,
+     "mgdl": 374.6022858957293
+    },
+    {
+     "t": 1790862000000,
+     "mgdl": 382.9847601250974
+    },
+    {
+     "t": 1790862300000,
+     "mgdl": 391.4419340131136
+    },
+    {
+     "t": 1790862600000,
+     "mgdl": 399.9833811805741
+    },
+    {
+     "t": 1790862900000,
+     "mgdl": 408.6172365713088
+    },
+    {
+     "t": 1790863200000,
+     "mgdl": 417.3503291205186
+    },
+    {
+     "t": 1790863500000,
+     "mgdl": 413.80551023229305
+    },
+    {
+     "t": 1790863800000,
+     "mgdl": 410.2576308712695
+    },
+    {
+     "t": 1790864100000,
+     "mgdl": 406.82281710233207
+    },
+    {
+     "t": 1790864400000,
+     "mgdl": 403.50380661398185
+    },
+    {
+     "t": 1790864700000,
+     "mgdl": 400.30255476946604
+    },
+    {
+     "t": 1790865000000,
+     "mgdl": 397.2203157845747
+    },
+    {
+     "t": 1790865300000,
+     "mgdl": 394.2577173228935
+    },
+    {
+     "t": 1790865600000,
+     "mgdl": 391.41482898170204
+    },
+    {
+     "t": 1790865900000,
+     "mgdl": 388.6912251100948
+    },
+    {
+     "t": 1790866200000,
+     "mgdl": 386.0860423712978
+    },
+    {
+     "t": 1790866500000,
+     "mgdl": 383.5980324334372
+    },
+    {
+     "t": 1790866800000,
+     "mgdl": 381.22561014706696
+    },
+    {
+     "t": 1790867100000,
+     "mgdl": 378.9668975434811
+    },
+    {
+     "t": 1790867400000,
+     "mgdl": 376.8197639651038
+    },
+    {
+     "t": 1790867700000,
+     "mgdl": 374.7818626179917
+    },
+    {
+     "t": 1790868000000,
+     "mgdl": 372.8506638165883
+    },
+    {
+     "t": 1790868300000,
+     "mgdl": 371.0234851722672
+    },
+    {
+     "t": 1790868600000,
+     "mgdl": 369.29751895980394
+    },
+    {
+     "t": 1790868900000,
+     "mgdl": 367.66985687964996
+    },
+    {
+     "t": 1790869200000,
+     "mgdl": 366.1375124186819
+    },
+    {
+     "t": 1790869500000,
+     "mgdl": 364.6974409978882
+    },
+    {
+     "t": 1790869800000,
+     "mgdl": 363.34655808218275
+    },
+    {
+     "t": 1790870100000,
+     "mgdl": 362.0817554151323
+    },
+    {
+     "t": 1790870400000,
+     "mgdl": 360.89991552980536
+    },
+    {
+     "t": 1790870700000,
+     "mgdl": 359.79792467613504
+    },
+    {
+     "t": 1790871000000,
+     "mgdl": 358.77268429509513
+    },
+    {
+     "t": 1790871300000,
+     "mgdl": 357.8211211605683
+    },
+    {
+     "t": 1790871600000,
+     "mgdl": 356.94019630099393
+    },
+    {
+     "t": 1790871900000,
+     "mgdl": 356.12691280468766
+    },
+    {
+     "t": 1790872200000,
+     "mgdl": 355.3783226050755
+    },
+    {
+     "t": 1790872500000,
+     "mgdl": 354.6915323349592
+    },
+    {
+     "t": 1790872800000,
+     "mgdl": 354.06370833228766
+    },
+    {
+     "t": 1790873100000,
+     "mgdl": 353.4920808737147
+    },
+    {
+     "t": 1790873400000,
+     "mgdl": 352.9739477064631
+    },
+    {
+     "t": 1790873700000,
+     "mgdl": 352.50667694364165
+    },
+    {
+     "t": 1790874000000,
+     "mgdl": 352.08770938316684
+    },
+    {
+     "t": 1790874300000,
+     "mgdl": 351.71456030578634
+    },
+    {
+     "t": 1790874600000,
+     "mgdl": 351.3848208033801
+    },
+    {
+     "t": 1790874900000,
+     "mgdl": 351.0961586846842
+    },
+    {
+     "t": 1790875200000,
+     "mgdl": 350.84631900184957
+    },
+    {
+     "t": 1790875500000,
+     "mgdl": 350.63312423776586
+    },
+    {
+     "t": 1790875800000,
+     "mgdl": 350.4544741908559
+    },
+    {
+     "t": 1790876100000,
+     "mgdl": 350.3083455910471
+    },
+    {
+     "t": 1790876400000,
+     "mgdl": 350.1927914778435
+    },
+    {
+     "t": 1790876700000,
+     "mgdl": 350.10594036884135
+    },
+    {
+     "t": 1790877000000,
+     "mgdl": 350.0459952446372
+    },
+    {
+     "t": 1790877300000,
+     "mgdl": 350.0112323738599
+    },
+    {
+     "t": 1790877600000,
+     "mgdl": 350
+    }
+   ],
+   "low": {
+    "t": 1790857800000,
+    "mgdl": 264.4
+   },
+   "high": {
+    "t": 1790863200000,
+    "mgdl": 417.3503291205186
+   },
+   "end": {
+    "t": 1790877600000,
+    "mgdl": 350
+   },
+   "observed": true,
+   "obs": {
+    "meals": [
+     {
+      "e": {
+       "id": "m1",
+       "ts": 1790856000000,
+       "mealType": "lunch",
+       "periodName": "day",
+       "items": [
+        {
+         "refType": "food",
+         "refId": "f1",
+         "name": "Rice",
+         "grams": 100,
+         "carbs": 28,
+         "kcal": 130,
+         "carbsPer100g": 28,
+         "kcalPer100g": 130,
+         "gi": 70
+        }
+       ],
+       "totalCarbs": 60,
+       "totalKcal": 130,
+       "glycemicLoad": {
+        "value": 70,
+        "partial": false
+       },
+       "carbsUnknown": false,
+       "mealDose": 3,
+       "correctionDose": 0,
+       "noInsulin": false,
+       "glucose": null,
+       "ratioLabel": "Day",
+       "ratioValue": 10
+      },
+      "ts": 1790856000000,
+      "carbs": 60,
+      "T": 120,
+      "csf": 5,
+      "absorbed": 14.99437411080772,
+      "modelRemaining": 45,
+      "remaining": 45.00562588919228,
+      "paceVsUsual": 0.9996249407205146
+     }
+    ],
+    "cob": 45.00562588919228,
+    "modelCob": 45,
+    "observed": true,
+    "ratePerMin": 0.4998124703602574,
+    "finishMin": 90.0450240002073,
+    "csf": 5
+   },
+   "horizonMin": 330
+  }
+ },
+ {
+  "name": "projectGlucose: stale reading gives nothing",
+  "fn": "projectGlucose",
+  "args": [
+   [
+    {
+     "id": "m1",
+     "ts": 1790856000000,
+     "mealType": "lunch",
+     "periodName": "day",
+     "items": [
+      {
+       "refType": "food",
+       "refId": "f1",
+       "name": "Rice",
+       "grams": 100,
+       "carbs": 28,
+       "kcal": 130,
+       "carbsPer100g": 28,
+       "kcalPer100g": 130,
+       "gi": 70
+      }
+     ],
+     "totalCarbs": 60,
+     "totalKcal": 130,
+     "glycemicLoad": {
+      "value": 70,
+      "partial": false
+     },
+     "carbsUnknown": false,
+     "mealDose": 3,
+     "correctionDose": 0,
+     "noInsulin": false,
+     "glucose": null,
+     "ratioLabel": "Day",
+     "ratioValue": 10
+    }
+   ],
+   [
+    {
+     "at": 1790854200000,
+     "mgdl": 200
+    },
+    {
+     "at": 1790854500000,
+     "mgdl": 200
+    },
+    {
+     "at": 1790854800000,
+     "mgdl": 200
+    },
+    {
+     "at": 1790855100000,
+     "mgdl": 200
+    },
+    {
+     "at": 1790855400000,
+     "mgdl": 200
+    },
+    {
+     "at": 1790855700000,
+     "mgdl": 200
+    },
+    {
+     "at": 1790856000000,
+     "mgdl": 200
+    }
+   ],
+   {
+    "isfMgdl": 50,
+    "peak": 75,
+    "dia": 360,
+    "absMinutes": 120,
+    "fallbackRatio": 10
+   },
+   1790859600000
+  ],
+  "expect": null
+ },
+ {
+  "name": "percentile 0 of a sorted list",
+  "fn": "percentile",
+  "args": [
+   [
+    55,
+    64,
+    72,
+    95,
+    110,
+    130,
+    150,
+    175,
+    182,
+    210,
+    260
+   ],
+   0
+  ],
+  "expect": 55
+ },
+ {
+  "name": "percentile 10 of a sorted list",
+  "fn": "percentile",
+  "args": [
+   [
+    55,
+    64,
+    72,
+    95,
+    110,
+    130,
+    150,
+    175,
+    182,
+    210,
+    260
+   ],
+   10
+  ],
+  "expect": 64
+ },
+ {
+  "name": "percentile 25 of a sorted list",
+  "fn": "percentile",
+  "args": [
+   [
+    55,
+    64,
+    72,
+    95,
+    110,
+    130,
+    150,
+    175,
+    182,
+    210,
+    260
+   ],
+   25
+  ],
+  "expect": 83.5
+ },
+ {
+  "name": "percentile 50 of a sorted list",
+  "fn": "percentile",
+  "args": [
+   [
+    55,
+    64,
+    72,
+    95,
+    110,
+    130,
+    150,
+    175,
+    182,
+    210,
+    260
+   ],
+   50
+  ],
+  "expect": 130
+ },
+ {
+  "name": "percentile 75 of a sorted list",
+  "fn": "percentile",
+  "args": [
+   [
+    55,
+    64,
+    72,
+    95,
+    110,
+    130,
+    150,
+    175,
+    182,
+    210,
+    260
+   ],
+   75
+  ],
+  "expect": 178.5
+ },
+ {
+  "name": "percentile 90 of a sorted list",
+  "fn": "percentile",
+  "args": [
+   [
+    55,
+    64,
+    72,
+    95,
+    110,
+    130,
+    150,
+    175,
+    182,
+    210,
+    260
+   ],
+   90
+  ],
+  "expect": 210
+ },
+ {
+  "name": "percentile 100 of a sorted list",
+  "fn": "percentile",
+  "args": [
+   [
+    55,
+    64,
+    72,
+    95,
+    110,
+    130,
+    150,
+    175,
+    182,
+    210,
+    260
+   ],
+   100
+  ],
+  "expect": 260
+ },
+ {
+  "name": "percentile: empty",
+  "fn": "percentile",
+  "args": [
+   [],
+   50
+  ],
+  "expect": null
+ },
+ {
+  "name": "percentile: single value",
+  "fn": "percentile",
+  "args": [
+   [
+    100
+   ],
+   90
+  ],
+  "expect": 100
+ },
+ {
+  "name": "estimatedA1c null",
+  "fn": "estimatedA1c",
+  "args": [
+   null
+  ],
+  "expect": null
+ },
+ {
+  "name": "estimatedA1c 100",
+  "fn": "estimatedA1c",
+  "args": [
+   100
+  ],
+  "expect": 5.702
+ },
+ {
+  "name": "estimatedA1c 154",
+  "fn": "estimatedA1c",
+  "args": [
+   154
+  ],
+  "expect": 6.9936799999999995
+ },
+ {
+  "name": "estimatedA1c 200",
+  "fn": "estimatedA1c",
+  "args": [
+   200
+  ],
+  "expect": 8.094
+ },
+ {
+  "name": "glucoseSummaryStats: mixed day",
+  "fn": "glucoseSummaryStats",
+  "args": [
+   [
+    {
+     "at": 1790856000000,
+     "mgdl": 55
+    },
+    {
+     "at": 1790856300000,
+     "mgdl": 64
+    },
+    {
+     "at": 1790856600000,
+     "mgdl": 72
+    },
+    {
+     "at": 1790856900000,
+     "mgdl": 95
+    },
+    {
+     "at": 1790857200000,
+     "mgdl": 110
+    },
+    {
+     "at": 1790857500000,
+     "mgdl": 130
+    },
+    {
+     "at": 1790857800000,
+     "mgdl": 150
+    },
+    {
+     "at": 1790858100000,
+     "mgdl": 175
+    },
+    {
+     "at": 1790858400000,
+     "mgdl": 182
+    },
+    {
+     "at": 1790858700000,
+     "mgdl": 210
+    },
+    {
+     "at": 1790859000000,
+     "mgdl": 260
+    }
+   ]
+  ],
+  "expect": {
+   "count": 11,
+   "days": 1,
+   "avgMgdl": 136.63636363636363,
+   "gmi": 6.578341818181817,
+   "timeInRangePct": 54.54545454545454,
+   "timeLowPct": 18.181818181818183,
+   "timeHighPct": 27.27272727272727
+  }
+ },
+ {
+  "name": "glucoseSummaryStats: custom range",
+  "fn": "glucoseSummaryStats",
+  "args": [
+   [
+    {
+     "at": 1790856000000,
+     "mgdl": 55
+    },
+    {
+     "at": 1790856300000,
+     "mgdl": 64
+    },
+    {
+     "at": 1790856600000,
+     "mgdl": 72
+    },
+    {
+     "at": 1790856900000,
+     "mgdl": 95
+    },
+    {
+     "at": 1790857200000,
+     "mgdl": 110
+    },
+    {
+     "at": 1790857500000,
+     "mgdl": 130
+    },
+    {
+     "at": 1790857800000,
+     "mgdl": 150
+    },
+    {
+     "at": 1790858100000,
+     "mgdl": 175
+    },
+    {
+     "at": 1790858400000,
+     "mgdl": 182
+    },
+    {
+     "at": 1790858700000,
+     "mgdl": 210
+    },
+    {
+     "at": 1790859000000,
+     "mgdl": 260
+    }
+   ],
+   {
+    "low": 80,
+    "high": 160
+   }
+  ],
+  "expect": {
+   "count": 11,
+   "days": 1,
+   "avgMgdl": 136.63636363636363,
+   "gmi": 6.578341818181817,
+   "timeInRangePct": 36.36363636363637,
+   "timeLowPct": 27.27272727272727,
+   "timeHighPct": 36.36363636363637
+  }
+ },
+ {
+  "name": "glucoseSummaryStats: no readings",
+  "fn": "glucoseSummaryStats",
+  "args": [
+   []
+  ],
+  "expect": {
+   "count": 0,
+   "days": 0,
+   "avgMgdl": null,
+   "gmi": null,
+   "timeInRangePct": null,
+   "timeLowPct": null,
+   "timeHighPct": null
+  }
+ },
+ {
+  "name": "timeInRangeBreakdown: the standard bands",
+  "fn": "timeInRangeBreakdown",
+  "args": [
+   [
+    {
+     "at": 1790856000000,
+     "mgdl": 55
+    },
+    {
+     "at": 1790856300000,
+     "mgdl": 64
+    },
+    {
+     "at": 1790856600000,
+     "mgdl": 72
+    },
+    {
+     "at": 1790856900000,
+     "mgdl": 95
+    },
+    {
+     "at": 1790857200000,
+     "mgdl": 110
+    },
+    {
+     "at": 1790857500000,
+     "mgdl": 130
+    },
+    {
+     "at": 1790857800000,
+     "mgdl": 150
+    },
+    {
+     "at": 1790858100000,
+     "mgdl": 175
+    },
+    {
+     "at": 1790858400000,
+     "mgdl": 182
+    },
+    {
+     "at": 1790858700000,
+     "mgdl": 210
+    },
+    {
+     "at": 1790859000000,
+     "mgdl": 260
+    }
+   ]
+  ],
+  "expect": [
+   {
+    "key": "veryHigh",
+    "label": "Very High",
+    "low": 251,
+    "high": "Infinity",
+    "count": 1,
+    "pct": 9.090909090909092
+   },
+   {
+    "key": "high",
+    "label": "High",
+    "low": 181,
+    "high": 250,
+    "count": 2,
+    "pct": 18.181818181818183
+   },
+   {
+    "key": "target",
+    "label": "Target",
+    "low": 70,
+    "high": 180,
+    "count": 6,
+    "pct": 54.54545454545454
+   },
+   {
+    "key": "low",
+    "label": "Low",
+    "low": 54,
+    "high": 69,
+    "count": 2,
+    "pct": 18.181818181818183
+   },
+   {
+    "key": "veryLow",
+    "label": "Very Low",
+    "low": "-Infinity",
+    "high": 53,
+    "count": 0,
+    "pct": 0
+   }
+  ]
+ },
+ {
+  "name": "median []",
+  "fn": "median",
+  "args": [
+   []
+  ],
+  "expect": null
+ },
+ {
+  "name": "median [5]",
+  "fn": "median",
+  "args": [
+   [
+    5
+   ]
+  ],
+  "expect": 5
+ },
+ {
+  "name": "median [1,3]",
+  "fn": "median",
+  "args": [
+   [
+    1,
+    3
+   ]
+  ],
+  "expect": 2
+ },
+ {
+  "name": "median [3,1,2]",
+  "fn": "median",
+  "args": [
+   [
+    3,
+    1,
+    2
+   ]
+  ],
+  "expect": 2
+ },
+ {
+  "name": "median [1,2,3,4]",
+  "fn": "median",
+  "args": [
+   [
+    1,
+    2,
+    3,
+    4
+   ]
+  ],
+  "expect": 2.5
+ },
+ {
+  "name": "median [1,null,3]",
+  "fn": "median",
+  "args": [
+   [
+    1,
+    "NaN",
+    3
+   ]
+  ],
+  "expect": 2
+ },
+ {
+  "name": "quantile 0",
+  "fn": "quantile",
+  "args": [
+   [
+    10,
+    20,
+    30,
+    40,
+    50
+   ],
+   0
+  ],
+  "expect": 10
+ },
+ {
+  "name": "quantile 0.25",
+  "fn": "quantile",
+  "args": [
+   [
+    10,
+    20,
+    30,
+    40,
+    50
+   ],
+   0.25
+  ],
+  "expect": 20
+ },
+ {
+  "name": "quantile 0.5",
+  "fn": "quantile",
+  "args": [
+   [
+    10,
+    20,
+    30,
+    40,
+    50
+   ],
+   0.5
+  ],
+  "expect": 30
+ },
+ {
+  "name": "quantile 0.9",
+  "fn": "quantile",
+  "args": [
+   [
+    10,
+    20,
+    30,
+    40,
+    50
+   ],
+   0.9
+  ],
+  "expect": 46
+ },
+ {
+  "name": "quantile 1",
+  "fn": "quantile",
+  "args": [
+   [
+    10,
+    20,
+    30,
+    40,
+    50
+   ],
+   1
+  ],
+  "expect": 50
+ }
+]

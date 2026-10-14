@@ -1,0 +1,1992 @@
+[
+ {
+  "name": "validateEntry: a sound meal",
+  "fn": "validateEntry",
+  "args": [
+   {
+    "id": "v1",
+    "ts": 1790856000000,
+    "mealType": "lunch",
+    "periodName": "day",
+    "items": [
+     {
+      "refType": "food",
+      "refId": "f1",
+      "name": "Rice",
+      "grams": 100,
+      "carbs": 28,
+      "kcal": 130,
+      "carbsPer100g": 28,
+      "kcalPer100g": 130,
+      "gi": 70
+     }
+    ],
+    "totalCarbs": 28,
+    "totalKcal": 130,
+    "glycemicLoad": {
+     "value": 70,
+     "partial": false
+    },
+    "carbsUnknown": false,
+    "mealDose": 2.5,
+    "correctionDose": 0,
+    "noInsulin": false,
+    "glucose": null,
+    "ratioLabel": "Day",
+    "ratioValue": 10
+   }
+  ],
+  "expect": []
+ },
+ {
+  "name": "validateEntry: a sound basal",
+  "fn": "validateEntry",
+  "args": [
+   {
+    "id": "v2",
+    "ts": 1790856000000,
+    "entryType": "basal",
+    "mealType": "basal",
+    "periodName": "evening",
+    "basalDose": 16,
+    "basalSlot": "pm",
+    "items": [],
+    "totalCarbs": 0,
+    "totalKcal": 0,
+    "glycemicLoad": null,
+    "mealDose": 0,
+    "correctionDose": 0,
+    "noInsulin": false,
+    "glucose": null,
+    "ratioLabel": "",
+    "ratioValue": null
+   }
+  ],
+  "expect": []
+ },
+ {
+  "name": "validateEntry: no id",
+  "fn": "validateEntry",
+  "args": [
+   {
+    "id": "",
+    "ts": 1790856000000,
+    "mealType": "lunch",
+    "periodName": "day",
+    "items": [
+     {
+      "refType": "food",
+      "refId": "f1",
+      "name": "Rice",
+      "grams": 100,
+      "carbs": 28,
+      "kcal": 130,
+      "carbsPer100g": 28,
+      "kcalPer100g": 130,
+      "gi": 70
+     }
+    ],
+    "totalCarbs": 28,
+    "totalKcal": 130,
+    "glycemicLoad": {
+     "value": 70,
+     "partial": false
+    },
+    "carbsUnknown": false,
+    "mealDose": 2.5,
+    "correctionDose": 0,
+    "noInsulin": false,
+    "glucose": null,
+    "ratioLabel": "Day",
+    "ratioValue": 10
+   }
+  ],
+  "expect": [
+   {
+    "path": "entry.id",
+    "severity": "error",
+    "message": "needs a text id"
+   }
+  ]
+ },
+ {
+  "name": "validateEntry: no time",
+  "fn": "validateEntry",
+  "args": [
+   {
+    "id": "v1",
+    "mealType": "lunch",
+    "periodName": "day",
+    "items": [
+     {
+      "refType": "food",
+      "refId": "f1",
+      "name": "Rice",
+      "grams": 100,
+      "carbs": 28,
+      "kcal": 130,
+      "carbsPer100g": 28,
+      "kcalPer100g": 130,
+      "gi": 70
+     }
+    ],
+    "totalCarbs": 28,
+    "totalKcal": 130,
+    "glycemicLoad": {
+     "value": 70,
+     "partial": false
+    },
+    "carbsUnknown": false,
+    "mealDose": 2.5,
+    "correctionDose": 0,
+    "noInsulin": false,
+    "glucose": null,
+    "ratioLabel": "Day",
+    "ratioValue": 10
+   }
+  ],
+  "expect": [
+   {
+    "path": "entry.ts",
+    "severity": "error",
+    "message": "is missing"
+   }
+  ]
+ },
+ {
+  "name": "validateEntry: text dose",
+  "fn": "validateEntry",
+  "args": [
+   {
+    "id": "v1",
+    "ts": 1790856000000,
+    "mealType": "lunch",
+    "periodName": "day",
+    "items": [
+     {
+      "refType": "food",
+      "refId": "f1",
+      "name": "Rice",
+      "grams": 100,
+      "carbs": 28,
+      "kcal": 130,
+      "carbsPer100g": 28,
+      "kcalPer100g": 130,
+      "gi": 70
+     }
+    ],
+    "totalCarbs": 28,
+    "totalKcal": 130,
+    "glycemicLoad": {
+     "value": 70,
+     "partial": false
+    },
+    "carbsUnknown": false,
+    "mealDose": "2",
+    "correctionDose": 0,
+    "noInsulin": false,
+    "glucose": null,
+    "ratioLabel": "Day",
+    "ratioValue": 10
+   }
+  ],
+  "expect": [
+   {
+    "path": "entry.mealDose",
+    "severity": "error",
+    "message": "should be a number, got string"
+   }
+  ]
+ },
+ {
+  "name": "validateEntry: no items list",
+  "fn": "validateEntry",
+  "args": [
+   {
+    "id": "v1",
+    "ts": 1790856000000,
+    "mealType": "lunch",
+    "periodName": "day",
+    "items": null,
+    "totalCarbs": 28,
+    "totalKcal": 130,
+    "glycemicLoad": {
+     "value": 70,
+     "partial": false
+    },
+    "carbsUnknown": false,
+    "mealDose": 2.5,
+    "correctionDose": 0,
+    "noInsulin": false,
+    "glucose": null,
+    "ratioLabel": "Day",
+    "ratioValue": 10
+   }
+  ],
+  "expect": [
+   {
+    "path": "entry.items",
+    "severity": "error",
+    "message": "should be a list"
+   }
+  ]
+ },
+ {
+  "name": "validateEntry: unknown meal type",
+  "fn": "validateEntry",
+  "args": [
+   {
+    "id": "v1",
+    "ts": 1790856000000,
+    "mealType": "brunch",
+    "periodName": "day",
+    "items": [
+     {
+      "refType": "food",
+      "refId": "f1",
+      "name": "Rice",
+      "grams": 100,
+      "carbs": 28,
+      "kcal": 130,
+      "carbsPer100g": 28,
+      "kcalPer100g": 130,
+      "gi": 70
+     }
+    ],
+    "totalCarbs": 28,
+    "totalKcal": 130,
+    "glycemicLoad": {
+     "value": 70,
+     "partial": false
+    },
+    "carbsUnknown": false,
+    "mealDose": 2.5,
+    "correctionDose": 0,
+    "noInsulin": false,
+    "glucose": null,
+    "ratioLabel": "Day",
+    "ratioValue": 10
+   }
+  ],
+  "expect": [
+   {
+    "path": "entry.mealType",
+    "severity": "warn",
+    "message": "unknown meal type \"brunch\""
+   }
+  ]
+ },
+ {
+  "name": "validateEntry: negative basal",
+  "fn": "validateEntry",
+  "args": [
+   {
+    "id": "v3",
+    "ts": 1790856000000,
+    "entryType": "basal",
+    "mealType": "basal",
+    "periodName": "morning",
+    "basalDose": -1,
+    "basalSlot": "am",
+    "items": [],
+    "totalCarbs": 0,
+    "totalKcal": 0,
+    "glycemicLoad": null,
+    "mealDose": 0,
+    "correctionDose": 0,
+    "noInsulin": false,
+    "glucose": null,
+    "ratioLabel": "",
+    "ratioValue": null
+   }
+  ],
+  "expect": [
+   {
+    "path": "entry.basalDose",
+    "severity": "error",
+    "message": "should not be below 0"
+   }
+  ]
+ },
+ {
+  "name": "validateEntry: odd slot",
+  "fn": "validateEntry",
+  "args": [
+   {
+    "id": "v3",
+    "ts": 1790856000000,
+    "entryType": "basal",
+    "mealType": "basal",
+    "periodName": "morning",
+    "basalDose": 16,
+    "basalSlot": "noon",
+    "items": [],
+    "totalCarbs": 0,
+    "totalKcal": 0,
+    "glycemicLoad": null,
+    "mealDose": 0,
+    "correctionDose": 0,
+    "noInsulin": false,
+    "glucose": null,
+    "ratioLabel": "",
+    "ratioValue": null
+   }
+  ],
+  "expect": [
+   {
+    "path": "entry.basalSlot",
+    "severity": "warn",
+    "message": "unknown slot \"noon\""
+   }
+  ]
+ },
+ {
+  "name": "validateEntry: not an object",
+  "fn": "validateEntry",
+  "args": [
+   5
+  ],
+  "expect": [
+   {
+    "path": "entry",
+    "severity": "error",
+    "message": "is not an object"
+   }
+  ]
+ },
+ {
+  "name": "validateFood: sound",
+  "fn": "validateFood",
+  "args": [
+   {
+    "name": "Rice",
+    "carbs": 28,
+    "kcal": 130,
+    "gi": 70
+   }
+  ],
+  "expect": []
+ },
+ {
+  "name": "validateFood: blank name",
+  "fn": "validateFood",
+  "args": [
+   {
+    "name": " ",
+    "carbs": 5
+   }
+  ],
+  "expect": [
+   {
+    "path": "food.name",
+    "severity": "error",
+    "message": "needs a name"
+   }
+  ]
+ },
+ {
+  "name": "validateFood: no carbs",
+  "fn": "validateFood",
+  "args": [
+   {
+    "name": "x"
+   }
+  ],
+  "expect": [
+   {
+    "path": "food.carbs",
+    "severity": "error",
+    "message": "is missing"
+   }
+  ]
+ },
+ {
+  "name": "validateFood: unit food without grams",
+  "fn": "validateFood",
+  "args": [
+   {
+    "name": "Biscuit",
+    "carbs": 50,
+    "unitBased": true
+   }
+  ],
+  "expect": [
+   {
+    "path": "food.gramsPerUnit",
+    "severity": "warn",
+    "message": "a per-unit food needs grams per unit"
+   }
+  ]
+ },
+ {
+  "name": "validateRecipe: sound",
+  "fn": "validateRecipe",
+  "args": [
+   {
+    "name": "Bowl",
+    "finalWeight": 300,
+    "items": [
+     {
+      "grams": 100,
+      "carbsPer100g": 10
+     }
+    ]
+   }
+  ],
+  "expect": []
+ },
+ {
+  "name": "validateRecipe: bad grams and no list",
+  "fn": "validateRecipe",
+  "args": [
+   {
+    "name": "Bowl",
+    "items": [
+     {
+      "grams": "x"
+     }
+    ]
+   }
+  ],
+  "expect": [
+   {
+    "path": "recipe.items[0].grams",
+    "severity": "error",
+    "message": "should be a number, got string"
+   }
+  ]
+ },
+ {
+  "name": "validateRecipe: no items",
+  "fn": "validateRecipe",
+  "args": [
+   {
+    "name": "Bowl"
+   }
+  ],
+  "expect": [
+   {
+    "path": "recipe.items",
+    "severity": "error",
+    "message": "should be a list"
+   }
+  ]
+ },
+ {
+  "name": "validateSettings: sound",
+  "fn": "validateSettings",
+  "args": [
+   {
+    "isf": 50,
+    "target": 100,
+    "units": "mgdl",
+    "rounding": "0.5",
+    "maxDose": 15,
+    "timeRatios": [
+     {
+      "id": "a",
+      "name": "Day",
+      "start": "06:00",
+      "end": "23:30",
+      "ratio": 10
+     },
+     {
+      "id": "n",
+      "name": "Night",
+      "start": "23:30",
+      "end": "06:00",
+      "ratio": 12
+     }
+    ],
+    "activityRatios": [],
+    "insulinModel": {
+     "preset": "rapid",
+     "peakMinutes": 75,
+     "diaMinutes": 360
+    },
+    "carbAbsorptionMinutes": {
+     "high": 120,
+     "medium": 180,
+     "low": 240,
+     "unknown": 180
+    }
+   }
+  ],
+  "expect": []
+ },
+ {
+  "name": "validateSettings: bad units",
+  "fn": "validateSettings",
+  "args": [
+   {
+    "isf": 50,
+    "target": 100,
+    "units": "furlongs",
+    "rounding": "0.5",
+    "maxDose": 15,
+    "timeRatios": [
+     {
+      "id": "a",
+      "name": "Day",
+      "start": "06:00",
+      "end": "23:30",
+      "ratio": 10
+     },
+     {
+      "id": "n",
+      "name": "Night",
+      "start": "23:30",
+      "end": "06:00",
+      "ratio": 12
+     }
+    ],
+    "activityRatios": [],
+    "insulinModel": {
+     "preset": "rapid",
+     "peakMinutes": 75,
+     "diaMinutes": 360
+    },
+    "carbAbsorptionMinutes": {
+     "high": 120,
+     "medium": 180,
+     "low": 240,
+     "unknown": 180
+    }
+   }
+  ],
+  "expect": [
+   {
+    "path": "settings.units",
+    "severity": "error",
+    "message": "should be one of mgdl, mmol"
+   }
+  ]
+ },
+ {
+  "name": "validateSettings: no ratios",
+  "fn": "validateSettings",
+  "args": [
+   {
+    "isf": 50,
+    "target": 100,
+    "units": "mgdl",
+    "rounding": "0.5",
+    "maxDose": 15,
+    "timeRatios": [],
+    "activityRatios": [],
+    "insulinModel": {
+     "preset": "rapid",
+     "peakMinutes": 75,
+     "diaMinutes": 360
+    },
+    "carbAbsorptionMinutes": {
+     "high": 120,
+     "medium": 180,
+     "low": 240,
+     "unknown": 180
+    }
+   }
+  ],
+  "expect": [
+   {
+    "path": "settings.timeRatios",
+    "severity": "error",
+    "message": "needs at least one ratio bracket"
+   }
+  ]
+ },
+ {
+  "name": "validateSettings: bad time",
+  "fn": "validateSettings",
+  "args": [
+   {
+    "isf": 50,
+    "target": 100,
+    "units": "mgdl",
+    "rounding": "0.5",
+    "maxDose": 15,
+    "timeRatios": [
+     {
+      "start": "6am",
+      "end": "12:00",
+      "ratio": 10
+     }
+    ],
+    "activityRatios": [],
+    "insulinModel": {
+     "preset": "rapid",
+     "peakMinutes": 75,
+     "diaMinutes": 360
+    },
+    "carbAbsorptionMinutes": {
+     "high": 120,
+     "medium": 180,
+     "low": 240,
+     "unknown": 180
+    }
+   }
+  ],
+  "expect": [
+   {
+    "path": "settings.timeRatios[0].start",
+    "severity": "error",
+    "message": "should look like 07:30"
+   }
+  ]
+ },
+ {
+  "name": "validateState: duplicate ids",
+  "fn": "validateState",
+  "args": [
+   {
+    "settings": {
+     "isf": 50,
+     "target": 100,
+     "units": "mgdl",
+     "rounding": "0.5",
+     "maxDose": 15,
+     "timeRatios": [
+      {
+       "id": "a",
+       "name": "Day",
+       "start": "06:00",
+       "end": "23:30",
+       "ratio": 10
+      },
+      {
+       "id": "n",
+       "name": "Night",
+       "start": "23:30",
+       "end": "06:00",
+       "ratio": 12
+      }
+     ],
+     "activityRatios": [],
+     "insulinModel": {
+      "preset": "rapid",
+      "peakMinutes": 75,
+      "diaMinutes": 360
+     },
+     "carbAbsorptionMinutes": {
+      "high": 120,
+      "medium": 180,
+      "low": 240,
+      "unknown": 180
+     }
+    },
+    "library": [],
+    "recipes": [],
+    "history": [
+     {
+      "id": "v1",
+      "ts": 1790856000000,
+      "mealType": "lunch",
+      "periodName": "day",
+      "items": [
+       {
+        "refType": "food",
+        "refId": "f1",
+        "name": "Rice",
+        "grams": 100,
+        "carbs": 28,
+        "kcal": 130,
+        "carbsPer100g": 28,
+        "kcalPer100g": 130,
+        "gi": 70
+       }
+      ],
+      "totalCarbs": 28,
+      "totalKcal": 130,
+      "glycemicLoad": {
+       "value": 70,
+       "partial": false
+      },
+      "carbsUnknown": false,
+      "mealDose": 2.5,
+      "correctionDose": 0,
+      "noInsulin": false,
+      "glucose": null,
+      "ratioLabel": "Day",
+      "ratioValue": 10
+     },
+     {
+      "id": "v1",
+      "ts": 1790856000000,
+      "mealType": "lunch",
+      "periodName": "day",
+      "items": [
+       {
+        "refType": "food",
+        "refId": "f1",
+        "name": "Rice",
+        "grams": 100,
+        "carbs": 28,
+        "kcal": 130,
+        "carbsPer100g": 28,
+        "kcalPer100g": 130,
+        "gi": 70
+       }
+      ],
+      "totalCarbs": 28,
+      "totalKcal": 130,
+      "glycemicLoad": {
+       "value": 70,
+       "partial": false
+      },
+      "carbsUnknown": false,
+      "mealDose": 2.5,
+      "correctionDose": 0,
+      "noInsulin": false,
+      "glucose": null,
+      "ratioLabel": "Day",
+      "ratioValue": 10
+     }
+    ]
+   }
+  ],
+  "expect": [
+   {
+    "path": "history[1].id",
+    "severity": "error",
+    "message": "duplicate id v1"
+   }
+  ]
+ },
+ {
+  "name": "buildMealEntry: a normal meal",
+  "fn": "buildMealEntry",
+  "args": [
+   {
+    "nowMs": 1790856000000,
+    "mealType": "lunch",
+    "periodEntry": {
+     "name": "Day"
+    },
+    "ratioEntry": {
+     "name": "Day",
+     "ratio": 10
+    },
+    "items": [
+     {
+      "refType": "food",
+      "refId": "f1",
+      "name": "Rice",
+      "grams": 100,
+      "carbs": 28,
+      "kcal": 130,
+      "carbsPer100g": 28,
+      "kcalPer100g": 130,
+      "gi": 70
+     }
+    ],
+    "eatingOut": false,
+    "noInsulin": false,
+    "computed": {
+     "mealDose": 2.5,
+     "correctionDose": 0
+    },
+    "glucoseVal": null
+   }
+  ],
+  "expect": {
+   "id": "h-1790856000000",
+   "ts": 1790856000000,
+   "mealType": "lunch",
+   "periodName": "day",
+   "items": [
+    {
+     "refType": "food",
+     "refId": "f1",
+     "name": "Rice",
+     "grams": 100,
+     "quantity": null,
+     "unitLabel": null,
+     "gramsPerUnit": null,
+     "gi": 70,
+     "carbsPer100g": 28,
+     "kcalPer100g": 130,
+     "carbs": 28,
+     "kcal": 130
+    }
+   ],
+   "totalCarbs": 28,
+   "totalKcal": 130,
+   "glycemicLoad": {
+    "value": 70,
+    "partial": false
+   },
+   "carbsUnknown": false,
+   "mealDose": 2.5,
+   "correctionDose": 0,
+   "noInsulin": false,
+   "glucose": null,
+   "ratioLabel": "Day",
+   "ratioValue": 10
+  }
+ },
+ {
+  "name": "buildMealEntry: Eating Out saves no items and no carbs",
+  "fn": "buildMealEntry",
+  "args": [
+   {
+    "nowMs": 1790856000000,
+    "mealType": "lunch",
+    "periodEntry": {
+     "name": "Day"
+    },
+    "ratioEntry": {
+     "name": "Day",
+     "ratio": 10
+    },
+    "items": [
+     {
+      "refType": "food",
+      "refId": "f1",
+      "name": "Rice",
+      "grams": 100,
+      "carbs": 28,
+      "kcal": 130,
+      "carbsPer100g": 28,
+      "kcalPer100g": 130,
+      "gi": 70
+     }
+    ],
+    "eatingOut": true,
+    "noInsulin": false,
+    "computed": {
+     "mealDose": 3,
+     "correctionDose": 0
+    },
+    "glucoseVal": null
+   }
+  ],
+  "expect": {
+   "id": "h-1790856000000",
+   "ts": 1790856000000,
+   "mealType": "lunch",
+   "periodName": "day",
+   "items": [],
+   "totalCarbs": 0,
+   "totalKcal": 0,
+   "glycemicLoad": null,
+   "carbsUnknown": true,
+   "mealDose": 3,
+   "correctionDose": 0,
+   "noInsulin": false,
+   "glucose": null,
+   "ratioLabel": "Day",
+   "ratioValue": 10
+  }
+ },
+ {
+  "name": "buildMealEntry: a capped dose records what it was before",
+  "fn": "buildMealEntry",
+  "args": [
+   {
+    "nowMs": 1790856000000,
+    "mealType": "lunch",
+    "periodEntry": {
+     "name": "Day"
+    },
+    "ratioEntry": {
+     "name": "Day",
+     "ratio": 10
+    },
+    "items": [
+     {
+      "refType": "food",
+      "refId": "f1",
+      "name": "Rice",
+      "grams": 100,
+      "carbs": 28,
+      "kcal": 130,
+      "carbsPer100g": 28,
+      "kcalPer100g": 130,
+      "gi": 70
+     }
+    ],
+    "eatingOut": false,
+    "noInsulin": false,
+    "computed": {
+     "mealDose": 12,
+     "correctionDose": 3,
+     "capped": true,
+     "requested": 19.5
+    },
+    "glucoseVal": 250
+   }
+  ],
+  "expect": {
+   "id": "h-1790856000000",
+   "ts": 1790856000000,
+   "mealType": "lunch",
+   "periodName": "day",
+   "items": [
+    {
+     "refType": "food",
+     "refId": "f1",
+     "name": "Rice",
+     "grams": 100,
+     "quantity": null,
+     "unitLabel": null,
+     "gramsPerUnit": null,
+     "gi": 70,
+     "carbsPer100g": 28,
+     "kcalPer100g": 130,
+     "carbs": 28,
+     "kcal": 130
+    }
+   ],
+   "totalCarbs": 28,
+   "totalKcal": 130,
+   "glycemicLoad": {
+    "value": 70,
+    "partial": false
+   },
+   "carbsUnknown": false,
+   "mealDose": 12,
+   "correctionDose": 3,
+   "cappedFrom": 19.5,
+   "noInsulin": false,
+   "glucose": 250,
+   "ratioLabel": "Day",
+   "ratioValue": 10
+  }
+ },
+ {
+  "name": "buildMealEntry: treating a low",
+  "fn": "buildMealEntry",
+  "args": [
+   {
+    "nowMs": 1790856000000,
+    "mealType": "lunch",
+    "periodEntry": {
+     "name": "Day"
+    },
+    "ratioEntry": {
+     "name": "Day",
+     "ratio": 10
+    },
+    "items": [
+     {
+      "refType": "food",
+      "refId": "f1",
+      "name": "Rice",
+      "grams": 100,
+      "carbs": 28,
+      "kcal": 130,
+      "carbsPer100g": 28,
+      "kcalPer100g": 130,
+      "gi": 70
+     }
+    ],
+    "eatingOut": false,
+    "noInsulin": true,
+    "computed": {
+     "mealDose": 0,
+     "correctionDose": 0
+    },
+    "glucoseVal": null
+   }
+  ],
+  "expect": {
+   "id": "h-1790856000000",
+   "ts": 1790856000000,
+   "mealType": "lunch",
+   "periodName": "day",
+   "items": [
+    {
+     "refType": "food",
+     "refId": "f1",
+     "name": "Rice",
+     "grams": 100,
+     "quantity": null,
+     "unitLabel": null,
+     "gramsPerUnit": null,
+     "gi": 70,
+     "carbsPer100g": 28,
+     "kcalPer100g": 130,
+     "carbs": 28,
+     "kcal": 130
+    }
+   ],
+   "totalCarbs": 28,
+   "totalKcal": 130,
+   "glycemicLoad": {
+    "value": 70,
+    "partial": false
+   },
+   "carbsUnknown": false,
+   "mealDose": 0,
+   "correctionDose": 0,
+   "noInsulin": true,
+   "glucose": null,
+   "ratioLabel": "Day",
+   "ratioValue": 10
+  }
+ },
+ {
+  "name": "adjustUsage: up",
+  "fn": "adjustUsage",
+  "args": [
+   [
+    {
+     "id": "f1",
+     "usageCount": 2
+    }
+   ],
+   [
+    {
+     "id": "r1"
+    }
+   ],
+   [
+    {
+     "refType": "food",
+     "refId": "f1"
+    },
+    {
+     "refType": "recipe",
+     "refId": "r1"
+    }
+   ],
+   1
+  ],
+  "expect": {
+   "library": [
+    {
+     "id": "f1",
+     "usageCount": 3
+    }
+   ],
+   "recipes": [
+    {
+     "id": "r1",
+     "usageCount": 1
+    }
+   ]
+  }
+ },
+ {
+  "name": "adjustUsage: down never goes below zero",
+  "fn": "adjustUsage",
+  "args": [
+   [
+    {
+     "id": "f1",
+     "usageCount": 0
+    }
+   ],
+   [],
+   [
+    {
+     "refType": "food",
+     "refId": "f1"
+    }
+   ],
+   -1
+  ],
+  "expect": {
+   "library": [
+    {
+     "id": "f1",
+     "usageCount": 0
+    }
+   ],
+   "recipes": []
+  }
+ },
+ {
+  "name": "makeBasalEntry",
+  "fn": "makeBasalEntry",
+  "args": [
+   {
+    "units": 16.456,
+    "ts": 1790856000000,
+    "slot": "pm",
+    "now": 1790856005000
+   }
+  ],
+  "expect": {
+   "id": "h-1790856005000",
+   "ts": 1790856000000,
+   "entryType": "basal",
+   "mealType": "basal",
+   "periodName": "evening",
+   "basalDose": 16.46,
+   "basalSlot": "pm",
+   "items": [],
+   "totalCarbs": 0,
+   "totalKcal": 0,
+   "glycemicLoad": null,
+   "mealDose": 0,
+   "correctionDose": 0,
+   "noInsulin": false,
+   "glucose": null,
+   "ratioLabel": "",
+   "ratioValue": null
+  }
+ },
+ {
+  "name": "basalDoseCheck 16 vs {\"units\":16,\"ts\":1790856000000}",
+  "fn": "basalDoseCheck",
+  "args": [
+   16,
+   {
+    "units": 16,
+    "ts": 1790856000000
+   }
+  ],
+  "expect": {
+   "level": "ok",
+   "message": ""
+  }
+ },
+ {
+  "name": "basalDoseCheck 0 vs null",
+  "fn": "basalDoseCheck",
+  "args": [
+   0,
+   null
+  ],
+  "expect": {
+   "level": "block",
+   "message": "Enter a dose greater than 0."
+  }
+ },
+ {
+  "name": "basalDoseCheck 250 vs null",
+  "fn": "basalDoseCheck",
+  "args": [
+   250,
+   null
+  ],
+  "expect": {
+   "level": "block",
+   "message": "That is over 200 units, which doesn't look right. Check the number."
+  }
+ },
+ {
+  "name": "basalDoseCheck 4.1 vs {\"units\":41,\"ts\":1790856000000}",
+  "fn": "basalDoseCheck",
+  "args": [
+   4.1,
+   {
+    "units": 41,
+    "ts": 1790856000000
+   }
+  ],
+  "expect": {
+   "level": "confirm",
+   "message": "Your last dose here was 41u and you entered 4.1u."
+  }
+ },
+ {
+  "name": "basalDoseCheck 41 vs {\"units\":4.1,\"ts\":1790856000000}",
+  "fn": "basalDoseCheck",
+  "args": [
+   41,
+   {
+    "units": 4.1,
+    "ts": 1790856000000
+   }
+  ],
+  "expect": {
+   "level": "confirm",
+   "message": "Your last dose here was 4.1u and you entered 41u."
+  }
+ },
+ {
+  "name": "basalDoseCheck 16.5 vs {\"units\":16,\"ts\":1790856000000}",
+  "fn": "basalDoseCheck",
+  "args": [
+   16.5,
+   {
+    "units": 16,
+    "ts": 1790856000000
+   }
+  ],
+  "expect": {
+   "level": "ok",
+   "message": ""
+  }
+ },
+ {
+  "name": "basalDoseCheck 120 vs null",
+  "fn": "basalDoseCheck",
+  "args": [
+   120,
+   null
+  ],
+  "expect": {
+   "level": "confirm",
+   "message": "120u is a very large dose."
+  }
+ },
+ {
+  "name": "basalDoseCheck NaN vs null",
+  "fn": "basalDoseCheck",
+  "args": [
+   "NaN",
+   null
+  ],
+  "expect": {
+   "level": "block",
+   "message": "Enter a dose greater than 0."
+  }
+ },
+ {
+  "name": "lastBasalDose: newest in the slot",
+  "fn": "lastBasalDose",
+  "args": [
+   [
+    {
+     "id": "a",
+     "ts": 1790845200000,
+     "entryType": "basal",
+     "mealType": "basal",
+     "periodName": "evening",
+     "basalDose": 15,
+     "basalSlot": "pm",
+     "items": [],
+     "totalCarbs": 0,
+     "totalKcal": 0,
+     "glycemicLoad": null,
+     "mealDose": 0,
+     "correctionDose": 0,
+     "noInsulin": false,
+     "glucose": null,
+     "ratioLabel": "",
+     "ratioValue": null
+    },
+    {
+     "id": "b",
+     "ts": 1790852400000,
+     "entryType": "basal",
+     "mealType": "basal",
+     "periodName": "evening",
+     "basalDose": 16,
+     "basalSlot": "pm",
+     "items": [],
+     "totalCarbs": 0,
+     "totalKcal": 0,
+     "glycemicLoad": null,
+     "mealDose": 0,
+     "correctionDose": 0,
+     "noInsulin": false,
+     "glucose": null,
+     "ratioLabel": "",
+     "ratioValue": null
+    },
+    {
+     "id": "c",
+     "ts": 1790856000000,
+     "entryType": "basal",
+     "mealType": "basal",
+     "periodName": "morning",
+     "basalDose": 12,
+     "basalSlot": "am",
+     "items": [],
+     "totalCarbs": 0,
+     "totalKcal": 0,
+     "glycemicLoad": null,
+     "mealDose": 0,
+     "correctionDose": 0,
+     "noInsulin": false,
+     "glucose": null,
+     "ratioLabel": "",
+     "ratioValue": null
+    }
+   ],
+   "pm"
+  ],
+  "expect": {
+   "units": 16,
+   "ts": 1790852400000
+  }
+ },
+ {
+  "name": "recipeTotals: saved rates and a live lookup",
+  "fn": "recipeTotals",
+  "args": [
+   {
+    "finalWeight": 200,
+    "items": [
+     {
+      "grams": 100,
+      "carbsPer100g": 10,
+      "kcalPer100g": 100
+     },
+     {
+      "grams": 100,
+      "foodId": "f1"
+     }
+    ]
+   },
+   [
+    {
+     "id": "f1",
+     "carbs": 50,
+     "kcal": 200
+    }
+   ]
+  ],
+  "expect": {
+   "totalCarbs": 60,
+   "totalKcal": 300,
+   "carbsPer100g": 30,
+   "kcalPer100g": 150
+  }
+ },
+ {
+  "name": "recipeTotals: no final weight",
+  "fn": "recipeTotals",
+  "args": [
+   {
+    "items": [
+     {
+      "grams": 50,
+      "carbsPer100g": 20,
+      "kcalPer100g": 80
+     }
+    ]
+   },
+   []
+  ],
+  "expect": {
+   "totalCarbs": 10,
+   "totalKcal": 40,
+   "carbsPer100g": null,
+   "kcalPer100g": null
+  }
+ },
+ {
+  "name": "toCsv: quotes and commas",
+  "fn": "toCsv",
+  "args": [
+   [
+    {
+     "name": "Jam \"x\", sweet",
+     "carbs": 60
+    }
+   ],
+   [
+    "name",
+    "carbs"
+   ]
+  ],
+  "expect": "\"name\",\"carbs\"\n\"Jam \"\"x\"\", sweet\",\"60\""
+ },
+ {
+  "name": "parseCsv: quoted fields",
+  "fn": "parseCsv",
+  "args": [
+   "name,carbs\n\"Jam \"\"x\"\", sweet\",60\nRice,28\n"
+  ],
+  "expect": [
+   {
+    "name": "Jam \"x\", sweet",
+    "carbs": "60"
+   },
+   {
+    "name": "Rice",
+    "carbs": "28"
+   }
+  ]
+ },
+ {
+  "name": "parseLibraryFile: foods csv",
+  "fn": "parseLibraryFile",
+  "args": [
+   "foods.csv",
+   "name,carbs_per_100g,calories_per_100g,is_favorite,unit_label,grams_per_unit\nRice,28,130,yes,,\nBiscuit,50,450,,biscuit,12\n"
+  ],
+  "expect": {
+   "foods": [
+    {
+     "name": "Rice",
+     "category": "other",
+     "carbs": 28,
+     "kcal": 130,
+     "protein": null,
+     "fat": null,
+     "salt": null,
+     "notes": "",
+     "favorite": true,
+     "usageCount": 0,
+     "unitBased": false,
+     "unitLabel": null,
+     "gramsPerUnit": null,
+     "gi": null
+    },
+    {
+     "name": "Biscuit",
+     "category": "other",
+     "carbs": 50,
+     "kcal": 450,
+     "protein": null,
+     "fat": null,
+     "salt": null,
+     "notes": "",
+     "favorite": false,
+     "usageCount": 0,
+     "unitBased": true,
+     "unitLabel": "biscuit",
+     "gramsPerUnit": 12,
+     "gi": null
+    }
+   ],
+   "recipes": []
+  }
+ },
+ {
+  "name": "parseLibraryFile: recipes csv",
+  "fn": "parseLibraryFile",
+  "args": [
+   "recipes.csv",
+   "name,ingredients,final_weight\nBowl,\"[{\"\"food_name\"\":\"\"Rice\"\",\"\"weight_grams\"\":100,\"\"carbs_per_100g\"\":28}]\",250\n"
+  ],
+  "expect": {
+   "foods": [],
+   "recipes": [
+    {
+     "name": "Bowl",
+     "category": "other",
+     "notes": "",
+     "rawWeight": null,
+     "finalWeight": 250,
+     "usageCount": 0,
+     "items": [
+      {
+       "foodId": null,
+       "name": "Rice",
+       "grams": 100,
+       "carbsPer100g": 28,
+       "kcalPer100g": null
+      }
+     ]
+    }
+   ]
+  }
+ },
+ {
+  "name": "parseLibraryFile: json",
+  "fn": "parseLibraryFile",
+  "args": [
+   "x.json",
+   "{\"foods\":[{\"name\":\"A\",\"carbs\":1}],\"recipes\":[{\"name\":\"R\",\"items\":[]}]}"
+  ],
+  "expect": {
+   "foods": [
+    {
+     "name": "A",
+     "carbs": 1
+    }
+   ],
+   "recipes": [
+    {
+     "name": "R",
+     "items": []
+    }
+   ]
+  }
+ },
+ {
+  "name": "mergeLibrary: update by name, add new, link recipe ingredients",
+  "fn": "mergeLibrary",
+  "args": [
+   [
+    {
+     "id": "f1",
+     "name": "Rice",
+     "carbs": 1,
+     "usageCount": 4
+    }
+   ],
+   [],
+   {
+    "foods": [
+     {
+      "name": "rice",
+      "carbs": 28
+     },
+     {
+      "name": "Bread",
+      "carbs": 49
+     }
+    ],
+    "recipes": [
+     {
+      "name": "Bowl",
+      "items": [
+       {
+        "name": "bread",
+        "grams": 50
+       }
+      ]
+     }
+    ]
+   }
+  ],
+  "expect": {
+   "result": {
+    "foodsAdded": 1,
+    "foodsUpdated": 1,
+    "recipesAdded": 1,
+    "recipesUpdated": 0
+   },
+   "library": [
+    {
+     "id": "f1",
+     "name": "rice",
+     "carbs": 28,
+     "usageCount": 4
+    },
+    {
+     "id": "food-1",
+     "usageCount": 0,
+     "name": "Bread",
+     "carbs": 49
+    }
+   ],
+   "recipes": [
+    {
+     "id": "recipe-2",
+     "favorite": false,
+     "name": "Bowl",
+     "items": [
+      {
+       "name": "bread",
+       "grams": 50,
+       "foodId": "food-1"
+      }
+     ]
+    }
+   ]
+  }
+ },
+ {
+  "name": "ratioAt morning start",
+  "fn": "ratioAt",
+  "args": [
+   [
+    {
+     "id": "a",
+     "name": "Day",
+     "start": "06:00",
+     "end": "23:30",
+     "ratio": 10
+    },
+    {
+     "id": "n",
+     "name": "Night",
+     "start": "23:30",
+     "end": "06:00",
+     "ratio": 12
+    }
+   ],
+   {
+    "hour": 6,
+    "minute": 0
+   }
+  ],
+  "expect": {
+   "id": "a",
+   "name": "Day",
+   "start": "06:00",
+   "end": "23:30",
+   "ratio": 10
+  }
+ },
+ {
+  "name": "ratioAt midday",
+  "fn": "ratioAt",
+  "args": [
+   [
+    {
+     "id": "a",
+     "name": "Day",
+     "start": "06:00",
+     "end": "23:30",
+     "ratio": 10
+    },
+    {
+     "id": "n",
+     "name": "Night",
+     "start": "23:30",
+     "end": "06:00",
+     "ratio": 12
+    }
+   ],
+   {
+    "hour": 12,
+    "minute": 0
+   }
+  ],
+  "expect": {
+   "id": "a",
+   "name": "Day",
+   "start": "06:00",
+   "end": "23:30",
+   "ratio": 10
+  }
+ },
+ {
+  "name": "ratioAt night",
+  "fn": "ratioAt",
+  "args": [
+   [
+    {
+     "id": "a",
+     "name": "Day",
+     "start": "06:00",
+     "end": "23:30",
+     "ratio": 10
+    },
+    {
+     "id": "n",
+     "name": "Night",
+     "start": "23:30",
+     "end": "06:00",
+     "ratio": 12
+    }
+   ],
+   {
+    "hour": 23,
+    "minute": 45
+   }
+  ],
+  "expect": {
+   "id": "n",
+   "name": "Night",
+   "start": "23:30",
+   "end": "06:00",
+   "ratio": 12
+  }
+ },
+ {
+  "name": "ratioAt small hours",
+  "fn": "ratioAt",
+  "args": [
+   [
+    {
+     "id": "a",
+     "name": "Day",
+     "start": "06:00",
+     "end": "23:30",
+     "ratio": 10
+    },
+    {
+     "id": "n",
+     "name": "Night",
+     "start": "23:30",
+     "end": "06:00",
+     "ratio": 12
+    }
+   ],
+   {
+    "hour": 2,
+    "minute": 0
+   }
+  ],
+  "expect": {
+   "id": "n",
+   "name": "Night",
+   "start": "23:30",
+   "end": "06:00",
+   "ratio": 12
+  }
+ },
+ {
+  "name": "ratioAt: no brackets",
+  "fn": "ratioAt",
+  "args": [
+   [],
+   {
+    "hour": 12
+   }
+  ],
+  "expect": null
+ },
+ {
+  "name": "autoMealType 4:59",
+  "fn": "autoMealType",
+  "args": [
+   {
+    "hour": 4,
+    "minute": 59
+   }
+  ],
+  "expect": "snack"
+ },
+ {
+  "name": "autoMealType 5:00",
+  "fn": "autoMealType",
+  "args": [
+   {
+    "hour": 5,
+    "minute": 0
+   }
+  ],
+  "expect": "breakfast"
+ },
+ {
+  "name": "autoMealType 10:29",
+  "fn": "autoMealType",
+  "args": [
+   {
+    "hour": 10,
+    "minute": 29
+   }
+  ],
+  "expect": "breakfast"
+ },
+ {
+  "name": "autoMealType 10:30",
+  "fn": "autoMealType",
+  "args": [
+   {
+    "hour": 10,
+    "minute": 30
+   }
+  ],
+  "expect": "lunch"
+ },
+ {
+  "name": "autoMealType 14:29",
+  "fn": "autoMealType",
+  "args": [
+   {
+    "hour": 14,
+    "minute": 29
+   }
+  ],
+  "expect": "lunch"
+ },
+ {
+  "name": "autoMealType 14:30",
+  "fn": "autoMealType",
+  "args": [
+   {
+    "hour": 14,
+    "minute": 30
+   }
+  ],
+  "expect": "snack"
+ },
+ {
+  "name": "autoMealType 17:59",
+  "fn": "autoMealType",
+  "args": [
+   {
+    "hour": 17,
+    "minute": 59
+   }
+  ],
+  "expect": "snack"
+ },
+ {
+  "name": "autoMealType 18:00",
+  "fn": "autoMealType",
+  "args": [
+   {
+    "hour": 18,
+    "minute": 0
+   }
+  ],
+  "expect": "dinner"
+ },
+ {
+  "name": "autoMealType 22:29",
+  "fn": "autoMealType",
+  "args": [
+   {
+    "hour": 22,
+    "minute": 29
+   }
+  ],
+  "expect": "dinner"
+ },
+ {
+  "name": "autoMealType 22:30",
+  "fn": "autoMealType",
+  "args": [
+   {
+    "hour": 22,
+    "minute": 30
+   }
+  ],
+  "expect": "snack"
+ },
+ {
+  "name": "autoMealType 0:00",
+  "fn": "autoMealType",
+  "args": [
+   {
+    "hour": 0,
+    "minute": 0
+   }
+  ],
+  "expect": "snack"
+ },
+ {
+  "name": "inRange 60 in 22:00-06:00",
+  "fn": "inRange",
+  "args": [
+   60,
+   "22:00",
+   "06:00"
+  ],
+  "expect": true
+ },
+ {
+  "name": "inRange 720 in 22:00-06:00",
+  "fn": "inRange",
+  "args": [
+   720,
+   "22:00",
+   "06:00"
+  ],
+  "expect": false
+ },
+ {
+  "name": "inRange 360 in 06:00-12:00",
+  "fn": "inRange",
+  "args": [
+   360,
+   "06:00",
+   "12:00"
+  ],
+  "expect": true
+ },
+ {
+  "name": "inRange 720 in 06:00-12:00",
+  "fn": "inRange",
+  "args": [
+   720,
+   "06:00",
+   "12:00"
+  ],
+  "expect": false
+ },
+ {
+  "name": "inRange 5 in 00:00-00:00",
+  "fn": "inRange",
+  "args": [
+   5,
+   "00:00",
+   "00:00"
+  ],
+  "expect": true
+ },
+ {
+  "name": "toMinutes 00:00",
+  "fn": "toMinutes",
+  "args": [
+   "00:00"
+  ],
+  "expect": 0
+ },
+ {
+  "name": "toMinutes 06:30",
+  "fn": "toMinutes",
+  "args": [
+   "06:30"
+  ],
+  "expect": 390
+ },
+ {
+  "name": "toMinutes 23:59",
+  "fn": "toMinutes",
+  "args": [
+   "23:59"
+  ],
+  "expect": 1439
+ },
+ {
+  "name": "formatDuration 0",
+  "fn": "formatDuration",
+  "args": [
+   0
+  ],
+  "expect": "0m"
+ },
+ {
+  "name": "formatDuration 300000",
+  "fn": "formatDuration",
+  "args": [
+   300000
+  ],
+  "expect": "5m"
+ },
+ {
+  "name": "formatDuration 3600000",
+  "fn": "formatDuration",
+  "args": [
+   3600000
+  ],
+  "expect": "1h"
+ },
+ {
+  "name": "formatDuration 5400000",
+  "fn": "formatDuration",
+  "args": [
+   5400000
+  ],
+  "expect": "1h30"
+ },
+ {
+  "name": "formatDuration 7200000",
+  "fn": "formatDuration",
+  "args": [
+   7200000
+  ],
+  "expect": "2h"
+ },
+ {
+  "name": "formatDuration 7500000",
+  "fn": "formatDuration",
+  "args": [
+   7500000
+  ],
+  "expect": "2h5"
+ },
+ {
+  "name": "formatDuration -60000",
+  "fn": "formatDuration",
+  "args": [
+   -60000
+  ],
+  "expect": "0m"
+ },
+ {
+  "name": "clampNum 5",
+  "fn": "clampNum",
+  "args": [
+   5,
+   0,
+   10
+  ],
+  "expect": 5
+ },
+ {
+  "name": "clampNum -1",
+  "fn": "clampNum",
+  "args": [
+   -1,
+   0,
+   10
+  ],
+  "expect": 0
+ },
+ {
+  "name": "clampNum 11",
+  "fn": "clampNum",
+  "args": [
+   11,
+   0,
+   10
+  ],
+  "expect": 10
+ }
+]

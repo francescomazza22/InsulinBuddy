@@ -1,0 +1,4722 @@
+[
+ {
+  "name": "normalizeState: nothing at all",
+  "fn": "normalizeState",
+  "args": [
+   null,
+   {
+    "settings": {
+     "isf": 50,
+     "target": 100,
+     "units": "mgdl",
+     "rounding": "0.5",
+     "maxDose": 15,
+     "timeRatios": [
+      {
+       "id": "a",
+       "name": "Day",
+       "start": "06:00",
+       "end": "23:30",
+       "ratio": 10
+      },
+      {
+       "id": "n",
+       "name": "Night",
+       "start": "23:30",
+       "end": "06:00",
+       "ratio": 12
+      }
+     ],
+     "activityRatios": [],
+     "insulinModel": {
+      "preset": "rapid",
+      "peakMinutes": 75,
+      "diaMinutes": 360
+     },
+     "carbAbsorptionMinutes": {
+      "high": 120,
+      "medium": 180,
+      "low": 240,
+      "unknown": 180
+     }
+    },
+    "library": [],
+    "recipes": [],
+    "history": []
+   }
+  ],
+  "expect": {
+   "schemaVersion": 2,
+   "settings": {
+    "isf": 50,
+    "target": 100,
+    "units": "mgdl",
+    "rounding": "0.5",
+    "maxDose": 15,
+    "timeRatios": [
+     {
+      "id": "a",
+      "name": "Day",
+      "start": "06:00",
+      "end": "23:30",
+      "ratio": 10
+     },
+     {
+      "id": "n",
+      "name": "Night",
+      "start": "23:30",
+      "end": "06:00",
+      "ratio": 12
+     }
+    ],
+    "activityRatios": [],
+    "insulinModel": {
+     "preset": "rapid",
+     "peakMinutes": 75,
+     "diaMinutes": 360
+    },
+    "carbAbsorptionMinutes": {
+     "high": 120,
+     "medium": 180,
+     "low": 240,
+     "unknown": 180
+    }
+   },
+   "settingsUpdatedAt": 0,
+   "library": [],
+   "recipes": [],
+   "history": [],
+   "deleted": {
+    "history": {},
+    "library": {},
+    "recipes": {}
+   }
+  }
+ },
+ {
+  "name": "normalizeState: partial settings keep the defaults",
+  "fn": "normalizeState",
+  "args": [
+   {
+    "settings": {
+     "isf": 40,
+     "insulinModel": {
+      "peakMinutes": 60
+     }
+    },
+    "history": [
+     {
+      "id": "m1",
+      "ts": 1790838000000,
+      "mealType": "lunch",
+      "periodName": "day",
+      "items": [
+       {
+        "refType": "food",
+        "refId": "f1",
+        "name": "Rice",
+        "grams": 100,
+        "carbs": 28,
+        "kcal": 130,
+        "carbsPer100g": 28,
+        "kcalPer100g": 130,
+        "gi": 70
+       }
+      ],
+      "totalCarbs": 28,
+      "totalKcal": 130,
+      "glycemicLoad": {
+       "value": 70,
+       "partial": false
+      },
+      "carbsUnknown": false,
+      "mealDose": 2.5,
+      "correctionDose": 0,
+      "noInsulin": false,
+      "glucose": null,
+      "ratioLabel": "Day",
+      "ratioValue": 10,
+      "updatedAt": 100
+     }
+    ]
+   },
+   {
+    "settings": {
+     "isf": 50,
+     "target": 100,
+     "units": "mgdl",
+     "rounding": "0.5",
+     "maxDose": 15,
+     "timeRatios": [
+      {
+       "id": "a",
+       "name": "Day",
+       "start": "06:00",
+       "end": "23:30",
+       "ratio": 10
+      },
+      {
+       "id": "n",
+       "name": "Night",
+       "start": "23:30",
+       "end": "06:00",
+       "ratio": 12
+      }
+     ],
+     "activityRatios": [],
+     "insulinModel": {
+      "preset": "rapid",
+      "peakMinutes": 75,
+      "diaMinutes": 360
+     },
+     "carbAbsorptionMinutes": {
+      "high": 120,
+      "medium": 180,
+      "low": 240,
+      "unknown": 180
+     }
+    },
+    "library": [],
+    "recipes": [],
+    "history": []
+   }
+  ],
+  "expect": {
+   "schemaVersion": 2,
+   "settings": {
+    "isf": 40,
+    "target": 100,
+    "units": "mgdl",
+    "rounding": "0.5",
+    "maxDose": 15,
+    "timeRatios": [
+     {
+      "id": "a",
+      "name": "Day",
+      "start": "06:00",
+      "end": "23:30",
+      "ratio": 10
+     },
+     {
+      "id": "n",
+      "name": "Night",
+      "start": "23:30",
+      "end": "06:00",
+      "ratio": 12
+     }
+    ],
+    "activityRatios": [],
+    "insulinModel": {
+     "preset": "rapid",
+     "peakMinutes": 60,
+     "diaMinutes": 360
+    },
+    "carbAbsorptionMinutes": {
+     "high": 120,
+     "medium": 180,
+     "low": 240,
+     "unknown": 180
+    }
+   },
+   "settingsUpdatedAt": 0,
+   "library": [],
+   "recipes": [],
+   "history": [
+    {
+     "id": "m1",
+     "ts": 1790838000000,
+     "mealType": "lunch",
+     "periodName": "day",
+     "items": [
+      {
+       "refType": "food",
+       "refId": "f1",
+       "name": "Rice",
+       "grams": 100,
+       "carbs": 28,
+       "kcal": 130,
+       "carbsPer100g": 28,
+       "kcalPer100g": 130,
+       "gi": 70
+      }
+     ],
+     "totalCarbs": 28,
+     "totalKcal": 130,
+     "glycemicLoad": {
+      "value": 70,
+      "partial": false
+     },
+     "carbsUnknown": false,
+     "mealDose": 2.5,
+     "correctionDose": 0,
+     "noInsulin": false,
+     "glucose": null,
+     "ratioLabel": "Day",
+     "ratioValue": 10,
+     "updatedAt": 100
+    }
+   ],
+   "deleted": {
+    "history": {},
+    "library": {},
+    "recipes": {}
+   }
+  }
+ },
+ {
+  "name": "normalizeState: junk types are replaced",
+  "fn": "normalizeState",
+  "args": [
+   {
+    "settings": "x",
+    "library": "no",
+    "recipes": 5,
+    "history": {},
+    "deleted": {
+     "history": {
+      "m9": 5
+     },
+     "library": 3
+    }
+   },
+   {
+    "settings": {
+     "isf": 50,
+     "target": 100,
+     "units": "mgdl",
+     "rounding": "0.5",
+     "maxDose": 15,
+     "timeRatios": [
+      {
+       "id": "a",
+       "name": "Day",
+       "start": "06:00",
+       "end": "23:30",
+       "ratio": 10
+      },
+      {
+       "id": "n",
+       "name": "Night",
+       "start": "23:30",
+       "end": "06:00",
+       "ratio": 12
+      }
+     ],
+     "activityRatios": [],
+     "insulinModel": {
+      "preset": "rapid",
+      "peakMinutes": 75,
+      "diaMinutes": 360
+     },
+     "carbAbsorptionMinutes": {
+      "high": 120,
+      "medium": 180,
+      "low": 240,
+      "unknown": 180
+     }
+    },
+    "library": [],
+    "recipes": [],
+    "history": []
+   }
+  ],
+  "expect": {
+   "schemaVersion": 2,
+   "settings": {
+    "isf": 50,
+    "target": 100,
+    "units": "mgdl",
+    "rounding": "0.5",
+    "maxDose": 15,
+    "timeRatios": [
+     {
+      "id": "a",
+      "name": "Day",
+      "start": "06:00",
+      "end": "23:30",
+      "ratio": 10
+     },
+     {
+      "id": "n",
+      "name": "Night",
+      "start": "23:30",
+      "end": "06:00",
+      "ratio": 12
+     }
+    ],
+    "activityRatios": [],
+    "insulinModel": {
+     "preset": "rapid",
+     "peakMinutes": 75,
+     "diaMinutes": 360
+    },
+    "carbAbsorptionMinutes": {
+     "high": 120,
+     "medium": 180,
+     "low": 240,
+     "unknown": 180
+    }
+   },
+   "settingsUpdatedAt": 0,
+   "library": [],
+   "recipes": [],
+   "history": [],
+   "deleted": {
+    "history": {
+     "m9": 5
+    },
+    "library": {},
+    "recipes": {}
+   }
+  }
+ },
+ {
+  "name": "mergeStates: a stale device does not overwrite meals logged elsewhere",
+  "fn": "mergeStates",
+  "args": [
+   {
+    "schemaVersion": 2,
+    "settings": {
+     "isf": 50,
+     "target": 100,
+     "units": "mgdl",
+     "rounding": "0.5",
+     "maxDose": 15,
+     "timeRatios": [
+      {
+       "id": "a",
+       "name": "Day",
+       "start": "06:00",
+       "end": "23:30",
+       "ratio": 10
+      },
+      {
+       "id": "n",
+       "name": "Night",
+       "start": "23:30",
+       "end": "06:00",
+       "ratio": 12
+      }
+     ],
+     "activityRatios": [],
+     "insulinModel": {
+      "preset": "rapid",
+      "peakMinutes": 75,
+      "diaMinutes": 360
+     },
+     "carbAbsorptionMinutes": {
+      "high": 120,
+      "medium": 180,
+      "low": 240,
+      "unknown": 180
+     }
+    },
+    "settingsUpdatedAt": 0,
+    "library": [],
+    "recipes": [],
+    "history": [
+     {
+      "id": "m1",
+      "ts": 1790838000000,
+      "mealType": "lunch",
+      "periodName": "day",
+      "items": [
+       {
+        "refType": "food",
+        "refId": "f1",
+        "name": "Rice",
+        "grams": 100,
+        "carbs": 28,
+        "kcal": 130,
+        "carbsPer100g": 28,
+        "kcalPer100g": 130,
+        "gi": 70
+       }
+      ],
+      "totalCarbs": 28,
+      "totalKcal": 130,
+      "glycemicLoad": {
+       "value": 70,
+       "partial": false
+      },
+      "carbsUnknown": false,
+      "mealDose": 2.5,
+      "correctionDose": 0,
+      "noInsulin": false,
+      "glucose": null,
+      "ratioLabel": "Day",
+      "ratioValue": 10,
+      "updatedAt": 100
+     }
+    ],
+    "deleted": {
+     "history": {},
+     "library": {},
+     "recipes": {}
+    }
+   },
+   {
+    "schemaVersion": 2,
+    "settings": {
+     "isf": 50,
+     "target": 100,
+     "units": "mgdl",
+     "rounding": "0.5",
+     "maxDose": 15,
+     "timeRatios": [
+      {
+       "id": "a",
+       "name": "Day",
+       "start": "06:00",
+       "end": "23:30",
+       "ratio": 10
+      },
+      {
+       "id": "n",
+       "name": "Night",
+       "start": "23:30",
+       "end": "06:00",
+       "ratio": 12
+      }
+     ],
+     "activityRatios": [],
+     "insulinModel": {
+      "preset": "rapid",
+      "peakMinutes": 75,
+      "diaMinutes": 360
+     },
+     "carbAbsorptionMinutes": {
+      "high": 120,
+      "medium": 180,
+      "low": 240,
+      "unknown": 180
+     }
+    },
+    "settingsUpdatedAt": 0,
+    "library": [],
+    "recipes": [],
+    "history": [
+     {
+      "id": "m1",
+      "ts": 1790838000000,
+      "mealType": "lunch",
+      "periodName": "day",
+      "items": [
+       {
+        "refType": "food",
+        "refId": "f1",
+        "name": "Rice",
+        "grams": 100,
+        "carbs": 28,
+        "kcal": 130,
+        "carbsPer100g": 28,
+        "kcalPer100g": 130,
+        "gi": 70
+       }
+      ],
+      "totalCarbs": 28,
+      "totalKcal": 130,
+      "glycemicLoad": {
+       "value": 70,
+       "partial": false
+      },
+      "carbsUnknown": false,
+      "mealDose": 2.5,
+      "correctionDose": 0,
+      "noInsulin": false,
+      "glucose": null,
+      "ratioLabel": "Day",
+      "ratioValue": 10,
+      "updatedAt": 100
+     },
+     {
+      "id": "m2",
+      "ts": 1790845200000,
+      "mealType": "lunch",
+      "periodName": "day",
+      "items": [
+       {
+        "refType": "food",
+        "refId": "f1",
+        "name": "Rice",
+        "grams": 100,
+        "carbs": 28,
+        "kcal": 130,
+        "carbsPer100g": 28,
+        "kcalPer100g": 130,
+        "gi": 70
+       }
+      ],
+      "totalCarbs": 28,
+      "totalKcal": 130,
+      "glycemicLoad": {
+       "value": 70,
+       "partial": false
+      },
+      "carbsUnknown": false,
+      "mealDose": 2.5,
+      "correctionDose": 0,
+      "noInsulin": false,
+      "glucose": null,
+      "ratioLabel": "Day",
+      "ratioValue": 10,
+      "updatedAt": 200
+     },
+     {
+      "id": "m3",
+      "ts": 1790852400000,
+      "mealType": "lunch",
+      "periodName": "day",
+      "items": [
+       {
+        "refType": "food",
+        "refId": "f1",
+        "name": "Rice",
+        "grams": 100,
+        "carbs": 28,
+        "kcal": 130,
+        "carbsPer100g": 28,
+        "kcalPer100g": 130,
+        "gi": 70
+       }
+      ],
+      "totalCarbs": 28,
+      "totalKcal": 130,
+      "glycemicLoad": {
+       "value": 70,
+       "partial": false
+      },
+      "carbsUnknown": false,
+      "mealDose": 2.5,
+      "correctionDose": 0,
+      "noInsulin": false,
+      "glucose": null,
+      "ratioLabel": "Day",
+      "ratioValue": 10,
+      "updatedAt": 300
+     }
+    ],
+    "deleted": {
+     "history": {},
+     "library": {},
+     "recipes": {}
+    }
+   },
+   {
+    "settings": {
+     "isf": 50,
+     "target": 100,
+     "units": "mgdl",
+     "rounding": "0.5",
+     "maxDose": 15,
+     "timeRatios": [
+      {
+       "id": "a",
+       "name": "Day",
+       "start": "06:00",
+       "end": "23:30",
+       "ratio": 10
+      },
+      {
+       "id": "n",
+       "name": "Night",
+       "start": "23:30",
+       "end": "06:00",
+       "ratio": 12
+      }
+     ],
+     "activityRatios": [],
+     "insulinModel": {
+      "preset": "rapid",
+      "peakMinutes": 75,
+      "diaMinutes": 360
+     },
+     "carbAbsorptionMinutes": {
+      "high": 120,
+      "medium": 180,
+      "low": 240,
+      "unknown": 180
+     }
+    },
+    "library": [],
+    "recipes": [],
+    "history": []
+   }
+  ],
+  "expect": {
+   "schemaVersion": 2,
+   "settings": {
+    "isf": 50,
+    "target": 100,
+    "units": "mgdl",
+    "rounding": "0.5",
+    "maxDose": 15,
+    "timeRatios": [
+     {
+      "id": "a",
+      "name": "Day",
+      "start": "06:00",
+      "end": "23:30",
+      "ratio": 10
+     },
+     {
+      "id": "n",
+      "name": "Night",
+      "start": "23:30",
+      "end": "06:00",
+      "ratio": 12
+     }
+    ],
+    "activityRatios": [],
+    "insulinModel": {
+     "preset": "rapid",
+     "peakMinutes": 75,
+     "diaMinutes": 360
+    },
+    "carbAbsorptionMinutes": {
+     "high": 120,
+     "medium": 180,
+     "low": 240,
+     "unknown": 180
+    }
+   },
+   "settingsUpdatedAt": 0,
+   "library": [],
+   "recipes": [],
+   "history": [
+    {
+     "id": "m3",
+     "ts": 1790852400000,
+     "mealType": "lunch",
+     "periodName": "day",
+     "items": [
+      {
+       "refType": "food",
+       "refId": "f1",
+       "name": "Rice",
+       "grams": 100,
+       "carbs": 28,
+       "kcal": 130,
+       "carbsPer100g": 28,
+       "kcalPer100g": 130,
+       "gi": 70
+      }
+     ],
+     "totalCarbs": 28,
+     "totalKcal": 130,
+     "glycemicLoad": {
+      "value": 70,
+      "partial": false
+     },
+     "carbsUnknown": false,
+     "mealDose": 2.5,
+     "correctionDose": 0,
+     "noInsulin": false,
+     "glucose": null,
+     "ratioLabel": "Day",
+     "ratioValue": 10,
+     "updatedAt": 300
+    },
+    {
+     "id": "m2",
+     "ts": 1790845200000,
+     "mealType": "lunch",
+     "periodName": "day",
+     "items": [
+      {
+       "refType": "food",
+       "refId": "f1",
+       "name": "Rice",
+       "grams": 100,
+       "carbs": 28,
+       "kcal": 130,
+       "carbsPer100g": 28,
+       "kcalPer100g": 130,
+       "gi": 70
+      }
+     ],
+     "totalCarbs": 28,
+     "totalKcal": 130,
+     "glycemicLoad": {
+      "value": 70,
+      "partial": false
+     },
+     "carbsUnknown": false,
+     "mealDose": 2.5,
+     "correctionDose": 0,
+     "noInsulin": false,
+     "glucose": null,
+     "ratioLabel": "Day",
+     "ratioValue": 10,
+     "updatedAt": 200
+    },
+    {
+     "id": "m1",
+     "ts": 1790838000000,
+     "mealType": "lunch",
+     "periodName": "day",
+     "items": [
+      {
+       "refType": "food",
+       "refId": "f1",
+       "name": "Rice",
+       "grams": 100,
+       "carbs": 28,
+       "kcal": 130,
+       "carbsPer100g": 28,
+       "kcalPer100g": 130,
+       "gi": 70
+      }
+     ],
+     "totalCarbs": 28,
+     "totalKcal": 130,
+     "glycemicLoad": {
+      "value": 70,
+      "partial": false
+     },
+     "carbsUnknown": false,
+     "mealDose": 2.5,
+     "correctionDose": 0,
+     "noInsulin": false,
+     "glucose": null,
+     "ratioLabel": "Day",
+     "ratioValue": 10,
+     "updatedAt": 100
+    }
+   ],
+   "deleted": {
+    "history": {},
+    "library": {},
+    "recipes": {}
+   }
+  }
+ },
+ {
+  "name": "mergeStates: the newer edit wins",
+  "fn": "mergeStates",
+  "args": [
+   {
+    "schemaVersion": 2,
+    "settings": {
+     "isf": 50,
+     "target": 100,
+     "units": "mgdl",
+     "rounding": "0.5",
+     "maxDose": 15,
+     "timeRatios": [
+      {
+       "id": "a",
+       "name": "Day",
+       "start": "06:00",
+       "end": "23:30",
+       "ratio": 10
+      },
+      {
+       "id": "n",
+       "name": "Night",
+       "start": "23:30",
+       "end": "06:00",
+       "ratio": 12
+      }
+     ],
+     "activityRatios": [],
+     "insulinModel": {
+      "preset": "rapid",
+      "peakMinutes": 75,
+      "diaMinutes": 360
+     },
+     "carbAbsorptionMinutes": {
+      "high": 120,
+      "medium": 180,
+      "low": 240,
+      "unknown": 180
+     }
+    },
+    "settingsUpdatedAt": 0,
+    "library": [],
+    "recipes": [],
+    "history": [
+     {
+      "id": "m2",
+      "ts": 1790845200000,
+      "mealType": "lunch",
+      "periodName": "day",
+      "items": [
+       {
+        "refType": "food",
+        "refId": "f1",
+        "name": "Rice",
+        "grams": 100,
+        "carbs": 28,
+        "kcal": 130,
+        "carbsPer100g": 28,
+        "kcalPer100g": 130,
+        "gi": 70
+       }
+      ],
+      "totalCarbs": 28,
+      "totalKcal": 130,
+      "glycemicLoad": {
+       "value": 70,
+       "partial": false
+      },
+      "carbsUnknown": false,
+      "mealDose": 9,
+      "correctionDose": 0,
+      "noInsulin": false,
+      "glucose": null,
+      "ratioLabel": "Day",
+      "ratioValue": 10,
+      "updatedAt": 500
+     }
+    ],
+    "deleted": {
+     "history": {},
+     "library": {},
+     "recipes": {}
+    }
+   },
+   {
+    "schemaVersion": 2,
+    "settings": {
+     "isf": 50,
+     "target": 100,
+     "units": "mgdl",
+     "rounding": "0.5",
+     "maxDose": 15,
+     "timeRatios": [
+      {
+       "id": "a",
+       "name": "Day",
+       "start": "06:00",
+       "end": "23:30",
+       "ratio": 10
+      },
+      {
+       "id": "n",
+       "name": "Night",
+       "start": "23:30",
+       "end": "06:00",
+       "ratio": 12
+      }
+     ],
+     "activityRatios": [],
+     "insulinModel": {
+      "preset": "rapid",
+      "peakMinutes": 75,
+      "diaMinutes": 360
+     },
+     "carbAbsorptionMinutes": {
+      "high": 120,
+      "medium": 180,
+      "low": 240,
+      "unknown": 180
+     }
+    },
+    "settingsUpdatedAt": 0,
+    "library": [],
+    "recipes": [],
+    "history": [
+     {
+      "id": "m2",
+      "ts": 1790845200000,
+      "mealType": "lunch",
+      "periodName": "day",
+      "items": [
+       {
+        "refType": "food",
+        "refId": "f1",
+        "name": "Rice",
+        "grams": 100,
+        "carbs": 28,
+        "kcal": 130,
+        "carbsPer100g": 28,
+        "kcalPer100g": 130,
+        "gi": 70
+       }
+      ],
+      "totalCarbs": 28,
+      "totalKcal": 130,
+      "glycemicLoad": {
+       "value": 70,
+       "partial": false
+      },
+      "carbsUnknown": false,
+      "mealDose": 2.5,
+      "correctionDose": 0,
+      "noInsulin": false,
+      "glucose": null,
+      "ratioLabel": "Day",
+      "ratioValue": 10,
+      "updatedAt": 200
+     }
+    ],
+    "deleted": {
+     "history": {},
+     "library": {},
+     "recipes": {}
+    }
+   },
+   {
+    "settings": {
+     "isf": 50,
+     "target": 100,
+     "units": "mgdl",
+     "rounding": "0.5",
+     "maxDose": 15,
+     "timeRatios": [
+      {
+       "id": "a",
+       "name": "Day",
+       "start": "06:00",
+       "end": "23:30",
+       "ratio": 10
+      },
+      {
+       "id": "n",
+       "name": "Night",
+       "start": "23:30",
+       "end": "06:00",
+       "ratio": 12
+      }
+     ],
+     "activityRatios": [],
+     "insulinModel": {
+      "preset": "rapid",
+      "peakMinutes": 75,
+      "diaMinutes": 360
+     },
+     "carbAbsorptionMinutes": {
+      "high": 120,
+      "medium": 180,
+      "low": 240,
+      "unknown": 180
+     }
+    },
+    "library": [],
+    "recipes": [],
+    "history": []
+   }
+  ],
+  "expect": {
+   "schemaVersion": 2,
+   "settings": {
+    "isf": 50,
+    "target": 100,
+    "units": "mgdl",
+    "rounding": "0.5",
+    "maxDose": 15,
+    "timeRatios": [
+     {
+      "id": "a",
+      "name": "Day",
+      "start": "06:00",
+      "end": "23:30",
+      "ratio": 10
+     },
+     {
+      "id": "n",
+      "name": "Night",
+      "start": "23:30",
+      "end": "06:00",
+      "ratio": 12
+     }
+    ],
+    "activityRatios": [],
+    "insulinModel": {
+     "preset": "rapid",
+     "peakMinutes": 75,
+     "diaMinutes": 360
+    },
+    "carbAbsorptionMinutes": {
+     "high": 120,
+     "medium": 180,
+     "low": 240,
+     "unknown": 180
+    }
+   },
+   "settingsUpdatedAt": 0,
+   "library": [],
+   "recipes": [],
+   "history": [
+    {
+     "id": "m2",
+     "ts": 1790845200000,
+     "mealType": "lunch",
+     "periodName": "day",
+     "items": [
+      {
+       "refType": "food",
+       "refId": "f1",
+       "name": "Rice",
+       "grams": 100,
+       "carbs": 28,
+       "kcal": 130,
+       "carbsPer100g": 28,
+       "kcalPer100g": 130,
+       "gi": 70
+      }
+     ],
+     "totalCarbs": 28,
+     "totalKcal": 130,
+     "glycemicLoad": {
+      "value": 70,
+      "partial": false
+     },
+     "carbsUnknown": false,
+     "mealDose": 9,
+     "correctionDose": 0,
+     "noInsulin": false,
+     "glucose": null,
+     "ratioLabel": "Day",
+     "ratioValue": 10,
+     "updatedAt": 500
+    }
+   ],
+   "deleted": {
+    "history": {},
+    "library": {},
+    "recipes": {}
+   }
+  }
+ },
+ {
+  "name": "mergeStates: a delete sticks even when the other side is stale",
+  "fn": "mergeStates",
+  "args": [
+   {
+    "schemaVersion": 2,
+    "settings": {
+     "isf": 50,
+     "target": 100,
+     "units": "mgdl",
+     "rounding": "0.5",
+     "maxDose": 15,
+     "timeRatios": [
+      {
+       "id": "a",
+       "name": "Day",
+       "start": "06:00",
+       "end": "23:30",
+       "ratio": 10
+      },
+      {
+       "id": "n",
+       "name": "Night",
+       "start": "23:30",
+       "end": "06:00",
+       "ratio": 12
+      }
+     ],
+     "activityRatios": [],
+     "insulinModel": {
+      "preset": "rapid",
+      "peakMinutes": 75,
+      "diaMinutes": 360
+     },
+     "carbAbsorptionMinutes": {
+      "high": 120,
+      "medium": 180,
+      "low": 240,
+      "unknown": 180
+     }
+    },
+    "settingsUpdatedAt": 0,
+    "library": [],
+    "recipes": [],
+    "history": [
+     {
+      "id": "m1",
+      "ts": 1790838000000,
+      "mealType": "lunch",
+      "periodName": "day",
+      "items": [
+       {
+        "refType": "food",
+        "refId": "f1",
+        "name": "Rice",
+        "grams": 100,
+        "carbs": 28,
+        "kcal": 130,
+        "carbsPer100g": 28,
+        "kcalPer100g": 130,
+        "gi": 70
+       }
+      ],
+      "totalCarbs": 28,
+      "totalKcal": 130,
+      "glycemicLoad": {
+       "value": 70,
+       "partial": false
+      },
+      "carbsUnknown": false,
+      "mealDose": 2.5,
+      "correctionDose": 0,
+      "noInsulin": false,
+      "glucose": null,
+      "ratioLabel": "Day",
+      "ratioValue": 10,
+      "updatedAt": 100
+     }
+    ],
+    "deleted": {
+     "history": {
+      "m2": 400
+     },
+     "library": {},
+     "recipes": {}
+    }
+   },
+   {
+    "schemaVersion": 2,
+    "settings": {
+     "isf": 50,
+     "target": 100,
+     "units": "mgdl",
+     "rounding": "0.5",
+     "maxDose": 15,
+     "timeRatios": [
+      {
+       "id": "a",
+       "name": "Day",
+       "start": "06:00",
+       "end": "23:30",
+       "ratio": 10
+      },
+      {
+       "id": "n",
+       "name": "Night",
+       "start": "23:30",
+       "end": "06:00",
+       "ratio": 12
+      }
+     ],
+     "activityRatios": [],
+     "insulinModel": {
+      "preset": "rapid",
+      "peakMinutes": 75,
+      "diaMinutes": 360
+     },
+     "carbAbsorptionMinutes": {
+      "high": 120,
+      "medium": 180,
+      "low": 240,
+      "unknown": 180
+     }
+    },
+    "settingsUpdatedAt": 0,
+    "library": [],
+    "recipes": [],
+    "history": [
+     {
+      "id": "m1",
+      "ts": 1790838000000,
+      "mealType": "lunch",
+      "periodName": "day",
+      "items": [
+       {
+        "refType": "food",
+        "refId": "f1",
+        "name": "Rice",
+        "grams": 100,
+        "carbs": 28,
+        "kcal": 130,
+        "carbsPer100g": 28,
+        "kcalPer100g": 130,
+        "gi": 70
+       }
+      ],
+      "totalCarbs": 28,
+      "totalKcal": 130,
+      "glycemicLoad": {
+       "value": 70,
+       "partial": false
+      },
+      "carbsUnknown": false,
+      "mealDose": 2.5,
+      "correctionDose": 0,
+      "noInsulin": false,
+      "glucose": null,
+      "ratioLabel": "Day",
+      "ratioValue": 10,
+      "updatedAt": 100
+     },
+     {
+      "id": "m2",
+      "ts": 1790845200000,
+      "mealType": "lunch",
+      "periodName": "day",
+      "items": [
+       {
+        "refType": "food",
+        "refId": "f1",
+        "name": "Rice",
+        "grams": 100,
+        "carbs": 28,
+        "kcal": 130,
+        "carbsPer100g": 28,
+        "kcalPer100g": 130,
+        "gi": 70
+       }
+      ],
+      "totalCarbs": 28,
+      "totalKcal": 130,
+      "glycemicLoad": {
+       "value": 70,
+       "partial": false
+      },
+      "carbsUnknown": false,
+      "mealDose": 2.5,
+      "correctionDose": 0,
+      "noInsulin": false,
+      "glucose": null,
+      "ratioLabel": "Day",
+      "ratioValue": 10,
+      "updatedAt": 200
+     }
+    ],
+    "deleted": {
+     "history": {},
+     "library": {},
+     "recipes": {}
+    }
+   },
+   {
+    "settings": {
+     "isf": 50,
+     "target": 100,
+     "units": "mgdl",
+     "rounding": "0.5",
+     "maxDose": 15,
+     "timeRatios": [
+      {
+       "id": "a",
+       "name": "Day",
+       "start": "06:00",
+       "end": "23:30",
+       "ratio": 10
+      },
+      {
+       "id": "n",
+       "name": "Night",
+       "start": "23:30",
+       "end": "06:00",
+       "ratio": 12
+      }
+     ],
+     "activityRatios": [],
+     "insulinModel": {
+      "preset": "rapid",
+      "peakMinutes": 75,
+      "diaMinutes": 360
+     },
+     "carbAbsorptionMinutes": {
+      "high": 120,
+      "medium": 180,
+      "low": 240,
+      "unknown": 180
+     }
+    },
+    "library": [],
+    "recipes": [],
+    "history": []
+   }
+  ],
+  "expect": {
+   "schemaVersion": 2,
+   "settings": {
+    "isf": 50,
+    "target": 100,
+    "units": "mgdl",
+    "rounding": "0.5",
+    "maxDose": 15,
+    "timeRatios": [
+     {
+      "id": "a",
+      "name": "Day",
+      "start": "06:00",
+      "end": "23:30",
+      "ratio": 10
+     },
+     {
+      "id": "n",
+      "name": "Night",
+      "start": "23:30",
+      "end": "06:00",
+      "ratio": 12
+     }
+    ],
+    "activityRatios": [],
+    "insulinModel": {
+     "preset": "rapid",
+     "peakMinutes": 75,
+     "diaMinutes": 360
+    },
+    "carbAbsorptionMinutes": {
+     "high": 120,
+     "medium": 180,
+     "low": 240,
+     "unknown": 180
+    }
+   },
+   "settingsUpdatedAt": 0,
+   "library": [],
+   "recipes": [],
+   "history": [
+    {
+     "id": "m1",
+     "ts": 1790838000000,
+     "mealType": "lunch",
+     "periodName": "day",
+     "items": [
+      {
+       "refType": "food",
+       "refId": "f1",
+       "name": "Rice",
+       "grams": 100,
+       "carbs": 28,
+       "kcal": 130,
+       "carbsPer100g": 28,
+       "kcalPer100g": 130,
+       "gi": 70
+      }
+     ],
+     "totalCarbs": 28,
+     "totalKcal": 130,
+     "glycemicLoad": {
+      "value": 70,
+      "partial": false
+     },
+     "carbsUnknown": false,
+     "mealDose": 2.5,
+     "correctionDose": 0,
+     "noInsulin": false,
+     "glucose": null,
+     "ratioLabel": "Day",
+     "ratioValue": 10,
+     "updatedAt": 100
+    }
+   ],
+   "deleted": {
+    "history": {
+     "m2": 400
+    },
+    "library": {},
+    "recipes": {}
+   }
+  }
+ },
+ {
+  "name": "mergeStates: an edit after the delete brings it back",
+  "fn": "mergeStates",
+  "args": [
+   {
+    "schemaVersion": 2,
+    "settings": {
+     "isf": 50,
+     "target": 100,
+     "units": "mgdl",
+     "rounding": "0.5",
+     "maxDose": 15,
+     "timeRatios": [
+      {
+       "id": "a",
+       "name": "Day",
+       "start": "06:00",
+       "end": "23:30",
+       "ratio": 10
+      },
+      {
+       "id": "n",
+       "name": "Night",
+       "start": "23:30",
+       "end": "06:00",
+       "ratio": 12
+      }
+     ],
+     "activityRatios": [],
+     "insulinModel": {
+      "preset": "rapid",
+      "peakMinutes": 75,
+      "diaMinutes": 360
+     },
+     "carbAbsorptionMinutes": {
+      "high": 120,
+      "medium": 180,
+      "low": 240,
+      "unknown": 180
+     }
+    },
+    "settingsUpdatedAt": 0,
+    "library": [],
+    "recipes": [],
+    "history": [],
+    "deleted": {
+     "history": {
+      "m2": 150
+     },
+     "library": {},
+     "recipes": {}
+    }
+   },
+   {
+    "schemaVersion": 2,
+    "settings": {
+     "isf": 50,
+     "target": 100,
+     "units": "mgdl",
+     "rounding": "0.5",
+     "maxDose": 15,
+     "timeRatios": [
+      {
+       "id": "a",
+       "name": "Day",
+       "start": "06:00",
+       "end": "23:30",
+       "ratio": 10
+      },
+      {
+       "id": "n",
+       "name": "Night",
+       "start": "23:30",
+       "end": "06:00",
+       "ratio": 12
+      }
+     ],
+     "activityRatios": [],
+     "insulinModel": {
+      "preset": "rapid",
+      "peakMinutes": 75,
+      "diaMinutes": 360
+     },
+     "carbAbsorptionMinutes": {
+      "high": 120,
+      "medium": 180,
+      "low": 240,
+      "unknown": 180
+     }
+    },
+    "settingsUpdatedAt": 0,
+    "library": [],
+    "recipes": [],
+    "history": [
+     {
+      "id": "m2",
+      "ts": 1790845200000,
+      "mealType": "lunch",
+      "periodName": "day",
+      "items": [
+       {
+        "refType": "food",
+        "refId": "f1",
+        "name": "Rice",
+        "grams": 100,
+        "carbs": 28,
+        "kcal": 130,
+        "carbsPer100g": 28,
+        "kcalPer100g": 130,
+        "gi": 70
+       }
+      ],
+      "totalCarbs": 28,
+      "totalKcal": 130,
+      "glycemicLoad": {
+       "value": 70,
+       "partial": false
+      },
+      "carbsUnknown": false,
+      "mealDose": 2.5,
+      "correctionDose": 0,
+      "noInsulin": false,
+      "glucose": null,
+      "ratioLabel": "Day",
+      "ratioValue": 10,
+      "updatedAt": 200
+     }
+    ],
+    "deleted": {
+     "history": {},
+     "library": {},
+     "recipes": {}
+    }
+   },
+   {
+    "settings": {
+     "isf": 50,
+     "target": 100,
+     "units": "mgdl",
+     "rounding": "0.5",
+     "maxDose": 15,
+     "timeRatios": [
+      {
+       "id": "a",
+       "name": "Day",
+       "start": "06:00",
+       "end": "23:30",
+       "ratio": 10
+      },
+      {
+       "id": "n",
+       "name": "Night",
+       "start": "23:30",
+       "end": "06:00",
+       "ratio": 12
+      }
+     ],
+     "activityRatios": [],
+     "insulinModel": {
+      "preset": "rapid",
+      "peakMinutes": 75,
+      "diaMinutes": 360
+     },
+     "carbAbsorptionMinutes": {
+      "high": 120,
+      "medium": 180,
+      "low": 240,
+      "unknown": 180
+     }
+    },
+    "library": [],
+    "recipes": [],
+    "history": []
+   }
+  ],
+  "expect": {
+   "schemaVersion": 2,
+   "settings": {
+    "isf": 50,
+    "target": 100,
+    "units": "mgdl",
+    "rounding": "0.5",
+    "maxDose": 15,
+    "timeRatios": [
+     {
+      "id": "a",
+      "name": "Day",
+      "start": "06:00",
+      "end": "23:30",
+      "ratio": 10
+     },
+     {
+      "id": "n",
+      "name": "Night",
+      "start": "23:30",
+      "end": "06:00",
+      "ratio": 12
+     }
+    ],
+    "activityRatios": [],
+    "insulinModel": {
+     "preset": "rapid",
+     "peakMinutes": 75,
+     "diaMinutes": 360
+    },
+    "carbAbsorptionMinutes": {
+     "high": 120,
+     "medium": 180,
+     "low": 240,
+     "unknown": 180
+    }
+   },
+   "settingsUpdatedAt": 0,
+   "library": [],
+   "recipes": [],
+   "history": [
+    {
+     "id": "m2",
+     "ts": 1790845200000,
+     "mealType": "lunch",
+     "periodName": "day",
+     "items": [
+      {
+       "refType": "food",
+       "refId": "f1",
+       "name": "Rice",
+       "grams": 100,
+       "carbs": 28,
+       "kcal": 130,
+       "carbsPer100g": 28,
+       "kcalPer100g": 130,
+       "gi": 70
+      }
+     ],
+     "totalCarbs": 28,
+     "totalKcal": 130,
+     "glycemicLoad": {
+      "value": 70,
+      "partial": false
+     },
+     "carbsUnknown": false,
+     "mealDose": 2.5,
+     "correctionDose": 0,
+     "noInsulin": false,
+     "glucose": null,
+     "ratioLabel": "Day",
+     "ratioValue": 10,
+     "updatedAt": 200
+    }
+   ],
+   "deleted": {
+    "history": {
+     "m2": 150
+    },
+    "library": {},
+    "recipes": {}
+   }
+  }
+ },
+ {
+  "name": "mergeStates: equal stamps, the cloud copy wins",
+  "fn": "mergeStates",
+  "args": [
+   {
+    "schemaVersion": 2,
+    "settings": {
+     "isf": 50,
+     "target": 100,
+     "units": "mgdl",
+     "rounding": "0.5",
+     "maxDose": 15,
+     "timeRatios": [
+      {
+       "id": "a",
+       "name": "Day",
+       "start": "06:00",
+       "end": "23:30",
+       "ratio": 10
+      },
+      {
+       "id": "n",
+       "name": "Night",
+       "start": "23:30",
+       "end": "06:00",
+       "ratio": 12
+      }
+     ],
+     "activityRatios": [],
+     "insulinModel": {
+      "preset": "rapid",
+      "peakMinutes": 75,
+      "diaMinutes": 360
+     },
+     "carbAbsorptionMinutes": {
+      "high": 120,
+      "medium": 180,
+      "low": 240,
+      "unknown": 180
+     }
+    },
+    "settingsUpdatedAt": 0,
+    "library": [],
+    "recipes": [],
+    "history": [
+     {
+      "id": "m2",
+      "ts": 1790845200000,
+      "mealType": "lunch",
+      "periodName": "day",
+      "items": [
+       {
+        "refType": "food",
+        "refId": "f1",
+        "name": "Rice",
+        "grams": 100,
+        "carbs": 28,
+        "kcal": 130,
+        "carbsPer100g": 28,
+        "kcalPer100g": 130,
+        "gi": 70
+       }
+      ],
+      "totalCarbs": 28,
+      "totalKcal": 130,
+      "glycemicLoad": {
+       "value": 70,
+       "partial": false
+      },
+      "carbsUnknown": false,
+      "mealDose": 7,
+      "correctionDose": 0,
+      "noInsulin": false,
+      "glucose": null,
+      "ratioLabel": "Day",
+      "ratioValue": 10,
+      "updatedAt": 200
+     }
+    ],
+    "deleted": {
+     "history": {},
+     "library": {},
+     "recipes": {}
+    }
+   },
+   {
+    "schemaVersion": 2,
+    "settings": {
+     "isf": 50,
+     "target": 100,
+     "units": "mgdl",
+     "rounding": "0.5",
+     "maxDose": 15,
+     "timeRatios": [
+      {
+       "id": "a",
+       "name": "Day",
+       "start": "06:00",
+       "end": "23:30",
+       "ratio": 10
+      },
+      {
+       "id": "n",
+       "name": "Night",
+       "start": "23:30",
+       "end": "06:00",
+       "ratio": 12
+      }
+     ],
+     "activityRatios": [],
+     "insulinModel": {
+      "preset": "rapid",
+      "peakMinutes": 75,
+      "diaMinutes": 360
+     },
+     "carbAbsorptionMinutes": {
+      "high": 120,
+      "medium": 180,
+      "low": 240,
+      "unknown": 180
+     }
+    },
+    "settingsUpdatedAt": 0,
+    "library": [],
+    "recipes": [],
+    "history": [
+     {
+      "id": "m2",
+      "ts": 1790845200000,
+      "mealType": "lunch",
+      "periodName": "day",
+      "items": [
+       {
+        "refType": "food",
+        "refId": "f1",
+        "name": "Rice",
+        "grams": 100,
+        "carbs": 28,
+        "kcal": 130,
+        "carbsPer100g": 28,
+        "kcalPer100g": 130,
+        "gi": 70
+       }
+      ],
+      "totalCarbs": 28,
+      "totalKcal": 130,
+      "glycemicLoad": {
+       "value": 70,
+       "partial": false
+      },
+      "carbsUnknown": false,
+      "mealDose": 8,
+      "correctionDose": 0,
+      "noInsulin": false,
+      "glucose": null,
+      "ratioLabel": "Day",
+      "ratioValue": 10,
+      "updatedAt": 200
+     }
+    ],
+    "deleted": {
+     "history": {},
+     "library": {},
+     "recipes": {}
+    }
+   },
+   {
+    "settings": {
+     "isf": 50,
+     "target": 100,
+     "units": "mgdl",
+     "rounding": "0.5",
+     "maxDose": 15,
+     "timeRatios": [
+      {
+       "id": "a",
+       "name": "Day",
+       "start": "06:00",
+       "end": "23:30",
+       "ratio": 10
+      },
+      {
+       "id": "n",
+       "name": "Night",
+       "start": "23:30",
+       "end": "06:00",
+       "ratio": 12
+      }
+     ],
+     "activityRatios": [],
+     "insulinModel": {
+      "preset": "rapid",
+      "peakMinutes": 75,
+      "diaMinutes": 360
+     },
+     "carbAbsorptionMinutes": {
+      "high": 120,
+      "medium": 180,
+      "low": 240,
+      "unknown": 180
+     }
+    },
+    "library": [],
+    "recipes": [],
+    "history": []
+   }
+  ],
+  "expect": {
+   "schemaVersion": 2,
+   "settings": {
+    "isf": 50,
+    "target": 100,
+    "units": "mgdl",
+    "rounding": "0.5",
+    "maxDose": 15,
+    "timeRatios": [
+     {
+      "id": "a",
+      "name": "Day",
+      "start": "06:00",
+      "end": "23:30",
+      "ratio": 10
+     },
+     {
+      "id": "n",
+      "name": "Night",
+      "start": "23:30",
+      "end": "06:00",
+      "ratio": 12
+     }
+    ],
+    "activityRatios": [],
+    "insulinModel": {
+     "preset": "rapid",
+     "peakMinutes": 75,
+     "diaMinutes": 360
+    },
+    "carbAbsorptionMinutes": {
+     "high": 120,
+     "medium": 180,
+     "low": 240,
+     "unknown": 180
+    }
+   },
+   "settingsUpdatedAt": 0,
+   "library": [],
+   "recipes": [],
+   "history": [
+    {
+     "id": "m2",
+     "ts": 1790845200000,
+     "mealType": "lunch",
+     "periodName": "day",
+     "items": [
+      {
+       "refType": "food",
+       "refId": "f1",
+       "name": "Rice",
+       "grams": 100,
+       "carbs": 28,
+       "kcal": 130,
+       "carbsPer100g": 28,
+       "kcalPer100g": 130,
+       "gi": 70
+      }
+     ],
+     "totalCarbs": 28,
+     "totalKcal": 130,
+     "glycemicLoad": {
+      "value": 70,
+      "partial": false
+     },
+     "carbsUnknown": false,
+     "mealDose": 8,
+     "correctionDose": 0,
+     "noInsulin": false,
+     "glucose": null,
+     "ratioLabel": "Day",
+     "ratioValue": 10,
+     "updatedAt": 200
+    }
+   ],
+   "deleted": {
+    "history": {},
+    "library": {},
+    "recipes": {}
+   }
+  }
+ },
+ {
+  "name": "mergeStates: newer settings win",
+  "fn": "mergeStates",
+  "args": [
+   {
+    "schemaVersion": 2,
+    "settings": {
+     "isf": 40,
+     "target": 100,
+     "units": "mgdl",
+     "rounding": "0.5",
+     "maxDose": 15,
+     "timeRatios": [
+      {
+       "id": "a",
+       "name": "Day",
+       "start": "06:00",
+       "end": "23:30",
+       "ratio": 10
+      },
+      {
+       "id": "n",
+       "name": "Night",
+       "start": "23:30",
+       "end": "06:00",
+       "ratio": 12
+      }
+     ],
+     "activityRatios": [],
+     "insulinModel": {
+      "preset": "rapid",
+      "peakMinutes": 75,
+      "diaMinutes": 360
+     },
+     "carbAbsorptionMinutes": {
+      "high": 120,
+      "medium": 180,
+      "low": 240,
+      "unknown": 180
+     }
+    },
+    "settingsUpdatedAt": 900,
+    "library": [],
+    "recipes": [],
+    "history": [],
+    "deleted": {
+     "history": {},
+     "library": {},
+     "recipes": {}
+    }
+   },
+   {
+    "schemaVersion": 2,
+    "settings": {
+     "isf": 60,
+     "target": 100,
+     "units": "mgdl",
+     "rounding": "0.5",
+     "maxDose": 15,
+     "timeRatios": [
+      {
+       "id": "a",
+       "name": "Day",
+       "start": "06:00",
+       "end": "23:30",
+       "ratio": 10
+      },
+      {
+       "id": "n",
+       "name": "Night",
+       "start": "23:30",
+       "end": "06:00",
+       "ratio": 12
+      }
+     ],
+     "activityRatios": [],
+     "insulinModel": {
+      "preset": "rapid",
+      "peakMinutes": 75,
+      "diaMinutes": 360
+     },
+     "carbAbsorptionMinutes": {
+      "high": 120,
+      "medium": 180,
+      "low": 240,
+      "unknown": 180
+     }
+    },
+    "settingsUpdatedAt": 500,
+    "library": [],
+    "recipes": [],
+    "history": [],
+    "deleted": {
+     "history": {},
+     "library": {},
+     "recipes": {}
+    }
+   },
+   {
+    "settings": {
+     "isf": 50,
+     "target": 100,
+     "units": "mgdl",
+     "rounding": "0.5",
+     "maxDose": 15,
+     "timeRatios": [
+      {
+       "id": "a",
+       "name": "Day",
+       "start": "06:00",
+       "end": "23:30",
+       "ratio": 10
+      },
+      {
+       "id": "n",
+       "name": "Night",
+       "start": "23:30",
+       "end": "06:00",
+       "ratio": 12
+      }
+     ],
+     "activityRatios": [],
+     "insulinModel": {
+      "preset": "rapid",
+      "peakMinutes": 75,
+      "diaMinutes": 360
+     },
+     "carbAbsorptionMinutes": {
+      "high": 120,
+      "medium": 180,
+      "low": 240,
+      "unknown": 180
+     }
+    },
+    "library": [],
+    "recipes": [],
+    "history": []
+   }
+  ],
+  "expect": {
+   "schemaVersion": 2,
+   "settings": {
+    "isf": 40,
+    "target": 100,
+    "units": "mgdl",
+    "rounding": "0.5",
+    "maxDose": 15,
+    "timeRatios": [
+     {
+      "id": "a",
+      "name": "Day",
+      "start": "06:00",
+      "end": "23:30",
+      "ratio": 10
+     },
+     {
+      "id": "n",
+      "name": "Night",
+      "start": "23:30",
+      "end": "06:00",
+      "ratio": 12
+     }
+    ],
+    "activityRatios": [],
+    "insulinModel": {
+     "preset": "rapid",
+     "peakMinutes": 75,
+     "diaMinutes": 360
+    },
+    "carbAbsorptionMinutes": {
+     "high": 120,
+     "medium": 180,
+     "low": 240,
+     "unknown": 180
+    }
+   },
+   "settingsUpdatedAt": 900,
+   "library": [],
+   "recipes": [],
+   "history": [],
+   "deleted": {
+    "history": {},
+    "library": {},
+    "recipes": {}
+   }
+  }
+ },
+ {
+  "name": "mergeStates: no remote copy",
+  "fn": "mergeStates",
+  "args": [
+   {
+    "schemaVersion": 2,
+    "settings": {
+     "isf": 50,
+     "target": 100,
+     "units": "mgdl",
+     "rounding": "0.5",
+     "maxDose": 15,
+     "timeRatios": [
+      {
+       "id": "a",
+       "name": "Day",
+       "start": "06:00",
+       "end": "23:30",
+       "ratio": 10
+      },
+      {
+       "id": "n",
+       "name": "Night",
+       "start": "23:30",
+       "end": "06:00",
+       "ratio": 12
+      }
+     ],
+     "activityRatios": [],
+     "insulinModel": {
+      "preset": "rapid",
+      "peakMinutes": 75,
+      "diaMinutes": 360
+     },
+     "carbAbsorptionMinutes": {
+      "high": 120,
+      "medium": 180,
+      "low": 240,
+      "unknown": 180
+     }
+    },
+    "settingsUpdatedAt": 0,
+    "library": [],
+    "recipes": [],
+    "history": [
+     {
+      "id": "m1",
+      "ts": 1790838000000,
+      "mealType": "lunch",
+      "periodName": "day",
+      "items": [
+       {
+        "refType": "food",
+        "refId": "f1",
+        "name": "Rice",
+        "grams": 100,
+        "carbs": 28,
+        "kcal": 130,
+        "carbsPer100g": 28,
+        "kcalPer100g": 130,
+        "gi": 70
+       }
+      ],
+      "totalCarbs": 28,
+      "totalKcal": 130,
+      "glycemicLoad": {
+       "value": 70,
+       "partial": false
+      },
+      "carbsUnknown": false,
+      "mealDose": 2.5,
+      "correctionDose": 0,
+      "noInsulin": false,
+      "glucose": null,
+      "ratioLabel": "Day",
+      "ratioValue": 10,
+      "updatedAt": 100
+     }
+    ],
+    "deleted": {
+     "history": {},
+     "library": {},
+     "recipes": {}
+    }
+   },
+   null,
+   {
+    "settings": {
+     "isf": 50,
+     "target": 100,
+     "units": "mgdl",
+     "rounding": "0.5",
+     "maxDose": 15,
+     "timeRatios": [
+      {
+       "id": "a",
+       "name": "Day",
+       "start": "06:00",
+       "end": "23:30",
+       "ratio": 10
+      },
+      {
+       "id": "n",
+       "name": "Night",
+       "start": "23:30",
+       "end": "06:00",
+       "ratio": 12
+      }
+     ],
+     "activityRatios": [],
+     "insulinModel": {
+      "preset": "rapid",
+      "peakMinutes": 75,
+      "diaMinutes": 360
+     },
+     "carbAbsorptionMinutes": {
+      "high": 120,
+      "medium": 180,
+      "low": 240,
+      "unknown": 180
+     }
+    },
+    "library": [],
+    "recipes": [],
+    "history": []
+   }
+  ],
+  "expect": {
+   "schemaVersion": 2,
+   "settings": {
+    "isf": 50,
+    "target": 100,
+    "units": "mgdl",
+    "rounding": "0.5",
+    "maxDose": 15,
+    "timeRatios": [
+     {
+      "id": "a",
+      "name": "Day",
+      "start": "06:00",
+      "end": "23:30",
+      "ratio": 10
+     },
+     {
+      "id": "n",
+      "name": "Night",
+      "start": "23:30",
+      "end": "06:00",
+      "ratio": 12
+     }
+    ],
+    "activityRatios": [],
+    "insulinModel": {
+     "preset": "rapid",
+     "peakMinutes": 75,
+     "diaMinutes": 360
+    },
+    "carbAbsorptionMinutes": {
+     "high": 120,
+     "medium": 180,
+     "low": 240,
+     "unknown": 180
+    }
+   },
+   "settingsUpdatedAt": 0,
+   "library": [],
+   "recipes": [],
+   "history": [
+    {
+     "id": "m1",
+     "ts": 1790838000000,
+     "mealType": "lunch",
+     "periodName": "day",
+     "items": [
+      {
+       "refType": "food",
+       "refId": "f1",
+       "name": "Rice",
+       "grams": 100,
+       "carbs": 28,
+       "kcal": 130,
+       "carbsPer100g": 28,
+       "kcalPer100g": 130,
+       "gi": 70
+      }
+     ],
+     "totalCarbs": 28,
+     "totalKcal": 130,
+     "glycemicLoad": {
+      "value": 70,
+      "partial": false
+     },
+     "carbsUnknown": false,
+     "mealDose": 2.5,
+     "correctionDose": 0,
+     "noInsulin": false,
+     "glucose": null,
+     "ratioLabel": "Day",
+     "ratioValue": 10,
+     "updatedAt": 100
+    }
+   ],
+   "deleted": {
+    "history": {},
+    "library": {},
+    "recipes": {}
+   }
+  }
+ },
+ {
+  "name": "mergeStates: foods and recipes merge too",
+  "fn": "mergeStates",
+  "args": [
+   {
+    "schemaVersion": 2,
+    "settings": {
+     "isf": 50,
+     "target": 100,
+     "units": "mgdl",
+     "rounding": "0.5",
+     "maxDose": 15,
+     "timeRatios": [
+      {
+       "id": "a",
+       "name": "Day",
+       "start": "06:00",
+       "end": "23:30",
+       "ratio": 10
+      },
+      {
+       "id": "n",
+       "name": "Night",
+       "start": "23:30",
+       "end": "06:00",
+       "ratio": 12
+      }
+     ],
+     "activityRatios": [],
+     "insulinModel": {
+      "preset": "rapid",
+      "peakMinutes": 75,
+      "diaMinutes": 360
+     },
+     "carbAbsorptionMinutes": {
+      "high": 120,
+      "medium": 180,
+      "low": 240,
+      "unknown": 180
+     }
+    },
+    "settingsUpdatedAt": 0,
+    "library": [
+     {
+      "id": "f1",
+      "name": "Rice",
+      "carbs": 28,
+      "updatedAt": 10
+     }
+    ],
+    "recipes": [],
+    "history": [],
+    "deleted": {
+     "history": {},
+     "library": {},
+     "recipes": {}
+    }
+   },
+   {
+    "schemaVersion": 2,
+    "settings": {
+     "isf": 50,
+     "target": 100,
+     "units": "mgdl",
+     "rounding": "0.5",
+     "maxDose": 15,
+     "timeRatios": [
+      {
+       "id": "a",
+       "name": "Day",
+       "start": "06:00",
+       "end": "23:30",
+       "ratio": 10
+      },
+      {
+       "id": "n",
+       "name": "Night",
+       "start": "23:30",
+       "end": "06:00",
+       "ratio": 12
+      }
+     ],
+     "activityRatios": [],
+     "insulinModel": {
+      "preset": "rapid",
+      "peakMinutes": 75,
+      "diaMinutes": 360
+     },
+     "carbAbsorptionMinutes": {
+      "high": 120,
+      "medium": 180,
+      "low": 240,
+      "unknown": 180
+     }
+    },
+    "settingsUpdatedAt": 0,
+    "library": [
+     {
+      "id": "f2",
+      "name": "Bread",
+      "carbs": 49,
+      "updatedAt": 20
+     }
+    ],
+    "recipes": [
+     {
+      "id": "r1",
+      "name": "Bowl",
+      "items": [],
+      "updatedAt": 5
+     }
+    ],
+    "history": [],
+    "deleted": {
+     "history": {},
+     "library": {},
+     "recipes": {}
+    }
+   },
+   {
+    "settings": {
+     "isf": 50,
+     "target": 100,
+     "units": "mgdl",
+     "rounding": "0.5",
+     "maxDose": 15,
+     "timeRatios": [
+      {
+       "id": "a",
+       "name": "Day",
+       "start": "06:00",
+       "end": "23:30",
+       "ratio": 10
+      },
+      {
+       "id": "n",
+       "name": "Night",
+       "start": "23:30",
+       "end": "06:00",
+       "ratio": 12
+      }
+     ],
+     "activityRatios": [],
+     "insulinModel": {
+      "preset": "rapid",
+      "peakMinutes": 75,
+      "diaMinutes": 360
+     },
+     "carbAbsorptionMinutes": {
+      "high": 120,
+      "medium": 180,
+      "low": 240,
+      "unknown": 180
+     }
+    },
+    "library": [],
+    "recipes": [],
+    "history": []
+   }
+  ],
+  "expect": {
+   "schemaVersion": 2,
+   "settings": {
+    "isf": 50,
+    "target": 100,
+    "units": "mgdl",
+    "rounding": "0.5",
+    "maxDose": 15,
+    "timeRatios": [
+     {
+      "id": "a",
+      "name": "Day",
+      "start": "06:00",
+      "end": "23:30",
+      "ratio": 10
+     },
+     {
+      "id": "n",
+      "name": "Night",
+      "start": "23:30",
+      "end": "06:00",
+      "ratio": 12
+     }
+    ],
+    "activityRatios": [],
+    "insulinModel": {
+     "preset": "rapid",
+     "peakMinutes": 75,
+     "diaMinutes": 360
+    },
+    "carbAbsorptionMinutes": {
+     "high": 120,
+     "medium": 180,
+     "low": 240,
+     "unknown": 180
+    }
+   },
+   "settingsUpdatedAt": 0,
+   "library": [
+    {
+     "id": "f1",
+     "name": "Rice",
+     "carbs": 28,
+     "updatedAt": 10
+    },
+    {
+     "id": "f2",
+     "name": "Bread",
+     "carbs": 49,
+     "updatedAt": 20
+    }
+   ],
+   "recipes": [
+    {
+     "id": "r1",
+     "name": "Bowl",
+     "items": [],
+     "updatedAt": 5
+    }
+   ],
+   "history": [],
+   "deleted": {
+    "history": {},
+    "library": {},
+    "recipes": {}
+   }
+  }
+ },
+ {
+  "name": "stampChanges: a new meal is stamped, an edit is stamped, an untouched one is not",
+  "fn": "stampChanges",
+  "args": [
+   {
+    "schemaVersion": 2,
+    "settings": {
+     "isf": 50,
+     "target": 100,
+     "units": "mgdl",
+     "rounding": "0.5",
+     "maxDose": 15,
+     "timeRatios": [
+      {
+       "id": "a",
+       "name": "Day",
+       "start": "06:00",
+       "end": "23:30",
+       "ratio": 10
+      },
+      {
+       "id": "n",
+       "name": "Night",
+       "start": "23:30",
+       "end": "06:00",
+       "ratio": 12
+      }
+     ],
+     "activityRatios": [],
+     "insulinModel": {
+      "preset": "rapid",
+      "peakMinutes": 75,
+      "diaMinutes": 360
+     },
+     "carbAbsorptionMinutes": {
+      "high": 120,
+      "medium": 180,
+      "low": 240,
+      "unknown": 180
+     }
+    },
+    "settingsUpdatedAt": 0,
+    "library": [],
+    "recipes": [],
+    "history": [
+     {
+      "id": "m1",
+      "ts": 1790838000000,
+      "mealType": "lunch",
+      "periodName": "day",
+      "items": [
+       {
+        "refType": "food",
+        "refId": "f1",
+        "name": "Rice",
+        "grams": 100,
+        "carbs": 28,
+        "kcal": 130,
+        "carbsPer100g": 28,
+        "kcalPer100g": 130,
+        "gi": 70
+       }
+      ],
+      "totalCarbs": 28,
+      "totalKcal": 130,
+      "glycemicLoad": {
+       "value": 70,
+       "partial": false
+      },
+      "carbsUnknown": false,
+      "mealDose": 2.5,
+      "correctionDose": 0,
+      "noInsulin": false,
+      "glucose": null,
+      "ratioLabel": "Day",
+      "ratioValue": 10,
+      "updatedAt": 100
+     },
+     {
+      "id": "m2",
+      "ts": 1790845200000,
+      "mealType": "lunch",
+      "periodName": "day",
+      "items": [
+       {
+        "refType": "food",
+        "refId": "f1",
+        "name": "Rice",
+        "grams": 100,
+        "carbs": 28,
+        "kcal": 130,
+        "carbsPer100g": 28,
+        "kcalPer100g": 130,
+        "gi": 70
+       }
+      ],
+      "totalCarbs": 28,
+      "totalKcal": 130,
+      "glycemicLoad": {
+       "value": 70,
+       "partial": false
+      },
+      "carbsUnknown": false,
+      "mealDose": 9,
+      "correctionDose": 0,
+      "noInsulin": false,
+      "glucose": null,
+      "ratioLabel": "Day",
+      "ratioValue": 10,
+      "updatedAt": 200
+     },
+     {
+      "id": "new",
+      "ts": 1790856000000,
+      "mealType": "lunch",
+      "periodName": "day",
+      "items": [
+       {
+        "refType": "food",
+        "refId": "f1",
+        "name": "Rice",
+        "grams": 100,
+        "carbs": 28,
+        "kcal": 130,
+        "carbsPer100g": 28,
+        "kcalPer100g": 130,
+        "gi": 70
+       }
+      ],
+      "totalCarbs": 28,
+      "totalKcal": 130,
+      "glycemicLoad": {
+       "value": 70,
+       "partial": false
+      },
+      "carbsUnknown": false,
+      "mealDose": 2.5,
+      "correctionDose": 0,
+      "noInsulin": false,
+      "glucose": null,
+      "ratioLabel": "Day",
+      "ratioValue": 10
+     }
+    ],
+    "deleted": {
+     "history": {},
+     "library": {},
+     "recipes": {}
+    }
+   },
+   {
+    "schemaVersion": 2,
+    "settings": {
+     "isf": 50,
+     "target": 100,
+     "units": "mgdl",
+     "rounding": "0.5",
+     "maxDose": 15,
+     "timeRatios": [
+      {
+       "id": "a",
+       "name": "Day",
+       "start": "06:00",
+       "end": "23:30",
+       "ratio": 10
+      },
+      {
+       "id": "n",
+       "name": "Night",
+       "start": "23:30",
+       "end": "06:00",
+       "ratio": 12
+      }
+     ],
+     "activityRatios": [],
+     "insulinModel": {
+      "preset": "rapid",
+      "peakMinutes": 75,
+      "diaMinutes": 360
+     },
+     "carbAbsorptionMinutes": {
+      "high": 120,
+      "medium": 180,
+      "low": 240,
+      "unknown": 180
+     }
+    },
+    "settingsUpdatedAt": 0,
+    "library": [],
+    "recipes": [],
+    "history": [
+     {
+      "id": "m1",
+      "ts": 1790838000000,
+      "mealType": "lunch",
+      "periodName": "day",
+      "items": [
+       {
+        "refType": "food",
+        "refId": "f1",
+        "name": "Rice",
+        "grams": 100,
+        "carbs": 28,
+        "kcal": 130,
+        "carbsPer100g": 28,
+        "kcalPer100g": 130,
+        "gi": 70
+       }
+      ],
+      "totalCarbs": 28,
+      "totalKcal": 130,
+      "glycemicLoad": {
+       "value": 70,
+       "partial": false
+      },
+      "carbsUnknown": false,
+      "mealDose": 2.5,
+      "correctionDose": 0,
+      "noInsulin": false,
+      "glucose": null,
+      "ratioLabel": "Day",
+      "ratioValue": 10,
+      "updatedAt": 100
+     },
+     {
+      "id": "m2",
+      "ts": 1790845200000,
+      "mealType": "lunch",
+      "periodName": "day",
+      "items": [
+       {
+        "refType": "food",
+        "refId": "f1",
+        "name": "Rice",
+        "grams": 100,
+        "carbs": 28,
+        "kcal": 130,
+        "carbsPer100g": 28,
+        "kcalPer100g": 130,
+        "gi": 70
+       }
+      ],
+      "totalCarbs": 28,
+      "totalKcal": 130,
+      "glycemicLoad": {
+       "value": 70,
+       "partial": false
+      },
+      "carbsUnknown": false,
+      "mealDose": 2.5,
+      "correctionDose": 0,
+      "noInsulin": false,
+      "glucose": null,
+      "ratioLabel": "Day",
+      "ratioValue": 10,
+      "updatedAt": 200
+     }
+    ],
+    "deleted": {
+     "history": {},
+     "library": {},
+     "recipes": {}
+    }
+   },
+   1000
+  ],
+  "expect": {
+   "schemaVersion": 2,
+   "settings": {
+    "isf": 50,
+    "target": 100,
+    "units": "mgdl",
+    "rounding": "0.5",
+    "maxDose": 15,
+    "timeRatios": [
+     {
+      "id": "a",
+      "name": "Day",
+      "start": "06:00",
+      "end": "23:30",
+      "ratio": 10
+     },
+     {
+      "id": "n",
+      "name": "Night",
+      "start": "23:30",
+      "end": "06:00",
+      "ratio": 12
+     }
+    ],
+    "activityRatios": [],
+    "insulinModel": {
+     "preset": "rapid",
+     "peakMinutes": 75,
+     "diaMinutes": 360
+    },
+    "carbAbsorptionMinutes": {
+     "high": 120,
+     "medium": 180,
+     "low": 240,
+     "unknown": 180
+    }
+   },
+   "settingsUpdatedAt": 0,
+   "library": [],
+   "recipes": [],
+   "history": [
+    {
+     "id": "m1",
+     "ts": 1790838000000,
+     "mealType": "lunch",
+     "periodName": "day",
+     "items": [
+      {
+       "refType": "food",
+       "refId": "f1",
+       "name": "Rice",
+       "grams": 100,
+       "carbs": 28,
+       "kcal": 130,
+       "carbsPer100g": 28,
+       "kcalPer100g": 130,
+       "gi": 70
+      }
+     ],
+     "totalCarbs": 28,
+     "totalKcal": 130,
+     "glycemicLoad": {
+      "value": 70,
+      "partial": false
+     },
+     "carbsUnknown": false,
+     "mealDose": 2.5,
+     "correctionDose": 0,
+     "noInsulin": false,
+     "glucose": null,
+     "ratioLabel": "Day",
+     "ratioValue": 10,
+     "updatedAt": 100
+    },
+    {
+     "id": "m2",
+     "ts": 1790845200000,
+     "mealType": "lunch",
+     "periodName": "day",
+     "items": [
+      {
+       "refType": "food",
+       "refId": "f1",
+       "name": "Rice",
+       "grams": 100,
+       "carbs": 28,
+       "kcal": 130,
+       "carbsPer100g": 28,
+       "kcalPer100g": 130,
+       "gi": 70
+      }
+     ],
+     "totalCarbs": 28,
+     "totalKcal": 130,
+     "glycemicLoad": {
+      "value": 70,
+      "partial": false
+     },
+     "carbsUnknown": false,
+     "mealDose": 9,
+     "correctionDose": 0,
+     "noInsulin": false,
+     "glucose": null,
+     "ratioLabel": "Day",
+     "ratioValue": 10,
+     "updatedAt": 1000
+    },
+    {
+     "id": "new",
+     "ts": 1790856000000,
+     "mealType": "lunch",
+     "periodName": "day",
+     "items": [
+      {
+       "refType": "food",
+       "refId": "f1",
+       "name": "Rice",
+       "grams": 100,
+       "carbs": 28,
+       "kcal": 130,
+       "carbsPer100g": 28,
+       "kcalPer100g": 130,
+       "gi": 70
+      }
+     ],
+     "totalCarbs": 28,
+     "totalKcal": 130,
+     "glycemicLoad": {
+      "value": 70,
+      "partial": false
+     },
+     "carbsUnknown": false,
+     "mealDose": 2.5,
+     "correctionDose": 0,
+     "noInsulin": false,
+     "glucose": null,
+     "ratioLabel": "Day",
+     "ratioValue": 10,
+     "updatedAt": 1000
+    }
+   ],
+   "deleted": {
+    "history": {},
+    "library": {},
+    "recipes": {}
+   }
+  }
+ },
+ {
+  "name": "stampChanges: a removed meal leaves a deletion marker",
+  "fn": "stampChanges",
+  "args": [
+   {
+    "schemaVersion": 2,
+    "settings": {
+     "isf": 50,
+     "target": 100,
+     "units": "mgdl",
+     "rounding": "0.5",
+     "maxDose": 15,
+     "timeRatios": [
+      {
+       "id": "a",
+       "name": "Day",
+       "start": "06:00",
+       "end": "23:30",
+       "ratio": 10
+      },
+      {
+       "id": "n",
+       "name": "Night",
+       "start": "23:30",
+       "end": "06:00",
+       "ratio": 12
+      }
+     ],
+     "activityRatios": [],
+     "insulinModel": {
+      "preset": "rapid",
+      "peakMinutes": 75,
+      "diaMinutes": 360
+     },
+     "carbAbsorptionMinutes": {
+      "high": 120,
+      "medium": 180,
+      "low": 240,
+      "unknown": 180
+     }
+    },
+    "settingsUpdatedAt": 0,
+    "library": [],
+    "recipes": [],
+    "history": [
+     {
+      "id": "m1",
+      "ts": 1790838000000,
+      "mealType": "lunch",
+      "periodName": "day",
+      "items": [
+       {
+        "refType": "food",
+        "refId": "f1",
+        "name": "Rice",
+        "grams": 100,
+        "carbs": 28,
+        "kcal": 130,
+        "carbsPer100g": 28,
+        "kcalPer100g": 130,
+        "gi": 70
+       }
+      ],
+      "totalCarbs": 28,
+      "totalKcal": 130,
+      "glycemicLoad": {
+       "value": 70,
+       "partial": false
+      },
+      "carbsUnknown": false,
+      "mealDose": 2.5,
+      "correctionDose": 0,
+      "noInsulin": false,
+      "glucose": null,
+      "ratioLabel": "Day",
+      "ratioValue": 10,
+      "updatedAt": 100
+     }
+    ],
+    "deleted": {
+     "history": {},
+     "library": {},
+     "recipes": {}
+    }
+   },
+   {
+    "schemaVersion": 2,
+    "settings": {
+     "isf": 50,
+     "target": 100,
+     "units": "mgdl",
+     "rounding": "0.5",
+     "maxDose": 15,
+     "timeRatios": [
+      {
+       "id": "a",
+       "name": "Day",
+       "start": "06:00",
+       "end": "23:30",
+       "ratio": 10
+      },
+      {
+       "id": "n",
+       "name": "Night",
+       "start": "23:30",
+       "end": "06:00",
+       "ratio": 12
+      }
+     ],
+     "activityRatios": [],
+     "insulinModel": {
+      "preset": "rapid",
+      "peakMinutes": 75,
+      "diaMinutes": 360
+     },
+     "carbAbsorptionMinutes": {
+      "high": 120,
+      "medium": 180,
+      "low": 240,
+      "unknown": 180
+     }
+    },
+    "settingsUpdatedAt": 0,
+    "library": [],
+    "recipes": [],
+    "history": [
+     {
+      "id": "m1",
+      "ts": 1790838000000,
+      "mealType": "lunch",
+      "periodName": "day",
+      "items": [
+       {
+        "refType": "food",
+        "refId": "f1",
+        "name": "Rice",
+        "grams": 100,
+        "carbs": 28,
+        "kcal": 130,
+        "carbsPer100g": 28,
+        "kcalPer100g": 130,
+        "gi": 70
+       }
+      ],
+      "totalCarbs": 28,
+      "totalKcal": 130,
+      "glycemicLoad": {
+       "value": 70,
+       "partial": false
+      },
+      "carbsUnknown": false,
+      "mealDose": 2.5,
+      "correctionDose": 0,
+      "noInsulin": false,
+      "glucose": null,
+      "ratioLabel": "Day",
+      "ratioValue": 10,
+      "updatedAt": 100
+     },
+     {
+      "id": "m2",
+      "ts": 1790845200000,
+      "mealType": "lunch",
+      "periodName": "day",
+      "items": [
+       {
+        "refType": "food",
+        "refId": "f1",
+        "name": "Rice",
+        "grams": 100,
+        "carbs": 28,
+        "kcal": 130,
+        "carbsPer100g": 28,
+        "kcalPer100g": 130,
+        "gi": 70
+       }
+      ],
+      "totalCarbs": 28,
+      "totalKcal": 130,
+      "glycemicLoad": {
+       "value": 70,
+       "partial": false
+      },
+      "carbsUnknown": false,
+      "mealDose": 2.5,
+      "correctionDose": 0,
+      "noInsulin": false,
+      "glucose": null,
+      "ratioLabel": "Day",
+      "ratioValue": 10,
+      "updatedAt": 200
+     }
+    ],
+    "deleted": {
+     "history": {},
+     "library": {},
+     "recipes": {}
+    }
+   },
+   1000
+  ],
+  "expect": {
+   "schemaVersion": 2,
+   "settings": {
+    "isf": 50,
+    "target": 100,
+    "units": "mgdl",
+    "rounding": "0.5",
+    "maxDose": 15,
+    "timeRatios": [
+     {
+      "id": "a",
+      "name": "Day",
+      "start": "06:00",
+      "end": "23:30",
+      "ratio": 10
+     },
+     {
+      "id": "n",
+      "name": "Night",
+      "start": "23:30",
+      "end": "06:00",
+      "ratio": 12
+     }
+    ],
+    "activityRatios": [],
+    "insulinModel": {
+     "preset": "rapid",
+     "peakMinutes": 75,
+     "diaMinutes": 360
+    },
+    "carbAbsorptionMinutes": {
+     "high": 120,
+     "medium": 180,
+     "low": 240,
+     "unknown": 180
+    }
+   },
+   "settingsUpdatedAt": 0,
+   "library": [],
+   "recipes": [],
+   "history": [
+    {
+     "id": "m1",
+     "ts": 1790838000000,
+     "mealType": "lunch",
+     "periodName": "day",
+     "items": [
+      {
+       "refType": "food",
+       "refId": "f1",
+       "name": "Rice",
+       "grams": 100,
+       "carbs": 28,
+       "kcal": 130,
+       "carbsPer100g": 28,
+       "kcalPer100g": 130,
+       "gi": 70
+      }
+     ],
+     "totalCarbs": 28,
+     "totalKcal": 130,
+     "glycemicLoad": {
+      "value": 70,
+      "partial": false
+     },
+     "carbsUnknown": false,
+     "mealDose": 2.5,
+     "correctionDose": 0,
+     "noInsulin": false,
+     "glucose": null,
+     "ratioLabel": "Day",
+     "ratioValue": 10,
+     "updatedAt": 100
+    }
+   ],
+   "deleted": {
+    "history": {
+     "m2": 1000
+    },
+    "library": {},
+    "recipes": {}
+   }
+  }
+ },
+ {
+  "name": "stampChanges: changed settings bump settingsUpdatedAt",
+  "fn": "stampChanges",
+  "args": [
+   {
+    "schemaVersion": 2,
+    "settings": {
+     "isf": 45,
+     "target": 100,
+     "units": "mgdl",
+     "rounding": "0.5",
+     "maxDose": 15,
+     "timeRatios": [
+      {
+       "id": "a",
+       "name": "Day",
+       "start": "06:00",
+       "end": "23:30",
+       "ratio": 10
+      },
+      {
+       "id": "n",
+       "name": "Night",
+       "start": "23:30",
+       "end": "06:00",
+       "ratio": 12
+      }
+     ],
+     "activityRatios": [],
+     "insulinModel": {
+      "preset": "rapid",
+      "peakMinutes": 75,
+      "diaMinutes": 360
+     },
+     "carbAbsorptionMinutes": {
+      "high": 120,
+      "medium": 180,
+      "low": 240,
+      "unknown": 180
+     }
+    },
+    "settingsUpdatedAt": 0,
+    "library": [],
+    "recipes": [],
+    "history": [],
+    "deleted": {
+     "history": {},
+     "library": {},
+     "recipes": {}
+    }
+   },
+   {
+    "schemaVersion": 2,
+    "settings": {
+     "isf": 50,
+     "target": 100,
+     "units": "mgdl",
+     "rounding": "0.5",
+     "maxDose": 15,
+     "timeRatios": [
+      {
+       "id": "a",
+       "name": "Day",
+       "start": "06:00",
+       "end": "23:30",
+       "ratio": 10
+      },
+      {
+       "id": "n",
+       "name": "Night",
+       "start": "23:30",
+       "end": "06:00",
+       "ratio": 12
+      }
+     ],
+     "activityRatios": [],
+     "insulinModel": {
+      "preset": "rapid",
+      "peakMinutes": 75,
+      "diaMinutes": 360
+     },
+     "carbAbsorptionMinutes": {
+      "high": 120,
+      "medium": 180,
+      "low": 240,
+      "unknown": 180
+     }
+    },
+    "settingsUpdatedAt": 0,
+    "library": [],
+    "recipes": [],
+    "history": [],
+    "deleted": {
+     "history": {},
+     "library": {},
+     "recipes": {}
+    }
+   },
+   1000
+  ],
+  "expect": {
+   "schemaVersion": 2,
+   "settings": {
+    "isf": 45,
+    "target": 100,
+    "units": "mgdl",
+    "rounding": "0.5",
+    "maxDose": 15,
+    "timeRatios": [
+     {
+      "id": "a",
+      "name": "Day",
+      "start": "06:00",
+      "end": "23:30",
+      "ratio": 10
+     },
+     {
+      "id": "n",
+      "name": "Night",
+      "start": "23:30",
+      "end": "06:00",
+      "ratio": 12
+     }
+    ],
+    "activityRatios": [],
+    "insulinModel": {
+     "preset": "rapid",
+     "peakMinutes": 75,
+     "diaMinutes": 360
+    },
+    "carbAbsorptionMinutes": {
+     "high": 120,
+     "medium": 180,
+     "low": 240,
+     "unknown": 180
+    }
+   },
+   "settingsUpdatedAt": 1000,
+   "library": [],
+   "recipes": [],
+   "history": [],
+   "deleted": {
+    "history": {},
+    "library": {},
+    "recipes": {}
+   }
+  }
+ },
+ {
+  "name": "stampChanges: an undo cancels the earlier deletion",
+  "fn": "stampChanges",
+  "args": [
+   {
+    "schemaVersion": 2,
+    "settings": {
+     "isf": 50,
+     "target": 100,
+     "units": "mgdl",
+     "rounding": "0.5",
+     "maxDose": 15,
+     "timeRatios": [
+      {
+       "id": "a",
+       "name": "Day",
+       "start": "06:00",
+       "end": "23:30",
+       "ratio": 10
+      },
+      {
+       "id": "n",
+       "name": "Night",
+       "start": "23:30",
+       "end": "06:00",
+       "ratio": 12
+      }
+     ],
+     "activityRatios": [],
+     "insulinModel": {
+      "preset": "rapid",
+      "peakMinutes": 75,
+      "diaMinutes": 360
+     },
+     "carbAbsorptionMinutes": {
+      "high": 120,
+      "medium": 180,
+      "low": 240,
+      "unknown": 180
+     }
+    },
+    "settingsUpdatedAt": 0,
+    "library": [],
+    "recipes": [],
+    "history": [
+     {
+      "id": "m1",
+      "ts": 1790838000000,
+      "mealType": "lunch",
+      "periodName": "day",
+      "items": [
+       {
+        "refType": "food",
+        "refId": "f1",
+        "name": "Rice",
+        "grams": 100,
+        "carbs": 28,
+        "kcal": 130,
+        "carbsPer100g": 28,
+        "kcalPer100g": 130,
+        "gi": 70
+       }
+      ],
+      "totalCarbs": 28,
+      "totalKcal": 130,
+      "glycemicLoad": {
+       "value": 70,
+       "partial": false
+      },
+      "carbsUnknown": false,
+      "mealDose": 2.5,
+      "correctionDose": 0,
+      "noInsulin": false,
+      "glucose": null,
+      "ratioLabel": "Day",
+      "ratioValue": 10,
+      "updatedAt": 100
+     },
+     {
+      "id": "m2",
+      "ts": 1790845200000,
+      "mealType": "lunch",
+      "periodName": "day",
+      "items": [
+       {
+        "refType": "food",
+        "refId": "f1",
+        "name": "Rice",
+        "grams": 100,
+        "carbs": 28,
+        "kcal": 130,
+        "carbsPer100g": 28,
+        "kcalPer100g": 130,
+        "gi": 70
+       }
+      ],
+      "totalCarbs": 28,
+      "totalKcal": 130,
+      "glycemicLoad": {
+       "value": 70,
+       "partial": false
+      },
+      "carbsUnknown": false,
+      "mealDose": 2.5,
+      "correctionDose": 0,
+      "noInsulin": false,
+      "glucose": null,
+      "ratioLabel": "Day",
+      "ratioValue": 10,
+      "updatedAt": 200
+     }
+    ],
+    "deleted": {
+     "history": {
+      "m2": 500
+     },
+     "library": {},
+     "recipes": {}
+    }
+   },
+   {
+    "schemaVersion": 2,
+    "settings": {
+     "isf": 50,
+     "target": 100,
+     "units": "mgdl",
+     "rounding": "0.5",
+     "maxDose": 15,
+     "timeRatios": [
+      {
+       "id": "a",
+       "name": "Day",
+       "start": "06:00",
+       "end": "23:30",
+       "ratio": 10
+      },
+      {
+       "id": "n",
+       "name": "Night",
+       "start": "23:30",
+       "end": "06:00",
+       "ratio": 12
+      }
+     ],
+     "activityRatios": [],
+     "insulinModel": {
+      "preset": "rapid",
+      "peakMinutes": 75,
+      "diaMinutes": 360
+     },
+     "carbAbsorptionMinutes": {
+      "high": 120,
+      "medium": 180,
+      "low": 240,
+      "unknown": 180
+     }
+    },
+    "settingsUpdatedAt": 0,
+    "library": [],
+    "recipes": [],
+    "history": [
+     {
+      "id": "m1",
+      "ts": 1790838000000,
+      "mealType": "lunch",
+      "periodName": "day",
+      "items": [
+       {
+        "refType": "food",
+        "refId": "f1",
+        "name": "Rice",
+        "grams": 100,
+        "carbs": 28,
+        "kcal": 130,
+        "carbsPer100g": 28,
+        "kcalPer100g": 130,
+        "gi": 70
+       }
+      ],
+      "totalCarbs": 28,
+      "totalKcal": 130,
+      "glycemicLoad": {
+       "value": 70,
+       "partial": false
+      },
+      "carbsUnknown": false,
+      "mealDose": 2.5,
+      "correctionDose": 0,
+      "noInsulin": false,
+      "glucose": null,
+      "ratioLabel": "Day",
+      "ratioValue": 10,
+      "updatedAt": 100
+     }
+    ],
+    "deleted": {
+     "history": {},
+     "library": {},
+     "recipes": {}
+    }
+   },
+   1000
+  ],
+  "expect": {
+   "schemaVersion": 2,
+   "settings": {
+    "isf": 50,
+    "target": 100,
+    "units": "mgdl",
+    "rounding": "0.5",
+    "maxDose": 15,
+    "timeRatios": [
+     {
+      "id": "a",
+      "name": "Day",
+      "start": "06:00",
+      "end": "23:30",
+      "ratio": 10
+     },
+     {
+      "id": "n",
+      "name": "Night",
+      "start": "23:30",
+      "end": "06:00",
+      "ratio": 12
+     }
+    ],
+    "activityRatios": [],
+    "insulinModel": {
+     "preset": "rapid",
+     "peakMinutes": 75,
+     "diaMinutes": 360
+    },
+    "carbAbsorptionMinutes": {
+     "high": 120,
+     "medium": 180,
+     "low": 240,
+     "unknown": 180
+    }
+   },
+   "settingsUpdatedAt": 0,
+   "library": [],
+   "recipes": [],
+   "history": [
+    {
+     "id": "m1",
+     "ts": 1790838000000,
+     "mealType": "lunch",
+     "periodName": "day",
+     "items": [
+      {
+       "refType": "food",
+       "refId": "f1",
+       "name": "Rice",
+       "grams": 100,
+       "carbs": 28,
+       "kcal": 130,
+       "carbsPer100g": 28,
+       "kcalPer100g": 130,
+       "gi": 70
+      }
+     ],
+     "totalCarbs": 28,
+     "totalKcal": 130,
+     "glycemicLoad": {
+      "value": 70,
+      "partial": false
+     },
+     "carbsUnknown": false,
+     "mealDose": 2.5,
+     "correctionDose": 0,
+     "noInsulin": false,
+     "glucose": null,
+     "ratioLabel": "Day",
+     "ratioValue": 10,
+     "updatedAt": 100
+    },
+    {
+     "id": "m2",
+     "ts": 1790845200000,
+     "mealType": "lunch",
+     "periodName": "day",
+     "items": [
+      {
+       "refType": "food",
+       "refId": "f1",
+       "name": "Rice",
+       "grams": 100,
+       "carbs": 28,
+       "kcal": 130,
+       "carbsPer100g": 28,
+       "kcalPer100g": 130,
+       "gi": 70
+      }
+     ],
+     "totalCarbs": 28,
+     "totalKcal": 130,
+     "glycemicLoad": {
+      "value": 70,
+      "partial": false
+     },
+     "carbsUnknown": false,
+     "mealDose": 2.5,
+     "correctionDose": 0,
+     "noInsulin": false,
+     "glucose": null,
+     "ratioLabel": "Day",
+     "ratioValue": 10,
+     "updatedAt": 1000
+    }
+   ],
+   "deleted": {
+    "history": {},
+    "library": {},
+    "recipes": {}
+   }
+  }
+ },
+ {
+  "name": "prepareRestoredState: the snapshot wins, newer meals get deletion markers",
+  "fn": "prepareRestoredState",
+  "args": [
+   {
+    "schemaVersion": 2,
+    "settings": {
+     "isf": 50,
+     "target": 100,
+     "units": "mgdl",
+     "rounding": "0.5",
+     "maxDose": 15,
+     "timeRatios": [
+      {
+       "id": "a",
+       "name": "Day",
+       "start": "06:00",
+       "end": "23:30",
+       "ratio": 10
+      },
+      {
+       "id": "n",
+       "name": "Night",
+       "start": "23:30",
+       "end": "06:00",
+       "ratio": 12
+      }
+     ],
+     "activityRatios": [],
+     "insulinModel": {
+      "preset": "rapid",
+      "peakMinutes": 75,
+      "diaMinutes": 360
+     },
+     "carbAbsorptionMinutes": {
+      "high": 120,
+      "medium": 180,
+      "low": 240,
+      "unknown": 180
+     }
+    },
+    "settingsUpdatedAt": 0,
+    "library": [],
+    "recipes": [],
+    "history": [
+     {
+      "id": "m1",
+      "ts": 1790838000000,
+      "mealType": "lunch",
+      "periodName": "day",
+      "items": [
+       {
+        "refType": "food",
+        "refId": "f1",
+        "name": "Rice",
+        "grams": 100,
+        "carbs": 28,
+        "kcal": 130,
+        "carbsPer100g": 28,
+        "kcalPer100g": 130,
+        "gi": 70
+       }
+      ],
+      "totalCarbs": 28,
+      "totalKcal": 130,
+      "glycemicLoad": {
+       "value": 70,
+       "partial": false
+      },
+      "carbsUnknown": false,
+      "mealDose": 2.5,
+      "correctionDose": 0,
+      "noInsulin": false,
+      "glucose": null,
+      "ratioLabel": "Day",
+      "ratioValue": 10,
+      "updatedAt": 100
+     }
+    ],
+    "deleted": {
+     "history": {},
+     "library": {},
+     "recipes": {}
+    }
+   },
+   {
+    "schemaVersion": 2,
+    "settings": {
+     "isf": 50,
+     "target": 100,
+     "units": "mgdl",
+     "rounding": "0.5",
+     "maxDose": 15,
+     "timeRatios": [
+      {
+       "id": "a",
+       "name": "Day",
+       "start": "06:00",
+       "end": "23:30",
+       "ratio": 10
+      },
+      {
+       "id": "n",
+       "name": "Night",
+       "start": "23:30",
+       "end": "06:00",
+       "ratio": 12
+      }
+     ],
+     "activityRatios": [],
+     "insulinModel": {
+      "preset": "rapid",
+      "peakMinutes": 75,
+      "diaMinutes": 360
+     },
+     "carbAbsorptionMinutes": {
+      "high": 120,
+      "medium": 180,
+      "low": 240,
+      "unknown": 180
+     }
+    },
+    "settingsUpdatedAt": 0,
+    "library": [],
+    "recipes": [],
+    "history": [
+     {
+      "id": "m1",
+      "ts": 1790838000000,
+      "mealType": "lunch",
+      "periodName": "day",
+      "items": [
+       {
+        "refType": "food",
+        "refId": "f1",
+        "name": "Rice",
+        "grams": 100,
+        "carbs": 28,
+        "kcal": 130,
+        "carbsPer100g": 28,
+        "kcalPer100g": 130,
+        "gi": 70
+       }
+      ],
+      "totalCarbs": 28,
+      "totalKcal": 130,
+      "glycemicLoad": {
+       "value": 70,
+       "partial": false
+      },
+      "carbsUnknown": false,
+      "mealDose": 2.5,
+      "correctionDose": 0,
+      "noInsulin": false,
+      "glucose": null,
+      "ratioLabel": "Day",
+      "ratioValue": 10,
+      "updatedAt": 100
+     },
+     {
+      "id": "m2",
+      "ts": 1790845200000,
+      "mealType": "lunch",
+      "periodName": "day",
+      "items": [
+       {
+        "refType": "food",
+        "refId": "f1",
+        "name": "Rice",
+        "grams": 100,
+        "carbs": 28,
+        "kcal": 130,
+        "carbsPer100g": 28,
+        "kcalPer100g": 130,
+        "gi": 70
+       }
+      ],
+      "totalCarbs": 28,
+      "totalKcal": 130,
+      "glycemicLoad": {
+       "value": 70,
+       "partial": false
+      },
+      "carbsUnknown": false,
+      "mealDose": 2.5,
+      "correctionDose": 0,
+      "noInsulin": false,
+      "glucose": null,
+      "ratioLabel": "Day",
+      "ratioValue": 10,
+      "updatedAt": 200
+     },
+     {
+      "id": "m3",
+      "ts": 1790852400000,
+      "mealType": "lunch",
+      "periodName": "day",
+      "items": [
+       {
+        "refType": "food",
+        "refId": "f1",
+        "name": "Rice",
+        "grams": 100,
+        "carbs": 28,
+        "kcal": 130,
+        "carbsPer100g": 28,
+        "kcalPer100g": 130,
+        "gi": 70
+       }
+      ],
+      "totalCarbs": 28,
+      "totalKcal": 130,
+      "glycemicLoad": {
+       "value": 70,
+       "partial": false
+      },
+      "carbsUnknown": false,
+      "mealDose": 2.5,
+      "correctionDose": 0,
+      "noInsulin": false,
+      "glucose": null,
+      "ratioLabel": "Day",
+      "ratioValue": 10,
+      "updatedAt": 300
+     }
+    ],
+    "deleted": {
+     "history": {},
+     "library": {},
+     "recipes": {}
+    }
+   },
+   {
+    "settings": {
+     "isf": 50,
+     "target": 100,
+     "units": "mgdl",
+     "rounding": "0.5",
+     "maxDose": 15,
+     "timeRatios": [
+      {
+       "id": "a",
+       "name": "Day",
+       "start": "06:00",
+       "end": "23:30",
+       "ratio": 10
+      },
+      {
+       "id": "n",
+       "name": "Night",
+       "start": "23:30",
+       "end": "06:00",
+       "ratio": 12
+      }
+     ],
+     "activityRatios": [],
+     "insulinModel": {
+      "preset": "rapid",
+      "peakMinutes": 75,
+      "diaMinutes": 360
+     },
+     "carbAbsorptionMinutes": {
+      "high": 120,
+      "medium": 180,
+      "low": 240,
+      "unknown": 180
+     }
+    },
+    "library": [],
+    "recipes": [],
+    "history": []
+   },
+   2000
+  ],
+  "expect": {
+   "schemaVersion": 2,
+   "settings": {
+    "isf": 50,
+    "target": 100,
+    "units": "mgdl",
+    "rounding": "0.5",
+    "maxDose": 15,
+    "timeRatios": [
+     {
+      "id": "a",
+      "name": "Day",
+      "start": "06:00",
+      "end": "23:30",
+      "ratio": 10
+     },
+     {
+      "id": "n",
+      "name": "Night",
+      "start": "23:30",
+      "end": "06:00",
+      "ratio": 12
+     }
+    ],
+    "activityRatios": [],
+    "insulinModel": {
+     "preset": "rapid",
+     "peakMinutes": 75,
+     "diaMinutes": 360
+    },
+    "carbAbsorptionMinutes": {
+     "high": 120,
+     "medium": 180,
+     "low": 240,
+     "unknown": 180
+    }
+   },
+   "settingsUpdatedAt": 2000,
+   "library": [],
+   "recipes": [],
+   "history": [
+    {
+     "id": "m1",
+     "ts": 1790838000000,
+     "mealType": "lunch",
+     "periodName": "day",
+     "items": [
+      {
+       "refType": "food",
+       "refId": "f1",
+       "name": "Rice",
+       "grams": 100,
+       "carbs": 28,
+       "kcal": 130,
+       "carbsPer100g": 28,
+       "kcalPer100g": 130,
+       "gi": 70
+      }
+     ],
+     "totalCarbs": 28,
+     "totalKcal": 130,
+     "glycemicLoad": {
+      "value": 70,
+      "partial": false
+     },
+     "carbsUnknown": false,
+     "mealDose": 2.5,
+     "correctionDose": 0,
+     "noInsulin": false,
+     "glucose": null,
+     "ratioLabel": "Day",
+     "ratioValue": 10,
+     "updatedAt": 2000
+    }
+   ],
+   "deleted": {
+    "history": {
+     "m2": 2000,
+     "m3": 2000
+    },
+    "library": {},
+    "recipes": {}
+   }
+  }
+ },
+ {
+  "name": "statesEquivalent: same",
+  "fn": "statesEquivalent",
+  "args": [
+   {
+    "schemaVersion": 2,
+    "settings": {
+     "isf": 50,
+     "target": 100,
+     "units": "mgdl",
+     "rounding": "0.5",
+     "maxDose": 15,
+     "timeRatios": [
+      {
+       "id": "a",
+       "name": "Day",
+       "start": "06:00",
+       "end": "23:30",
+       "ratio": 10
+      },
+      {
+       "id": "n",
+       "name": "Night",
+       "start": "23:30",
+       "end": "06:00",
+       "ratio": 12
+      }
+     ],
+     "activityRatios": [],
+     "insulinModel": {
+      "preset": "rapid",
+      "peakMinutes": 75,
+      "diaMinutes": 360
+     },
+     "carbAbsorptionMinutes": {
+      "high": 120,
+      "medium": 180,
+      "low": 240,
+      "unknown": 180
+     }
+    },
+    "settingsUpdatedAt": 0,
+    "library": [],
+    "recipes": [],
+    "history": [
+     {
+      "id": "m1",
+      "ts": 1790838000000,
+      "mealType": "lunch",
+      "periodName": "day",
+      "items": [
+       {
+        "refType": "food",
+        "refId": "f1",
+        "name": "Rice",
+        "grams": 100,
+        "carbs": 28,
+        "kcal": 130,
+        "carbsPer100g": 28,
+        "kcalPer100g": 130,
+        "gi": 70
+       }
+      ],
+      "totalCarbs": 28,
+      "totalKcal": 130,
+      "glycemicLoad": {
+       "value": 70,
+       "partial": false
+      },
+      "carbsUnknown": false,
+      "mealDose": 2.5,
+      "correctionDose": 0,
+      "noInsulin": false,
+      "glucose": null,
+      "ratioLabel": "Day",
+      "ratioValue": 10,
+      "updatedAt": 100
+     }
+    ],
+    "deleted": {
+     "history": {},
+     "library": {},
+     "recipes": {}
+    }
+   },
+   {
+    "schemaVersion": 2,
+    "settings": {
+     "isf": 50,
+     "target": 100,
+     "units": "mgdl",
+     "rounding": "0.5",
+     "maxDose": 15,
+     "timeRatios": [
+      {
+       "id": "a",
+       "name": "Day",
+       "start": "06:00",
+       "end": "23:30",
+       "ratio": 10
+      },
+      {
+       "id": "n",
+       "name": "Night",
+       "start": "23:30",
+       "end": "06:00",
+       "ratio": 12
+      }
+     ],
+     "activityRatios": [],
+     "insulinModel": {
+      "preset": "rapid",
+      "peakMinutes": 75,
+      "diaMinutes": 360
+     },
+     "carbAbsorptionMinutes": {
+      "high": 120,
+      "medium": 180,
+      "low": 240,
+      "unknown": 180
+     }
+    },
+    "settingsUpdatedAt": 0,
+    "library": [],
+    "recipes": [],
+    "history": [
+     {
+      "id": "m1",
+      "ts": 1790838000000,
+      "mealType": "lunch",
+      "periodName": "day",
+      "items": [
+       {
+        "refType": "food",
+        "refId": "f1",
+        "name": "Rice",
+        "grams": 100,
+        "carbs": 28,
+        "kcal": 130,
+        "carbsPer100g": 28,
+        "kcalPer100g": 130,
+        "gi": 70
+       }
+      ],
+      "totalCarbs": 28,
+      "totalKcal": 130,
+      "glycemicLoad": {
+       "value": 70,
+       "partial": false
+      },
+      "carbsUnknown": false,
+      "mealDose": 2.5,
+      "correctionDose": 0,
+      "noInsulin": false,
+      "glucose": null,
+      "ratioLabel": "Day",
+      "ratioValue": 10,
+      "updatedAt": 100
+     }
+    ],
+    "deleted": {
+     "history": {},
+     "library": {},
+     "recipes": {}
+    }
+   }
+  ],
+  "expect": true
+ },
+ {
+  "name": "statesEquivalent: a different stamp",
+  "fn": "statesEquivalent",
+  "args": [
+   {
+    "schemaVersion": 2,
+    "settings": {
+     "isf": 50,
+     "target": 100,
+     "units": "mgdl",
+     "rounding": "0.5",
+     "maxDose": 15,
+     "timeRatios": [
+      {
+       "id": "a",
+       "name": "Day",
+       "start": "06:00",
+       "end": "23:30",
+       "ratio": 10
+      },
+      {
+       "id": "n",
+       "name": "Night",
+       "start": "23:30",
+       "end": "06:00",
+       "ratio": 12
+      }
+     ],
+     "activityRatios": [],
+     "insulinModel": {
+      "preset": "rapid",
+      "peakMinutes": 75,
+      "diaMinutes": 360
+     },
+     "carbAbsorptionMinutes": {
+      "high": 120,
+      "medium": 180,
+      "low": 240,
+      "unknown": 180
+     }
+    },
+    "settingsUpdatedAt": 0,
+    "library": [],
+    "recipes": [],
+    "history": [
+     {
+      "id": "m1",
+      "ts": 1790838000000,
+      "mealType": "lunch",
+      "periodName": "day",
+      "items": [
+       {
+        "refType": "food",
+        "refId": "f1",
+        "name": "Rice",
+        "grams": 100,
+        "carbs": 28,
+        "kcal": 130,
+        "carbsPer100g": 28,
+        "kcalPer100g": 130,
+        "gi": 70
+       }
+      ],
+      "totalCarbs": 28,
+      "totalKcal": 130,
+      "glycemicLoad": {
+       "value": 70,
+       "partial": false
+      },
+      "carbsUnknown": false,
+      "mealDose": 2.5,
+      "correctionDose": 0,
+      "noInsulin": false,
+      "glucose": null,
+      "ratioLabel": "Day",
+      "ratioValue": 10,
+      "updatedAt": 100
+     }
+    ],
+    "deleted": {
+     "history": {},
+     "library": {},
+     "recipes": {}
+    }
+   },
+   {
+    "schemaVersion": 2,
+    "settings": {
+     "isf": 50,
+     "target": 100,
+     "units": "mgdl",
+     "rounding": "0.5",
+     "maxDose": 15,
+     "timeRatios": [
+      {
+       "id": "a",
+       "name": "Day",
+       "start": "06:00",
+       "end": "23:30",
+       "ratio": 10
+      },
+      {
+       "id": "n",
+       "name": "Night",
+       "start": "23:30",
+       "end": "06:00",
+       "ratio": 12
+      }
+     ],
+     "activityRatios": [],
+     "insulinModel": {
+      "preset": "rapid",
+      "peakMinutes": 75,
+      "diaMinutes": 360
+     },
+     "carbAbsorptionMinutes": {
+      "high": 120,
+      "medium": 180,
+      "low": 240,
+      "unknown": 180
+     }
+    },
+    "settingsUpdatedAt": 0,
+    "library": [],
+    "recipes": [],
+    "history": [
+     {
+      "id": "m1",
+      "ts": 1790838000000,
+      "mealType": "lunch",
+      "periodName": "day",
+      "items": [
+       {
+        "refType": "food",
+        "refId": "f1",
+        "name": "Rice",
+        "grams": 100,
+        "carbs": 28,
+        "kcal": 130,
+        "carbsPer100g": 28,
+        "kcalPer100g": 130,
+        "gi": 70
+       }
+      ],
+      "totalCarbs": 28,
+      "totalKcal": 130,
+      "glycemicLoad": {
+       "value": 70,
+       "partial": false
+      },
+      "carbsUnknown": false,
+      "mealDose": 2.5,
+      "correctionDose": 0,
+      "noInsulin": false,
+      "glucose": null,
+      "ratioLabel": "Day",
+      "ratioValue": 10,
+      "updatedAt": 101
+     }
+    ],
+    "deleted": {
+     "history": {},
+     "library": {},
+     "recipes": {}
+    }
+   }
+  ],
+  "expect": false
+ },
+ {
+  "name": "unexplainedEmptying: all deliberately deleted",
+  "fn": "unexplainedEmptying",
+  "args": [
+   {
+    "schemaVersion": 2,
+    "settings": {
+     "isf": 50,
+     "target": 100,
+     "units": "mgdl",
+     "rounding": "0.5",
+     "maxDose": 15,
+     "timeRatios": [
+      {
+       "id": "a",
+       "name": "Day",
+       "start": "06:00",
+       "end": "23:30",
+       "ratio": 10
+      },
+      {
+       "id": "n",
+       "name": "Night",
+       "start": "23:30",
+       "end": "06:00",
+       "ratio": 12
+      }
+     ],
+     "activityRatios": [],
+     "insulinModel": {
+      "preset": "rapid",
+      "peakMinutes": 75,
+      "diaMinutes": 360
+     },
+     "carbAbsorptionMinutes": {
+      "high": 120,
+      "medium": 180,
+      "low": 240,
+      "unknown": 180
+     }
+    },
+    "settingsUpdatedAt": 0,
+    "library": [],
+    "recipes": [],
+    "history": [],
+    "deleted": {
+     "history": {
+      "a": 1,
+      "b": 2
+     },
+     "library": {},
+     "recipes": {}
+    }
+   },
+   [
+    "a",
+    "b"
+   ]
+  ],
+  "expect": []
+ },
+ {
+  "name": "unexplainedEmptying: one was not",
+  "fn": "unexplainedEmptying",
+  "args": [
+   {
+    "schemaVersion": 2,
+    "settings": {
+     "isf": 50,
+     "target": 100,
+     "units": "mgdl",
+     "rounding": "0.5",
+     "maxDose": 15,
+     "timeRatios": [
+      {
+       "id": "a",
+       "name": "Day",
+       "start": "06:00",
+       "end": "23:30",
+       "ratio": 10
+      },
+      {
+       "id": "n",
+       "name": "Night",
+       "start": "23:30",
+       "end": "06:00",
+       "ratio": 12
+      }
+     ],
+     "activityRatios": [],
+     "insulinModel": {
+      "preset": "rapid",
+      "peakMinutes": 75,
+      "diaMinutes": 360
+     },
+     "carbAbsorptionMinutes": {
+      "high": 120,
+      "medium": 180,
+      "low": 240,
+      "unknown": 180
+     }
+    },
+    "settingsUpdatedAt": 0,
+    "library": [],
+    "recipes": [],
+    "history": [],
+    "deleted": {
+     "history": {
+      "a": 1
+     },
+     "library": {},
+     "recipes": {}
+    }
+   },
+   [
+    "a",
+    "b"
+   ]
+  ],
+  "expect": [
+   "b"
+  ]
+ },
+ {
+  "name": "unexplainedEmptying: history is not empty",
+  "fn": "unexplainedEmptying",
+  "args": [
+   {
+    "schemaVersion": 2,
+    "settings": {
+     "isf": 50,
+     "target": 100,
+     "units": "mgdl",
+     "rounding": "0.5",
+     "maxDose": 15,
+     "timeRatios": [
+      {
+       "id": "a",
+       "name": "Day",
+       "start": "06:00",
+       "end": "23:30",
+       "ratio": 10
+      },
+      {
+       "id": "n",
+       "name": "Night",
+       "start": "23:30",
+       "end": "06:00",
+       "ratio": 12
+      }
+     ],
+     "activityRatios": [],
+     "insulinModel": {
+      "preset": "rapid",
+      "peakMinutes": 75,
+      "diaMinutes": 360
+     },
+     "carbAbsorptionMinutes": {
+      "high": 120,
+      "medium": 180,
+      "low": 240,
+      "unknown": 180
+     }
+    },
+    "settingsUpdatedAt": 0,
+    "library": [],
+    "recipes": [],
+    "history": [
+     {
+      "id": "m1",
+      "ts": 1790838000000,
+      "mealType": "lunch",
+      "periodName": "day",
+      "items": [
+       {
+        "refType": "food",
+        "refId": "f1",
+        "name": "Rice",
+        "grams": 100,
+        "carbs": 28,
+        "kcal": 130,
+        "carbsPer100g": 28,
+        "kcalPer100g": 130,
+        "gi": 70
+       }
+      ],
+      "totalCarbs": 28,
+      "totalKcal": 130,
+      "glycemicLoad": {
+       "value": 70,
+       "partial": false
+      },
+      "carbsUnknown": false,
+      "mealDose": 2.5,
+      "correctionDose": 0,
+      "noInsulin": false,
+      "glucose": null,
+      "ratioLabel": "Day",
+      "ratioValue": 10,
+      "updatedAt": 100
+     }
+    ],
+    "deleted": {
+     "history": {},
+     "library": {},
+     "recipes": {}
+    }
+   },
+   [
+    "a"
+   ]
+  ],
+  "expect": []
+ },
+ {
+  "name": "pruneTombstones: old markers go, recent ones stay",
+  "fn": "pruneTombstones",
+  "args": [
+   {
+    "schemaVersion": 2,
+    "settings": {
+     "isf": 50,
+     "target": 100,
+     "units": "mgdl",
+     "rounding": "0.5",
+     "maxDose": 15,
+     "timeRatios": [
+      {
+       "id": "a",
+       "name": "Day",
+       "start": "06:00",
+       "end": "23:30",
+       "ratio": 10
+      },
+      {
+       "id": "n",
+       "name": "Night",
+       "start": "23:30",
+       "end": "06:00",
+       "ratio": 12
+      }
+     ],
+     "activityRatios": [],
+     "insulinModel": {
+      "preset": "rapid",
+      "peakMinutes": 75,
+      "diaMinutes": 360
+     },
+     "carbAbsorptionMinutes": {
+      "high": 120,
+      "medium": 180,
+      "low": 240,
+      "unknown": 180
+     }
+    },
+    "settingsUpdatedAt": 0,
+    "library": [],
+    "recipes": [],
+    "history": [],
+    "deleted": {
+     "history": {
+      "old": 1,
+      "recent": 8553600000
+     },
+     "library": {},
+     "recipes": {}
+    }
+   },
+   8640000000,
+   7776000000
+  ],
+  "expect": {
+   "history": {
+    "recent": 8553600000
+   },
+   "library": {},
+   "recipes": {}
+  }
+ }
+]

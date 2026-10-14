@@ -21,7 +21,7 @@ LAYOUT  (repo root = what GitHub Pages serves)
   js/                       code modules
     calc.js  history.js  nightscout.js  glucose-stats.js  glucose-model.js  sync-status.js  food-reference.js  changelog.js  seed-recipes.js
     util.js  state.js  diag.js  backup.js  dialogs.js  crypto.js  insights.js
-    core/  (folder: time.js  library.js  meal-entry.js  storage.js  schema.js  outbox.js  problems.js  cloud-sync.js)
+    core/  (folder: time.js  library.js  meal-entry.js  storage.js  schema.js  outbox.js  problems.js  cloud-sync.js  platform.js  health-target.js)
 
   vendor/                   supabase.js  (the cloud-sync library, bundled so the app never needs a CDN to start)
 

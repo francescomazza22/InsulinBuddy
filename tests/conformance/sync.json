@@ -1,0 +1,927 @@
+[
+ {
+  "name": "treatmentsForEntry combined: meal with insulin",
+  "fn": "treatmentsForEntry",
+  "args": [
+   {
+    "id": "t1",
+    "ts": 1790856000000,
+    "mealType": "lunch",
+    "periodName": "day",
+    "items": [
+     {
+      "name": "Rice"
+     },
+     {
+      "name": "Chicken"
+     }
+    ],
+    "totalCarbs": 40,
+    "totalKcal": 130,
+    "glycemicLoad": {
+     "value": 70,
+     "partial": false
+    },
+    "carbsUnknown": false,
+    "mealDose": 3,
+    "correctionDose": 0.5,
+    "noInsulin": false,
+    "glucose": null,
+    "ratioLabel": "Day",
+    "ratioValue": 10
+   },
+   {
+    "format": "combined"
+   }
+  ],
+  "expect": [
+   {
+    "key": "main",
+    "treatment": {
+     "eventType": "Meal Bolus",
+     "carbs": 40,
+     "insulin": 3.5,
+     "notes": "Rice, Chicken",
+     "created_at": "2026-10-01T12:00:00.000Z",
+     "enteredBy": "Insulin Buddy"
+    }
+   }
+  ]
+ },
+ {
+  "name": "treatmentsForEntry combined: carbs only",
+  "fn": "treatmentsForEntry",
+  "args": [
+   {
+    "id": "t1",
+    "ts": 1790856000000,
+    "mealType": "lunch",
+    "periodName": "day",
+    "items": [
+     {
+      "name": "Rice"
+     },
+     {
+      "name": "Chicken"
+     }
+    ],
+    "totalCarbs": 40,
+    "totalKcal": 130,
+    "glycemicLoad": {
+     "value": 70,
+     "partial": false
+    },
+    "carbsUnknown": false,
+    "mealDose": 0,
+    "correctionDose": 0,
+    "noInsulin": false,
+    "glucose": null,
+    "ratioLabel": "Day",
+    "ratioValue": 10
+   },
+   {
+    "format": "combined"
+   }
+  ],
+  "expect": [
+   {
+    "key": "main",
+    "treatment": {
+     "eventType": "Carb Correction",
+     "carbs": 40,
+     "notes": "Rice, Chicken",
+     "created_at": "2026-10-01T12:00:00.000Z",
+     "enteredBy": "Insulin Buddy"
+    }
+   }
+  ]
+ },
+ {
+  "name": "treatmentsForEntry combined: insulin only",
+  "fn": "treatmentsForEntry",
+  "args": [
+   {
+    "id": "t1",
+    "ts": 1790856000000,
+    "mealType": "lunch",
+    "periodName": "day",
+    "items": [],
+    "totalCarbs": 0,
+    "totalKcal": 130,
+    "glycemicLoad": {
+     "value": 70,
+     "partial": false
+    },
+    "carbsUnknown": false,
+    "mealDose": 3,
+    "correctionDose": 0.5,
+    "noInsulin": false,
+    "glucose": null,
+    "ratioLabel": "Day",
+    "ratioValue": 10
+   },
+   {
+    "format": "combined"
+   }
+  ],
+  "expect": [
+   {
+    "key": "main",
+    "treatment": {
+     "eventType": "Correction Bolus",
+     "insulin": 3.5,
+     "notes": "Correction",
+     "created_at": "2026-10-01T12:00:00.000Z",
+     "enteredBy": "Insulin Buddy"
+    }
+   }
+  ]
+ },
+ {
+  "name": "treatmentsForEntry combined: correction with a glucose reading",
+  "fn": "treatmentsForEntry",
+  "args": [
+   {
+    "id": "t1",
+    "ts": 1790856000000,
+    "mealType": "lunch",
+    "periodName": "day",
+    "items": [
+     {
+      "name": "Rice"
+     },
+     {
+      "name": "Chicken"
+     }
+    ],
+    "totalCarbs": 40,
+    "totalKcal": 130,
+    "glycemicLoad": {
+     "value": 70,
+     "partial": false
+    },
+    "carbsUnknown": false,
+    "mealDose": 3,
+    "correctionDose": 0.5,
+    "noInsulin": false,
+    "glucose": 210,
+    "ratioLabel": "Day",
+    "ratioValue": 10
+   },
+   {
+    "format": "combined"
+   }
+  ],
+  "expect": [
+   {
+    "key": "main",
+    "treatment": {
+     "eventType": "Meal Bolus",
+     "carbs": 40,
+     "insulin": 3.5,
+     "notes": "Rice, Chicken",
+     "glucose": 210,
+     "glucoseType": "Finger",
+     "units": "mg/dl",
+     "created_at": "2026-10-01T12:00:00.000Z",
+     "enteredBy": "Insulin Buddy"
+    }
+   }
+  ]
+ },
+ {
+  "name": "treatmentsForEntry combined: glucose in mmol/L",
+  "fn": "treatmentsForEntry",
+  "args": [
+   {
+    "id": "t1",
+    "ts": 1790856000000,
+    "mealType": "lunch",
+    "periodName": "day",
+    "items": [
+     {
+      "name": "Rice"
+     },
+     {
+      "name": "Chicken"
+     }
+    ],
+    "totalCarbs": 40,
+    "totalKcal": 130,
+    "glycemicLoad": {
+     "value": 70,
+     "partial": false
+    },
+    "carbsUnknown": false,
+    "mealDose": 3,
+    "correctionDose": 0.5,
+    "noInsulin": false,
+    "glucose": 11.7,
+    "ratioLabel": "Day",
+    "ratioValue": 10
+   },
+   {
+    "format": "combined",
+    "units": "mmol"
+   }
+  ],
+  "expect": [
+   {
+    "key": "main",
+    "treatment": {
+     "eventType": "Meal Bolus",
+     "carbs": 40,
+     "insulin": 3.5,
+     "notes": "Rice, Chicken",
+     "glucose": 210.8,
+     "glucoseType": "Finger",
+     "units": "mg/dl",
+     "created_at": "2026-10-01T12:00:00.000Z",
+     "enteredBy": "Insulin Buddy"
+    }
+   }
+  ]
+ },
+ {
+  "name": "treatmentsForEntry combined: nothing to send but a note",
+  "fn": "treatmentsForEntry",
+  "args": [
+   {
+    "id": "t1",
+    "ts": 1790856000000,
+    "mealType": "lunch",
+    "periodName": "day",
+    "items": [],
+    "totalCarbs": 0,
+    "totalKcal": 130,
+    "glycemicLoad": {
+     "value": 70,
+     "partial": false
+    },
+    "carbsUnknown": false,
+    "mealDose": 0,
+    "correctionDose": 0,
+    "noInsulin": false,
+    "glucose": null,
+    "ratioLabel": "Day",
+    "ratioValue": 10
+   },
+   {
+    "format": "combined"
+   }
+  ],
+  "expect": [
+   {
+    "key": "note",
+    "treatment": {
+     "eventType": "Note",
+     "notes": "Logged in Insulin Buddy",
+     "created_at": "2026-10-01T12:00:00.000Z",
+     "enteredBy": "Insulin Buddy"
+    }
+   }
+  ]
+ },
+ {
+  "name": "treatmentsForEntry split: meal with insulin",
+  "fn": "treatmentsForEntry",
+  "args": [
+   {
+    "id": "t1",
+    "ts": 1790856000000,
+    "mealType": "lunch",
+    "periodName": "day",
+    "items": [
+     {
+      "name": "Rice"
+     },
+     {
+      "name": "Chicken"
+     }
+    ],
+    "totalCarbs": 40,
+    "totalKcal": 130,
+    "glycemicLoad": {
+     "value": 70,
+     "partial": false
+    },
+    "carbsUnknown": false,
+    "mealDose": 3,
+    "correctionDose": 0.5,
+    "noInsulin": false,
+    "glucose": null,
+    "ratioLabel": "Day",
+    "ratioValue": 10
+   },
+   {
+    "format": "split"
+   }
+  ],
+  "expect": [
+   {
+    "key": "carbs",
+    "treatment": {
+     "eventType": "Carb Correction",
+     "carbs": 40,
+     "notes": "Rice, Chicken",
+     "created_at": "2026-10-01T12:00:00.000Z",
+     "enteredBy": "Insulin Buddy"
+    }
+   },
+   {
+    "key": "insulin",
+    "treatment": {
+     "eventType": "Correction Bolus",
+     "insulin": 3.5,
+     "carbs": 0,
+     "notes": "Bolus: 3.5u – Rice, Chicken",
+     "created_at": "2026-10-01T12:00:01.000Z"
+    }
+   }
+  ]
+ },
+ {
+  "name": "treatmentsForEntry split: carbs only",
+  "fn": "treatmentsForEntry",
+  "args": [
+   {
+    "id": "t1",
+    "ts": 1790856000000,
+    "mealType": "lunch",
+    "periodName": "day",
+    "items": [
+     {
+      "name": "Rice"
+     },
+     {
+      "name": "Chicken"
+     }
+    ],
+    "totalCarbs": 40,
+    "totalKcal": 130,
+    "glycemicLoad": {
+     "value": 70,
+     "partial": false
+    },
+    "carbsUnknown": false,
+    "mealDose": 0,
+    "correctionDose": 0,
+    "noInsulin": false,
+    "glucose": null,
+    "ratioLabel": "Day",
+    "ratioValue": 10
+   },
+   {
+    "format": "split"
+   }
+  ],
+  "expect": [
+   {
+    "key": "carbs",
+    "treatment": {
+     "eventType": "Carb Correction",
+     "carbs": 40,
+     "notes": "Rice, Chicken",
+     "created_at": "2026-10-01T12:00:00.000Z",
+     "enteredBy": "Insulin Buddy"
+    }
+   }
+  ]
+ },
+ {
+  "name": "treatmentsForEntry split: insulin only",
+  "fn": "treatmentsForEntry",
+  "args": [
+   {
+    "id": "t1",
+    "ts": 1790856000000,
+    "mealType": "lunch",
+    "periodName": "day",
+    "items": [],
+    "totalCarbs": 0,
+    "totalKcal": 130,
+    "glycemicLoad": {
+     "value": 70,
+     "partial": false
+    },
+    "carbsUnknown": false,
+    "mealDose": 3,
+    "correctionDose": 0.5,
+    "noInsulin": false,
+    "glucose": null,
+    "ratioLabel": "Day",
+    "ratioValue": 10
+   },
+   {
+    "format": "split"
+   }
+  ],
+  "expect": [
+   {
+    "key": "insulin",
+    "treatment": {
+     "eventType": "Correction Bolus",
+     "insulin": 3.5,
+     "carbs": 0,
+     "notes": "Bolus: 3.5u",
+     "created_at": "2026-10-01T12:00:00.000Z"
+    }
+   }
+  ]
+ },
+ {
+  "name": "treatmentsForEntry split: correction with a glucose reading",
+  "fn": "treatmentsForEntry",
+  "args": [
+   {
+    "id": "t1",
+    "ts": 1790856000000,
+    "mealType": "lunch",
+    "periodName": "day",
+    "items": [
+     {
+      "name": "Rice"
+     },
+     {
+      "name": "Chicken"
+     }
+    ],
+    "totalCarbs": 40,
+    "totalKcal": 130,
+    "glycemicLoad": {
+     "value": 70,
+     "partial": false
+    },
+    "carbsUnknown": false,
+    "mealDose": 3,
+    "correctionDose": 0.5,
+    "noInsulin": false,
+    "glucose": 210,
+    "ratioLabel": "Day",
+    "ratioValue": 10
+   },
+   {
+    "format": "split"
+   }
+  ],
+  "expect": [
+   {
+    "key": "carbs",
+    "treatment": {
+     "eventType": "Carb Correction",
+     "carbs": 40,
+     "notes": "Rice, Chicken",
+     "created_at": "2026-10-01T12:00:00.000Z",
+     "enteredBy": "Insulin Buddy"
+    }
+   },
+   {
+    "key": "insulin",
+    "treatment": {
+     "eventType": "Correction Bolus",
+     "insulin": 3.5,
+     "carbs": 0,
+     "notes": "Bolus: 3.5u (BG 210 mg/dL) – Rice, Chicken",
+     "created_at": "2026-10-01T12:00:01.000Z"
+    }
+   }
+  ]
+ },
+ {
+  "name": "treatmentsForEntry split: glucose in mmol/L",
+  "fn": "treatmentsForEntry",
+  "args": [
+   {
+    "id": "t1",
+    "ts": 1790856000000,
+    "mealType": "lunch",
+    "periodName": "day",
+    "items": [
+     {
+      "name": "Rice"
+     },
+     {
+      "name": "Chicken"
+     }
+    ],
+    "totalCarbs": 40,
+    "totalKcal": 130,
+    "glycemicLoad": {
+     "value": 70,
+     "partial": false
+    },
+    "carbsUnknown": false,
+    "mealDose": 3,
+    "correctionDose": 0.5,
+    "noInsulin": false,
+    "glucose": 11.7,
+    "ratioLabel": "Day",
+    "ratioValue": 10
+   },
+   {
+    "format": "split",
+    "units": "mmol"
+   }
+  ],
+  "expect": [
+   {
+    "key": "carbs",
+    "treatment": {
+     "eventType": "Carb Correction",
+     "carbs": 40,
+     "notes": "Rice, Chicken",
+     "created_at": "2026-10-01T12:00:00.000Z",
+     "enteredBy": "Insulin Buddy"
+    }
+   },
+   {
+    "key": "insulin",
+    "treatment": {
+     "eventType": "Correction Bolus",
+     "insulin": 3.5,
+     "carbs": 0,
+     "notes": "Bolus: 3.5u (BG 11.7 mmol/L) – Rice, Chicken",
+     "created_at": "2026-10-01T12:00:01.000Z"
+    }
+   }
+  ]
+ },
+ {
+  "name": "treatmentsForEntry split: nothing to send but a note",
+  "fn": "treatmentsForEntry",
+  "args": [
+   {
+    "id": "t1",
+    "ts": 1790856000000,
+    "mealType": "lunch",
+    "periodName": "day",
+    "items": [],
+    "totalCarbs": 0,
+    "totalKcal": 130,
+    "glycemicLoad": {
+     "value": 70,
+     "partial": false
+    },
+    "carbsUnknown": false,
+    "mealDose": 0,
+    "correctionDose": 0,
+    "noInsulin": false,
+    "glucose": null,
+    "ratioLabel": "Day",
+    "ratioValue": 10
+   },
+   {
+    "format": "split"
+   }
+  ],
+  "expect": [
+   {
+    "key": "note",
+    "treatment": {
+     "eventType": "Note",
+     "notes": "Logged in Insulin Buddy",
+     "created_at": "2026-10-01T12:00:00.000Z",
+     "enteredBy": "Insulin Buddy"
+    }
+   }
+  ]
+ },
+ {
+  "name": "treatmentsForEntry: basal goes as a Note, never as insulin",
+  "fn": "treatmentsForEntry",
+  "args": [
+   {
+    "id": "bb",
+    "ts": 1790856000000,
+    "entryType": "basal",
+    "mealType": "basal",
+    "periodName": "evening",
+    "basalDose": 16,
+    "basalSlot": "pm",
+    "items": [],
+    "totalCarbs": 0,
+    "totalKcal": 0,
+    "glycemicLoad": null,
+    "mealDose": 0,
+    "correctionDose": 0,
+    "noInsulin": false,
+    "glucose": null,
+    "ratioLabel": "",
+    "ratioValue": null
+   },
+   {
+    "format": "combined"
+   }
+  ],
+  "expect": [
+   {
+    "key": "main",
+    "treatment": {
+     "eventType": "Note",
+     "notes": "Basal insulin: 16u (evening)",
+     "created_at": "2026-10-01T12:00:00.000Z",
+     "enteredBy": "Insulin Buddy"
+    }
+   }
+  ]
+ },
+ {
+  "name": "treatmentsForEntry: basal morning",
+  "fn": "treatmentsForEntry",
+  "args": [
+   {
+    "id": "bb",
+    "ts": 1790856000000,
+    "entryType": "basal",
+    "mealType": "basal",
+    "periodName": "morning",
+    "basalDose": 12.5,
+    "basalSlot": "am",
+    "items": [],
+    "totalCarbs": 0,
+    "totalKcal": 0,
+    "glycemicLoad": null,
+    "mealDose": 0,
+    "correctionDose": 0,
+    "noInsulin": false,
+    "glucose": null,
+    "ratioLabel": "",
+    "ratioValue": null
+   },
+   {
+    "format": "split"
+   }
+  ],
+  "expect": [
+   {
+    "key": "main",
+    "treatment": {
+     "eventType": "Note",
+     "notes": "Basal insulin: 12.5u (morning)",
+     "created_at": "2026-10-01T12:00:00.000Z",
+     "enteredBy": "Insulin Buddy"
+    }
+   }
+  ]
+ },
+ {
+  "name": "nsToken \"https://x.ns.example.com/?token=abc-123\"",
+  "fn": "nsToken",
+  "args": [
+   "https://x.ns.example.com/?token=abc-123"
+  ],
+  "expect": "abc-123"
+ },
+ {
+  "name": "nsBaseUrl \"https://x.ns.example.com/?token=abc-123\"",
+  "fn": "nsBaseUrl",
+  "args": [
+   "https://x.ns.example.com/?token=abc-123"
+  ],
+  "expect": "https://x.ns.example.com"
+ },
+ {
+  "name": "nsConfigured \"https://x.ns.example.com/?token=abc-123\"",
+  "fn": "nsConfigured",
+  "args": [
+   "https://x.ns.example.com/?token=abc-123"
+  ],
+  "expect": true
+ },
+ {
+  "name": "nsToken \"https://x.ns.example.com/\"",
+  "fn": "nsToken",
+  "args": [
+   "https://x.ns.example.com/"
+  ],
+  "expect": null
+ },
+ {
+  "name": "nsBaseUrl \"https://x.ns.example.com/\"",
+  "fn": "nsBaseUrl",
+  "args": [
+   "https://x.ns.example.com/"
+  ],
+  "expect": "https://x.ns.example.com"
+ },
+ {
+  "name": "nsConfigured \"https://x.ns.example.com/\"",
+  "fn": "nsConfigured",
+  "args": [
+   "https://x.ns.example.com/"
+  ],
+  "expect": false
+ },
+ {
+  "name": "nsToken \"https://x.ns.example.com///?token=a%20b&x=1\"",
+  "fn": "nsToken",
+  "args": [
+   "https://x.ns.example.com///?token=a%20b&x=1"
+  ],
+  "expect": "a b"
+ },
+ {
+  "name": "nsBaseUrl \"https://x.ns.example.com///?token=a%20b&x=1\"",
+  "fn": "nsBaseUrl",
+  "args": [
+   "https://x.ns.example.com///?token=a%20b&x=1"
+  ],
+  "expect": "https://x.ns.example.com"
+ },
+ {
+  "name": "nsConfigured \"https://x.ns.example.com///?token=a%20b&x=1\"",
+  "fn": "nsConfigured",
+  "args": [
+   "https://x.ns.example.com///?token=a%20b&x=1"
+  ],
+  "expect": true
+ },
+ {
+  "name": "nsToken \"\"",
+  "fn": "nsToken",
+  "args": [
+   ""
+  ],
+  "expect": null
+ },
+ {
+  "name": "nsBaseUrl \"\"",
+  "fn": "nsBaseUrl",
+  "args": [
+   ""
+  ],
+  "expect": ""
+ },
+ {
+  "name": "nsConfigured \"\"",
+  "fn": "nsConfigured",
+  "args": [
+   ""
+  ],
+  "expect": false
+ },
+ {
+  "name": "nsToken null",
+  "fn": "nsToken",
+  "args": [
+   null
+  ],
+  "expect": null
+ },
+ {
+  "name": "nsBaseUrl null",
+  "fn": "nsBaseUrl",
+  "args": [
+   null
+  ],
+  "expect": ""
+ },
+ {
+  "name": "nsConfigured null",
+  "fn": "nsConfigured",
+  "args": [
+   null
+  ],
+  "expect": false
+ },
+ {
+  "name": "nsToken \"https://x.example.com/?foo=1&token=zzz\"",
+  "fn": "nsToken",
+  "args": [
+   "https://x.example.com/?foo=1&token=zzz"
+  ],
+  "expect": "zzz"
+ },
+ {
+  "name": "nsBaseUrl \"https://x.example.com/?foo=1&token=zzz\"",
+  "fn": "nsBaseUrl",
+  "args": [
+   "https://x.example.com/?foo=1&token=zzz"
+  ],
+  "expect": "https://x.example.com"
+ },
+ {
+  "name": "nsConfigured \"https://x.example.com/?foo=1&token=zzz\"",
+  "fn": "nsConfigured",
+  "args": [
+   "https://x.example.com/?foo=1&token=zzz"
+  ],
+  "expect": true
+ },
+ {
+  "name": "extractNsId {\"_id\":\"abc\"}",
+  "fn": "extractNsId",
+  "args": [
+   {
+    "_id": "abc"
+   }
+  ],
+  "expect": "abc"
+ },
+ {
+  "name": "extractNsId [{\"_id\":\"abc\"}]",
+  "fn": "extractNsId",
+  "args": [
+   [
+    {
+     "_id": "abc"
+    }
+   ]
+  ],
+  "expect": "abc"
+ },
+ {
+  "name": "extractNsId {\"identifier\":\"id9\"}",
+  "fn": "extractNsId",
+  "args": [
+   {
+    "identifier": "id9"
+   }
+  ],
+  "expect": "id9"
+ },
+ {
+  "name": "extractNsId {\"result\":{\"identifier\":\"r1\"}}",
+  "fn": "extractNsId",
+  "args": [
+   {
+    "result": {
+     "identifier": "r1"
+    }
+   }
+  ],
+  "expect": "r1"
+ },
+ {
+  "name": "extractNsId {}",
+  "fn": "extractNsId",
+  "args": [
+   {}
+  ],
+  "expect": null
+ },
+ {
+  "name": "extractNsId null",
+  "fn": "extractNsId",
+  "args": [
+   null
+  ],
+  "expect": null
+ },
+ {
+  "name": "extractNsId \"text\"",
+  "fn": "extractNsId",
+  "args": [
+   "text"
+  ],
+  "expect": null
+ },
+ {
+  "name": "entriesToGlucoseRows: filters junk and duplicates",
+  "fn": "entriesToGlucoseRows",
+  "args": [
+   [
+    {
+     "sgv": 120,
+     "date": 1790856000000,
+     "direction": "Flat"
+    },
+    {
+     "sgv": 121,
+     "date": 1790856000000
+    },
+    {
+     "mbg": 99,
+     "date": 1790856300000
+    },
+    {
+     "sgv": 0,
+     "date": 1790856600000
+    },
+    {
+     "sgv": "x",
+     "date": 1790856000000
+    },
+    {
+     "sgv": 130
+    },
+    null
+   ],
+   "user-1"
+  ],
+  "expect": [
+   {
+    "user_id": "user-1",
+    "at": "2026-10-01T12:00:00.000Z",
+    "mgdl": 120,
+    "direction": "Flat"
+   },
+   {
+    "user_id": "user-1",
+    "at": "2026-10-01T12:05:00.000Z",
+    "mgdl": 99,
+    "direction": null
+   }
+  ]
+ }
+]

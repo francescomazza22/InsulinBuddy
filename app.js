@@ -22,6 +22,7 @@ import { buildMealEntry, adjustUsage } from "./js/core/meal-entry.js";
 import { validateState, validateEntry, validateFood, validateRecipe, hasErrors, summarizeProblems } from "./js/core/schema.js";
 import { createCloudSync, supabaseCloudTarget } from "./js/core/cloud-sync.js";
 import { groupEvents, logHealth, isSyncStuck } from "./js/core/problems.js";
+import { createWebPlatform, assertPlatform } from "./js/core/platform.js";
 import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS } from "./js/core/storage.js";
 
 
@@ -50,6 +51,8 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
   let nightscoutWriteStatus = { ok: null, via: null, at: null, message: "" };
   // All device storage goes through this one object (js/core/storage.js); failures are noted in the diagnostics log.
   const store = createStorage(localStorageBackend(), { onError: (op, key, err) => { try { diag.log("warn", "storage", `${op} failed for ${key}: ${err && err.message}`); } catch { /* diag not ready yet */ } } });
+  // Everything device-specific (files, clipboard, scheduled notifications, Health, haptics) goes through this one object; see docs/PLATFORM.md.
+  const platform = assertPlatform(window.__ibPlatform || createWebPlatform(window));
   const PENDING_SYNC_KEY = "insulinBuddy.pendingSync";
   let cloudSyncPending = store.getItem(PENDING_SYNC_KEY) === "1";
 
@@ -2476,7 +2479,7 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
       adjustUsage(state.library, state.recipes, usedItems, -1);
       saveState();
       queueNsDelete(entry);
-      try { const r = readReminder(); if (r && r.mealTs === entry.ts) { store.removeItem(REMINDER_KEY); renderReminder(); } } catch (e) { /* no reminder to clear */ }
+      try { const r = readReminder(); if (r && r.mealTs === entry.ts) { store.removeItem(REMINDER_KEY); platform.notifications.cancel(`reminder-${r.mealTs}`); renderReminder(); } } catch (e) { /* no reminder to clear */ }
       renderHistory(); renderActivePanel(); renderRecentMeals();
       restoreDraftSnapshot(draftBefore);
     });
@@ -2549,6 +2552,8 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
     const hrs = Number(state.settings.checkAfterHours) || 0;
     if (!hrs || entry.noInsulin || (Number(entry.mealDose) || 0) + (Number(entry.correctionDose) || 0) <= 0) return;
     try { store.setItem(REMINDER_KEY, JSON.stringify({ due: entry.ts + hrs * 3600000, mealTs: entry.ts, hours: hrs, label: entry.mealType || "meal" })); } catch { /* no storage: no reminder */ }
+    // Where the platform can fire a notification with the app closed (a native build), schedule one; on the web this is a no-op and the calendar file is the route.
+    try { platform.notifications.schedule({ id: `reminder-${entry.ts}`, at: entry.ts + hrs * 3600000, title: "Check your glucose", body: `${hrs} h after your ${entry.mealType || "meal"}` }); } catch { /* never blocks logging */ }
     renderReminder();
   }
   function renderReminder() {
@@ -2570,7 +2575,7 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
       "SUMMARY:Check glucose (Insulin Buddy)", `DESCRIPTION:${r.hours} h after your ${r.label}.`, "BEGIN:VALARM", "TRIGGER:PT0S", "ACTION:DISPLAY", "DESCRIPTION:Check glucose", "END:VALARM", "END:VEVENT", "END:VCALENDAR"].join("\r\n");
   }
   document.addEventListener("click", e => {
-    if (e.target.closest && e.target.closest("#reminder-done")) { try { store.removeItem(REMINDER_KEY); } catch { /* */ } renderReminder(); return; }
+    if (e.target.closest && e.target.closest("#reminder-done")) { const r0 = readReminder(); try { store.removeItem(REMINDER_KEY); } catch { /* */ } if (r0) platform.notifications.cancel(`reminder-${r0.mealTs}`); renderReminder(); return; }
     if (e.target.closest && e.target.closest("#reminder-ics")) { const r = readReminder(); if (r) downloadText("check-glucose.ics", reminderIcs(r), "text/calendar"); }
   });
   setInterval(() => { if (!document.hidden) renderReminder(); }, 30000);
@@ -4838,17 +4843,7 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
     const stuck = syncStuckNow ? `Sync needs attention: ${currentSyncSummary().rows.filter(r => r.level === "problem" || r.level === "pending").map(r => r.text).join(" ")} ` : "";
     el("diag-summary").textContent = stuck + (n === 0 ? "Nothing logged yet." : `${n} recent events recorded${errs ? `, ${errs} of them errors` : ""}. The report never includes your meals, glucose or tokens.`);
   }
-  async function copyText(text) {
-    try { if (navigator.clipboard && navigator.clipboard.writeText) { await navigator.clipboard.writeText(text); return true; } } catch (e) { /* fall through */ }
-    try {
-      const ta = document.createElement("textarea");
-      ta.value = text; ta.setAttribute("readonly", ""); ta.style.cssText = "position:fixed;top:0;left:0;opacity:0;";
-      document.body.appendChild(ta); ta.select();
-      const ok = document.execCommand("copy");
-      ta.remove();
-      return ok;
-    } catch (e) { return false; }
-  }
+  function copyText(text) { return platform.clipboard.copy(text); }
   // A readable view of the log: newest first, repeats folded together, errors and warnings picked out.
   function openLogSheet() {
     const backdrop = document.createElement("div");
@@ -5420,13 +5415,7 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
   });
 
   // ---- Data tab: export/import ----
-  function downloadText(filename, text, mime) {
-    const blob = new Blob([text], { type: mime || "text/plain" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url; a.download = filename; a.click();
-    URL.revokeObjectURL(url);
-  }
+  function downloadText(filename, text, mime) { return platform.files.save(filename, text, mime); }
 
   function exportRecipesCsv() {
     if (!state.recipes.length) { alert("You have no recipes to export yet."); return; }
