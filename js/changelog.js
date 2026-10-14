@@ -2,6 +2,11 @@
 // summary can never drift. Bump CHANGELOG[0].version here (and CACHE_VERSION in sw.js) on every release.
 export const CHANGELOG = [
   {
+    version: "2.36.0",
+    summary: "A readable event log, and a red dot when sync is stuck.",
+    changes: ["Settings > Diagnostics has a new View log button: recent events newest first, in plain names (Nightscout sending, Cloud sync...), repeats folded together, problems picked out in colour, with a Problems only switch", "The Settings tab shows a red dot when sending is genuinely stuck: a real sync problem, or entries waiting more than 30 minutes while you are online. Being offline does not trigger it, and Diagnostics then says what needs attention"]
+  },
+  {
     version: "2.35.0",
     summary: "Under the hood: the sending queue no longer belongs to Nightscout.",
     changes: ["Nothing should look different. The offline-safe queue that sends meals to Nightscout is now a general one that works with any destination, with Nightscout plugged in as the first. Adding Apple Health, or a native app's own sync, later means adding one more destination, not rebuilding the queue. Tests now run the queue against a made-up second destination to prove it"]

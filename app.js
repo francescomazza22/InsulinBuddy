@@ -20,6 +20,7 @@ import { toMinutes, inRange, ratioAt, autoMealType, formatDuration, clampNum } f
 import { toCsv, parseCsv, recipeTotals as recipeTotalsWith, parseLibraryFile, mergeLibrary } from "./js/core/library.js";
 import { buildMealEntry, adjustUsage } from "./js/core/meal-entry.js";
 import { validateState, validateEntry, validateFood, validateRecipe, hasErrors, summarizeProblems } from "./js/core/schema.js";
+import { groupEvents, logHealth, isSyncStuck } from "./js/core/problems.js";
 import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS } from "./js/core/storage.js";
 
 
@@ -522,12 +523,15 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
     await saveStateCloud(true);
     renderStatusPanel();
   }
+  let cloudPendingSince = cloudSyncPending ? Date.now() : null;   // when uploads first started waiting (for the stuck-sync dot)
   function markPending() {
+    if (!cloudSyncPending || cloudPendingSince == null) cloudPendingSince = Date.now();
     cloudSyncPending = true;
     store.mustSet(PENDING_SYNC_KEY, "1");
     renderSyncStatus();
   }
   function markSynced() {
+    cloudPendingSince = null;
     cloudSyncPending = false;
     store.removeItem(PENDING_SYNC_KEY);
     renderSyncStatus();
@@ -3032,8 +3036,23 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
       chip.hidden = false;
       const body = document.getElementById("sync-sheet-body");
       if (body) body.innerHTML = syncSheetBodyHtml(sum);
+      updateSettingsDot(sum);
     } catch (e) { /* not ready yet */ }
   }
+  // A red dot on the Settings tab when sending is genuinely stuck (a real problem, or waiting a long time while online).
+  let syncStuckNow = false;
+  function updateSettingsDot(sum) {
+    const jobs = (nsOutbox && nsOutbox.jobs) || [];
+    const waiting = [...jobs.map(j => j.createdAt || Date.now()), ...(cloudSyncPending && currentUser && cloudPendingSince != null ? [cloudPendingSince] : [])];
+    syncStuckNow = isSyncStuck({ level: sum.level, online: navigator.onLine !== false, oldestWaitingAt: waiting.length ? Math.min(...waiting) : null });
+    document.querySelectorAll('.tab[data-target="settings"]').forEach(tab => {
+      let dot = tab.querySelector(".tab__dot");
+      if (!dot) { dot = document.createElement("span"); dot.className = "tab__dot"; dot.setAttribute("aria-hidden", "true"); tab.appendChild(dot); }
+      dot.hidden = !syncStuckNow;
+      tab.setAttribute("aria-label", syncStuckNow ? "Settings. Sync needs attention." : "Settings");
+    });
+  }
+  setInterval(() => { try { if (state) renderSyncChip(); } catch (e) { /* not ready */ } }, 60000);   // a long wait turns the dot on by itself
   function syncSheetBodyHtml(sum) {
     const dot = { ok: "ok", pending: "warn", problem: "error", off: "off" };
     return `<p class="panel-card__hint" style="margin-top:0;"><b>${escapeHtml(sum.title)}.</b></p>` +
@@ -4883,7 +4902,8 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
   }
   function renderDiagSection() {
     const n = diag.count(), errs = diag.errorCount();
-    el("diag-summary").textContent = n === 0 ? "Nothing logged yet." : `${n} recent events recorded${errs ? `, ${errs} of them errors` : ""}. The report never includes your meals, glucose or tokens.`;
+    const stuck = syncStuckNow ? `Sync needs attention: ${currentSyncSummary().rows.filter(r => r.level === "problem" || r.level === "pending").map(r => r.text).join(" ")} ` : "";
+    el("diag-summary").textContent = stuck + (n === 0 ? "Nothing logged yet." : `${n} recent events recorded${errs ? `, ${errs} of them errors` : ""}. The report never includes your meals, glucose or tokens.`);
   }
   async function copyText(text) {
     try { if (navigator.clipboard && navigator.clipboard.writeText) { await navigator.clipboard.writeText(text); return true; } } catch (e) { /* fall through */ }
@@ -4896,6 +4916,36 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
       return ok;
     } catch (e) { return false; }
   }
+  // A readable view of the log: newest first, repeats folded together, errors and warnings picked out.
+  function openLogSheet() {
+    const backdrop = document.createElement("div");
+    backdrop.className = "sheet-backdrop";
+    const draw = errorsOnly => {
+      const entries = diag.entries(), health = logHealth(entries);
+      const rows = groupEvents(entries, { errorsOnly });
+      backdrop.innerHTML = `
+        <div class="sheet">
+          <div class="sheet-head">
+            <h2>Event log</h2>
+            <button class="sheet-close" id="lg-close" type="button" aria-label="Close"><svg viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
+          </div>
+          <p class="panel-card__hint">${health.errors} error${health.errors === 1 ? "" : "s"}, ${health.warnings} warning${health.warnings === 1 ? "" : "s"} recorded. Your meals, glucose and tokens are never logged.</p>
+          <label class="log-filter"><input type="checkbox" id="lg-errors" ${errorsOnly ? "checked" : ""}> Problems only</label>
+          ${rows.length ? rows.map(r => `
+            <div class="log-row log-row--${escapeAttr(r.level)}">
+              <div class="log-row__head"><span class="log-row__area">${escapeHtml(r.areaName)}</span>${r.count > 1 ? `<span class="log-row__count">×${r.count}</span>` : ""}<span class="log-row__ago">${escapeHtml(r.ago)}</span></div>
+              <div class="log-row__msg">${escapeHtml(r.msg)}</div>
+            </div>`).join("") : `<p class="panel-card__hint">${errorsOnly ? "No problems recorded." : "Nothing logged yet."}</p>`}
+        </div>`;
+    };
+    draw(false);
+    openSheet(backdrop);
+    backdrop.addEventListener("click", e => {
+      if (e.target === backdrop || e.target.closest("#lg-close")) closeSheet(backdrop);
+    });
+    backdrop.addEventListener("change", e => { if (e.target.id === "lg-errors") draw(e.target.checked); });
+  }
+  bind("btn-diag-view", "click", openLogSheet);
   bind("btn-diag-copy", "click", async () => {
     const ok = await copyText(diag.report(await diagContext()));
     dialogs.alert(ok ? "Copied. Paste it into a message to share it." : "Couldn't copy automatically on this device.", { title: ok ? "Report copied" : "Copy failed" });
