@@ -19,6 +19,7 @@ import { createDialogs } from "./js/dialogs.js";
 import { toMinutes, inRange, ratioAt, autoMealType, formatDuration, clampNum } from "./js/core/time.js";
 import { toCsv, parseCsv, recipeTotals as recipeTotalsWith, parseLibraryFile, mergeLibrary } from "./js/core/library.js";
 import { buildMealEntry, adjustUsage } from "./js/core/meal-entry.js";
+import { validateState, validateEntry, validateFood, validateRecipe, hasErrors, summarizeProblems } from "./js/core/schema.js";
 import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS } from "./js/core/storage.js";
 
 
@@ -4886,6 +4887,7 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
       "cloud sync pending": cloudSyncPending,
       "cloud row updated_at": lastKnownCloudUpdatedAt || "unknown",
       "meals / foods / recipes": `${state.history.length} / ${state.library.length} / ${state.recipes.length}`,
+      "data check": summarizeProblems(validateState(state)),
       "nightscout host": nsHost,
       "nightscout format": nsFormat(),
       "nightscout read": nightscoutReadStatus.at ? `${nightscoutReadStatus.ok ? "ok" : "failed"} via ${nightscoutReadStatus.via} - ${nightscoutReadStatus.message}` : "not checked",
@@ -5561,7 +5563,12 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
     reader.onload = () => {
       try {
         const data = JSON.parse(reader.result);
-        let foodsAdded = 0, foodsUpdated = 0, recipesAdded = 0, recipesUpdated = 0, historyAdded = 0;
+        let foodsAdded = 0, foodsUpdated = 0, recipesAdded = 0, recipesUpdated = 0, historyAdded = 0, skipped = 0;
+        // Records that would break the app (no id or time, a dose that isn't a number...) are left out and counted.
+        const sound = (list, check, label) => (list || []).filter(x => { const bad = hasErrors(check(x, label)); if (bad) skipped++; return !bad; });
+        data.library = sound(data.library, validateFood, "food");
+        data.recipes = sound(data.recipes, validateRecipe, "recipe");
+        data.history = sound(data.history, validateEntry, "entry");
 
         (data.library || []).forEach(item => {
           if (!item.name) return;
@@ -5582,7 +5589,7 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
 
         saveState();
         renderLibrary(); renderHistory(); renderSettings(); renderRecentMeals();
-        alert(`Import complete.\nFoods: ${foodsAdded} added, ${foodsUpdated} updated.\nRecipes: ${recipesAdded} added, ${recipesUpdated} updated.\nHistory: ${historyAdded} added.\n\nSettings were left untouched.`);
+        alert(`Import complete.\nFoods: ${foodsAdded} added, ${foodsUpdated} updated.\nRecipes: ${recipesAdded} added, ${recipesUpdated} updated.\nHistory: ${historyAdded} added.${skipped ? `\n\n${skipped} record${skipped === 1 ? "" : "s"} could not be read and ${skipped === 1 ? "was" : "were"} skipped.` : ""}\n\nSettings were left untouched.`);
       } catch (err) {
         console.error(err);
         alert("Could not read that file. Make sure it's a JSON backup exported from this app.");

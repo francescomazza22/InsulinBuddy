@@ -2,6 +2,11 @@
 // summary can never drift. Bump CHANGELOG[0].version here (and CACHE_VERSION in sw.js) on every release.
 export const CHANGELOG = [
   {
+    version: "2.33.0",
+    summary: "Under the hood: a written data contract, checked in code.",
+    changes: ["Nothing should look different. The exact shape of your saved data (meals, basal doses, foods, recipes, settings) is now written down in docs/DATA-CONTRACT.md and enforced by a tested checker. Importing a backup skips, and tells you about, any record that would break the app, and Settings diagnostics shows a data check line"]
+  },
+  {
     version: "2.32.0",
     summary: "Under the hood: one storage layer for everything saved on your device.",
     changes: ["Nothing should look different. Every read and write of saved data now goes through one tested module, so a blocked or full device can't crash the app, failures are written to the diagnostics log, and saved data now has a version number so future changes can upgrade it safely"]
