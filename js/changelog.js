@@ -2,6 +2,11 @@
 // summary can never drift. Bump CHANGELOG[0].version here (and CACHE_VERSION in sw.js) on every release.
 export const CHANGELOG = [
   {
+    version: "2.31.0",
+    summary: "Under the hood: the app's logic now lives in separate, tested modules.",
+    changes: ["Nothing should look or behave differently. Meal logging, library import and export, recipe totals and the time-of-day ratio logic moved out of the screen code into a new js/core folder with its own tests, a first step toward a native app"]
+  },
+  {
     version: "2.30.2",
     summary: "Tidier History log cards.",
     changes: ["Each record now has the same layout: meal name, a quiet time line, and on the right the insulin dose with carbs and calories on one line and the GI chip below. The NS badge no longer wraps, the redundant period name is hidden unless a ratio was applied, 'No insulin' is a calm outlined chip, and the Basal card matches the others"]

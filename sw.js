@@ -12,7 +12,7 @@
 // update quickly (network-first, see below) — only the offline fallback copy
 // stays old until the version changes.
 
-const CACHE_VERSION = "2.30.2";
+const CACHE_VERSION = "2.31.0";
 const CACHE_NAME = `insulin-buddy-${CACHE_VERSION}`;
 
 // Everything needed to open the app with no network. A missing file here just
@@ -24,6 +24,9 @@ const PRECACHE_URLS = [
   "app.js",
   "js/changelog.js",
   "js/seed-recipes.js",
+  "js/core/time.js",
+  "js/core/library.js",
+  "js/core/meal-entry.js",
   "foods_data.js",
   "vendor/supabase.js",
   "manifest.json",

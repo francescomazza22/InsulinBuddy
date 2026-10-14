@@ -16,6 +16,9 @@ import { randomBytes, toB64, fromB64, deriveKey, encryptString, decryptString, i
 import { LocalBackups, shouldAutoSnapshot } from "./js/backup.js";
 import { groupByDay, takeEntries, matchesQuery, recentDistinctMeals, mealLabel, dosingSummary, isBasalEntry, basalSlotForTime, basalSlotLabel, lastBasalDose, basalDoseCheck, makeBasalEntry, PAGE_SIZE } from "./js/history.js";
 import { createDialogs } from "./js/dialogs.js";
+import { toMinutes, inRange, ratioAt, autoMealType, formatDuration, clampNum } from "./js/core/time.js";
+import { toCsv, parseCsv, recipeTotals as recipeTotalsWith, parseLibraryFile, mergeLibrary } from "./js/core/library.js";
+import { buildMealEntry, adjustUsage } from "./js/core/meal-entry.js";
 
 
   const STORAGE_KEY = "insulinBuddy.v2";
@@ -660,22 +663,7 @@ import { createDialogs } from "./js/dialogs.js";
   }
 
   // ================= Time helpers =================
-  function toMinutes(hhmm) {
-    const [h, m] = hhmm.split(":").map(Number);
-    return h * 60 + m;
-  }
-  function inRange(minutes, start, end) {
-    const s = toMinutes(start), e = toMinutes(end);
-    if (s === e) return true;
-    if (s < e) return minutes >= s && minutes < e;
-    return minutes >= s || minutes < e; // wraps past midnight
-  }
-  function currentTimeRatio(atDate) {
-    const d = atDate || new Date();
-    const minutes = d.getHours() * 60 + d.getMinutes();
-    const list = state.settings.timeRatios;
-    return list.find(r => inRange(minutes, r.start, r.end)) || list[0] || null;
-  }
+  function currentTimeRatio(atDate) { return ratioAt(state.settings.timeRatios, atDate); }
   function unitLabel(unit) { return (unit || state.settings.units) === "mmol" ? "mmol/L" : "mg/dL"; }
 
   function activeRatioEntry() {
@@ -719,28 +707,7 @@ import { createDialogs } from "./js/dialogs.js";
   let selectedPickId = null; // id of highlighted item in the pick list (format "food:ID" or "recipe:ID")
 
 
-  function recipeTotals(recipe) {
-    let carbs = 0, kcal = 0;
-    recipe.items.forEach(it => {
-      let cp100 = it.carbsPer100g, kp100 = it.kcalPer100g;
-      if (cp100 == null) {
-        // older recipes saved before ingredients snapshotted their rates — fall back to a live lookup
-        const food = state.library.find(f => f.id === it.foodId);
-        cp100 = food ? food.carbs : 0;
-        kp100 = food ? food.kcal : null;
-      }
-      carbs += (cp100 || 0) * it.grams / 100;
-      kcal += (kp100 || 0) * it.grams / 100;
-    });
-    const totalCarbs = Math.round(carbs * 10) / 10;
-    const totalKcal = Math.round(kcal);
-    const fw = recipe.finalWeight;
-    return {
-      totalCarbs, totalKcal,
-      carbsPer100g: fw ? Math.round((totalCarbs / fw) * 1000) / 10 : null,
-      kcalPer100g: fw ? Math.round((totalKcal / fw) * 1000) / 10 : null
-    };
-  }
+  function recipeTotals(recipe) { return recipeTotalsWith(recipe, state.library); }
 
   function pickableItems() {
     const foods = state.library.map(f => ({
@@ -1031,15 +998,6 @@ import { createDialogs } from "./js/dialogs.js";
   // constructed to hit exactly zero at its own dose/meal's cutoff time --
   // the total therefore reaches zero exactly when the last-contributing
   // dose/meal does.
-
-  function formatDuration(ms) {
-    const totalMin = Math.max(0, Math.round(ms / 60000));
-    const h = Math.floor(totalMin / 60);
-    const m = totalMin % 60;
-    if (h === 0) return `${m}m`;
-    if (m === 0) return `${h}h`;
-    return `${h}h${m}`;
-  }
 
   // Same as buildActiveSeries, but a real historical view: from midnight
   // today to now, showing what actually happened rather than a forward
@@ -2489,15 +2447,6 @@ import { createDialogs } from "./js/dialogs.js";
   clearAllBtn.addEventListener("click", resetDraft);
 
   // Meal type is detected automatically from time of day — no prompt needed
-  function autoMealType(date) {
-    const h = date.getHours() + date.getMinutes() / 60;
-    if (h >= 5 && h < 10.5) return "breakfast";
-    if (h >= 10.5 && h < 14.5) return "lunch";
-    if (h >= 14.5 && h < 18) return "snack";
-    if (h >= 18 && h < 22.5) return "dinner";
-    return "snack";
-  }
-
   logBtn.addEventListener("click", () => {
     const hasCorrection = draft._computed && draft._computed.correctionDose > 0;
     const hasEatingOutDose = draft.eatingOutOn && draft._computed && draft._computed.mealDose > 0;
@@ -2592,43 +2541,12 @@ import { createDialogs } from "./js/dialogs.js";
     // (now hidden) field from before switching modes -- it wasn't what the logged dose came from.
     const glucoseRaw = (draft.correctionOn && !draft.correctionManual) ? parseFloat(glucoseInput.value) : NaN;
     const glucoseVal = !isNaN(glucoseRaw) ? round1(convertGlucose(glucoseRaw, draft.glucoseUnit || state.settings.units, state.settings.units)) : null;
-    const entry = {
-      id: "h-" + Date.now(),
-      ts: now.getTime(),
-      mealType,
-      periodName: periodEntry ? periodEntry.name.toLowerCase() : "",
-      // Eating Out: items aren't saved even if some were added before switching modes -- the
-      // whole point of this entry is that carbs weren't counted, so a saved item list with real
-      // carb numbers would contradict that.
-      items: draft.eatingOutOn ? [] : draft.items.map(i => ({
-        refType: i.refType, refId: i.refId, name: i.name, grams: i.grams,
-        quantity: i.quantity ?? null, unitLabel: i.unitLabel ?? null, gramsPerUnit: i.gramsPerUnit ?? null,
-        gi: i.gi ?? null,
-        carbsPer100g: i.carbsPer100g, kcalPer100g: i.kcalPer100g,
-        carbs: i.carbs, kcal: i.kcal
-      })),
-      totalCarbs: draft.eatingOutOn ? 0 : round1(totalCarbs()),
-      totalKcal: draft.eatingOutOn ? 0 : Math.round(draft.items.reduce((s, i) => s + (i.kcal || 0), 0)),
-      glycemicLoad: draft.eatingOutOn ? null : compoundGiInfo(draft.items),
-      carbsUnknown: draft.eatingOutOn,
-      mealDose: draft._computed.mealDose,
-      correctionDose: draft._computed.correctionDose,
-      ...(draft._computed.capped ? { cappedFrom: draft._computed.requested } : {}),   // what it calculated before the cap
-      noInsulin: draft.noInsulinOn,
-      glucose: glucoseVal,
-      ratioLabel: ratioEntry ? ratioEntry.name : "",
-      ratioValue: ratioEntry ? ratioEntry.ratio : null
-    };
-    state.history.unshift(entry);
-    if (!draft.eatingOutOn) draft.items.forEach(i => {
-      if (i.refType === "food") {
-        const f = state.library.find(x => x.id === i.refId);
-        if (f) f.usageCount = (f.usageCount || 0) + 1;
-      } else {
-        const r = state.recipes.find(x => x.id === i.refId);
-        if (r) r.usageCount = (r.usageCount || 0) + 1;
-      }
+    const entry = buildMealEntry({
+      now, mealType, periodEntry, ratioEntry, items: draft.items, eatingOut: draft.eatingOutOn, noInsulin: draft.noInsulinOn,
+      computed: draft._computed, glucoseVal
     });
+    state.history.unshift(entry);
+    if (!draft.eatingOutOn) adjustUsage(state.library, state.recipes, draft.items, +1);
     saveState();
     syncEntryToNightscout(entry);
     setReminderFor(entry);
@@ -2642,10 +2560,7 @@ import { createDialogs } from "./js/dialogs.js";
       const i = state.history.findIndex(h => h.id === entry.id);
       if (i < 0) return;
       state.history.splice(i, 1);
-      usedItems.forEach(u => {
-        const f = u.refType === "food" ? state.library.find(x => x.id === u.refId) : state.recipes.find(x => x.id === u.refId);
-        if (f && f.usageCount > 0) f.usageCount -= 1;
-      });
+      adjustUsage(state.library, state.recipes, usedItems, -1);
       saveState();
       queueNsDelete(entry);
       try { const r = readReminder(); if (r && r.mealTs === entry.ts) { localStorage.removeItem(REMINDER_KEY); renderReminder(); } } catch (e) { /* no reminder to clear */ }
@@ -5067,7 +4982,6 @@ import { createDialogs } from "./js/dialogs.js";
     rapid: { peakMinutes: 75, diaMinutes: 360 },
     fiasp: { peakMinutes: 55, diaMinutes: 360 }
   };
-  function clampNum(n, min, max) { return Math.min(max, Math.max(min, n)); }
 
   function renderInsulinCarbSettings() {
     const im = state.settings.insulinModel;
@@ -5535,12 +5449,6 @@ import { createDialogs } from "./js/dialogs.js";
   });
 
   // ---- Data tab: export/import ----
-  function toCsv(rows, headers) {
-    const esc = v => `"${String(v ?? "").replace(/"/g, '""')}"`;
-    const lines = [headers.map(esc).join(",")];
-    rows.forEach(r => lines.push(headers.map(h => esc(r[h])).join(",")));
-    return lines.join("\n");
-  }
   function downloadText(filename, text, mime) {
     const blob = new Blob([text], { type: mime || "text/plain" });
     const url = URL.createObjectURL(blob);
@@ -5612,64 +5520,7 @@ import { createDialogs } from "./js/dialogs.js";
 
   // Imports foods and/or recipes from one file's text. A recipe CSV is recognised by its "ingredients" column
   // (it is what Export Library writes as Recipe_export.csv). Items are matched by name (case-insensitive).
-  const truthy = v => /^(true|1|yes|y|vero|si|sì)$/i.test(String(v ?? "").trim());
-  function importLibraryFile(name, text) {
-    const res = { foodsAdded: 0, foodsUpdated: 0, recipesAdded: 0, recipesUpdated: 0 };
-    let foods = [], recipes = [];
-    const num = v => { const n = parseFloat(v); return Number.isFinite(n) ? n : null; };
-    if (/\.json$/i.test(name)) {
-      const data = JSON.parse(text);
-      foods = Array.isArray(data) ? data : (data.foods || data.library || []);
-      recipes = Array.isArray(data) ? [] : (data.recipes || []);
-    } else {
-      const rows = parseCsv(text);
-      const isRecipe = rows.length ? Object.prototype.hasOwnProperty.call(rows[0], "ingredients") : /(^|,)"?ingredients"?(,|$)/.test((text.split(/\r?\n/)[0] || ""));
-      if (isRecipe) {
-        recipes = rows.filter(r => r.name).map(r => {
-          let ings = [];
-          try { ings = JSON.parse(r.ingredients || "[]"); } catch { ings = []; }
-          return {
-            name: r.name, category: r.category || "other", notes: r.notes || "",
-            rawWeight: num(r.raw_weight), finalWeight: num(r.final_weight) ?? "",
-            usageCount: parseInt(r.usage_count, 10) || 0,
-            items: (Array.isArray(ings) ? ings : []).map(i => ({
-              foodId: i.food_id || null, name: i.food_name || "", grams: num(i.weight_grams) || 0,
-              carbsPer100g: num(i.carbs_per_100g) ?? 0, kcalPer100g: num(i.calories_per_100g)
-            })).filter(i => i.grams > 0)
-          };
-        });
-      } else {
-        foods = rows.map(r => ({
-          name: r.name, category: r.category || "other",
-          carbs: parseFloat(r.carbs_per_100g) || 0, kcal: parseFloat(r.calories_per_100g) || null,
-          protein: parseFloat(r.protein_per_100g) || null, fat: parseFloat(r.fat_per_100g) || null,
-          salt: parseFloat(r.salt_per_100g) || null, notes: r.notes || "",
-          favorite: truthy(r.is_favorite), usageCount: parseInt(r.usage_count, 10) || 0,
-          unitBased: truthy(r.unit_based) || (!!r.unit_label && parseFloat(r.grams_per_unit) > 0), unitLabel: r.unit_label || null,
-          gramsPerUnit: parseFloat(r.grams_per_unit) || null,
-          gi: parseFloat(r.glycemic_index) || null
-        }));
-      }
-    }
-    foods.forEach(item => {
-      if (!item.name) return;
-      const existing = state.library.find(f => f.name.toLowerCase() === item.name.toLowerCase());
-      if (existing) { Object.assign(existing, item, { id: existing.id }); res.foodsUpdated++; }
-      else { state.library.push({ id: "food-" + Date.now() + "-" + Math.random().toString(36).slice(2, 6), usageCount: 0, ...item }); res.foodsAdded++; }
-    });
-    recipes.forEach(item => {
-      if (!item.name) return;
-      // Point each ingredient at the matching food in THIS library (by id, else by name); keep its saved rates.
-      item.items = (item.items || []).map(i => {
-        const f = state.library.find(x => x.id === i.foodId) || state.library.find(x => x.name.toLowerCase() === String(i.name || "").toLowerCase());
-        return { ...i, foodId: f ? f.id : (i.foodId || null) };
-      });
-      const existing = state.recipes.find(r => r.name.toLowerCase() === item.name.toLowerCase());
-      if (existing) { Object.assign(existing, item, { id: existing.id }); res.recipesUpdated++; }
-      else { state.recipes.unshift({ id: "recipe-" + Date.now() + "-" + Math.random().toString(36).slice(2, 6), favorite: false, ...item }); res.recipesAdded++; }
-    });
-    return res;
-  }
+  function importLibraryFile(name, text) { return mergeLibrary(state.library, state.recipes, parseLibraryFile(name, text)); }
 
   bind("import-file-input", "change", e => {
     const files = [...e.target.files];
@@ -5694,36 +5545,6 @@ import { createDialogs } from "./js/dialogs.js";
       e.target.value = "";
     })();
   });
-
-  function parseCsv(text) {
-    const lines = text.split(/\r?\n/).filter(l => l.trim().length);
-    if (lines.length < 2) return [];
-    const headers = splitCsvLine(lines[0]);
-    return lines.slice(1).map(line => {
-      const cells = splitCsvLine(line);
-      const obj = {};
-      headers.forEach((h, i) => { obj[h] = cells[i]; });
-      return obj;
-    });
-  }
-  function splitCsvLine(line) {
-    const out = [];
-    let cur = "", inQuotes = false;
-    for (let i = 0; i < line.length; i++) {
-      const c = line[i];
-      if (inQuotes) {
-        if (c === '"' && line[i + 1] === '"') { cur += '"'; i++; }
-        else if (c === '"') { inQuotes = false; }
-        else cur += c;
-      } else {
-        if (c === '"') inQuotes = true;
-        else if (c === ",") { out.push(cur); cur = ""; }
-        else cur += c;
-      }
-    }
-    out.push(cur);
-    return out;
-  }
 
   bind("btn-export-all", "click", () => {
     downloadText(`insulin-buddy-backup-${new Date().toISOString().slice(0, 10)}.json`, JSON.stringify(state, null, 2), "application/json");
