@@ -1344,10 +1344,18 @@ html[data-theme="dark"] {
     .panel-card { border-radius: 20px; border-width: 1px; }
     /* Long lists (hundreds of foods, months of history) get the glass edge and tint but no live blur, which would
        make scrolling heavy on a phone. */
-    .lib-item, .history-entry {
+    .lib-item, .history-entry, .food-pick-item {
       background: var(--glass-bg-strong); border-radius: 18px; border-width: 1px; border-color: var(--glass-line);
       box-shadow: inset 0 1px 0 var(--glass-edge), 0 4px 14px rgba(27,42,58,0.05);
     }
+    .food-pick-item.is-selected { border-color: var(--acc-1); }
+    /* The food search and grams boxes: glass fields. */
+    input.add-row__search, input.add-row__grams {
+      background: var(--glass-bg); border-width: 1px; border-color: var(--glass-line); border-radius: 14px;
+      -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur);
+      box-shadow: inset 0 1px 0 var(--glass-edge), 0 4px 14px rgba(27,42,58,0.05);
+    }
+    input.add-row__search:focus, input.add-row__grams:focus { border-color: var(--acc-1); }
     /* The segmented switch: a glass track with a lifted glass thumb. */
     .segmented { border-width: 1px; box-shadow: inset 0 1px 0 var(--glass-edge), inset 0 1px 6px rgba(27,42,58,0.06); }
     .segmented__btn.is-active {

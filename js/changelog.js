@@ -2,6 +2,11 @@
 // summary can never drift. Bump CHANGELOG[0].version here (and CACHE_VERSION in sw.js) on every release.
 export const CHANGELOG = [
   {
+    version: "2.41.2",
+    summary: "Liquid Glass on the Calculator's food list too.",
+    changes: ["The food search box, the Grams box and the food list on the Calculator now use the same frosted glass style as the other tabs, in light and dark"]
+  },
+  {
     version: "2.41.1",
     summary: "Fix: the Liquid Glass look now shows on iPhone.",
     changes: ["The glass style was switched off by a setting Safari does not understand, so on iPhone you saw no change. It is now on by default and only turns off if you enable Reduce Transparency on a browser that supports that setting"]
