@@ -3036,7 +3036,7 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
     renderSyncChip();
     try {
       if (!state) return;
-      if (!el("view-settings").hidden) { renderNightscoutSection(); if (!el("panel-data").hidden) renderStatusPanel(); }
+      if (!el("view-settings").hidden) { renderNightscoutSection(); if (!el("panel-sync").hidden) renderStatusPanel(); }
       if (!el("view-history").hidden) renderHistoryBadges();
     } catch (e) { /* UI not ready yet */ }
   }
@@ -3102,7 +3102,7 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
     else nightscoutWriteStatus = rec;
     renderSyncChip();
     // Keep the System Status panel live if it's currently on screen.
-    if (!el("view-settings").hidden && !el("panel-data").hidden) renderStatusPanel();
+    if (!el("view-settings").hidden && !el("panel-sync").hidden) renderStatusPanel();
   }
 
   bind("cc-fetch-glucose", "click", fetchCurrentGlucoseFromNightscout);
@@ -4706,6 +4706,7 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
   let settingsSeg = "ratios";
   const settingsSegmented = el("settings-segmented");
   const panelRatios = el("panel-ratios");
+  const panelSync = el("panel-sync");
   const panelData = el("panel-data");
   const panelGeneral = el("panel-general");
 
@@ -4714,16 +4715,19 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
     if (!btn) return;
     settingsSeg = btn.dataset.seg;
     settingsSegmented.querySelectorAll(".segmented__btn").forEach(b => b.classList.toggle("is-active", b === btn));
+    showSettingsPanel();
+    if (settingsSeg === "sync") { renderNightscoutSection(); renderStatusPanel(); }
+  });
+  function showSettingsPanel() {
     panelRatios.hidden = settingsSeg !== "ratios";
+    panelSync.hidden = settingsSeg !== "sync";
     panelData.hidden = settingsSeg !== "data";
     panelGeneral.hidden = settingsSeg !== "general";
-  });
+  }
 
   function renderSettings() {
     if (el("set-check-after")) el("set-check-after").value = String(Number(state.settings.checkAfterHours) || 0);
-    panelRatios.hidden = settingsSeg !== "ratios";
-    panelData.hidden = settingsSeg !== "data";
-    panelGeneral.hidden = settingsSeg !== "general";
+    showSettingsPanel();
     renderTimeline();
     renderTimeRatioList();
     renderActivityRatioList();

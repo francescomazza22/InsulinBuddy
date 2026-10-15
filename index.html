@@ -388,7 +388,8 @@
       </div>
 
       <div class="segmented" id="settings-segmented">
-        <button class="segmented__btn is-active" data-seg="ratios" type="button">Insulin Ratios</button>
+        <button class="segmented__btn is-active" data-seg="ratios" type="button">Dosing</button>
+        <button class="segmented__btn" data-seg="sync" type="button">Sync</button>
         <button class="segmented__btn" data-seg="data" type="button">Data</button>
         <button class="segmented__btn" data-seg="general" type="button">General</button>
       </div>
@@ -528,10 +529,25 @@
           </div>
           <p class="panel-card__hint" style="margin-top:6px;">Unlike the settings above, this one changes your suggested dose: when on, a correction is reduced by your current Active Insulin (IOB) — your meal dose is never affected. Off by default.</p>
         </div>
+
+        <div class="panel-card">
+          <h2 class="panel-card__title">After-meal glucose check</h2>
+          <p class="panel-card__hint">After you log a meal with insulin, show a reminder on the calculator for when to check your glucose, with an “Add to calendar” button (your phone's Calendar then alerts you even when the app is closed).</p>
+          <div class="field">
+            <label for="set-check-after">Remind me</label>
+            <select id="set-check-after">
+              <option value="0">Off</option>
+              <option value="2">2 hours after a meal</option>
+              <option value="3">3 hours after a meal</option>
+              <option value="4">4 hours after a meal</option>
+            </select>
+          </div>
+        </div>
+
       </div>
 
-      <!-- Data -->
-      <div class="settings-panel" id="panel-data" hidden>
+      <!-- Sync -->
+      <div class="settings-panel" id="panel-sync" hidden>
         <div class="panel-card">
           <div style="display:flex; align-items:center; justify-content:space-between;">
             <h2 class="panel-card__title">System Status</h2>
@@ -540,10 +556,12 @@
           <div id="status-panel-list"></div>
         </div>
 
+
         <div class="panel-card">
           <h2 class="panel-card__title"><span class="panel-card__icon-badge panel-card__icon-badge--account"><svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="8" r="3.2" stroke="currentColor" stroke-width="1.6"/><path d="M5 20c0-3.5 3-6 7-6s7 2.5 7 6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></span> Account &amp; Sync</h2>
           <div id="account-section"></div>
         </div>
+
 
         <div class="panel-card">
           <h2 class="panel-card__title"><span class="panel-card__icon-badge panel-card__icon-badge--nightscout"><svg viewBox="0 0 24 24" fill="none"><path d="M3 12h4l2-7 4 14 2-7h6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span> Nightscout Sync</h2>
@@ -575,20 +593,10 @@
           <p class="panel-card__hint" id="ns-backfill-status" style="margin-top:6px;" hidden></p>
         </div>
 
-        <div class="panel-card">
-          <h2 class="panel-card__title">After-meal glucose check</h2>
-          <p class="panel-card__hint">After you log a meal with insulin, show a reminder on the calculator for when to check your glucose, with an “Add to calendar” button (your phone's Calendar then alerts you even when the app is closed).</p>
-          <div class="field">
-            <label for="set-check-after">Remind me</label>
-            <select id="set-check-after">
-              <option value="0">Off</option>
-              <option value="2">2 hours after a meal</option>
-              <option value="3">3 hours after a meal</option>
-              <option value="4">4 hours after a meal</option>
-            </select>
-          </div>
-        </div>
+      </div>
 
+      <!-- Data -->
+      <div class="settings-panel" id="panel-data" hidden>
         <div class="panel-card">
           <h2 class="panel-card__title">Import / Export Library</h2>
           <button class="data-row" id="btn-export-library" type="button">
