@@ -2,6 +2,11 @@
 // summary can never drift. Bump CHANGELOG[0].version here (and CACHE_VERSION in sw.js) on every release.
 export const CHANGELOG = [
   {
+    version: "2.41.1",
+    summary: "Fix: the Liquid Glass look now shows on iPhone.",
+    changes: ["The glass style was switched off by a setting Safari does not understand, so on iPhone you saw no change. It is now on by default and only turns off if you enable Reduce Transparency on a browser that supports that setting"]
+  },
+  {
     version: "2.41.0",
     summary: "Settings reorganised into four tabs, and a Liquid Glass look.",
     changes: ["Settings now has four tabs: Dosing (ratios, correction, timing and the after-meal glucose check), Sync (status, account, Nightscout), Data (import/export, backups, diagnostics) and General (theme, background, privacy). Nothing was removed, things are just where you would look for them, and the long Data page is now much shorter", "A softer, translucent Liquid Glass style on the cards, the tab bar and the switches: frosted panels with a light edge and gentle shadows, and a glossy sheen on the dose banner. Long lists keep a lighter version so scrolling stays smooth. If your phone has Reduce Transparency on, it falls back to the plain look", "The sign-in email box now matches the other fields"]

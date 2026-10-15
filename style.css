@@ -1334,7 +1334,7 @@ html[data-theme="dark"] {
   --glass-shadow: 0 10px 28px rgba(0,0,0,0.35), 0 2px 6px rgba(0,0,0,0.25);
 }
 @supports ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
-  @media (prefers-reduced-transparency: no-preference) {
+  @media all {
     .panel-card, .segmented, .tabbar {
       background: var(--glass-bg);
       -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur);
@@ -1369,16 +1369,17 @@ html[data-theme="dark"] {
       box-shadow: inset 0 1px 0 rgba(255,255,255,0.35);
     }
   }
-  @media (prefers-reduced-transparency: no-preference) and (max-width: 699px) {
+  @media (max-width: 699px) {
     .sticky-log-bar {
       background: var(--glass-bg); -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur);
       border-top-color: var(--glass-edge);
     }
   }
 }
+/* Safari does not know "prefers-reduced-transparency" yet, and a media query with a feature a browser doesn't know never
+   matches, so the glass must not be wrapped in it. It is on by default, and this block switches it off where supported. */
 @media (prefers-reduced-transparency: reduce) {
-  :root, html[data-theme="dark"] { --glass-blur: none; }
+  :root { --glass-bg: var(--surface); --glass-bg-strong: var(--surface); --glass-blur: none; }
+  html[data-theme="dark"] { --glass-bg: var(--surface); --glass-bg-strong: var(--surface); }
+  .panel-card, .segmented, .tabbar, .sticky-log-bar, .segmented__btn.is-active, .dose-card .pill-btn, .dose-card .carbs-pill { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
 }
-
-/* Sign-in form: full-width, comfortable fields (the email box used to fall back to the browser's plain style). */
-#account-section .field input { width: 100%; box-sizing: border-box; padding: 12px; font-size: 16px; }
