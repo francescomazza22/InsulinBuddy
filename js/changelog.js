@@ -2,6 +2,11 @@
 // summary can never drift. Bump CHANGELOG[0].version here (and CACHE_VERSION in sw.js) on every release.
 export const CHANGELOG = [
   {
+    version: "2.41.3",
+    summary: "Fix: blank blurred box in Settings on iPad.",
+    changes: ["On wide screens (iPad, computer) Settings showed an empty blurred panel where a card should be, a Safari quirk with the glass blur inside two-column layouts. Those cards now use the glass tint and edge without the live blur", "Dark mode: the titles of the Import / Export and Backup rows in Data were nearly black on dark and are now readable"]
+  },
+  {
     version: "2.41.2",
     summary: "Liquid Glass on the Calculator's food list too.",
     changes: ["The food search box, the Grams box and the food list on the Calculator now use the same frosted glass style as the other tabs, in light and dark"]

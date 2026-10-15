@@ -1391,3 +1391,14 @@ html[data-theme="dark"] {
   html[data-theme="dark"] { --glass-bg: var(--surface); --glass-bg-strong: var(--surface); }
   .panel-card, .segmented, .tabbar, .sticky-log-bar, .segmented__btn.is-active, .dose-card .pill-btn, .dose-card .carbs-pill { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
 }
+
+/* Safari paints a blurred, empty box for backdrop-filter elements inside CSS columns, and Settings uses two columns on
+   wide screens. There the cards keep the glass tint and edge but drop the live blur. */
+@media (min-width: 1000px) {
+  #view-settings .settings-panel .panel-card {
+    -webkit-backdrop-filter: none; backdrop-filter: none;
+    background: var(--glass-bg-strong);
+  }
+}
+/* Buttons do not inherit the page's text colour, so the Data rows' titles came out near-black on dark cards. */
+.data-row { color: var(--ink); }
