@@ -2,6 +2,11 @@
 // summary can never drift. Bump CHANGELOG[0].version here (and CACHE_VERSION in sw.js) on every release.
 export const CHANGELOG = [
   {
+    version: "2.40.0",
+    summary: "Roomier dose banner on phone and on wide screens.",
+    changes: ["On a phone the buttons in the top banner (Correction, Treating a Low, Eating Out) are slightly taller with a little more space between them, so they are easier to read and tap", "On tablets and computers the banner grows to match: larger buttons, more padding and more space between rows"]
+  },
+  {
     version: "2.39.1",
     summary: "Library tiles back to their compact size.",
     changes: ["The usage count in the corner no longer adds empty space: tiles are as short as before, and the count sits in the bottom right of the tile"]

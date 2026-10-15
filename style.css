@@ -186,7 +186,7 @@ input:focus-visible, select:focus-visible, button:focus-visible { outline: 2px s
 /* ================= CALCULATOR ================= */
 .dose-card {
   background: linear-gradient(155deg, var(--acc-1) 0%, var(--acc-2) 100%);
-  color: #fff; border-radius: var(--radius-l); padding: 11px 14px 10px; margin-bottom: 14px;
+  color: #fff; border-radius: var(--radius-l); padding: 13px 14px 12px; margin-bottom: 14px;
 }
 .dose-card__top { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--dose-gap); }
 .dose-card__top-right { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
@@ -227,13 +227,13 @@ input:focus-visible, select:focus-visible, button:focus-visible { outline: 2px s
 .dose-card__value-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: var(--dose-gap); }
 .dose-card__value { display: flex; align-items: baseline; gap: 6px; font-family: var(--font-display); font-size: 1.55rem; line-height: 1; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
 .dose-card__unit { font-family: var(--font-ui); font-size: 0.82rem; font-weight: 500; color: rgba(255,255,255,0.82); }
-.dose-card__controls { display: flex; gap: 4px; }
-.dose-card__controls .pill-btn { flex: 1; justify-content: center; }
+.dose-card__controls { display: flex; gap: 6px; }
+.dose-card__controls .pill-btn { flex: 1 1 auto; min-width: 0; justify-content: center; padding-left: 6px; padding-right: 6px; }
 /* The Ratio pill sits between the carbs pill (top row) and the Eating Out pill (toggle row), and
    should be exactly centred between them. That only holds if the pills above and below it are the
    same height and the gaps are the same, so both are fixed here rather than left to font metrics
    (they used to be 20px / 20px / 24px with 5px above and 8px below, which left it visibly high). */
-.dose-card { --dose-pill-h: 24px; --dose-gap: 4px; }
+.dose-card { --dose-pill-h: 28px; --dose-gap: 7px; }
 .dose-card .pill-btn, .dose-card .carbs-pill { height: var(--dose-pill-h); padding-top: 0; padding-bottom: 0; line-height: 1; }
 /* gap: as a flex container the pill's text and the value <span> become separate flex items, and the
    space between them is collapsed away ("Ratio1:15"), so the spacing has to be explicit. */
@@ -944,6 +944,14 @@ html[data-theme="dark"] .pattern-card__preview--abstract { background-image: url
   .sheet-backdrop input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), .sheet-backdrop select, .sheet-backdrop textarea { font-size: 1rem; }
   .view { max-width: 1180px; }
   .dose-card__value { font-size: 2rem; }
+  /* More room on a big screen: taller, roomier buttons and a bit more air around the card. */
+  .dose-card { --dose-pill-h: 36px; --dose-gap: 12px; padding: 18px 20px 17px; }
+  .dose-card__controls { gap: 9px; }
+  .dose-card .pill-btn { font-size: 0.8rem; gap: 6px; padding-left: 10px; padding-right: 10px; }
+  .dose-card .pill-btn svg { width: 14px; height: 14px; }
+  .dose-card .carbs-pill { font-size: 0.82rem; padding-left: 14px; padding-right: 14px; }
+  .dose-card .glucose-pill { font-size: 0.82rem; padding: 4px 12px; }
+  .dose-card__top-right { gap: 9px; }
   .segmented { max-width: 520px; }
   /* Calculator: dose and Log button on the left, held in view while you scroll the meal on the right. */
   #view-calculator { display: grid; grid-template-columns: minmax(360px, 440px) minmax(0, 1fr); column-gap: 36px; align-items: start; }
