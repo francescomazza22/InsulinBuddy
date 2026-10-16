@@ -289,6 +289,12 @@ export async function openDevice(app, { width = 390, height = 900, mobile = true
     // never noticed and later steps then failed on elements that had never rendered. Retries are capped, so a
     // tab that legitimately can't open (e.g. behind the lock screen) costs a couple of seconds, not a hang.
     async tab(name) {
+      // The Library is no longer a tab: it is the Library panel of Settings.
+      if (name === "library") {
+        await dev.tab("settings");
+        await dev.click('#settings-segmented [data-seg="library"]'); await sleep(150);
+        return;
+      }
       for (let i = 0; i < 25; i++) {
         try { await dev.click(`[data-target="${name}"]`); } catch { /* tab bar not rendered yet */ }
         await sleep(i === 0 ? 120 : 100);

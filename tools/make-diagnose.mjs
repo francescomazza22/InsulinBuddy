@@ -36,7 +36,7 @@ export function buildExpect(root) {
   const list = dir => fs.existsSync(path.join(root, dir)) ? fs.readdirSync(path.join(root, dir)).sort().map(n => dir + "/" + n) : [];
   const patternFiles = list("assets/patterns").filter(f => f.endsWith(".svg"));      // the Abstract background's artwork: fingerprinted
   const iconFiles = list("assets/icons").filter(f => /\.(png|svg|ico)$/.test(f));       // the icons: they only need to be there
-  for (const f of ["index.html", "app.js", "style.css", "sw.js", "vendor/supabase.js", ...patternFiles, ...fs.readdirSync(path.join(root, "js")).filter(n => n.endsWith(".js")).sort().map(n => "js/" + n)]) {
+  for (const f of ["index.html", "app.js", "tokens.css", "style.css", "sw.js", "vendor/supabase.js", ...patternFiles, ...fs.readdirSync(path.join(root, "js")).filter(n => n.endsWith(".js")).sort().map(n => "js/" + n)]) {
     const data = read(f);
     files[f] = { sha: sha(fingerprint(f, data)), size: data.length, must: musts[f] || [] };
   }

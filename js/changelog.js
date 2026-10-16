@@ -2,6 +2,17 @@
 // summary can never drift. Bump CHANGELOG[0].version here (and CACHE_VERSION in sw.js) on every release.
 export const CHANGELOG = [
   {
+    version: "2.43.0",
+    summary: "Three tabs: Calculator, Insights, Settings. Library moves into the Calculator and Settings.",
+    changes: [
+      "The bottom bar is now Calculator, Insights and Settings. History is renamed Insights and holds Meals, Trends and Glucose in one place",
+      "New Browse button next to Add Food Item in the Calculator: pick from your Favourites, Most used, Recipes or everything, with search, without leaving the meal you're building",
+      "Your food and recipe library is managed under Settings > Library (add, edit, star, delete, import and export are all there, exactly as before). Browse has a shortcut to it",
+      "Under the hood: all colours, corner radii, spacing, text sizes and the glass look now come from one design file, so the look can be changed in one place. Text and corners snap to a tidier scale, so a few things shift by a pixel or two",
+      "Doses are unchanged: the calculator, the search list and Browse all end up in the same dose calculation"
+    ]
+  },
+  {
     version: "2.42.3",
     summary: "Fix: Edit and the remove cross showing through meal rows.",
     changes: ["In the Current Meal list, the Edit button hidden behind each item showed through the item after the glass update, overlapping the X. The item face is solid again, and Edit only appears when you swipe"]

@@ -15,7 +15,7 @@ const launch = async place => {
   await sleep(500);
   return dev;
 };
-const shown = dev => dev.eval(`(Array.from(document.querySelectorAll("[data-view]")).find(v => !v.hidden) || {}).id`);
+const shown = dev => dev.eval(`(Array.from(document.querySelectorAll("section.view")).find(v => !v.hidden) || {}).id`);
 
 t.section("first launch opens the calculator");
 let dev = await launch();

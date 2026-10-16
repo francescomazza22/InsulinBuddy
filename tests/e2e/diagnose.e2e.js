@@ -16,7 +16,7 @@ const OLD_MANIFEST = JSON.stringify({ name: "Insulin Buddy", icons: [{ src: "ico
 /** A copy of the site as it would sit on the server (just the deployed files), then `mutate(dir)` to break or change it. */
 function site(mutate = () => {}) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ib-site-"));
-  for (const f of ["index.html", "app.js", "style.css", "sw.js", "diagnose.html"]) fs.copyFileSync(path.join(DIR, f), path.join(dir, f));
+  for (const f of ["index.html", "app.js", "tokens.css", "style.css", "sw.js", "diagnose.html"]) fs.copyFileSync(path.join(DIR, f), path.join(dir, f));
   fs.cpSync(path.join(DIR, "js"), path.join(dir, "js"), { recursive: true });
   fs.cpSync(path.join(DIR, "assets"), path.join(dir, "assets"), { recursive: true });
   fs.cpSync(path.join(DIR, "vendor"), path.join(dir, "vendor"), { recursive: true });

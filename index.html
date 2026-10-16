@@ -16,6 +16,7 @@
 <link rel="manifest" href="manifest.json">
 <!-- supabase-js 2.117.3, bundled with the app (vendor/supabase.js) so starting up never depends on a CDN being reachable -->
 <script src="vendor/supabase.js" defer></script>
+<link rel="stylesheet" href="tokens.css">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -194,7 +195,13 @@
         <div class="section-header" id="recent-meals-header" hidden>RECENTLY LOGGED</div>
         <div class="recent-meals-row" id="recent-meals-row" hidden></div>
 
-        <div class="section-header">ADD FOOD ITEM</div>
+        <div class="section-header section-header--row">
+          <span>ADD FOOD ITEM</span>
+          <button class="browse-btn" id="cc-browse-btn" type="button" aria-haspopup="dialog">
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 6h16M4 12h10M4 18h6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+            Browse
+          </button>
+        </div>
 
         <div class="add-row">
           <div class="search-input-wrap">
@@ -218,70 +225,18 @@
       </div>
     </section>
 
-    <!-- ======================= LIBRARY ======================= -->
-    <section class="view" id="view-library" data-view hidden>
-      <div class="page-head">
-        <div>
-          <h1>Food Library</h1>
-          <p class="page-head__sub">Manage your foods and recipes</p>
-        </div>
-        <button class="fab" id="lib-add-btn" type="button" aria-label="Add">
-          <svg viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-        </button>
-      </div>
-
-      <div class="segmented" id="lib-segmented">
-        <button class="segmented__btn is-active" data-seg="foods" type="button">Foods</button>
-        <button class="segmented__btn" data-seg="recipes" type="button">Recipes</button>
-      </div>
-
-      <div class="search-row">
-        <input type="text" id="lib-search" placeholder="Search foods&hellip;" autocomplete="off">
-        <button class="icon-btn" id="lib-filter-btn" type="button" aria-label="Filter">
-          <svg viewBox="0 0 24 24" fill="none"><path d="M4 6h16M7 12h10M10 18h4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
-        </button>
-      </div>
-
-      <div class="filter-panel" id="lib-filter-panel" hidden>
-        <div class="filter-panel__row">
-          <label><input type="checkbox" id="lib-fav-only"> Favorites only</label>
-        </div>
-        <div class="filter-panel__row">
-          <label for="lib-cat-filter">Category</label>
-          <select id="lib-cat-filter">
-            <option value="">All categories</option>
-          </select>
-        </div>
-        <div class="filter-panel__row">
-          <label for="lib-sort">Sort by</label>
-          <select id="lib-sort">
-            <option value="name">Name</option>
-            <option value="usage">Most used</option>
-            <option value="carbs">Carbs per 100g</option>
-          </select>
-        </div>
-      </div>
-
-      <div id="lib-foods-list" class="lib-list"></div>
-      <div id="lib-recipes-list" class="lib-list" hidden></div>
-      <div class="empty-state" id="lib-empty" hidden>
-        <p>Nothing here yet.</p>
-        <p class="empty-state__sub">Tap the + button to add one.</p>
-      </div>
-    </section>
-
     <!-- ======================= HISTORY ======================= -->
     <section class="view" id="view-history" data-view hidden>
       <div class="page-head">
         <div>
-          <h1>Meal History</h1>
-          <p class="page-head__sub">Your logged meals</p>
+          <h1>Insights</h1>
+          <p class="page-head__sub">Your meals, trends and glucose</p>
         </div>
         <div class="carbs-pill carbs-pill--muted" id="hist-count-pill">0 meals</div>
       </div>
 
       <div class="segmented" id="history-segmented">
-        <button class="segmented__btn is-active" data-seg="log" type="button">Log</button>
+        <button class="segmented__btn is-active" data-seg="log" type="button">Meals</button>
         <button class="segmented__btn" data-seg="trends" type="button">Trends</button>
         <button class="segmented__btn" data-seg="glucose" type="button">Glucose</button>
       </div>
@@ -389,9 +344,62 @@
 
       <div class="segmented" id="settings-segmented">
         <button class="segmented__btn is-active" data-seg="ratios" type="button">Dosing</button>
+        <button class="segmented__btn" data-seg="library" type="button">Library</button>
         <button class="segmented__btn" data-seg="sync" type="button">Sync</button>
         <button class="segmented__btn" data-seg="data" type="button">Data</button>
         <button class="segmented__btn" data-seg="general" type="button">General</button>
+      </div>
+
+      <!-- Food library: lives in Settings now (the Calculator's Browse button is how foods are picked) -->
+      <div class="settings-panel" id="panel-library" hidden>
+        <div class="lib-head">
+          <div>
+            <h2 class="lib-head__title">Foods &amp; recipes</h2>
+            <p class="lib-head__sub">What the Calculator's Browse button picks from</p>
+          </div>
+          <button class="fab" id="lib-add-btn" type="button" aria-label="Add food">
+            <svg viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+          </button>
+        </div>
+
+      <div class="segmented" id="lib-segmented">
+        <button class="segmented__btn is-active" data-seg="foods" type="button">Foods</button>
+        <button class="segmented__btn" data-seg="recipes" type="button">Recipes</button>
+      </div>
+
+      <div class="search-row">
+        <input type="text" id="lib-search" placeholder="Search foods&hellip;" autocomplete="off">
+        <button class="icon-btn" id="lib-filter-btn" type="button" aria-label="Filter">
+          <svg viewBox="0 0 24 24" fill="none"><path d="M4 6h16M7 12h10M10 18h4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+
+      <div class="filter-panel" id="lib-filter-panel" hidden>
+        <div class="filter-panel__row">
+          <label><input type="checkbox" id="lib-fav-only"> Favorites only</label>
+        </div>
+        <div class="filter-panel__row">
+          <label for="lib-cat-filter">Category</label>
+          <select id="lib-cat-filter">
+            <option value="">All categories</option>
+          </select>
+        </div>
+        <div class="filter-panel__row">
+          <label for="lib-sort">Sort by</label>
+          <select id="lib-sort">
+            <option value="name">Name</option>
+            <option value="usage">Most used</option>
+            <option value="carbs">Carbs per 100g</option>
+          </select>
+        </div>
+      </div>
+
+      <div id="lib-foods-list" class="lib-list"></div>
+      <div id="lib-recipes-list" class="lib-list" hidden></div>
+      <div class="empty-state" id="lib-empty" hidden>
+        <p>Nothing here yet.</p>
+        <p class="empty-state__sub">Tap the + button to add one.</p>
+      </div>
       </div>
 
       <!-- Insulin Ratios -->
@@ -772,13 +780,9 @@
       <svg viewBox="0 0 24 24" fill="none"><rect x="4" y="3" width="16" height="18" rx="2.5" stroke="currentColor" stroke-width="1.6"/><path d="M8 8h8M8 12h2M12 12h2M16 12h0M8 16h2M12 16h2M16 16h0" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
       <span>Calculator</span>
     </button>
-    <button class="tab" data-target="library" type="button">
-      <svg viewBox="0 0 24 24" fill="none"><path d="M4 4.5C4 4 5 3.5 7 3.5C9 3.5 10.5 4 11 4.5V19.5C10.5 19 9 18.5 7 18.5C5 18.5 4 19 4 19.5V4.5Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M20 4.5C20 4 19 3.5 17 3.5C15 3.5 13.5 4 13 4.5V19.5C13.5 19 15 18.5 17 18.5C19 18.5 20 19 20 19.5V4.5Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>
-      <span>Library</span>
-    </button>
     <button class="tab" data-target="history" type="button">
-      <svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="13" r="7.5" stroke="currentColor" stroke-width="1.6"/><path d="M12 9v4l2.5 2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M9 2.5h6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
-      <span>History</span>
+      <svg viewBox="0 0 24 24" fill="none"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <span>Insights</span>
     </button>
     <button class="tab" data-target="settings" type="button">
       <svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.6"/><path d="M12 2.5v2.4M12 19.1v2.4M4.6 6.6l1.7 1.7M17.7 15.7l1.7 1.7M2.5 12h2.4M19.1 12h2.4M4.6 17.4l1.7-1.7M17.7 8.3l1.7-1.7" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>

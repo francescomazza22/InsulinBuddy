@@ -36,12 +36,11 @@ async function overflowing(dev) {
   const bad = [], wide = () => dev.eval(`document.documentElement.scrollWidth > innerWidth + 1 ? [document.documentElement.scrollWidth, innerWidth] : null`);
   const check = async label => { const o = await wide(); if (o) bad.push(`${label} (${o[0]} > ${o[1]})`); };
   await dev.tab("calculator"); await sleep(150); await check("calculator");
-  await dev.tab("library"); await sleep(200); await check("library");
   await dev.tab("history"); await sleep(250);
   for (const seg of ["log", "trends", "glucose"]) { await dev.eval(`document.querySelector('[data-seg="${seg}"]').click()`); await sleep(350); await check("history/" + seg); }
   await dev.eval(`document.querySelector('[data-seg="log"]').click()`);
   await dev.tab("settings"); await sleep(200);
-  for (const seg of ["ratios", "data", "general"]) { await dev.eval(`(document.querySelector('#settings-segmented [data-seg="${seg}"]') || {click(){}}).click()`); await sleep(250); await check("settings/" + seg); }
+  for (const seg of ["ratios", "library", "sync", "data", "general"]) { await dev.eval(`(document.querySelector('#settings-segmented [data-seg="${seg}"]') || {click(){}}).click()`); await sleep(250); await check("settings/" + seg); }
   await dev.tab("calculator"); await sleep(150);
   return bad;
 }
@@ -58,7 +57,7 @@ const closeSheet = async dev => { await dev.click("#basal-cancel"); await sleep(
   t.check("the Log bar is fixed to the bottom, full width, sitting directly on the tab bar", (await css(dev, "#cc-sticky-log-bar", "position")) === "fixed" && log.left === 0 && log.w === 390 && Math.abs(log.bottom - tab.top) <= 1, JSON.stringify({ log, tabTop: tab.top }));
   t.check("the tab bar's height is measured (the Log bar sits above it)", parseInt(await dev.eval(`document.documentElement.style.getPropertyValue("--tabbar-height")`)) === tab.h);
   const sh = await sheetBox(dev);
-  t.check("a pop-up is still a full-width drawer on the bottom edge", sh.bottom === 844 && sh.w === 390 && sh.radiusTop === "20px" && sh.radiusBottom === "0px", JSON.stringify(sh));
+  t.check("a pop-up is still a full-width drawer on the bottom edge", sh.bottom === 844 && sh.w === 390 && sh.radiusTop === "22px" && sh.radiusBottom === "0px", JSON.stringify(sh));
   await closeSheet(dev);
   const over = await overflowing(dev);
   t.check("no screen scrolls sideways", over.length === 0, over.join(", "));
@@ -71,7 +70,7 @@ const closeSheet = async dev => { await dev.click("#basal-cancel"); await sleep(
   const rail = await R(dev, ".tabbar"), dose = await R(dev, ".dose-card"), view = await R(dev, "#view-calculator");
   t.check("the tab bar is a rail down the left edge, 92px wide, full height", rail.left === 0 && rail.w === 92 && rail.top === 0 && rail.h === 1180 && (await css(dev, ".tabbar", "flexDirection")) === "column", JSON.stringify(rail));
   const tabs = await dev.eval(`Array.from(document.querySelectorAll(".tab")).map(e => { const b = e.getBoundingClientRect(); return [Math.round(b.left), Math.round(b.top)]; })`);
-  t.check("its four tabs are stacked one under another", tabs.length === 4 && tabs.every(p => p[0] === tabs[0][0]) && tabs.every((p, i) => i === 0 || p[1] > tabs[i - 1][1]), JSON.stringify(tabs));
+  t.check("its three tabs are stacked one under another", tabs.length === 3 && tabs.every(p => p[0] === tabs[0][0]) && tabs.every((p, i) => i === 0 || p[1] > tabs[i - 1][1]), JSON.stringify(tabs));
   t.check("the content starts to the right of the rail, never under it", view.left >= 92 && dose.left >= 92, JSON.stringify({ view, dose }));
   t.check("and is a comfortable width, centred in the space beside the rail", view.w <= 720 && Math.abs((view.left + view.right) / 2 - (92 + 820) / 2) <= 6, JSON.stringify(view));
   t.check("the Calculator is still one column", (await R(dev, "#cc-food-section")).top > dose.bottom && (await css(dev, ".calc-side", "display")) === "contents");
@@ -82,7 +81,7 @@ const closeSheet = async dev => { await dev.click("#basal-cancel"); await sleep(
   t.check("nothing is measured as sitting above a bottom tab bar any more", (await dev.eval(`document.documentElement.style.getPropertyValue("--tabbar-height")`)) === "0px");
   const sh = await sheetBox(dev);
   t.check("a pop-up is a centred card, not a bottom drawer", Math.abs((sh.left + sh.right) / 2 - 410) <= 2 && sh.w <= 540 && sh.bottom < 1180 - 100 && sh.top > 100, JSON.stringify(sh));
-  t.check("and its corners are rounded all round", sh.radiusTop === "20px" && sh.radiusBottom === "20px", JSON.stringify(sh));
+  t.check("and its corners are rounded all round", sh.radiusTop === "22px" && sh.radiusBottom === "22px", JSON.stringify(sh));
   await closeSheet(dev);
   const over = await overflowing(dev);
   t.check("no screen scrolls sideways", over.length === 0, over.join(", "));

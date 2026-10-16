@@ -1,0 +1,82 @@
+/* GENERATED from design/tokens.json by tools/make-tokens.mjs. Do not edit by hand: change the JSON and run the tool. */
+:root {
+  /* colour */
+  --ink: #1B2A3A;
+  --ink-soft: #6B7A89;
+  --paper: #F5F3EE;
+  --surface: #FFFFFF;
+  --line: #E4E1D8;
+  --amber: #C8862E;
+  --brick: #A34A3B;
+  --brick-soft: #F1DCD6;
+  --green: #4C7A5E;
+  --app-bg: var(--paper);
+
+  /* shape, spacing, type, motion */
+  --radius-xs: 8px;
+  --radius-s: 10px;
+  --radius-m: 16px;
+  --radius-l: 22px;
+  --radius-pill: 999px;
+  --space-3xs: 4px;
+  --space-2xs: 6px;
+  --space-xs: 8px;
+  --space-s: 10px;
+  --space-m: 12px;
+  --space-l: 16px;
+  --space-xl: 24px;
+  --font-ui: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-display: var(--font-ui);
+  --fs-2xs: 0.68rem;
+  --fs-xs: 0.74rem;
+  --fs-s: 0.8rem;
+  --fs-m: 0.86rem;
+  --fs-l: 0.92rem;
+  --fs-body: 1rem;
+  --fs-h3: 1.1rem;
+  --fs-h2: 1.3rem;
+  --fs-h1: 1.4rem;
+  --motion-fast: 120ms;
+  --motion-base: 200ms;
+  --motion-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+
+  /* palette accents: overridden per data-palette */
+  --acc-1: #3B82F6;
+  --acc-2: #8B5CF6;
+  --acc-3: #6366F1;
+  --acc-1-rgb: 59,130,246;
+
+  /* Liquid Glass */
+  --glass-bg: rgba(255,255,255,0.60);
+  --glass-bg-strong: rgba(255,255,255,0.78);
+  --glass-edge: rgba(255,255,255,0.75);
+  --glass-edge-soft: rgba(255,255,255,0.28);
+  --glass-line: rgba(27,42,58,0.07);
+  --glass-shadow: 0 10px 28px rgba(27,42,58,0.08), 0 2px 6px rgba(27,42,58,0.04);
+  --glass-blur: blur(22px) saturate(1.7);
+}
+
+/* ---------- Palettes ---------- */
+html[data-palette="tealViolet"] { --acc-1:#1F9E93; --acc-2:#8B5CF6; --acc-3:#38BDF8; --acc-1-rgb: 31,158,147; }
+html[data-palette="blueViolet"] { --acc-1:#3B82F6; --acc-2:#8B5CF6; --acc-3:#6366F1; --acc-1-rgb: 59,130,246; }
+html[data-palette="emeraldRose"] { --acc-1:#10B981; --acc-2:#F43F5E; --acc-3:#34D399; --acc-1-rgb: 16,185,129; }
+html[data-palette="orangePink"] { --acc-1:#F97316; --acc-2:#EC4899; --acc-3:#F59E0B; --acc-1-rgb: 249,115,22; }
+html[data-palette="cyanIndigo"] { --acc-1:#22B8CE; --acc-2:#6366F1; --acc-3:#3B82F6; --acc-1-rgb: 34,184,206; }
+html[data-palette="greenAmber"] { --acc-1:#22C55E; --acc-2:#F59E0B; --acc-3:#84CC16; --acc-1-rgb: 34,197,94; }
+
+/* ---------- Dark mode ---------- */
+html[data-theme="dark"] {
+  --ink: #ECEAE3;
+  --ink-soft: #9AA6B2;
+  --paper: #14181D;
+  --surface: #1C2127;
+  --line: #2B3138;
+  --brick-soft: #3A2420;
+  --app-bg: var(--paper);
+  --glass-bg: rgba(34,40,47,0.58);
+  --glass-bg-strong: rgba(48,56,65,0.75);
+  --glass-edge: rgba(255,255,255,0.16);
+  --glass-edge-soft: rgba(255,255,255,0.05);
+  --glass-line: rgba(0,0,0,0.35);
+  --glass-shadow: 0 10px 28px rgba(0,0,0,0.35), 0 2px 6px rgba(0,0,0,0.25);
+}

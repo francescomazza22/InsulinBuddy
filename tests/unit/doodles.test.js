@@ -6,6 +6,7 @@ import { buildDoodleSvg, layoutDoodles, placements, minClearance, ICONS, TILE } 
 
 const ROOT = new URL("../..", import.meta.url).pathname;
 const css = fs.readFileSync(ROOT + "style.css", "utf8");
+const tokenCss = fs.readFileSync(ROOT + "tokens.css", "utf8");   // the colours live here, generated from design/tokens.json
 const svg = fs.readFileSync(ROOT + "tools/doodles.svg", "utf8");
 const app = fs.readFileSync(ROOT + "app.js", "utf8");
 
@@ -69,8 +70,8 @@ test("the data URIs are valid CSS, decode to the right drawing, and use the righ
     for (const m of decoded.matchAll(/<use href='#(\w+)'/g)) assert.ok(defined.has(m[1]), `${variant}: a doodle refers to a drawing that isn't defined: ${m[1]}`);
   }
   assert.notEqual(dataUri(svg, "light"), dataUri(svg, "dark"));
-  const lightInk = /--ink:\s*(#[0-9A-Fa-f]{6})/.exec(css.slice(0, css.indexOf('[data-theme="dark"]')))[1];
-  const darkInk = /--ink:\s*(#[0-9A-Fa-f]{6})/.exec(css.slice(css.indexOf('[data-theme="dark"]')))[1];
+  const lightInk = /--ink:\s*(#[0-9A-Fa-f]{6})/.exec(tokenCss.slice(0, tokenCss.indexOf('[data-theme="dark"]')))[1];
+  const darkInk = /--ink:\s*(#[0-9A-Fa-f]{6})/.exec(tokenCss.slice(tokenCss.indexOf('[data-theme="dark"]')))[1];
   assert.equal(VARIANTS.light.stroke.toUpperCase(), lightInk.toUpperCase(), "the light pattern should be drawn in the app's own ink colour");
   assert.equal(VARIANTS.dark.stroke.toUpperCase(), darkInk.toUpperCase(), "the dark pattern should be drawn in the app's own dark-mode ink colour");
 });
@@ -88,8 +89,8 @@ test("it stays a vector tile in three sizes (Small by default), and is never pri
 });
 
 test("READABILITY: text keeps its contrast even on the darkest pixel of the pattern, over every background colour you can pick", () => {
-  const rootBlock = css.slice(0, css.indexOf("[data-theme=\"dark\"]"));
-  const darkBlock = css.slice(css.indexOf("[data-theme=\"dark\"]"), css.indexOf("[data-theme=\"dark\"]") + 900);
+  const rootBlock = tokenCss.slice(0, tokenCss.indexOf("[data-theme=\"dark\"]"));
+  const darkBlock = tokenCss.slice(tokenCss.indexOf("[data-theme=\"dark\"]"), tokenCss.indexOf("[data-theme=\"dark\"]") + 900);
   const presets = [...app.slice(app.indexOf("const BG_PRESETS"), app.indexOf("const BG_PRESETS") + 400).matchAll(/#[0-9A-Fa-f]{6}/g)].map(m => m[0]);
   assert.ok(presets.length >= 5, "found the background colour presets: " + presets.length);
   const cases = [

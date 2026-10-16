@@ -7,6 +7,7 @@ const ROOT = new URL("../..", import.meta.url).pathname;
 const source = fs.readFileSync(ROOT + "tools/abstract-source.svg", "utf8");
 const files = { light: fs.readFileSync(ROOT + "assets/patterns/pattern-abstract-light.svg", "utf8"), dark: fs.readFileSync(ROOT + "assets/patterns/pattern-abstract-dark.svg", "utf8") };
 const css = fs.readFileSync(ROOT + "style.css", "utf8");
+const tokenCss = fs.readFileSync(ROOT + "tokens.css", "utf8");   // the colours live here, generated from design/tokens.json
 const app = fs.readFileSync(ROOT + "app.js", "utf8");
 
 // ---- helpers
@@ -78,7 +79,7 @@ test("the linework is softened so that, after the fade, it matches the faint ink
 });
 
 test("READABILITY: grey text stays at 3:1 (4.5:1 in dark mode) and main text at 9:1, even on the strongest artwork colour behind it, over every background you can pick", () => {
-  const rootBlock = css.slice(0, css.indexOf('[data-theme="dark"]')), darkBlock = css.slice(css.indexOf('[data-theme="dark"]'), css.indexOf('[data-theme="dark"]') + 900);
+  const rootBlock = tokenCss.slice(0, tokenCss.indexOf('[data-theme="dark"]')), darkBlock = tokenCss.slice(tokenCss.indexOf('[data-theme="dark"]'), tokenCss.indexOf('[data-theme="dark"]') + 900);
   const v = (block, name) => hex(new RegExp(`${name}:\\s*(#[0-9A-Fa-f]{6})`).exec(block)[1]);
   const presets = [...app.slice(app.indexOf("const BG_PRESETS"), app.indexOf("const BG_PRESETS") + 400).matchAll(/#[0-9A-Fa-f]{6}/g)].map(m => hex(m[0]));
   const cases = [

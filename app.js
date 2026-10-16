@@ -567,7 +567,6 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
     el("cc-sticky-log-bar").hidden = name !== "calculator";
     document.documentElement.setAttribute("data-view", name);   // lets the CSS lift the undo bar clear of the Log bar on the calculator
     if (name === "calculator") renderActivePanel();
-    if (name === "library") renderLibrary();
     if (name === "history") { historyLimit = PAGE_SIZE; renderHistory(); }
     if (name === "settings") renderSettings();
     if (!restoringPlace) rememberPlace(name);
@@ -703,11 +702,16 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
   foodListBox.addEventListener("click", e => {
     const row = e.target.closest(".food-pick-item");
     if (!row) return;
-    selectedPickId = row.dataset.id;
-    const items = pickableItems();
-    const item = items.find(i => i.id === selectedPickId);
+    selectPickItem(row.dataset.id);
+  });
+  // Choosing a food, from the search list or from the Browse sheet, ends in the same place: it is highlighted and the
+  // amount box is ready.
+  function selectPickItem(id) {
+    const item = pickableItems().find(i => i.id === id);
     if (!item) return;
+    selectedPickId = id;
     searchInput.value = item.name;
+    el("cc-search-clear").hidden = false;
     renderFoodPickList();
     gramsInput.disabled = false;
     gramsInput.placeholder = item.unitBased ? "Qty" : "Grams";
@@ -715,7 +719,7 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
     batchWeightG = null;
     renderPickExtra();
     gramsInput.focus();
-  });
+  }
 
   const searchClearBtn = el("cc-search-clear");
   searchInput.addEventListener("input", () => {
@@ -731,6 +735,79 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
     searchInput.dispatchEvent(new Event("input", { bubbles: true }));
     searchInput.focus();
   });
+
+  // ----- Browse: the Library as a picker inside the Calculator -----
+  let browseTab = null;   // remembered for the session: 'fav' | 'used' | 'recipes' | 'all'
+  function openBrowseSheet() {
+    const items = pickableItems();
+    const hasFav = items.some(i => i.favorite), hasUsed = items.some(i => i.usageCount);
+    let tab = browseTab || (hasFav ? "fav" : hasUsed ? "used" : "all");
+    const backdrop = document.createElement("div");
+    backdrop.className = "sheet-backdrop";
+    backdrop.innerHTML = `
+      <div class="sheet browse-sheet" role="dialog" aria-modal="true" aria-labelledby="browse-title">
+        <div class="sheet-head">
+          <h2 id="browse-title">Browse foods</h2>
+          <button class="sheet-close" id="browse-close" type="button" aria-label="Close">
+            <svg viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+          </button>
+        </div>
+        <div class="segmented browse-tabs" id="browse-tabs">
+          <button class="segmented__btn" data-tab="fav" type="button">Favourites</button>
+          <button class="segmented__btn" data-tab="used" type="button">Most used</button>
+          <button class="segmented__btn" data-tab="recipes" type="button">Recipes</button>
+          <button class="segmented__btn" data-tab="all" type="button">All</button>
+        </div>
+        <input type="search" id="browse-search" class="browse-search" placeholder="Search&hellip;" autocomplete="off" autocorrect="off" aria-label="Search foods and recipes">
+        <div class="browse-list" id="browse-list"></div>
+        <button class="link-btn browse-manage" id="browse-manage" type="button">Manage your library in Settings</button>
+      </div>`;
+    openSheet(backdrop);
+    const list = backdrop.querySelector("#browse-list"), search = backdrop.querySelector("#browse-search");
+    const EMPTY = {
+      fav: "No favourites yet. Star a food in Settings \u203A Library and it will wait for you here.",
+      used: "Nothing used yet. Foods you add to meals will rank here.",
+      recipes: "No recipes yet.", all: "Nothing matches that."
+    };
+    const catLabel = id => (CATEGORIES.find(c => c.id === id) || CATEGORIES[CATEGORIES.length - 1]).label;
+    function rows() {
+      const q = search.value.trim().toLowerCase();
+      let r = pickableItems();
+      if (q) r = r.filter(i => i.name.toLowerCase().includes(q));    // searching looks everywhere, whichever tab is open
+      else if (tab === "fav") r = r.filter(i => i.favorite);
+      else if (tab === "used") r = r.filter(i => i.usageCount).sort((a, b) => b.usageCount - a.usageCount);
+      else if (tab === "recipes") r = r.filter(i => i.refType === "recipe");
+      if (q || tab !== "used") r.sort((a, b) => a.name.localeCompare(b.name));
+      return { r, q };
+    }
+    function paint() {
+      backdrop.querySelectorAll("#browse-tabs .segmented__btn").forEach(b => { const on = b.dataset.tab === tab && !search.value.trim(); b.classList.toggle("is-active", on); b.setAttribute("aria-pressed", on ? "true" : "false"); });
+      const { r, q } = rows();
+      if (!r.length) { list.innerHTML = `<p class="browse-empty">${escapeHtml(q ? EMPTY.all : EMPTY[tab])}</p>`; return; }
+      const MAX = 150, shown = r.slice(0, MAX);
+      const food = id => state.library.find(f => f.id === id);
+      list.innerHTML = shown.map(i => {
+        const unit = i.unitBased ? `/${escapeHtml(i.unitLabel)}` : "/100g";
+        const tag = i.refType === "recipe" ? "Recipe" : escapeHtml(catLabel((food(i.refId) || {}).category));
+        return `<button type="button" class="browse-item" data-id="${escapeHtml(i.id)}">
+          <span class="browse-item__main"><span class="browse-item__name">${i.favorite ? '<span class="browse-item__star" aria-label="Favourite">\u2605</span> ' : ""}${escapeHtml(i.name)}</span>
+          <span class="browse-item__meta"><span class="c-carbs">${i.carbsPer100g ?? "?"}g</span> carbs ${unit} \u00B7 ${tag}</span></span>
+          ${i.usageCount ? `<span class="browse-item__uses">${i.usageCount}\u00D7</span>` : ""}
+        </button>`;
+      }).join("") + (r.length > MAX ? `<p class="browse-empty">Showing ${MAX} of ${r.length}. Search to narrow it down.</p>` : "");
+    }
+    paint();
+    search.addEventListener("input", paint);
+    backdrop.addEventListener("click", e => {
+      const tabBtn = e.target.closest("#browse-tabs .segmented__btn");
+      if (tabBtn) { tab = browseTab = tabBtn.dataset.tab; search.value = ""; paint(); list.scrollTop = 0; return; }
+      const item = e.target.closest(".browse-item");
+      if (item) { const id = item.dataset.id; closeSheet(backdrop); selectPickItem(id); return; }
+      if (e.target.closest("#browse-manage")) { closeSheet(backdrop); openSettingsPanel("library"); return; }
+      if (e.target === backdrop || e.target.closest("#browse-close")) closeSheet(backdrop);
+    });
+  }
+  bind("cc-browse-btn", "click", openBrowseSheet);
 
   function addSelectedToMeal() {
     if (!selectedPickId) return;
@@ -4732,6 +4809,7 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
   let settingsSeg = "ratios";
   const settingsSegmented = el("settings-segmented");
   const panelRatios = el("panel-ratios");
+  const panelLibrary = el("panel-library");
   const panelSync = el("panel-sync");
   const panelData = el("panel-data");
   const panelGeneral = el("panel-general");
@@ -4742,10 +4820,19 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
     settingsSeg = btn.dataset.seg;
     settingsSegmented.querySelectorAll(".segmented__btn").forEach(b => b.classList.toggle("is-active", b === btn));
     showSettingsPanel();
+    if (settingsSeg === "library") renderLibrary();
     if (settingsSeg === "sync") { renderNightscoutSection(); renderStatusPanel(); }
   });
+  // Other screens (the Calculator's Browse sheet) open Settings straight on a given panel.
+  function openSettingsPanel(seg) {
+    settingsSeg = seg;
+    settingsSegmented.querySelectorAll(".segmented__btn").forEach(b => b.classList.toggle("is-active", b.dataset.seg === seg));
+    showView("settings");
+    if (seg === "library") renderLibrary();
+  }
   function showSettingsPanel() {
     panelRatios.hidden = settingsSeg !== "ratios";
+    panelLibrary.hidden = settingsSeg !== "library";
     panelSync.hidden = settingsSeg !== "sync";
     panelData.hidden = settingsSeg !== "data";
     panelGeneral.hidden = settingsSeg !== "general";
