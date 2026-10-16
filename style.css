@@ -1263,7 +1263,8 @@ html[data-theme="dark"] .undo-toast { background: var(--surface); border: 1px so
 .pick-extra__batch .field__row { min-height: 48px; }
 .pick-extra__batch .field__row input[type="number"] { flex: 1 1 auto; width: auto; min-width: 0; border: none; border-radius: 0; background: transparent; box-shadow: none; padding: 12px 4px 12px 14px; }
 .pick-extra__batch .field__row .field__unit { padding: 0 14px 0 6px; flex: 0 0 auto; }
-.low-hint { margin: 8px 0 0; padding: 8px 12px; border-radius: 10px; background: rgba(217,83,79,0.14); color: var(--ink); font-size: 0.85rem; }
+/* Sits in the dose banner like the other notes (same size, padding and tint, via .dose-card__no-insulin-note); only the accent differs. */
+.low-hint { box-shadow: inset 3px 0 0 #FCA5A5; }  /* inset, so the text lines up exactly with the other notes */
 .reminder-card { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin: 0 0 12px; padding: 12px 14px; border-radius: 14px; background: var(--surface-2, rgba(128,128,128,0.12)); border: 1px solid var(--line, rgba(128,128,128,0.25)); }
 .reminder-card--due { background: rgba(224,161,0,0.16); border-color: rgba(224,161,0,0.55); }
 .reminder-card__text { display: flex; flex-direction: column; font-size: 0.85rem; color: var(--ink-soft); min-width: 0; }

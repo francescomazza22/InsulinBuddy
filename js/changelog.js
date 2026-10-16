@@ -2,6 +2,11 @@
 // summary can never drift. Bump CHANGELOG[0].version here (and CACHE_VERSION in sw.js) on every release.
 export const CHANGELOG = [
   {
+    version: "2.41.4",
+    summary: "The low-glucose note now matches the other banner notes.",
+    changes: ["The \"Low (69 mg/dL)...\" note in the dose banner uses the same text size, padding and tint as the other notes, so its text lines up with them, with a small red edge to mark it"]
+  },
+  {
     version: "2.41.3",
     summary: "Fix: blank blurred box in Settings on iPad.",
     changes: ["On wide screens (iPad, computer) Settings showed an empty blurred panel where a card should be, a Safari quirk with the glass blur inside two-column layouts. Those cards now use the glass tint and edge without the live blur", "Dark mode: the titles of the Import / Export and Backup rows in Data were nearly black on dark and are now readable"]
