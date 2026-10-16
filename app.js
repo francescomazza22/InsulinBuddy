@@ -2415,7 +2415,33 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
       pagePinned = true;
       if (!stopTrackingViewport) stopTrackingViewport = trackVisualViewport();
     }
-    backdrop.addEventListener("touchmove", e => { if (!e.target.closest(".sheet")) e.preventDefault(); }, { passive: false });
+    guardSheetTouch(backdrop, ".sheet");
+  }
+  // Stops the page behind from moving or rubber-banding while a sheet is open. Touches outside the sheet are swallowed;
+  // inside it, a drag is only allowed to scroll the sheet when the sheet has somewhere to scroll. A short sheet (like
+  // Log basal) has nothing to scroll, and without this iPhone Safari bounced the whole page and let the background
+  // drift behind it; at the very top or bottom of a long sheet the same overscroll is cancelled rather than chained.
+  function guardSheetTouch(backdrop, sheetSelector) {
+    let startY = 0;
+    backdrop.addEventListener("touchstart", e => { startY = e.touches[0].clientY; }, { passive: true });
+    backdrop.addEventListener("touchmove", e => {
+      const sheet = e.target.closest(sheetSelector);
+      if (!sheet) { e.preventDefault(); return; }
+      if (e.target.closest('input[type="range"]')) return;
+      // the nearest scrollable ancestor of the touch (inside the sheet) decides
+      let node = e.target, scroller = null;
+      while (node && node !== backdrop) {
+        if (node.nodeType === 1 && node.scrollHeight > node.clientHeight + 1) {
+          const oy = getComputedStyle(node).overflowY;
+          if (oy === "auto" || oy === "scroll") { scroller = node; break; }
+        }
+        node = node.parentNode;
+      }
+      if (!scroller) { e.preventDefault(); return; }
+      const dy = e.touches[0].clientY - startY;
+      const atTop = scroller.scrollTop <= 0, atBottom = scroller.scrollTop + scroller.clientHeight >= scroller.scrollHeight - 1;
+      if ((atTop && dy > 0) || (atBottom && dy < 0)) e.preventDefault();
+    }, { passive: false });
   }
   function closeSheet(backdrop) {
     if (!backdrop.isConnected) return;                      // already closed: don't count it twice

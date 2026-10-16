@@ -1468,3 +1468,6 @@ html[data-theme="dark"] { --glass-sheet: rgba(30,36,43,0.90); }
   *::-webkit-scrollbar-thumb:hover { background: color-mix(in srgb, var(--ink-soft) 65%, transparent); border: 3px solid transparent; background-clip: padding-box; }
   *::-webkit-scrollbar-button, *::-webkit-scrollbar-corner { display: none; width: 0; height: 0; background: transparent; }
 }
+/* Nothing behind an open sheet or dialog should scroll or bounce. */
+.sheet-backdrop, .dialog-backdrop { overscroll-behavior: none; touch-action: none; }
+.sheet { touch-action: pan-y; }

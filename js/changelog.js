@@ -2,6 +2,11 @@
 // summary can never drift. Bump CHANGELOG[0].version here (and CACHE_VERSION in sw.js) on every release.
 export const CHANGELOG = [
   {
+    version: "2.42.2",
+    summary: "Fix: sheets no longer bounce or let the background scroll.",
+    changes: ["Log basal (and any short panel) no longer rubber-bands or lets the page behind drift when you drag on it: with nothing to scroll, the drag is now ignored. Longer panels still scroll normally, and pulling past their top or bottom no longer drags the page behind"]
+  },
+  {
     version: "2.42.1",
     summary: "Soft rounded scrollbars on computers.",
     changes: ["On a computer or iPad with a mouse, scrollbars in panels like What's changed, dialogs and long lists were square bars with arrows that poked out of the rounded corners. They are now slim rounded bars, inset from the corners, with no arrows. Phones are unchanged"]
