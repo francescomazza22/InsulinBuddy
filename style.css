@@ -1449,3 +1449,22 @@ html[data-theme="dark"] { --glass-sheet: rgba(30,36,43,0.90); }
 .lib-item__star:not(.is-fav) { color: var(--ink-soft); opacity: 0.5; }
 /* Text fields directly inside a form row fill the row (the Food Name box used to stop short). */
 .sheet .field > input[type="text"], .sheet .field > input[type="email"], .sheet .field > input[type="url"] { width: 100%; box-sizing: border-box; padding: 12px; font-size: 16px; }
+
+/* ---- Soft scrollbars ----
+   The browser's default scrollbar is a square bar with arrows that runs the full height of a panel and pokes out of its
+   rounded corners (seen on computers in the What's changed sheet, dialogs and long lists). These are slim rounded
+   thumbs on a clear track, inset from the ends so they sit inside the corner curve. Phones use overlay scrollbars
+   and are unaffected. */
+* { scrollbar-width: thin; scrollbar-color: color-mix(in srgb, var(--ink-soft) 45%, transparent) transparent; }
+@supports selector(::-webkit-scrollbar) {
+  * { scrollbar-width: auto; scrollbar-color: auto; }
+  *::-webkit-scrollbar { width: 12px; height: 12px; background: transparent; }
+  *::-webkit-scrollbar-track { background: transparent; margin: 16px 0; }
+  *::-webkit-scrollbar-track:horizontal { margin: 0 16px; }
+  *::-webkit-scrollbar-thumb {
+    background: color-mix(in srgb, var(--ink-soft) 40%, transparent); border-radius: 999px;
+    border: 3px solid transparent; background-clip: padding-box; min-height: 36px;
+  }
+  *::-webkit-scrollbar-thumb:hover { background: color-mix(in srgb, var(--ink-soft) 65%, transparent); border: 3px solid transparent; background-clip: padding-box; }
+  *::-webkit-scrollbar-button, *::-webkit-scrollbar-corner { display: none; width: 0; height: 0; background: transparent; }
+}

@@ -2,6 +2,11 @@
 // summary can never drift. Bump CHANGELOG[0].version here (and CACHE_VERSION in sw.js) on every release.
 export const CHANGELOG = [
   {
+    version: "2.42.1",
+    summary: "Soft rounded scrollbars on computers.",
+    changes: ["On a computer or iPad with a mouse, scrollbars in panels like What's changed, dialogs and long lists were square bars with arrows that poked out of the rounded corners. They are now slim rounded bars, inset from the corners, with no arrows. Phones are unchanged"]
+  },
+  {
     version: "2.42.0",
     summary: "Liquid Glass applied consistently across the whole app.",
     changes: ["Every surface now follows one glass system: cards, panels, filter and ratio panels, the version card, trend cards, chips, tabs and graph switches are frosted; long lists (foods, history, recipes, setting rows) use the same tint and light edge without live blur so scrolling stays smooth; sheets and dialogs use a denser glass so text stays easy to read", "Fixed dark-mode text that was nearly invisible on the colour-theme cards, and the faint favourite stars in the Library", "The Food Name box in the add-food sheet now fills its row"]
