@@ -1414,7 +1414,7 @@ html[data-theme="dark"] { --glass-sheet: rgba(30,36,43,0.90); }
   .active-panel, .filter-panel, .ratio-picker, .version-card, .trend-stat-card { border-width: 1px; border-radius: 20px; box-shadow: inset 0 1px 0 var(--glass-edge), inset 0 -1px 0 var(--glass-edge-soft), var(--glass-shadow); }
   .graph-tabs { border-width: 1px; }
   /* 2. Tint only: rows and small repeated items */
-  .data-row, .palette-card, .pattern-card, .ingredient-row, .meal-item__content {
+  .data-row, .palette-card, .pattern-card, .ingredient-row {
     background: var(--glass-bg-strong); border-color: var(--glass-line);
     box-shadow: inset 0 1px 0 var(--glass-edge), 0 3px 10px rgba(27,42,58,0.04);
   }
@@ -1471,3 +1471,8 @@ html[data-theme="dark"] { --glass-sheet: rgba(30,36,43,0.90); }
 /* Nothing behind an open sheet or dialog should scroll or bounce. */
 .sheet-backdrop, .dialog-backdrop { overscroll-behavior: none; touch-action: none; }
 .sheet { touch-action: pan-y; }
+
+/* The meal row slides sideways to reveal the Edit button behind it, so its face has to stay fully opaque: a see-through
+   face (as the glass tint made it) shows Edit and the delete cross through the text. */
+.meal-item__content { background: var(--surface); box-shadow: inset 0 1px 0 var(--glass-edge); }
+.meal-item { background: var(--surface); }

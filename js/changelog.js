@@ -2,6 +2,11 @@
 // summary can never drift. Bump CHANGELOG[0].version here (and CACHE_VERSION in sw.js) on every release.
 export const CHANGELOG = [
   {
+    version: "2.42.3",
+    summary: "Fix: Edit and the remove cross showing through meal rows.",
+    changes: ["In the Current Meal list, the Edit button hidden behind each item showed through the item after the glass update, overlapping the X. The item face is solid again, and Edit only appears when you swipe"]
+  },
+  {
     version: "2.42.2",
     summary: "Fix: sheets no longer bounce or let the background scroll.",
     changes: ["Log basal (and any short panel) no longer rubber-bands or lets the page behind drift when you drag on it: with nothing to scroll, the drag is now ignored. Longer panels still scroll normally, and pulling past their top or bottom no longer drags the page behind"]
