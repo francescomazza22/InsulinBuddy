@@ -1,6 +1,6 @@
 # Conformance suite
 
-`tests/conformance/*.json` records what the app's logic gives for a fixed set of inputs: 350+ cases covering dosing, the glucose
+`tests/conformance/*.json` records what the app's logic gives for a fixed set of inputs: 379 cases covering dosing, the glucose
 model, merge and backup rules, the Nightscout payloads, the data contract and the food library. It is the specification of the
 maths in executable form. **A Swift (or any other) port is correct when it reproduces every result.**
 

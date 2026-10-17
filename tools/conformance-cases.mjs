@@ -44,6 +44,27 @@ for (const [name, input] of [
   ["IOB-aware setting is ignored when editing", { entry: entry(), totalCarbs: 0, ratio: 10, glucoseText: "200", settings: S({ iobAwareCorrection: true }) }]
 ]) add("dose", `planEditDose: ${name}`, "planEditDose", input);
 
+// A meal with a correction that can also take insulin OFF (a low reading, or a typed subtraction). Added in 2.44.0.
+for (const [name, input] of [
+  ["12 u meal at 300: correction added", { carbs: 120, ratio: 10, correction: "auto", glucose: "300", settings: S({ maxDose: 25 }) }],
+  ["12 u meal at 55, lowering on: a unit comes off", { carbs: 120, ratio: 10, correction: "auto", glucose: "55", settings: S({ maxDose: 25, reduceBelowTarget: true }) }],
+  ["12 u meal at 55, lowering off: unchanged", { carbs: 120, ratio: 10, correction: "auto", glucose: "55", settings: S({ maxDose: 25 }) }],
+  ["at target, lowering on: nothing", { carbs: 120, ratio: 10, correction: "auto", glucose: "100", settings: S({ reduceBelowTarget: true }) }],
+  ["low with insulin on board: IOB does not shrink the reduction", { carbs: 120, ratio: 10, correction: "auto", glucose: "55", iob: 3, settings: S({ reduceBelowTarget: true, iobAwareCorrection: true }) }],
+  ["low, mmol settings", { carbs: 60, ratio: 10, correction: "auto", glucose: "3", settings: S({ units: "mmol", isf: 2.8, target: 6, reduceBelowTarget: true }) }],
+  ["reduction larger than the meal stops at zero", { carbs: 30, ratio: 10, correction: "auto", glucose: "20", settings: S({ reduceBelowTarget: true }) }],
+  ["typed correction +1.5", { carbs: 120, ratio: 10, correction: "manual", correctionUnits: 1.5, settings: S({ maxDose: 25 }) }],
+  ["typed correction -2", { carbs: 120, ratio: 10, correction: "manual", correctionUnits: -2, settings: S({ maxDose: 25 }) }],
+  ["typed correction -8 on a 3 u meal stops at zero", { carbs: 30, ratio: 10, correction: "manual", correctionUnits: -8, settings: S() }],
+  ["reduction on a capped meal", { carbs: 200, ratio: 10, correction: "auto", glucose: "55", settings: S({ maxDose: 15, reduceBelowTarget: true }) }],
+  ["typed meal 8 u (eating out) with -1", { carbs: 0, ratio: 10, mealUnits: 8, correction: "manual", correctionUnits: -1, settings: S() }],
+  ["treating a low ignores a reduction", { carbs: 20, ratio: 10, correction: "auto", glucose: "55", noInsulin: true, settings: S({ reduceBelowTarget: true }) }]
+]) add("dose", `planDose: ${name}`, "planDose", input);
+add("dose", "planEditDose: a typed reduction is kept", "planEditDose", { entry: entry({ mealDose: 12, correctionDose: -1 }), totalCarbs: 120, ratio: 10, glucoseText: null, settings: S({ maxDose: 25 }) });
+for (const [v, step] of [[-0.9, "0.5"], [0.9, "0.5"], [-0.25, "0.5"], [0.25, "0.5"], [-0.24, "0.5"], [-0.75, "0.5"], [-1.04, "0.1"], [0, "0.5"], [-3.3, "1"]])
+  add("dose", `roundSignedDose ${v} to ${step}`, "roundSignedDose", v, step);
+add("dose", "checkDoseConsistency with a reduction", "checkDoseConsistency", { mealDose: 12, correctionDose: -1, finalDose: 11, shownText: "11.0" });
+
 for (const [meal_, corr, max, typed] of [[3, 1, 15, false], [12, 6, 15, false], [20, 0, 15, false], [10, 2, 0, false], [20, 0, 15, true], [3, 15, 15, true], [0, 0, 5, false], [7.5, 7.5, 15, false], [5, 2.5, 6, false]])
   add("dose", `capDoseParts meal ${meal_} + correction ${corr}, max ${max}${typed ? ", typed" : ""}`, "capDoseParts", { meal: meal_, correction: corr, maxDose: max, typed });
 for (const [v, step] of [[5.33, "0.5"], [6.25, "0.5"], [6.24, "0.5"], [0.24, "0.5"], [0.25, "0.5"], [2.34, "0.5"], [5.33, "0.1"], [5.35, "0.1"], [5.33, "1"], [5.5, "1"], [0, "0.5"], [10.74, "0.5"], [3.3, "bad"], [1.05, "0.1"]])

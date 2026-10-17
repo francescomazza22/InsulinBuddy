@@ -42,7 +42,8 @@ export function validateEntry(e, path = "entry") {
     numberField(out, it, `${path}.items[${i}]`, "grams", { min: 0 });
     numberField(out, it, `${path}.items[${i}]`, "carbs", { min: 0 });
   });
-  for (const k of ["totalCarbs", "totalKcal", "mealDose", "correctionDose"]) numberField(out, e, path, k, { min: 0 });
+  for (const k of ["totalCarbs", "totalKcal", "mealDose"]) numberField(out, e, path, k, { min: 0 });
+  numberField(out, e, path, "correctionDose", { min: -1000 });   // negative = insulin taken off the meal because glucose was low (or typed as a subtraction)
   for (const k of ["glucose", "ratioValue", "cappedFrom"]) numberField(out, e, path, k, { nullable: true });
   if (e.noInsulin != null && typeof e.noInsulin !== "boolean") out.push(problem(`${path}.noInsulin`, "warn", "should be true or false"));
   if (e.ns != null && !isObj(e.ns)) out.push(problem(`${path}.ns`, "warn", "should be an object"));

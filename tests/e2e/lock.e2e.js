@@ -156,7 +156,7 @@ await app.close();
   const profileDir = `/tmp/ib-double-signin-${Date.now()}`;
   const setupDev = await openDevice(app4, { height: 900, wait: 1500, profile: profileDir, inject: fakeWebAuthn() + fakeSupabaseSource({ userId: "user-1" }) });
   const fill = async v => { await setupDev.eval(`document.querySelector(".dialog__input").value = ${JSON.stringify(v)}`); await setupDev.click(".dialog__btn--primary"); await setupDev.sleep(300); };
-  await setupDev.tab("settings"); await setupDev.click('[data-seg="data"]'); await setupDev.sleep(300);
+  await setupDev.tab("settings"); await setupDev.click('[data-seg="sync"]'); await setupDev.sleep(300);
   await setupDev.click("#btn-set-pass"); await setupDev.sleep(200);
   await fill("cloud-faceid-pass"); await fill("cloud-faceid-pass"); await setupDev.sleep(500);
   await setupDev.click(".dialog__btn--primary"); await setupDev.sleep(200); // dismiss "now encrypted"

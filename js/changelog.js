@@ -2,6 +2,17 @@
 // summary can never drift. Bump CHANGELOG[0].version here (and CACHE_VERSION in sw.js) on every release.
 export const CHANGELOG = [
   {
+    version: "2.44.0",
+    summary: "Combine a meal with a correction, up or down: a high reading adds to the dose, a low one can take units off, and you can type your own change either way.",
+    changes: [
+      "A manual correction now has Add / Subtract. Subtract takes units off the meal dose (say, 12 u meal minus 1 u because you are a little low). The dose never goes below zero",
+      "New setting, Dosing > Lower the dose when glucose is below target (off by default): with it on, a reading under target reduces the meal dose by (reading - target) / sensitivity. With it off nothing changes",
+      "The dose card shows the split, for example Meal 12 u + correction 4 u, or Meal 12 u - 1 u taken off",
+      "Target glucose (the baseline corrections work from) is yours to set in Settings > Dosing. It now accepts a decimal comma, and a blank box keeps your old target instead of silently saving 0",
+      "Logged meals, edits, Trends and the Health export all handle a reduction, and Health receives the net units injected"
+    ]
+  },
+  {
     version: "2.43.1",
     summary: "Easier on the battery: no endless animation, and no background polling while the app is hidden.",
     changes: [

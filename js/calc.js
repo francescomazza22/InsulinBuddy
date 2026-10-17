@@ -16,6 +16,14 @@ export function roundDose(value, rounding) {
   return Math.round((Math.round(value / step) * step) * 100) / 100;
 }
 
+// The same for a correction that may take insulin OFF the meal. A negative value is rounded as its positive twin and
+// given the sign back, so -0.25 u and +0.25 u round the same distance (JavaScript's Math.round would round -0.5 up to -0
+// but +0.5 up to 1). On an exact half-step the reduction goes the larger way, which is the safer side of a low.
+export function roundSignedDose(value, rounding) {
+  const r = roundDose(Math.abs(value), rounding);
+  return value < 0 ? (r === 0 ? 0 : -r) : r;
+}
+
 // ---------------------------------------------------------------- GI
 export function giBand(gi) {
   return gi >= 70 ? "high" : gi >= 56 ? "medium" : "low";
@@ -153,14 +161,18 @@ export function planDose({ carbs = 0, ratio = 0, mealUnits = null, mealTyped, co
 
   let rawCorrection = 0, iobSubtracted = 0, correctionPart = 0, correctionApplied = false, correctionIsManual = false, bgInSettingsUnit = null;
   if (correction === "manual") {
-    if (Number.isFinite(correctionUnits) && correctionUnits > 0) { correctionPart = correctionUnits; correctionIsManual = true; }
+    // Signed: positive adds to the meal dose, negative takes insulin off it. (The screen types the size and picks Add or Subtract.)
+    if (Number.isFinite(correctionUnits) && correctionUnits !== 0) { correctionPart = correctionUnits; correctionIsManual = true; }
   } else if (correction === "auto") {
     const bg = parseFloat(glucose);
     if (!isNaN(bg) && bg > 0 && settings.isf > 0) {
       correctionApplied = true;
       bgInSettingsUnit = convertGlucose(bg, glucoseUnit || settings.units, settings.units);
-      rawCorrection = Math.max(0, (bgInSettingsUnit - settings.target) / settings.isf);
-      if (settings.iobAwareCorrection) iobSubtracted = Math.min(rawCorrection, iob);
+      const gap = (bgInSettingsUnit - settings.target) / settings.isf;
+      // Below target the correction is zero, unless the person has asked for the meal dose to come down when glucose is low
+      // (settings.reduceBelowTarget). A reduction is never reduced further by insulin on board: that only offsets a positive one.
+      rawCorrection = gap >= 0 ? gap : (settings.reduceBelowTarget ? gap : 0);
+      if (rawCorrection > 0 && settings.iobAwareCorrection) iobSubtracted = Math.min(rawCorrection, iob);
       correctionPart = rawCorrection - iobSubtracted;
     }
   }
@@ -169,19 +181,27 @@ export function planDose({ carbs = 0, ratio = 0, mealUnits = null, mealTyped, co
   // (a 3.15u meal shown as 3u plus a 0.7u correction shown as 0.5u is 3.5u, not the 4u that rounding 3.85 gives).
   // Typed doses are used exactly as typed (to 2 decimals), since choosing to type one is a precise decision.
   let mealDose = mealIsManual ? round2d(mealPart) : roundDose(mealPart, settings.rounding);
-  let correctionDose = correctionIsManual ? round2d(correctionPart) : roundDose(correctionPart, settings.rounding);
+  let correctionDose = correctionIsManual ? round2d(correctionPart) : roundSignedDose(correctionPart, settings.rounding);
+  // A reduction (negative correction) is set aside while the cap is applied: the cap is a ceiling on what is ADDED, and a
+  // low reading should still take insulin off the capped meal rather than be swallowed by it. It is put back afterwards.
+  const reduction = correctionDose < 0 ? correctionDose : 0;
+  if (reduction < 0) correctionDose = 0;
   // The cap has to reduce the PARTS (the entry is saved from them), never just the number on screen. A typed dose is never altered.
-  const typed = (mealIsManual && mealTyped !== false) || (correctionIsManual && correctionTyped !== false);
+  const typed = (mealIsManual && mealTyped !== false) || (correctionIsManual && correctionTyped !== false && reduction === 0);
   const cap = capDoseParts({ meal: mealDose, correction: correctionDose, maxDose: settings.maxDose, typed });
   mealDose = cap.meal; correctionDose = cap.correction;
-  let finalDose = Math.max(0, cap.total);
+  // The reduction can take the dose to zero but never below it: it is limited to the meal dose that is there.
+  const reductionLimited = reduction < 0 && -reduction > mealDose + 1e-9;
+  if (reduction < 0) correctionDose = round2d(Math.max(reduction, -mealDose));
+  let finalDose = Math.max(0, round2d(cap.total + (reduction < 0 ? correctionDose : 0)));
   let capped = cap.capped;
   if (noInsulin) { finalDose = 0; mealDose = 0; correctionDose = 0; capped = false; }
 
   const hasDose = noInsulin ? carbs > 0 : (carbs > 0 || correctionPart > 0 || mealPart > 0);
   return {
     mealPart, rawCorrection, iobSubtracted, correctionPart, correctionApplied, correctionIsManual, mealIsManual, bgInSettingsUnit,
-    totalBeforeCap: mealPart + correctionPart, mealDose, correctionDose, finalDose, requested: noInsulin ? 0 : cap.requested, capped, overMax: cap.overMax && !noInsulin, hasDose
+    totalBeforeCap: mealPart + correctionPart, mealDose, correctionDose, finalDose, requested: noInsulin ? 0 : round2d(cap.requested + (reduction < 0 ? correctionDose : 0)), capped, overMax: cap.overMax && !noInsulin, hasDose,
+    reduced: !noInsulin && correctionDose < 0, reductionLimited: !noInsulin && reductionLimited
   };
 }
 
@@ -196,7 +216,7 @@ export function planEditDose({ entry, totalCarbs, ratio, glucoseText, settings }
   const meal = ratio ? {} : { mealUnits: entry.mealDose || 0, mealTyped: false };
   if (glucoseText != null) return planDose({ ...base, ...meal, correction: "auto", glucose: glucoseText, glucoseUnit: settings.units });
   const kept = entry.correctionDose || 0;
-  return planDose({ ...base, ...meal, correction: kept > 0 ? "manual" : "off", correctionUnits: kept, correctionTyped: kept > 0 && entry.glucose == null });
+  return planDose({ ...base, ...meal, correction: kept !== 0 ? "manual" : "off", correctionUnits: kept, correctionTyped: kept !== 0 && entry.glucose == null });
 }
 
 export function computeDose({ carbs, ratio, correctionOn, glucose, glucoseUnit, settings, iob = 0, noInsulin = false }) {
@@ -211,7 +231,10 @@ export function computeDose({ carbs, ratio, correctionOn, glucose, glucoseUnit, 
 
   if (correctionOn) {
     if (correctionApplied) {
-      if (plan.bgInSettingsUnit <= settings.target) {
+      if (plan.bgInSettingsUnit <= settings.target && rawCorrection < 0) {
+        lines.push(`Low: (${round1(plan.bgInSettingsUnit)} − ${settings.target}) ÷ ${settings.isf} = ${fmtU(rawCorrection)} u, taken off the meal dose`);
+        if (plan.reductionLimited) lines.push(`That is more than the meal dose, so the reduction stops at ${fmtU(-plan.correctionDose)} u (a dose can't go below zero)`);
+      } else if (plan.bgInSettingsUnit <= settings.target) {
         lines.push(`Correction: ${round1(plan.bgInSettingsUnit)} ${unitLbl} is at or below your ${settings.target} target, so none needed`);
       } else {
         lines.push(`Correction: (${round1(plan.bgInSettingsUnit)} − ${settings.target}) ÷ ${settings.isf} = ${fmtU(rawCorrection)} u`);
@@ -227,8 +250,9 @@ export function computeDose({ carbs, ratio, correctionOn, glucose, glucoseUnit, 
     lines.push("Treating a low: carbs are logged but no insulin is recorded");
   } else {
     if (mealPart > 0 && correctionPart > 0) lines.push(`Raw sum before rounding: ${fmtU(mealPart)} + ${fmtU(correctionPart)} = ${fmtU(totalBeforeCap)} u`);
+    if (plan.reduced) lines.push(`Meal ${fmtU(loggedMeal)} u − reduction ${fmtU(-loggedCorrection)} u = ${finalDose.toFixed(1)} u`);
     if (capped) lines.push(`Capped at your ${settings.maxDose} u maximum dose (the calculation came to ${fmtU(plan.requested)} u)`);
-    lines.push(mealPart > 0 && correctionPart > 0
+    if (!plan.reduced) lines.push(mealPart > 0 && correctionPart > 0
       ? `Meal and correction are each rounded to the nearest ${settings.rounding} u first, then added: ${fmtU(loggedMeal)} + ${fmtU(loggedCorrection)} = ${finalDose.toFixed(1)} u`
       : `Rounded to the nearest ${settings.rounding} u: ${finalDose.toFixed(1)} u`);
   }
@@ -480,7 +504,8 @@ export function idealRatioByBracket(entries, settings, windowHours = 3) {
  */
 export function checkDoseConsistency({ mealDose, correctionDose, finalDose, shownText, noInsulin = false }) {
   const parts = [mealDose, correctionDose, finalDose].map(Number);
-  if (parts.some(v => !Number.isFinite(v) || v < 0)) return "The dose could not be worked out.";
+  // The correction part may be negative (a reduction); the meal part and the total never are.
+  if (parts.some(v => !Number.isFinite(v)) || parts[0] < 0 || parts[2] < 0) return "The dose could not be worked out.";
   if (noInsulin) return parts[0] === 0 && parts[1] === 0 ? null : "A 'no insulin' entry would have carried insulin.";
   const saved = Math.round((parts[0] + parts[1]) * 100) / 100;
   if (Math.abs(saved - parts[2]) > 0.005) return `The parts to save (${saved} u) do not match the calculated dose (${parts[2]} u).`;

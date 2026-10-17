@@ -111,7 +111,11 @@ export function flattenHistoryEntries(history: HistoryEntry[], sinceMs: number, 
       continue;
     }
     if (typeof entry.totalCarbs === "number" && entry.totalCarbs > 0) out.push({ type: "carbs", at, value: entry.totalCarbs, label });
-    if (typeof entry.mealDose === "number" && entry.mealDose > 0) out.push({ type: "mealInsulin", at, value: entry.mealDose, label });
+    // A negative correction (a reduction for a low reading) was taken off the meal dose, so Health
+    // gets the net units actually injected rather than a meal figure that overstates the total.
+    const reduction = typeof entry.correctionDose === "number" && entry.correctionDose < 0 ? entry.correctionDose : 0;
+    const mealNet = typeof entry.mealDose === "number" ? Math.round((entry.mealDose + reduction) * 100) / 100 : 0;
+    if (mealNet > 0) out.push({ type: "mealInsulin", at, value: mealNet, label });
     if (typeof entry.correctionDose === "number" && entry.correctionDose > 0) out.push({ type: "correctionInsulin", at, value: entry.correctionDose, label });
   }
   return out.sort((a, b) => a.at < b.at ? -1 : a.at > b.at ? 1 : 0);

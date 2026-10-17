@@ -84,6 +84,7 @@
           <div class="dose-card__value"><span id="cc-dose-number">0.0</span><span class="dose-card__unit">units</span></div>
           <button class="carbs-pill carbs-pill--ratio" id="cc-ratio-pill" type="button">Ratio <span id="cc-ratio-value">1:15</span></button>
         </div>
+        <p class="dose-card__breakdown" id="cc-dose-breakdown" role="status" hidden></p>
         <div class="dose-card__controls">
           <button class="pill-btn" id="cc-correction-toggle" type="button">
             <svg viewBox="0 0 24 24" fill="none"><path d="M3 12h4l2-7 4 14 2-7h6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -141,12 +142,16 @@
           </div>
           <div id="cc-correction-manual-wrap" hidden>
             <label for="cc-correction-manual-input">Correction dose</label>
+            <div class="correction-sign" id="cc-correction-sign" role="group" aria-label="Add to the dose or take off it">
+              <button type="button" class="correction-sign__btn is-active" data-sign="1" aria-pressed="true">Add</button>
+              <button type="button" class="correction-sign__btn" data-sign="-1" aria-pressed="false">Subtract</button>
+            </div>
             <div class="correction-row__input">
               <input type="text" id="cc-correction-manual-input" inputmode="decimal" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="0">
               <span class="correction-row__unit-label">units</span>
             </div>
             <p class="correction-row__manual-error" id="cc-correction-manual-error" role="alert" hidden>That isn't a number I can read. Try something like 1.5 or 1,5</p>
-            <p class="correction-row__manual-note">Entered directly — this skips the glucose/ISF calculation for this dose.</p>
+            <p class="correction-row__manual-note" id="cc-correction-manual-note">Entered directly — this skips the glucose/ISF calculation for this dose.</p>
             <button type="button" id="cc-correction-auto-link" class="correction-mode-link">Use glucose reading instead</button>
           </div>
         </div>
@@ -436,9 +441,9 @@
             </div>
           </div>
           <div class="field">
-            <label for="set-target">Target glucose</label>
+            <label for="set-target">Target glucose <span class="field__optional">(the baseline corrections work from)</span></label>
             <div class="field__row">
-              <input type="number" id="set-target" min="0" step="1" inputmode="decimal">
+              <input type="text" id="set-target" inputmode="decimal" autocomplete="off">
               <span class="field__unit" id="target-unit-label">mg/dL</span>
             </div>
           </div>
@@ -536,6 +541,17 @@
             </label>
           </div>
           <p class="panel-card__hint" style="margin-top:6px;">Unlike the settings above, this one changes your suggested dose: when on, a correction is reduced by your current Active Insulin (IOB) — your meal dose is never affected. Off by default.</p>
+        </div>
+
+        <div class="panel-card">
+          <div class="toggle-row">
+            <span>Lower the dose when glucose is below target</span>
+            <label class="switch">
+              <input type="checkbox" id="reduce-below-target-toggle">
+              <span class="switch__track"></span>
+            </label>
+          </div>
+          <p class="panel-card__hint" style="margin-top:6px;">Like the one above, this changes your suggested dose. When on, a reading below your target takes insulin off the meal dose: (reading − target) ÷ correction factor, so 55 against a target of 100 and a factor of 50 takes off about 1 unit. It never takes the dose below zero. When off, a low reading adds nothing and takes nothing off. If you're actually low, treating the low comes first.</p>
         </div>
 
         <div class="panel-card">

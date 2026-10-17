@@ -48,7 +48,7 @@ await scenario("SIGN-IN BUTTONS: they share a class with the sheets' pinned Save
   const D = await open(app, { width: 390, height: 844, mobile: true, inject: fakeSupabaseSource({ signedIn: false }) });
   await D.waitFor(`!!document.getElementById("cc-food-list").children.length`);
   await D.tab("settings"); await D.sleep(250);
-  await D.eval(`document.querySelector('#settings-segmented [data-seg="data"]').click()`); await D.sleep(350);
+  await D.eval(`document.querySelector('#settings-segmented [data-seg="sync"]').click()`); await D.sleep(350);
   const f = await D.eval(`(() => {
     const bar = document.querySelector("#acct-signin-form .sheet-actions"); if (!bar) return null;
     const c = getComputedStyle(bar), card = bar.closest(".panel-card").getBoundingClientRect(); bar.scrollIntoView({ block: "center" });
@@ -184,7 +184,7 @@ await scenario("REGRESSION: setting a passphrase encrypts what reaches Supabase,
   await logMeal(A, 0, 100); await A.sleep(800);
 
   // Set a passphrase on A (via the Settings UI, same as a real user would).
-  await A.tab("settings"); await A.click('[data-seg="data"]'); await A.sleep(200);
+  await A.tab("settings"); await A.click('[data-seg="sync"]'); await A.sleep(200);
   await A.click("#btn-set-pass"); await A.sleep(150);
   const fillDialog = async (dev, value) => { await dev.eval(`document.querySelector(".dialog__input").value = ${JSON.stringify(value)}`); await dev.click(".dialog__btn--primary"); await dev.sleep(150); };
   await fillDialog(A, "correct horse battery staple");
@@ -225,7 +225,7 @@ await scenario("Removing the passphrase pushes plaintext + lock:null immediately
   const A = await open(app, { inject: fakeSupabaseSource(sb) });
   await logMeal(A, 0, 100); await A.sleep(700);
   const fillDialog = async (dev, value) => { await dev.eval(`document.querySelector(".dialog__input").value = ${JSON.stringify(value)}`); await dev.click(".dialog__btn--primary"); await dev.sleep(150); };
-  await A.tab("settings"); await A.click('[data-seg="data"]'); await A.sleep(200);
+  await A.tab("settings"); await A.click('[data-seg="sync"]'); await A.sleep(200);
   await A.click("#btn-set-pass"); await A.sleep(150);
   await fillDialog(A, "temporary-pass"); await fillDialog(A, "temporary-pass"); await A.sleep(600);
   t.check("cloud is encrypted after setting", typeof be.row.data.iv === "string");

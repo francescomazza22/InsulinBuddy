@@ -2,7 +2,7 @@
 // Where the real function takes a Date, a callback, or a Map, an adapter here takes plain data instead
 // (a time as { hour, minute }, defaults as a state object, ids from a counter), so a port in another language can load the
 // fixtures without needing JavaScript's types. The name used in a fixture's "fn" field is the key in this table.
-import { convertGlucose, roundDose, capDoseParts, planDose, planEditDose, checkDoseConsistency, iobFraction, cobGrams, compoundGiInfo, activeAt, absorptionMinutesForEntry, giBand } from "../js/calc.js";
+import { convertGlucose, roundDose, roundSignedDose, capDoseParts, planDose, planEditDose, checkDoseConsistency, iobFraction, cobGrams, compoundGiInfo, activeAt, absorptionMinutesForEntry, giBand } from "../js/calc.js";
 import { basalContext, basalDrop, expectedFromInsulin, observedCarbs, cobAt, projectGlucose, gapSummary, prepareReadings, glucoseNear, insulinDrop } from "../js/glucose-model.js";
 import { percentile, estimatedA1c, glucoseSummaryStats, timeInRangeBreakdown } from "../js/glucose-stats.js";
 import { median, quantile } from "../js/insights.js";
@@ -21,7 +21,7 @@ const defaultsFn = d => () => structuredClone(d);
 export const FUNCTIONS = {
   // ---- dosing (the safety-critical core)
   planDose: i => planDose({ ...i, correctionUnits: i.correctionUnits === "NaN" ? NaN : i.correctionUnits }),
-  planEditDose, capDoseParts, roundDose: (v, step) => roundDose(v, step), convertGlucose, checkDoseConsistency,
+  planEditDose, capDoseParts, roundDose: (v, step) => roundDose(v, step), roundSignedDose: (v, step) => roundSignedDose(v, step), convertGlucose, checkDoseConsistency,
   parseDecimalInput, iobFraction, cobGrams, compoundGiInfo, giBand, absorptionMinutesForEntry, activeAt,
   // ---- glucose model and statistics
   insulinDrop, basalContext, basalDrop, expectedFromInsulin, gapSummary, prepareReadings, glucoseNear, cobAt,

@@ -96,6 +96,7 @@ export function matchesQuery(entry, query, dateText = () => "") {
     entry.mealType, entry.periodName, dateText(entry.ts),
     entry.noInsulin ? "low treating hypo no insulin" : "",
     (entry.correctionDose || 0) > 0 ? "correction" : "",
+    (entry.correctionDose || 0) < 0 ? "reduced lowered low" : "",
     isBasalEntry(entry) ? `basal long-acting long acting ${entry.basalDose}u` : ""
   ].join(" ").toLowerCase();
   return tokens.every(t => hay.includes(t));

@@ -1,5 +1,5 @@
 import { escapeHtml, escapeAttr, round1, formatQty, dayKeyFromTs, timeAgo, makeId, redact, parseDecimalInput } from "./js/util.js";
-import { convertGlucose, roundDose as roundDoseWith, activeAt, compoundGiInfo, computeDose, checkDoseConsistency, planDose, planEditDose, capDoseParts, giBand, niceScale, buildTrendBuckets, summarizeTrends, mealTypeBreakdown, absorptionMinutesForEntry as absorptionForEntry, iobFraction, cobGrams, glucoseTrendArrow, glucoseRangeClass, glucoseRangeLabel, basalByDay, summarizeBasal, ratioWasApplied, ratioByBracket, idealRatioByBracket } from "./js/calc.js";
+import { convertGlucose, roundDose as roundDoseWith, roundSignedDose as roundSignedDoseWith, activeAt, compoundGiInfo, computeDose, checkDoseConsistency, planDose, planEditDose, capDoseParts, giBand, niceScale, buildTrendBuckets, summarizeTrends, mealTypeBreakdown, absorptionMinutesForEntry as absorptionForEntry, iobFraction, cobGrams, glucoseTrendArrow, glucoseRangeClass, glucoseRangeLabel, basalByDay, summarizeBasal, ratioWasApplied, ratioByBracket, idealRatioByBracket } from "./js/calc.js";
 import { SCHEMA_VERSION, normalizeState as normalizeStateWith, makeFingerprint, stampChanges, mergeStates, statesEquivalent, prepareRestoredState } from "./js/state.js";
 import { NightscoutClient, NsOutbox, nsToken, nsBaseUrl, nsConfigured, treatmentsForEntry, entriesToGlucoseRows } from "./js/nightscout.js";
 import { createDiag, hookGlobalErrors } from "./js/diag.js";
@@ -124,6 +124,7 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
         useLearnedAbsorption: false,   // use the times learned from my own readings instead of the fixed ones above
         learnedAbsorption: null,       // last learned snapshot: { high:{minutes,n}|null, ..., counts, at }
         iobAwareCorrection: false,
+        reduceBelowTarget: false,   // when glucose is below target, take insulin off the meal dose (off = a low reading changes nothing)
         nightscoutUrl: "",
         nsFormat: "combined",   // "combined" (one Meal Bolus) or "split" (carbs and insulin separately)
         checkAfterHours: 0,      // 0 = off; else remind me to check glucose this many hours after a meal with insulin
@@ -139,6 +140,7 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
 
   // ---- thin wrappers: the maths lives in js/calc.js, these bind it to live state ----
   function roundDose(value) { return roundDoseWith(value, state.settings.rounding); }
+  function roundSignedDose(value) { return roundSignedDoseWith(value, state.settings.rounding); }
   // The carb timers in force: the fixed ones, or (if switched on and learned) the ones learned from this person's own readings.
   function effectiveCarbAbsorption() {
     const base = state.settings.carbAbsorptionMinutes, L = state.settings.learnedAbsorption;
@@ -2121,7 +2123,7 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
       carbs, ratio: ratioEntry ? ratioEntry.ratio : 0,
       mealUnits: draft.eatingOutOn ? (!isNaN(typedMeal) && typedMeal > 0 ? typedMeal : 0) : null,
       correction: correctionMode, glucose: glucoseInput.value, glucoseUnit: draft.glucoseUnit,
-      correctionUnits: parseDecimalInput(el("cc-correction-manual-input").value),
+      correctionUnits: parseDecimalInput(el("cc-correction-manual-input").value) * (draft.correctionSign === -1 ? -1 : 1),   // typed as a size; Add or Subtract gives it its sign
       iob: correctionMode === "auto" && state.settings.iobAwareCorrection ? calcActiveInsulinAndCarbs().iob : 0,
       noInsulin: draft.noInsulinOn, settings: state.settings
     });
@@ -2136,7 +2138,11 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
         const uLabel = unitLabel(state.settings.units);
         workingEl.textContent = rawCorrectionPart > 0
           ? `(${round1(inUnit)} \u2212 ${state.settings.target} target) \u00f7 ${state.settings.isf} ${uLabel} per unit = ${round1(rawCorrectionPart)}u, rounded to ${roundDose(correctionPart)}u`
-          : `${round1(inUnit)} is at or below your ${state.settings.target} ${uLabel} target, so no correction`;
+          : rawCorrectionPart < 0
+            ? `Low: (${round1(inUnit)} \u2212 ${state.settings.target} target) \u00f7 ${state.settings.isf} ${uLabel} per unit = ${round1(rawCorrectionPart)}u, so ${Math.abs(plan.correctionDose)}u is taken off the meal dose${plan.reductionLimited ? " (all of it: a dose can't go below zero)" : ""}`
+            : inUnit < state.settings.target
+              ? `${round1(inUnit)} is below your ${state.settings.target} ${uLabel} target, so no correction. Turn on "Lower the dose when glucose is below target" in Settings > Dosing to take insulin off the meal instead`
+              : `${round1(inUnit)} is at or below your ${state.settings.target} ${uLabel} target, so no correction`;
         workingEl.hidden = false;
       } else workingEl.hidden = true;
     }
@@ -2151,6 +2157,20 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
     // The cap reduces the parts that get saved, not just the number shown, and a typed dose is never altered (see planDose).
     const { mealDose: loggedMealDose, correctionDose: loggedCorrectionDose, finalDose } = plan;
     doseNumber.textContent = finalDose.toFixed(1);
+    // When a correction is part of the dose, show the two parts that make it up, so the sum can be checked at a glance.
+    const breakdownEl = el("cc-dose-breakdown");
+    const showBreakdown = !draft.noInsulinOn && loggedCorrectionDose !== 0 && (loggedMealDose > 0 || loggedCorrectionDose < 0);
+    breakdownEl.hidden = !showBreakdown;
+    if (showBreakdown) {
+      breakdownEl.textContent = loggedCorrectionDose > 0
+        ? `Meal ${loggedMealDose} u + correction ${loggedCorrectionDose} u`
+        : `Meal ${loggedMealDose} u \u2212 ${Math.abs(loggedCorrectionDose)} u taken off`;
+    }
+    // Keep the Add / Subtract switch showing what the draft says (a reset or a restored draft changes it from elsewhere).
+    el("cc-correction-sign").querySelectorAll(".correction-sign__btn").forEach(b => {
+      const on = (draft.correctionSign === -1) === (b.dataset.sign === "-1");
+      b.classList.toggle("is-active", on); b.setAttribute("aria-pressed", on ? "true" : "false");
+    });
     const capNote = el("cc-cap-note");
     const showCapNote = !draft.noInsulinOn && (plan.capped || plan.overMax);
     capNote.hidden = !showCapNote;
@@ -2212,12 +2232,19 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
   bind("cc-correction-manual-link", "click", () => setCorrectionManualMode(true));
   bind("cc-correction-auto-link", "click", () => setCorrectionManualMode(false));
   bind("cc-correction-manual-input", "input", () => { recompute(); saveDraftLocal(); });
+  el("cc-correction-sign").addEventListener("click", e => {
+    const b = e.target.closest(".correction-sign__btn");
+    if (!b) return;
+    draft.correctionSign = b.dataset.sign === "-1" ? -1 : 1;
+    recompute(); saveDraftLocal();
+  });
 
   correctionToggle.addEventListener("click", () => {
     draft.correctionOn = !draft.correctionOn;
     correctionToggle.classList.toggle("is-active", draft.correctionOn);
     correctionRow.hidden = !draft.correctionOn;
     draft.correctionManual = false;
+    draft.correctionSign = 1;   // a subtraction never carries over into the next correction
     el("cc-correction-auto-wrap").hidden = false;
     el("cc-correction-manual-wrap").hidden = true;
     el("cc-correction-manual-input").value = "";
@@ -2336,6 +2363,7 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
         correctionOn: draft.correctionOn,
         correctionManual: draft.correctionManual,
         correctionManualValue: el("cc-correction-manual-input").value || "",
+        correctionSign: draft.correctionSign === -1 ? -1 : 1,
         noInsulinOn: draft.noInsulinOn,
         eatingOutOn: draft.eatingOutOn,
         eatingOutValue: el("cc-eating-out-dose").value || "",
@@ -2376,6 +2404,7 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
         el("cc-correction-auto-wrap").hidden = true;
         el("cc-correction-manual-wrap").hidden = false;
         if (saved.correctionManualValue) el("cc-correction-manual-input").value = saved.correctionManualValue;
+        draft.correctionSign = saved.correctionSign === -1 ? -1 : 1;
       }
     }
     if (saved.noInsulinOn) {
@@ -3821,7 +3850,7 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
         row.className = "history-entry";
         row.style.borderLeftColor = meal.color;
         row.dataset.id = entry.id;
-        const doseText = entry.correctionDose > 0 ? `${entry.mealDose}+${entry.correctionDose}u` : `${entry.mealDose}u`;
+        const doseText = entry.correctionDose > 0 ? `${entry.mealDose}+${entry.correctionDose}u` : entry.correctionDose < 0 ? `${entry.mealDose}\u2212${Math.abs(entry.correctionDose)}u` : `${entry.mealDose}u`;
         const dosePillHtml = entry.noInsulin
           ? `<span class="dose-pill dose-pill--warn"><svg viewBox="0 0 24 24" fill="none"><path d="M12 19V5M12 19l-5-5M12 19l5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>No insulin</span>`
           : `<span class="dose-pill"><svg viewBox="0 0 24 24" fill="none"><path d="M12 2C12 2 5 10.5 5 15.5C5 19.6 8.13 22 12 22C15.87 22 19 19.6 19 15.5C19 10.5 12 2 12 2Z" stroke="currentColor" stroke-width="2"/></svg>${doseText}</span>`;
@@ -4206,8 +4235,9 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
       b.entries += 1;
       b.carbs += entry.totalCarbs || 0;
       if (entry.noInsulin) b.lowCarbs += entry.totalCarbs || 0; else b.mealCarbs += entry.totalCarbs || 0;
-      b.meal += entry.mealDose || 0;
-      b.corr += entry.correctionDose || 0;
+      const c = entry.correctionDose || 0;
+      b.meal += (entry.mealDose || 0) + Math.min(0, c);   // a reduction is meal insulin not taken
+      b.corr += Math.max(0, c);
     });
     buckets.forEach(b => { b.dose = b.meal + b.corr; });
     // Basal (long-acting) insulin per day, over these same day buckets.
@@ -4290,8 +4320,8 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
     };
 
     const totalCarbsAll = buckets.reduce((s, b) => s + b.carbs, 0), totalLowCarbs = buckets.reduce((s, b) => s + b.lowCarbs, 0);
-    const totalMealIns = inRange.reduce((s, e) => s + (e.mealDose || 0), 0);
-    const totalCorrIns = inRange.reduce((s, e) => s + (e.correctionDose || 0), 0);
+    const totalMealIns = inRange.reduce((s, e) => s + (e.mealDose || 0) + Math.min(0, e.correctionDose || 0), 0);
+    const totalCorrIns = inRange.reduce((s, e) => s + Math.max(0, e.correctionDose || 0), 0);
     const totalIns = totalMealIns + totalCorrIns;
     const corrPct = totalIns > 0 ? Math.round((totalCorrIns / totalIns) * 100) : 0;
 
@@ -5081,6 +5111,7 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
     el("carb-abs-low").value = ca.low;
     el("carb-abs-unknown").value = ca.unknown;
     el("iob-aware-correction-toggle").checked = state.settings.iobAwareCorrection;
+    el("reduce-below-target-toggle").checked = !!state.settings.reduceBelowTarget;
     el("use-learned-abs-toggle").checked = !!state.settings.useLearnedAbsorption;
     const L = state.settings.learnedAbsorption;
     const names = { high: "High GI", medium: "Medium GI", low: "Low GI", unknown: "No GI data" };
@@ -5104,6 +5135,11 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
 
   bind("iob-aware-correction-toggle", "change", e => {
     state.settings.iobAwareCorrection = e.target.checked;
+    saveState();
+    recompute();
+  });
+  bind("reduce-below-target-toggle", "change", e => {
+    state.settings.reduceBelowTarget = e.target.checked;
     saveState();
     recompute();
   });
@@ -5521,7 +5557,10 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
   }
   bind("btn-save-settings", "click", () => {
     state.settings.isf = parseFloat(el("set-isf").value) || state.settings.isf;
-    state.settings.target = parseFloat(el("set-target").value) || 0;
+    // A blank or unreadable target keeps the old one: saving 0 would make every reading look like a correction from zero.
+    const typedTarget = parseDecimalInput(el("set-target").value);
+    if (Number.isFinite(typedTarget) && typedTarget > 0) state.settings.target = typedTarget;
+    else el("set-target").value = state.settings.target;
     state.settings.units = el("set-units").value;
     state.settings.rounding = el("set-rounding").value;
     state.settings.maxDose = parseFloat(el("set-max").value) || 0;

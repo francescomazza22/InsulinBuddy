@@ -1451,3 +1451,9 @@ html[data-theme="dark"] { --glass-sheet: rgba(30,36,43,0.90); }
 .browse-item__uses { font-size: var(--fs-xs); color: var(--ink-soft); font-variant-numeric: tabular-nums; flex-shrink: 0; }
 .browse-empty { color: var(--ink-soft); font-size: var(--fs-m); text-align: center; margin: var(--space-l) var(--space-s); }
 .browse-manage { margin: 0; text-align: center; }
+
+/* ================= SIGNED CORRECTION ================= */
+.correction-sign { display: flex; gap: var(--space-2xs); margin: var(--space-3xs) 0 var(--space-xs); }
+.correction-sign__btn { flex: 1; border: 1.5px solid rgba(255,255,255,0.35); background: rgba(255,255,255,0.12); color: #fff; padding: var(--space-xs) var(--space-m); border-radius: var(--radius-pill); font: 600 var(--fs-m) var(--font-ui); cursor: pointer; min-height: 40px; }
+.correction-sign__btn.is-active { background: #fff; color: var(--ink); border-color: #fff; }
+.dose-card__breakdown { margin: var(--space-xs) 0 0; font-size: var(--fs-s); font-weight: 600; color: rgba(255,255,255,0.92); font-variant-numeric: tabular-nums; }

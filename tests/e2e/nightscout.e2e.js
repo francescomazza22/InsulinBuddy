@@ -123,7 +123,7 @@ await scenario("A permanent rejection is reported on the meal instead of retryin
 
 await scenario("Proxy not deployed / blocked host: clear error, nothing lost", {}, async (be, dev) => {
   be.mode.ns = "hostBlocked";
-  await dev.tab("settings"); await dev.click('[data-seg="data"]'); await sleep(200);
+  await dev.tab("settings"); await dev.click('[data-seg="sync"]'); await sleep(200);
   await dev.click("#btn-ns-test"); await sleep(1200);
   const msg = await dev.text("#ns-status");
   t.check("the settings card explains the allowlist problem", /allowlist|isn't on/i.test(msg), msg);
@@ -184,7 +184,7 @@ await scenario("Changing the Nightscout URL drops the old cached reading instead
   be.ns.entries = [{ sgv: 105, direction: "Flat", date: Date.now() }];
   await dev.eval(`window.dispatchEvent(new Event("online"))`); await sleep(500);
   t.check("pill populated from the original server", !(await dev.eval(`document.getElementById("cc-live-glucose").hidden`)));
-  await dev.tab("settings"); await dev.click('[data-seg="data"]'); await sleep(200);
+  await dev.tab("settings"); await dev.click('[data-seg="sync"]'); await sleep(200);
   await dev.eval(`(() => { const i = document.getElementById("ns-url"); i.value = "https://a-different-site.example.com/?token=other-token-123456"; i.dispatchEvent(new Event("input", { bubbles: true })); })()`);
   await sleep(150);
   t.check("the pill is hidden immediately rather than showing the old server's number", await dev.eval(`document.getElementById("cc-live-glucose").hidden`));
@@ -326,7 +326,7 @@ await scenario("Backfill pages backward through history and imports everything N
   for (let i = 0; i < 2500; i++) entries.push({ sgv: 90 + (i % 40), date: now - i * 5 * 60000, direction: "Flat" }); // ~8.7 days, > 1000-per-page limit
   be.ns.entries = entries;
 
-  await dev.tab("settings"); await dev.click('[data-seg="data"]'); await sleep(200);
+  await dev.tab("settings"); await dev.click('[data-seg="sync"]'); await sleep(200);
   t.check("the backfill button is offered when signed in with Nightscout set up", !(await dev.eval(`document.getElementById("btn-ns-backfill").hidden`)));
   await dev.click("#btn-ns-backfill"); await sleep(2500);
   t.check("every entry Nightscout had was imported", be.glucose.length === 2500, String(be.glucose.length));
@@ -337,9 +337,9 @@ await scenario("Backfill pages backward through history and imports everything N
 });
 
 await scenario("Backfill button is hidden when signed out", { settings: {} }, async (be, dev) => {
-  await dev.tab("settings"); await dev.click('[data-seg="data"]'); await sleep(200);
+  await dev.tab("settings"); await dev.click('[data-seg="sync"]'); await sleep(200);
   await dev.click("#btn-sign-out"); await sleep(400); // the real sign-out path, not just flipping a test flag
-  await dev.click('[data-seg="data"]'); await sleep(200);
+  await dev.click('[data-seg="sync"]'); await sleep(200);
   t.check("no backfill button while signed out", await dev.eval(`document.getElementById("btn-ns-backfill").hidden`));
 });
 
@@ -385,7 +385,7 @@ await scenario("History > Glucose tab: stat numbers are computed correctly from 
 });
 
 await scenario("History > Glucose tab: prompts to sign in when there's no cloud database to read from", { settings: {} }, async (be, dev) => {
-  await dev.tab("settings"); await dev.click('[data-seg="data"]'); await dev.sleep(200);
+  await dev.tab("settings"); await dev.click('[data-seg="sync"]'); await dev.sleep(200);
   await dev.click("#btn-sign-out"); await dev.sleep(300);
   await dev.tab("history"); await dev.click('[data-seg="glucose"]'); await dev.sleep(400);
   t.check("explains cloud sign-in is needed", /Sign in to Cloud Sync/i.test(await dev.text("#glucose-tab-content")));
@@ -419,7 +419,7 @@ await scenario("REGRESSION: a database write failure during backfill is reported
   be.ns.entries = entries;
   be.mode.db = "failwrite"; // simulates: table missing, RLS rejecting the write, etc.
 
-  await dev.tab("settings"); await dev.click('[data-seg="data"]'); await dev.sleep(200);
+  await dev.tab("settings"); await dev.click('[data-seg="sync"]'); await dev.sleep(200);
   await dev.click("#btn-ns-backfill"); await dev.sleep(2000);
   const statusText = await dev.text("#ns-backfill-status");
   t.check("does NOT claim the readings were imported/saved", !/^Saved \d/.test(statusText), statusText);

@@ -248,3 +248,8 @@ test("handle: ?include=basal adds basal, the plain URL doesn't, and the token is
   assert.deepEqual(await typesFor("&include=foo"), ["mealInsulin"]);
   assert.equal((await handle(req(`?${since}&include=basal`), ENV, fetchImpl)).status, 401, "asking for basal doesn't bypass auth");
 });
+
+test("a negative correction is netted into the meal insulin sent to Health", () => {
+  const out = flattenHistoryEntries([{ ts: 1000, mealDose: 12, correctionDose: -1, totalCarbs: 100, items: [{ name: "Pasta" }] }], 0);
+  assert.deepEqual(out.filter(e => e.type !== "carbs").map(e => [e.type, e.value]), [["mealInsulin", 11]]);
+});

@@ -80,7 +80,7 @@ const MANUAL = "cc-correction-manual-input", MERR = "cc-correction-manual-error"
   const w = () => dev.eval(`(() => { const e = document.getElementById("cc-correction-working"); return e.hidden ? "" : e.textContent; })()`);
   t.check("217 with target 100 and 50 per unit: the sum is shown and agrees with the dose", /217 \u2212 100 target\) \u00f7 50 mg\/dL per unit = 2.3u, rounded to 2.5u/.test(await w()) && (await view(dev, MERR)).dose === "2.5", await w());
   await dev.eval(`(() => { const e = document.getElementById("cc-glucose"); e.value = "90"; e.dispatchEvent(new Event("input", { bubbles: true })); })()`); await sleep(250);
-  t.check("below target it says no correction is needed", /at or below your 100 mg\/dL target/.test(await w()), await w());
+  t.check("below target it says no correction is needed", /(at or below|is below) your 100 mg\/dL target/.test(await w()), await w());
   await manual(dev);
   t.check("in manual mode the working is hidden (the dose was typed, not worked out)", (await w()) === "");
   await noErrors(dev, "working"); dev.close();
