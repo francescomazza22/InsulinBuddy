@@ -2,6 +2,14 @@
 // summary can never drift. Bump CHANGELOG[0].version here (and CACHE_VERSION in sw.js) on every release.
 export const CHANGELOG = [
   {
+    version: "2.44.1",
+    summary: "The Add / Subtract switch is readable, and there is now a one-command test runner.",
+    changes: [
+      "The selected side of the Add / Subtract switch is no longer white text on a white button: it now has a darker fill, a white outline and white text, so you can tell which one is on",
+      "Doses are unchanged"
+    ]
+  },
+  {
     version: "2.44.0",
     summary: "Combine a meal with a correction, up or down: a high reading adds to the dose, a low one can take units off, and you can type your own change either way.",
     changes: [
