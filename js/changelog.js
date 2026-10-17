@@ -2,6 +2,16 @@
 // summary can never drift. Bump CHANGELOG[0].version here (and CACHE_VERSION in sw.js) on every release.
 export const CHANGELOG = [
   {
+    version: "2.43.1",
+    summary: "Easier on the battery: no endless animation, and no background polling while the app is hidden.",
+    changes: [
+      "The Log button's glow and the sync dot now pulse a few times and then stay still. Before, they animated forever, which kept the screen redrawing (and the glass blur recalculating) for as long as a meal was waiting",
+      "While the app is hidden or the phone is locked, its 30-second check-in no longer runs. Nothing is lost: the moment you open the app again it updates the ratio, glucose and sync status straight away",
+      "Live glucose is now fetched at most about once a minute instead of every half minute. Opening the app, and the Fetch button, still always get a fresh reading",
+      "Doses are unchanged"
+    ]
+  },
+  {
     version: "2.43.0",
     summary: "Three tabs: Calculator, Insights, Settings. Library moves into the Calculator and Settings.",
     changes: [

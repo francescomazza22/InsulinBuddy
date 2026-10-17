@@ -140,7 +140,8 @@ input:focus-visible, select:focus-visible, button:focus-visible { outline: 2px s
   0%, 100% { box-shadow: 0 0 0 0 rgba(var(--acc-1-rgb), 0.35); }
   50% { box-shadow: 0 0 0 6px rgba(var(--acc-1-rgb), 0); }
 }
-.btn--pulse { animation: log-btn-pulse 2.2s ease-in-out infinite; }
+/* A few pulses to catch the eye, then still: an animation that never ends keeps the screen compositing (and the battery draining) for as long as a meal is waiting. */
+.btn--pulse { animation: log-btn-pulse 2.2s ease-in-out 4; }
 
 /* ================= CALCULATOR ================= */
 .dose-card {
@@ -1264,7 +1265,7 @@ html[data-theme="dark"] .undo-toast { background: var(--surface); border: 1px so
 .sync-chip__dot { width: 9px; height: 9px; border-radius: 50%; background: #9CA3AF; flex: none; }
 .sync-chip--ok .sync-chip__dot { background: #22C55E; }
 .sync-chip--pending { border-color: #F59E0B; }
-.sync-chip--pending .sync-chip__dot { background: #F59E0B; animation: sync-pulse 1.4s ease-in-out infinite; }
+.sync-chip--pending .sync-chip__dot { background: #F59E0B; animation: sync-pulse 1.4s ease-in-out 8; }
 .sync-chip--problem { border-color: #EF4444; }
 .sync-chip--problem .sync-chip__dot { background: #EF4444; }
 @keyframes sync-pulse { 50% { opacity: .35; } }

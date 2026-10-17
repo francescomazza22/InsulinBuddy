@@ -2972,7 +2972,7 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
 
   async function refreshLiveGlucose(force = false) {
     if (!nightscoutConfigured()) return;
-    await refreshGlucoseStore({ force, maxAgeMs: 20000 });   // a failed background poll just leaves the last known reading showing
+    await refreshGlucoseStore({ force, maxAgeMs: 55000 });   // a sensor reports every 1 to 5 minutes, so asking more often than once a minute only wakes the radio   // a failed background poll just leaves the last known reading showing
     renderLiveGlucosePill();
   }
 
@@ -3093,7 +3093,7 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
       tab.setAttribute("aria-label", syncStuckNow ? "Settings. Sync needs attention." : "Settings");
     });
   }
-  setInterval(() => { try { if (state) renderSyncChip(); } catch (e) { /* not ready */ } }, 60000);   // a long wait turns the dot on by itself
+  setInterval(() => { try { if (state && !document.hidden) renderSyncChip(); } catch (e) { /* not ready */ } }, 60000);   // a long wait turns the dot on by itself
   function syncSheetBodyHtml(sum) {
     const dot = { ok: "ok", pending: "warn", problem: "error", off: "off" };
     return `<p class="panel-card__hint" style="margin-top:0;"><b>${escapeHtml(sum.title)}.</b></p>` +
@@ -5891,7 +5891,8 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
     refreshLiveGlucose();
     diag.log("info", "boot", `App started (v${CHANGELOG[0].version}); ${state.history.length} meals; cloud ${currentUser ? "signed in" : "off"}`);
     let tick = 0;
-    setInterval(() => {
+    const everyThirtySeconds = () => {
+      if (document.hidden) return;   // nothing is showing, so nothing needs redrawing or fetching; coming back runs it straight away (below)
       if (!draft.manualRatioId) recompute();
       if (!el("view-settings").hidden && !panelRatios.hidden) renderTimeline();
       if (!el("view-calculator").hidden) renderActivePanel();
@@ -5899,7 +5900,14 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
       flushNightscoutQueue();
       refreshLiveGlucose();
       renderSyncChip();   // keeps "oldest waiting 5 min" and "checked 2 min ago" honest
-    }, 30000);
+    };
+    setInterval(everyThirtySeconds, 30000);
+    document.addEventListener("visibilitychange", () => {
+      if (document.hidden) return;
+      if (!draft.manualRatioId) recompute();   // the time of day may have moved into another ratio while the app was away
+      if (!el("view-calculator").hidden) renderActivePanel();
+      renderSyncChip();
+    });
   }
 
   function renderEverything() {
