@@ -1699,7 +1699,7 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
     const trigger = el("btn-log-basal");
     const startTs = editing ? existing.ts : Date.now();
     let slot = editing ? (existing.basalSlot || basalSlotForTime(startTs)) : basalSlotForTime(startTs);
-    let slotChosenByHand = editing;   // until the person picks one, the time of day decides the slot
+    let slotChosenByHand = false;   // until the person taps Morning/Evening, the time of day decides the slot (editing included: moving a dose from 18:52 to 06:52 makes it a morning dose)
     let prefilled = null;             // what we put in the dose field ourselves, so we never overwrite typing
     let busy = false;
     const others = () => state.history.filter(e => e !== existing);   // an edit shouldn't compare against itself
@@ -1787,6 +1787,9 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
         const ts = new Date(timeInput.value).getTime();
         if (isNaN(ts)) return fail("Choose when you took it.");
         if (ts > Date.now() + 5 * 60000) return fail("That time is in the future.");
+        // A morning-looking time labelled Evening (or the reverse) is the easy slip that puts a dose in the wrong bar of the chart.
+        const looksLike = basalSlotForTime(ts);
+        if (looksLike !== slot && !(await dialogs.confirm(`${formatTime(ts)} looks like a ${basalSlotLabel(looksLike).toLowerCase()} dose, but it is set to ${basalSlotLabel(slot)}. Save it as ${basalSlotLabel(slot)} anyway?`, { title: "Check the time of day", confirmText: `Save as ${basalSlotLabel(slot)}` }))) return;
         const check = basalDoseCheck(units, lastBasalDose(others(), slot));
         if (check.level === "block") return fail(check.message);
         if (check.level === "confirm" && !(await dialogs.confirm(`${check.message} Log it anyway?`, { title: "Check this dose", confirmText: "Log it", danger: true }))) return;
@@ -1826,10 +1829,12 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
     unitsInput.addEventListener("input", () => { errEl.hidden = true; fitDose(); });
     // The field is now only as wide as its digits, so the space around it is part of the box and should still focus it.
     $(".basal-dose-row .field__row").addEventListener("click", e => { if (e.target !== unitsInput) unitsInput.focus(); });
-    timeInput.addEventListener("change", () => {
+    const followTime = () => {
       const t = new Date(timeInput.value).getTime();
       if (!slotChosenByHand && !isNaN(t)) { slot = basalSlotForTime(t); refreshSlot(); }
-    });
+    };
+    timeInput.addEventListener("change", followTime);
+    timeInput.addEventListener("input", followTime);
     saveBtn.addEventListener("click", save);
     document.addEventListener("keydown", onKey);
 

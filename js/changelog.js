@@ -2,6 +2,16 @@
 // summary can never drift. Bump CHANGELOG[0].version here (and CACHE_VERSION in sw.js) on every release.
 export const CHANGELOG = [
   {
+    version: "2.46.2",
+    summary: "A basal dose moved to a different time of day now changes between Morning and Evening by itself.",
+    changes: [
+      "Editing a basal dose and changing its time (say from 18:52 to 06:52) now switches it to Morning or Evening to match, unless you tapped Morning or Evening yourself. Before, an edited dose kept its old label, so a 06:52 dose could sit in the Evening bar of the daily basal chart",
+      "If the label and the time disagree when you save (06:52 set to Evening), the app asks first, so it is a choice and not a slip",
+      "To fix a dose already saved with the wrong label: tap it, choose Morning (or Evening) and Save. The charts update straight away",
+      "Doses are unchanged"
+    ]
+  },
+  {
     version: "2.46.1",
     summary: "The doctor report can now be saved as a PDF.",
     changes: [
