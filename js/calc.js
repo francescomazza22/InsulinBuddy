@@ -10,6 +10,14 @@ export function convertGlucose(value, fromUnit, toUnit) {
   return fromUnit === "mmol" ? value * MGDL_PER_MMOL : value / MGDL_PER_MMOL;
 }
 
+// Carries a dosing setting (target glucose, or "1 unit lowers glucose by") across a glucose-unit switch so the same
+// physiology stays in force: 100 mg/dL becomes 5.6 mmol/L, never "100 mmol/L". mmol/L keeps one decimal, mg/dL whole numbers.
+export function convertDosingSetting(value, fromUnit, toUnit) {
+  if (!Number.isFinite(value) || fromUnit === toUnit) return value;
+  const c = convertGlucose(value, fromUnit, toUnit);
+  return toUnit === "mmol" ? Math.max(0.1, Math.round(c * 10) / 10) : Math.max(1, Math.round(c));
+}
+
 // Round a dose to the user's step (0.1 / 0.5 / 1 unit).
 export function roundDose(value, rounding) {
   const step = parseFloat(rounding) || 0.5;

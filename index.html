@@ -85,6 +85,7 @@
           <button class="carbs-pill carbs-pill--ratio" id="cc-ratio-pill" type="button">Ratio <span id="cc-ratio-value">1:15</span></button>
         </div>
         <p class="dose-card__breakdown" id="cc-dose-breakdown" role="status" hidden></p>
+        <p class="dose-card__nudge" id="cc-dose-nudge" role="status" hidden></p>
         <div class="dose-card__controls">
           <button class="pill-btn" id="cc-correction-toggle" type="button">
             <svg viewBox="0 0 24 24" fill="none"><path d="M3 12h4l2-7 4 14 2-7h6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -436,7 +437,7 @@
           <div class="field">
             <label for="set-isf">Correction factor <span class="field__optional">(1 unit lowers glucose by)</span></label>
             <div class="field__row">
-              <input type="number" id="set-isf" min="1" step="1" inputmode="decimal">
+              <input type="text" id="set-isf" inputmode="decimal" autocomplete="off">
               <span class="field__unit" id="isf-unit-label">mg/dL</span>
             </div>
           </div>
@@ -453,6 +454,8 @@
               <option value="mgdl">mg/dL</option>
               <option value="mmol">mmol/L</option>
             </select>
+          
+            <p class="panel-card__hint" id="units-convert-note" role="status" hidden></p>
           </div>
           <div class="field">
             <label for="set-rounding">Round doses to nearest</label>

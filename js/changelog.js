@@ -2,6 +2,17 @@
 // summary can never drift. Bump CHANGELOG[0].version here (and CACHE_VERSION in sw.js) on every release.
 export const CHANGELOG = [
   {
+    version: "2.45.0",
+    summary: "Switching glucose units now converts your target and correction factor, and a quiet note appears when a dose looks unusual.",
+    changes: [
+      "Changing Settings > Glucose units between mg/dL and mmol/L converts your target glucose and correction factor in the boxes (for example 100 mg/dL becomes 5.5 mmol/L) and tells you, instead of leaving 100 to be read as 100 mmol/L. Switch back before saving and the original numbers return exactly. Check them, then Save",
+      "The correction factor box now takes a decimal comma (2,8) as well as a point, and a blank one keeps the old value",
+      "A gentle note under the dose when it is much bigger than anything you took in the last 90 days, or very different from meals of the same size. It never blocks logging and only appears once there are enough recent meals to compare with",
+      "Battery: nothing runs in the background for either. The unit conversion happens only when you change the box, and the dose check runs only when the dose is recalculated, against a short list built once from your history",
+      "Doses are unchanged"
+    ]
+  },
+  {
     version: "2.44.1",
     summary: "The Add / Subtract switch is readable, and there is now a one-command test runner.",
     changes: [

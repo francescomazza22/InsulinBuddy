@@ -1,5 +1,6 @@
+import { sanityPool, doseSanity } from "./js/dose-sanity.js";
 import { escapeHtml, escapeAttr, round1, formatQty, dayKeyFromTs, timeAgo, makeId, redact, parseDecimalInput } from "./js/util.js";
-import { convertGlucose, roundDose as roundDoseWith, roundSignedDose as roundSignedDoseWith, activeAt, compoundGiInfo, computeDose, checkDoseConsistency, planDose, planEditDose, capDoseParts, giBand, niceScale, buildTrendBuckets, summarizeTrends, mealTypeBreakdown, absorptionMinutesForEntry as absorptionForEntry, iobFraction, cobGrams, glucoseTrendArrow, glucoseRangeClass, glucoseRangeLabel, basalByDay, summarizeBasal, ratioWasApplied, ratioByBracket, idealRatioByBracket } from "./js/calc.js";
+import { convertGlucose, convertDosingSetting, roundDose as roundDoseWith, roundSignedDose as roundSignedDoseWith, activeAt, compoundGiInfo, computeDose, checkDoseConsistency, planDose, planEditDose, capDoseParts, giBand, niceScale, buildTrendBuckets, summarizeTrends, mealTypeBreakdown, absorptionMinutesForEntry as absorptionForEntry, iobFraction, cobGrams, glucoseTrendArrow, glucoseRangeClass, glucoseRangeLabel, basalByDay, summarizeBasal, ratioWasApplied, ratioByBracket, idealRatioByBracket } from "./js/calc.js";
 import { SCHEMA_VERSION, normalizeState as normalizeStateWith, makeFingerprint, stampChanges, mergeStates, statesEquivalent, prepareRestoredState } from "./js/state.js";
 import { NightscoutClient, NsOutbox, nsToken, nsBaseUrl, nsConfigured, treatmentsForEntry, entriesToGlucoseRows } from "./js/nightscout.js";
 import { createDiag, hookGlobalErrors } from "./js/diag.js";
@@ -2171,6 +2172,10 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
       const on = (draft.correctionSign === -1) === (b.dataset.sign === "-1");
       b.classList.toggle("is-active", on); b.setAttribute("aria-pressed", on ? "true" : "false");
     });
+    // A quiet second opinion against your own recent doses; it never blocks and costs nothing until the dose changes.
+    const nudgeEl = el("cc-dose-nudge");
+    const sane = (!draft.noInsulinOn && finalDose >= 1) ? doseSanity(getSanityPool(), { carbs, mealDose: loggedMealDose, finalDose }) : null;
+    nudgeEl.hidden = !sane; if (sane) nudgeEl.textContent = sane.text;
     const capNote = el("cc-cap-note");
     const showCapNote = !draft.noInsulinOn && (plan.capped || plan.overMax);
     capNote.hidden = !showCapNote;
@@ -2212,6 +2217,14 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
     }
 
     draft._computed = { carbs, mealDose: loggedMealDose, correctionDose: loggedCorrectionDose, finalDose, ratioEntry, requested: plan.requested, capped: plan.capped };
+  }
+
+  // The history boiled down once and reused until it changes (length or newest/oldest entry), so keystrokes never rescan it.
+  let sanityCache = { key: "", pool: [] };
+  function getSanityPool() {
+    const h = state.history, key = `${h.length}|${h[0] && h[0].id}|${h[h.length - 1] && h[h.length - 1].id}|${new Date().toDateString()}`;
+    if (sanityCache.key !== key) sanityCache = { key, pool: sanityPool(h, Date.now()) };
+    return sanityCache.pool;
   }
 
   // Manual correction mode: lets a dose be entered directly, skipping the glucose/ISF formula
@@ -5545,7 +5558,31 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
     saveState(); renderActivityRatioList();
   });
 
+  // Switching glucose units converts the target and correction factor in the boxes (and says so), so a unit switch can never leave
+  // "100" meaning 100 mmol/L. Switching back before saving restores the exact numbers that were there.
+  let unitSwitchOrigin = null;
+  bind("set-units", "change", () => {
+    const to = el("set-units").value, note = el("units-convert-note");
+    if (!unitSwitchOrigin) unitSwitchOrigin = { units: state.settings.units, isf: state.settings.isf, target: state.settings.target };
+    const o = unitSwitchOrigin, from = o.units === to ? null : o.units;
+    const typed = id => { const v = parseDecimalInput(el(id).value); return Number.isFinite(v) ? v : null; };
+    if (!from) { el("set-isf").value = o.isf; el("set-target").value = o.target; if (note) note.hidden = true; }
+    else {
+      const isf = typed("set-isf") ?? o.isf, target = typed("set-target") ?? o.target;
+      // The boxes may already show the converted numbers if switched twice; convert from the unit the boxes were last in.
+      const shownIn = el("set-units").dataset.shownIn || o.units;
+      el("set-isf").value = convertDosingSetting(isf, shownIn, to);
+      el("set-target").value = convertDosingSetting(target, shownIn, to);
+      if (note) { note.hidden = false; note.textContent = `Switched to ${to === "mmol" ? "mmol/L" : "mg/dL"}: your target and correction factor were converted (${el("set-target").value} and ${el("set-isf").value}). Check them, then Save.`; }
+    }
+    el("set-units").dataset.shownIn = to;
+    const u = to === "mmol" ? "mmol/L" : "mg/dL";
+    el("isf-unit-label").textContent = u; el("target-unit-label").textContent = u;
+  });
+
   function fillCorrectionForm() {
+    unitSwitchOrigin = null; el("set-units").dataset.shownIn = state.settings.units;
+    const note0 = el("units-convert-note"); if (note0) note0.hidden = true;
     el("set-isf").value = state.settings.isf;
     el("set-target").value = state.settings.target;
     el("set-units").value = state.settings.units;
@@ -5556,7 +5593,7 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
     el("target-unit-label").textContent = u;
   }
   bind("btn-save-settings", "click", () => {
-    state.settings.isf = parseFloat(el("set-isf").value) || state.settings.isf;
+    { const v = parseDecimalInput(el("set-isf").value); if (Number.isFinite(v) && v > 0) state.settings.isf = v; else el("set-isf").value = state.settings.isf; }
     // A blank or unreadable target keeps the old one: saving 0 would make every reading look like a correction from zero.
     const typedTarget = parseDecimalInput(el("set-target").value);
     if (Number.isFinite(typedTarget) && typedTarget > 0) state.settings.target = typedTarget;
