@@ -11,7 +11,7 @@ const probe = (hint, hour, scheme) => `${scheme ? `{ const real = window.matchMe
   ${hint ? `localStorage.setItem("insulinBuddy.theme", "${hint}");` : `localStorage.removeItem("insulinBuddy.theme");`}
   ${hour != null ? `(() => { const R = Date; const fake = new R(2026, 9, 18, ${hour}, 30).getTime(), off = fake - R.now(); Date = class extends R { constructor(...a) { if (a.length) super(...a); else super(R.now() + off); } static now() { return R.now() + off; } }; })();` : ""}
   document.addEventListener("readystatechange", () => { if (document.readyState === "interactive" && !window.__early) { const r = document.documentElement, l = document.getElementById("loading-screen"), cs = getComputedStyle(l);
-    window.__early = { theme: r.getAttribute("data-theme"), tod: r.getAttribute("data-tod"), greeting: document.getElementById("boot-greeting").textContent, shown: !l.hidden, bg: cs.backgroundImage, meta: document.querySelector('meta[name="theme-color"]').content }; } });`;
+    window.__early = { op: [".boot__orb", ".boot__greeting", ".boot__sub", ".boot__dot", ".boot__line"].map(q => getComputedStyle(document.querySelector(q)).opacity).join(","), dash: getComputedStyle(document.querySelector(".boot__line")).strokeDasharray, theme: r.getAttribute("data-theme"), tod: r.getAttribute("data-tod"), greeting: document.getElementById("boot-greeting").textContent, shown: !l.hidden, bg: cs.backgroundImage, meta: document.querySelector('meta[name="theme-color"]').content }; } });`;
 const open = async (hint, hour, scheme) => {
   const dev = await openDevice(app, { width: 390, height: 844, mobile: true, wait: 10, inject: probe(hint, hour, scheme) });
   await dev.waitFor(`!!window.__early`, 8000);
@@ -25,6 +25,7 @@ t.section("DARK LOOK AT NIGHT, from the first paint");
   t.check("dark theme is chosen before app.js has run", e.theme === "dark", JSON.stringify(e));
   t.check("it is night, with a matching greeting", e.tod === "night" && e.greeting === "Good evening", JSON.stringify(e));
   t.check("the opening screen is showing, with a sky gradient (not a flat white page)", e.shown && /gradient/.test(e.bg), e.bg);
+  t.check("the whole picture is already fully visible at first paint (a start that takes a split second shows it finished)", e.op === "1,1,1,1,1" && (e.dash === "none" || e.dash === "0"), JSON.stringify([e.op, e.dash]));
   t.check("the browser bar colour is dark too", e.meta === "#14181D", e.meta);
   dev.close();
 }

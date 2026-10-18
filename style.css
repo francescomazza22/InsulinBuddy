@@ -1010,25 +1010,24 @@ html[data-theme="dark"][data-tod="dusk"]    .boot { --sky-top: #2F1C2A; --orb-gl
 html[data-theme="dark"][data-tod="night"]   .boot { --sky-top: #0B1020; --sky-bot: #14181D; --orb: rgba(205,218,255,0.9); --orb-glow: rgba(150,170,255,0.18); }
 .boot__sky { position: absolute; inset: 0; pointer-events: none; }
 .boot__orb { position: absolute; left: 50%; top: var(--orb-y); width: 120px; height: 120px; margin: -60px 0 0 -60px; border-radius: 50%;
-  background: radial-gradient(circle, var(--orb) 0 22%, var(--orb-glow) 23% 48%, transparent 70%); opacity: 0; animation: boot-orb 1.4s ease-out 0.1s 1 forwards; }
+  background: radial-gradient(circle, var(--orb) 0 22%, var(--orb-glow) 23% 48%, transparent 70%); }
 .boot__card { position: relative; }
 .boot__trace { width: min(78vw, 280px); height: auto; display: block; margin: 0 auto var(--space-l); overflow: visible; }
 .boot__band { fill: var(--acc-1); opacity: 0.09; }
-.boot__line { fill: none; stroke: var(--acc-1); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 1; stroke-dashoffset: 1;
-  filter: drop-shadow(0 0 5px var(--orb-glow)); animation: boot-draw 1.5s cubic-bezier(.45,.05,.25,1) 0.25s 1 forwards; }
-.boot__dot { fill: var(--acc-1); opacity: 0; animation: boot-pop 0.35s ease-out 1.65s 1 forwards; }
-.boot__ring { fill: none; stroke: var(--acc-1); stroke-width: 1.5; opacity: 0; transform-box: fill-box; transform-origin: center; animation: boot-ring 1.6s ease-out 1.9s 5; }
-.boot__greeting { font-family: var(--font-display); font-size: var(--fs-h2); font-weight: 700; margin: 0 0 var(--space-3xs); opacity: 0; animation: boot-rise 0.7s ease-out 0.5s 1 forwards; }
-.boot__sub { color: var(--ink-soft); font-size: var(--fs-m); margin: 0; opacity: 0; animation: boot-rise 0.7s ease-out 0.8s 1 forwards; }
-@keyframes boot-orb  { from { opacity: 0; transform: scale(.7); } to { opacity: 1; transform: scale(1); } }
-@keyframes boot-draw { to { stroke-dashoffset: 0; } }
-@keyframes boot-pop  { from { opacity: 0; transform: scale(.4); } to { opacity: 1; transform: scale(1); } }
+.boot__line { fill: none; stroke: var(--acc-1); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; filter: drop-shadow(0 0 5px var(--orb-glow)); }
+/* Everything above is fully drawn from the very first paint, so even a start that takes a fraction of a second shows the finished
+   picture. The only motion is a bright spark running along the trace and a ring pulsing at its end. */
+.boot__pulse { fill: none; stroke: #fff; stroke-opacity: 0.85; stroke-width: 3.4; stroke-linecap: round; stroke-dasharray: 0.12 1; stroke-dashoffset: 0.12;
+  animation: boot-spark 1.7s cubic-bezier(.45,.05,.25,1) 0.1s 4; }
+.boot__dot { fill: var(--acc-1); }
+.boot__ring { fill: none; stroke: var(--acc-1); stroke-width: 1.5; opacity: 0; transform-box: fill-box; transform-origin: center; animation: boot-ring 1.7s ease-out 0.4s 4; }
+.boot__greeting { font-family: var(--font-display); font-size: var(--fs-h2); font-weight: 700; margin: 0 0 var(--space-3xs); }
+.boot__sub { color: var(--ink-soft); font-size: var(--fs-m); margin: 0; }
+@keyframes boot-spark { from { stroke-dashoffset: 0.12; } to { stroke-dashoffset: -1.02; } }
 @keyframes boot-ring { 0% { opacity: .7; transform: scale(1); } 100% { opacity: 0; transform: scale(3.2); } }
-@keyframes boot-rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
 @media (prefers-reduced-motion: reduce) {
-  .boot__orb, .boot__greeting, .boot__sub, .boot__dot { animation: none; opacity: 1; }
-  .boot__line { animation: none; stroke-dashoffset: 0; }
-  .boot__ring { animation: none; opacity: 0; }
+  .boot__pulse, .boot__ring { animation: none; opacity: 0; }
+}
 }
 
 /* ================= Undo toast ================= */

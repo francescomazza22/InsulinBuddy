@@ -2,6 +2,15 @@
 // summary can never drift. Bump CHANGELOG[0].version here (and CACHE_VERSION in sw.js) on every release.
 export const CHANGELOG = [
   {
+    version: "2.47.1",
+    summary: "The opening screen is fully drawn from the first instant, even on a very quick start.",
+    changes: [
+      "On a fast start the opening screen used to show only a dark screen and a pale rectangle, because its parts faded in one after another and the app was ready before they appeared. Now the sun or moon, the trace, the greeting and the line of text are all there from the first frame",
+      "The only motion left is a bright spark running along the trace and a ring pulsing at its end, a few times, then still. With Reduce Motion on, nothing moves",
+      "Doses are unchanged"
+    ]
+  },
+  {
     version: "2.47.0",
     summary: "A new opening screen that matches the hour and your light or dark look, instead of a blue spinner on white.",
     changes: [
