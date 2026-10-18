@@ -305,8 +305,10 @@ export function buildTrendBuckets(history, days, nowMs = Date.now()) {
     b.carbs += entry.totalCarbs || 0;
     // Carbs eaten to treat a low (logged with no insulin) are kept apart from carbs eaten as meals.
     if (entry.noInsulin) b.lowCarbs += entry.totalCarbs || 0; else b.mealCarbs += entry.totalCarbs || 0;
-    b.meal += entry.mealDose || 0;
-    b.corr += entry.correctionDose || 0;
+    // A reduction (negative correction) is meal insulin that was not taken, so it comes off the meal side; the correction side only ever counts added units.
+    const c = entry.correctionDose || 0;
+    b.meal += (entry.mealDose || 0) + Math.min(0, c);
+    b.corr += Math.max(0, c);
   }
   buckets.forEach(b => { b.dose = b.meal + b.corr; });
   return { buckets, inRange, todayKey: buckets[buckets.length - 1].key };
@@ -367,8 +369,8 @@ export function summarizeTrends(buckets, inRange, todayKey) {
   const dosed = inRange.filter(e => !e.noInsulin && (e.mealDose || 0) > 0 && (e.totalCarbs || 0) > 0);
   const gUnits = dosed.reduce((s, e) => s + e.mealDose, 0);
   const gPerU = gUnits > 0 ? round1(dosed.reduce((s, e) => s + e.totalCarbs, 0) / gUnits) : null;
-  const totalMealIns = inRange.reduce((s, e) => s + (e.mealDose || 0), 0);
-  const totalCorrIns = inRange.reduce((s, e) => s + (e.correctionDose || 0), 0);
+  const totalMealIns = inRange.reduce((s, e) => s + (e.mealDose || 0) + Math.min(0, e.correctionDose || 0), 0);
+  const totalCorrIns = inRange.reduce((s, e) => s + Math.max(0, e.correctionDose || 0), 0);
   const totalIns = totalMealIns + totalCorrIns;
   return {
     avgCarbs, avgDose, avgDays: avgBuckets.length, usingToday, regularMeals, corrections, lows, gPerU,

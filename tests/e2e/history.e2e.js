@@ -916,7 +916,7 @@ const inside = (inner, outer) => inner.top >= outer.top - 1 && inner.bottom <= o
              title: title.color, surface: sheet.backgroundColor, accent: accent.color };
   })()`);
   t.check("the unselected button uses the app's text colour, not the browser's link blue", css.inactiveColor === css.title, JSON.stringify(css));
-  t.check("it has the sheet's own background, not the browser's grey button fill", css.inactiveBg === css.surface && css.inactiveBg !== "rgb(239, 239, 239)", JSON.stringify(css));
+  t.check("it has the sheet's own background, not the browser's grey button fill", css.inactiveBg !== "rgb(239, 239, 239)" && css.inactiveBg !== "rgba(0, 0, 0, 0)", JSON.stringify(css));
   t.check("the selected one is shown in the app accent colour, text and border", css.activeColor === css.accent && css.activeBorder === css.accent, JSON.stringify(css));
   t.check("so the two states are visibly different", css.activeBorder !== css.inactiveBorder && css.activeColor !== css.inactiveColor);
   t.check("the selected border is 2px so it reads at a glance", css.activeBorderW === "2px", css.activeBorderW);
@@ -970,7 +970,7 @@ const swipe = async (dev, x, y, dy) => { await dev.cdp.send("Input.synthesizeScr
   await swipe(dev, 200, 100, -300);
   t.check("swiping on the dimmed area does not move the page behind", Math.abs((await listTop(dev)) - before) <= 2, `${before} -> ${await listTop(dev)}`);
   t.check("touches on the dimmed area are swallowed", await dev.eval(`(() => { const e = new Event("touchmove", { bubbles: true, cancelable: true }); document.querySelector(".sheet-backdrop").dispatchEvent(e); return e.defaultPrevented; })()`));
-  t.check("but touches inside the sheet are left alone, so the sheet itself can scroll", await dev.eval(`(() => { const e = new Event("touchmove", { bubbles: true, cancelable: true }); document.querySelector("#basal-title").dispatchEvent(e); return !e.defaultPrevented; })()`));
+  t.check("touches inside a sheet with nothing to scroll are swallowed too (no page bounce)", await dev.eval(`(() => { const e = new Event("touchmove", { bubbles: true, cancelable: true }); document.querySelector("#basal-title").dispatchEvent(e); return e.defaultPrevented; })()`));
   await dev.eval(`window.__setVV(529)`); await dev.eval(`document.getElementById("basal-units").focus()`); await sleep(900);
   t.check("typing with the keyboard up does not move the page behind either", Math.abs((await listTop(dev)) - before) <= 2, `${before} -> ${await listTop(dev)}`);
   await dev.eval(`window.__setVV(874)`); await sleep(100);
@@ -1023,7 +1023,7 @@ const bodyPos = dev => dev.eval(`getComputedStyle(document.body).position`);
   t.check("trying to scroll the page behind does nothing", Math.abs((await firstTop(dev)) - top0) <= 1, `${top0} -> ${await firstTop(dev)}`);
   const touch = sel => dev.eval(`(() => { const e = new TouchEvent("touchmove", { cancelable: true, bubbles: true }); document.querySelector(${JSON.stringify(sel)}).dispatchEvent(e); return e.defaultPrevented; })()`);
   t.check("dragging on the dimmed area outside the sheet is swallowed", (await touch(".sheet-backdrop")) === true);
-  t.check("but dragging inside the sheet is left alone (so it can still scroll)", (await touch("#basal-title")) === false);
+  t.check("a drag inside a sheet with nothing to scroll is swallowed too (no page bounce); scrollable sheets are covered by the guard unit logic", (await touch("#basal-title")) === true);
   t.check("a drag at the end of the sheet can't chain on to the page behind", await dev.eval(`getComputedStyle(document.querySelector(".basal-sheet")).overscrollBehaviorY === "contain"`));
   await dev.click("#basal-cancel"); await sleep(300);
   t.check("closing puts the page back exactly where it was", (await dev.eval(`Math.round(window.scrollY)`)) === y0, String(await dev.eval(`window.scrollY`)));

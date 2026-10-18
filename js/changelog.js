@@ -2,6 +2,14 @@
 // summary can never drift. Bump CHANGELOG[0].version here (and CACHE_VERSION in sw.js) on every release.
 export const CHANGELOG = [
   {
+    version: "2.47.2",
+    summary: "Fixes the totals when a dose had a reduction taken off the meal.",
+    changes: [
+      "In the trends and the doctor report, a dose where the correction was negative (a reduction taken off the meal) used to be counted as a negative correction. It is now counted as a smaller meal dose, matching Nightscout, Apple Health and the active-insulin figure",
+      "Doses are unchanged"
+    ]
+  },
+  {
     version: "2.47.1",
     summary: "The opening screen is fully drawn from the first instant, even on a very quick start.",
     changes: [

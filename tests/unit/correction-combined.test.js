@@ -108,3 +108,18 @@ test("the schema accepts a negative correction part but still refuses a negative
   assert.deepEqual(validateEntry(e).filter(p => p.severity === "error"), []);
   assert.ok(validateEntry({ ...e, mealDose: -1 }).some(p => p.severity === "error"));
 });
+
+import { buildTrendBuckets, summarizeTrends } from "../../js/calc.js";
+test("trends and report totals: a reduction counts against meal insulin, never as a negative correction", () => {
+  const now = Date.now();
+  const h = [
+    { id: "a", ts: now - 3600000, mealType: "lunch", totalCarbs: 100, mealDose: 12, correctionDose: -1, noInsulin: false },
+    { id: "b", ts: now - 7200000, mealType: "dinner", totalCarbs: 50, mealDose: 5, correctionDose: 2, noInsulin: false }
+  ];
+  const { buckets, inRange, todayKey } = buildTrendBuckets(h, 3, now);
+  const today = buckets[buckets.length - 1];
+  assert.equal(today.meal, 16); assert.equal(today.corr, 2); assert.equal(today.dose, 18);   // 12-1 + 5 ; 2 ; 11 + 7
+  const s = summarizeTrends(buckets, inRange, todayKey);
+  assert.equal(s.totalMealIns, 16); assert.equal(s.totalCorrIns, 2); assert.equal(s.totalIns, 18);
+  assert.equal(s.corrPct, 11);
+});
