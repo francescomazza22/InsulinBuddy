@@ -166,3 +166,38 @@ export function dosingSummary(history, sinceMs) {
     basalDoses: basal.length, totalBasal, avgDailyBasal, avgDailyTotalInsulin: totalInsulin / days + avgDailyBasal
   };
 }
+
+/**
+ * The insulin and food figures Gluroo shows: total daily insulin with the basal / bolus split, meals per day, average bolus and
+ * carbs per meal, the effective carb ratio actually used, how much of the bolus was correction, and the biggest dose.
+ * A negative correction (units taken off a meal) counts against the meal, so the totals are what was actually injected.
+ */
+export function insulinStats(history, sinceMs) {
+  const all = (history || []).filter(e => e && typeof e.ts === "number" && e.ts >= sinceMs);
+  const dayKeyOf = ts => { const d = new Date(ts); return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`; };
+  const bolusEntries = all.filter(e => !isBasalEntry(e) && !e.noInsulin && ((Number(e.mealDose) || 0) + (Number(e.correctionDose) || 0)) > 0);
+  const basal = all.filter(e => isBasalEntry(e) && e.basalDose > 0);
+  const bolusDays = new Set(bolusEntries.map(e => dayKeyOf(e.ts))).size || 1;
+  const basalDays = new Set(basal.map(e => dayKeyOf(e.ts))).size;
+  const sumBolus = e => (Number(e.mealDose) || 0) + (Number(e.correctionDose) || 0);
+  const totalBolus = bolusEntries.reduce((s, e) => s + sumBolus(e), 0);
+  const totalBasal = basal.reduce((s, e) => s + e.basalDose, 0);
+  const avgDailyBolus = totalBolus / bolusDays, avgDailyBasal = basalDays ? totalBasal / basalDays : 0;
+  const tdd = avgDailyBolus + avgDailyBasal;
+  const mealEntries = bolusEntries.filter(e => e.mealType !== "correction" && (Number(e.mealDose) || 0) > 0);
+  const countedMeals = mealEntries.filter(e => !e.carbsUnknown && (Number(e.totalCarbs) || 0) > 0);
+  const mealCarbs = countedMeals.reduce((s, e) => s + e.totalCarbs, 0), mealInsulin = countedMeals.reduce((s, e) => s + (Number(e.mealDose) || 0), 0);
+  const pos = bolusEntries.reduce((s, e) => s + Math.max(0, Number(e.correctionDose) || 0), 0);
+  const lows = all.filter(e => !isBasalEntry(e) && e.noInsulin);
+  return {
+    days: bolusDays, avgDailyBolus, avgDailyBasal, tdd,
+    basalPct: tdd > 0 && basalDays ? (avgDailyBasal / tdd) * 100 : null, bolusPct: tdd > 0 && basalDays ? (avgDailyBolus / tdd) * 100 : null,
+    mealsPerDay: mealEntries.length / bolusDays, avgMealBolus: mealEntries.length ? mealEntries.reduce((s, e) => s + (Number(e.mealDose) || 0), 0) / mealEntries.length : null,
+    avgMealCarbs: countedMeals.length ? mealCarbs / countedMeals.length : null,
+    effectiveCarbRatio: mealInsulin > 0 ? mealCarbs / mealInsulin : null,
+    correctionSharePct: totalBolus > 0 ? (pos / (totalBolus + 1e-9)) * 100 : null, correctionCount: bolusEntries.filter(e => (Number(e.correctionDose) || 0) > 0).length,
+    reductionCount: bolusEntries.filter(e => (Number(e.correctionDose) || 0) < 0).length,
+    largestDose: bolusEntries.length ? Math.max(...bolusEntries.map(sumBolus)) : null,
+    lowsTreated: lows.length, avgLowCarbs: lows.length ? lows.reduce((s, e) => s + (Number(e.totalCarbs) || 0), 0) / lows.length : null
+  };
+}

@@ -2,6 +2,19 @@
 // summary can never drift. Bump CHANGELOG[0].version here (and CACHE_VERSION in sw.js) on every release.
 export const CHANGELOG = [
   {
+    version: "2.46.0",
+    summary: "A Statistics view with the figures FreeStyle Libre and Gluroo reports show.",
+    changes: [
+      "Insights > Glucose has a new Statistics view: average, GMI and the older eA1c Gluroo shows, median, standard deviation, variability (CV, with the 36% steady mark), lowest and highest, average daily range, time in tight range (70-180 and 70-140), and how much of the time the sensor was active",
+      "Low and high events as the consensus counts them (15 minutes or more): low under 70, very low under 54, very high over 250, with how long they lasted",
+      "Insulin and food, as in Gluroo: total daily insulin with the basal / bolus split, meals a day, average meal bolus and carbs, carbs per unit actually used, corrections up and down, largest dose, lows treated",
+      "Daily graphs: a small line for each of the last 14 days with the 70-180 strip behind it",
+      "The report for your doctor now lists eA1c, standard deviation, variability, tight range and the events too",
+      "Battery: all of it is worked out once when you open the view from readings already loaded, with no timers and no extra fetching",
+      "Doses are unchanged"
+    ]
+  },
+  {
     version: "2.45.0",
     summary: "Switching glucose units now converts your target and correction factor, and a quiet note appears when a dose looks unusual.",
     changes: [

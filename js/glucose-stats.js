@@ -118,3 +118,90 @@ export function glucoseSummaryStats(readings, { low = 70, high = 180 } = {}) {
     timeHighPct: (highCount / count) * 100
   };
 }
+
+// ---------------------------------------------------------------------------------------------------------------------
+// The full set of figures a FreeStyle Libre (LibreView AGP) report and Gluroo show, worked out from the same readings.
+// Everything here is plain arithmetic on what is already loaded: nothing runs until the Statistics view is opened.
+
+const sortedByTime = readings => (readings || []).filter(r => r && typeof r.mgdl === "number" && typeof r.at === "number").sort((a, b) => a.at - b.at);
+const mean = a => a.reduce((s, v) => s + v, 0) / a.length;
+
+/** The usual gap between readings in minutes (the median of the gaps up to an hour): 5 for most CGMs, 15 for Libre. */
+export function readingIntervalMinutes(readings) {
+  const s = sortedByTime(readings), gaps = [];
+  for (let i = 1; i < s.length; i++) { const g = (s[i].at - s[i - 1].at) / 60000; if (g > 0 && g <= 60) gaps.push(g); }
+  if (gaps.length === 0) return 15;
+  gaps.sort((a, b) => a - b);
+  return Math.max(1, Math.round(percentile(gaps, 50)));
+}
+
+/** ADAG estimated average glucose -> eA1c, the figure Gluroo and older meters label "A1c" (GMI above is the CGM-specific one). */
+export function eA1c(meanMgdl) {
+  if (meanMgdl == null || !Number.isFinite(meanMgdl)) return null;
+  return (meanMgdl + 46.7) / 28.7;
+}
+
+/** Stretches where glucose stayed beyond a threshold for at least minMinutes (the consensus counts 15). A reading stands for one
+ * interval, and a gap longer than two intervals ends the stretch (the sensor was off, so nothing is assumed). */
+export function glucoseEvents(readings, test, { minMinutes = 15, intervalMin } = {}) {
+  const s = sortedByTime(readings);
+  const step = intervalMin || readingIntervalMinutes(s), maxGap = step * 2 * 60000;
+  const events = [];
+  let start = null, last = null;
+  const close = () => { if (start != null) { const mins = (last - start) / 60000 + step; if (mins >= minMinutes) events.push({ at: start, minutes: mins }); } start = null; };
+  for (const r of s) {
+    if (test(r.mgdl)) {
+      if (start != null && r.at - last > maxGap) close();
+      if (start == null) start = r.at;
+      last = r.at;
+    } else close();
+  }
+  close();
+  return { count: events.length, avgMinutes: events.length ? mean(events.map(e => e.minutes)) : 0, longestMinutes: events.length ? Math.max(...events.map(e => e.minutes)) : 0, events };
+}
+
+/**
+ * Libre/AGP-style statistics. The ranges are the international consensus ones: very low < 54, low 54-69, target 70-180,
+ * tight 70-140, high 181-250, very high > 250 (mg/dL). Sensor use is how much of the time between the first and last reading
+ * actually has a reading; the AGP report wants at least 70% of 14 days, so `enough` says whether the picture is trustworthy.
+ */
+export function extendedGlucoseStats(readings, { wantDays = 14 } = {}) {
+  const s = sortedByTime(readings);
+  const count = s.length;
+  if (count === 0) return { count: 0 };
+  const values = s.map(r => r.mgdl), sorted = values.slice().sort((a, b) => a - b);
+  const avg = mean(values);
+  const sd = Math.sqrt(mean(values.map(v => (v - avg) ** 2)));
+  const pct = fn => (values.filter(fn).length / count) * 100;
+  const intervalMin = readingIntervalMinutes(s);
+  const spanMin = (s[count - 1].at - s[0].at) / 60000 + intervalMin;
+  const expected = Math.max(1, spanMin / intervalMin);
+  const days = daysSpanned(s);
+  const sensorActivePct = Math.min(100, (count / expected) * 100);
+  const veryLow = glucoseEvents(s, v => v < 54, { intervalMin }), low = glucoseEvents(s, v => v < 70, { intervalMin });
+  const veryHigh = glucoseEvents(s, v => v > 250, { intervalMin });
+  const perDay = dailyStats(s);
+  return {
+    count, days, intervalMin, avgMgdl: avg, medianMgdl: percentile(sorted, 50), sdMgdl: sd, cvPct: avg > 0 ? (sd / avg) * 100 : null,
+    minMgdl: sorted[0], maxMgdl: sorted[count - 1], gmi: estimatedA1c(avg), eA1c: eA1c(avg),
+    pct: { veryLow: pct(v => v < 54), low: pct(v => v >= 54 && v < 70), target: pct(v => v >= 70 && v <= 180), tight: pct(v => v >= 70 && v <= 140), high: pct(v => v > 180 && v <= 250), veryHigh: pct(v => v > 250), belowRange: pct(v => v < 70), aboveRange: pct(v => v > 180) },
+    sensorActivePct, readingsPerDay: count / Math.max(1, days),
+    enough: days >= wantDays * 0.5 && sensorActivePct >= 70,
+    lowEvents: { count: low.count, avgMinutes: low.avgMinutes, longestMinutes: low.longestMinutes },
+    veryLowEvents: { count: veryLow.count, avgMinutes: veryLow.avgMinutes, longestMinutes: veryLow.longestMinutes },
+    veryHighEvents: { count: veryHigh.count, avgMinutes: veryHigh.avgMinutes },
+    meanDailyRangeMgdl: perDay.length ? mean(perDay.map(d => d.maxMgdl - d.minMgdl)) : null,
+    cvOnTarget: avg > 0 ? (sd / avg) * 100 <= 36 : null
+  };
+}
+
+/** One row per calendar day (local time), oldest first, with a small set of points for a sparkline (at most `maxPoints`). */
+export function dailyStats(readings, { maxPoints = 96 } = {}) {
+  const s = sortedByTime(readings), byDay = new Map();
+  for (const r of s) { const d = new Date(r.at), k = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; if (!byDay.has(k)) byDay.set(k, []); byDay.get(k).push(r); }
+  return [...byDay.entries()].map(([day, rs]) => {
+    const v = rs.map(r => r.mgdl), n = v.length, avg = mean(v), stride = Math.max(1, Math.ceil(n / maxPoints));
+    const points = rs.filter((_, i) => i % stride === 0).map(r => { const d = new Date(r.at); return { minute: d.getHours() * 60 + d.getMinutes(), mgdl: r.mgdl }; });
+    return { day, count: n, avgMgdl: avg, minMgdl: Math.min(...v), maxMgdl: Math.max(...v), targetPct: (v.filter(x => x >= 70 && x <= 180).length / n) * 100, lowPct: (v.filter(x => x < 70).length / n) * 100, highPct: (v.filter(x => x > 180).length / n) * 100, points };
+  });
+}

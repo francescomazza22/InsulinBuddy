@@ -12,10 +12,10 @@ import { CHANGELOG } from "./js/changelog.js";
 import { fillMissingFoodDetails, stillBlank, applyPublishedGi } from "./js/food-reference.js";
 import { fieldSvg } from "./js/doodle-field.js";
 import { abstractSvg } from "./js/abstract-field.js";
-import { percentile, dailyPatternBuckets, daysSpanned, estimatedA1c, glucoseSummaryStats, timeInRangeBreakdown, glucoseGuideRows, TIME_IN_RANGE_BANDS } from "./js/glucose-stats.js";
+import { percentile, dailyPatternBuckets, daysSpanned, estimatedA1c, extendedGlucoseStats, dailyStats, glucoseSummaryStats, timeInRangeBreakdown, glucoseGuideRows, TIME_IN_RANGE_BANDS } from "./js/glucose-stats.js";
 import { randomBytes, toB64, fromB64, deriveKey, encryptString, decryptString, isEncryptedPayload, exportKeyRaw, importKeyRaw } from "./js/crypto.js";
 import { LocalBackups, shouldAutoSnapshot } from "./js/backup.js";
-import { groupByDay, takeEntries, matchesQuery, recentDistinctMeals, mealLabel, dosingSummary, isBasalEntry, basalSlotForTime, basalSlotLabel, lastBasalDose, basalDoseCheck, makeBasalEntry, PAGE_SIZE } from "./js/history.js";
+import { groupByDay, takeEntries, matchesQuery, recentDistinctMeals, mealLabel, dosingSummary, insulinStats, isBasalEntry, basalSlotForTime, basalSlotLabel, lastBasalDose, basalDoseCheck, makeBasalEntry, PAGE_SIZE } from "./js/history.js";
 import { createDialogs } from "./js/dialogs.js";
 import { toMinutes, inRange, ratioAt, autoMealType, formatDuration, clampNum } from "./js/core/time.js";
 import { toCsv, parseCsv, recipeTotals as recipeTotalsWith, parseLibraryFile, mergeLibrary } from "./js/core/library.js";
@@ -1135,7 +1135,7 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
     wide: { label: "5–95 / 25–75", outer: ["p5", "p95"], inner: ["p25", "p75"] },
     median: { label: "Median only", outer: null, inner: null }
   };
-  let glucoseView = "pattern"; // 'pattern' | 'tir'
+  let glucoseView = "pattern"; // 'pattern' | 'tir' | 'stats'
   let glucoseBandPreset = "narrow";
 
   // A clinic-visit summary: glucose stats + dosing patterns over the same period as the
@@ -1172,6 +1172,15 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
             <div class="report-stat-grid__cell"><div class="report-stat-grid__value">${stats.gmi.toFixed(1)}%</div><div class="report-stat-grid__label">Est. A1c (GMI)</div></div>
             <div class="report-stat-grid__cell"><div class="report-stat-grid__value">${Math.round(stats.timeInRangePct)}%</div><div class="report-stat-grid__label">Time in range</div></div>
           </div>
+          ${(() => { const x = extendedGlucoseStats(result.readings); return `<table class="report-table" style="margin-top:14px;"><tbody>
+            <tr><td>eA1c (ADAG)</td><td>${x.eA1c.toFixed(1)}%</td></tr>
+            <tr><td>Standard deviation</td><td>${unit === "mmol" ? round1(convertGlucose(x.sdMgdl, "mgdl", "mmol")) : Math.round(x.sdMgdl)} ${unitLabel}</td></tr>
+            <tr><td>Variability (CV, steady is 36% or lower)</td><td>${round1(x.cvPct)}%</td></tr>
+            <tr><td>Time in tight range (70\u2013140 mg/dL)</td><td>${round1(x.pct.tight)}%</td></tr>
+            <tr><td>Low glucose events (under 70, 15 min or more)</td><td>${x.lowEvents.count}${x.lowEvents.count ? `, average ${Math.round(x.lowEvents.avgMinutes)} min` : ""}</td></tr>
+            <tr><td>Very low events (under 54)</td><td>${x.veryLowEvents.count}</td></tr>
+            <tr><td>Sensor active</td><td>${Math.round(x.sensorActivePct)}%</td></tr>
+          </tbody></table>`; })()}
           <table class="report-table" style="margin-top:14px;">
             <thead><tr><th>Range</th><th>Band (${unitLabel})</th><th>% of readings</th></tr></thead>
             <tbody>${tir.map(b => `<tr><td>${b.label}</td><td>${b.key === "veryHigh" ? "&gt; " + fmtG(b.low - 1) : b.key === "veryLow" ? "&lt; " + fmtG(b.high + 1) : `${fmtG(b.low)}\u2013${fmtG(b.high)}`}</td><td>${Math.round(b.pct)}%</td></tr>`).join("")}</tbody>
@@ -1236,6 +1245,78 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
     `;
   }
 
+
+  // ---- Statistics view: the figures a FreeStyle Libre (AGP) report and Gluroo show, in one place ----
+  const fmtDur = m => m >= 60 ? `${Math.floor(m / 60)} h ${Math.round(m % 60)} min` : `${Math.round(m)} min`;
+  function statRow(label, value, hint) {
+    return `<div class="stat-row"><div class="stat-row__label">${label}${hint ? `<span class="stat-row__hint">${hint}</span>` : ""}</div><div class="stat-row__value">${value}</div></div>`;
+  }
+  function sparklineSvg(points, unit) {
+    const W = 288, H = 44, top = 300, bottom = 40, y = v => H - ((Math.max(bottom, Math.min(top, v)) - bottom) / (top - bottom)) * H;
+    const x = m => (m / 1440) * W;
+    const band = `<rect x="0" y="${y(180).toFixed(1)}" width="${W}" height="${(y(70) - y(180)).toFixed(1)}" class="spark__band"/>`;
+    const path = points.length > 1 ? points.map((p, i) => `${i ? "L" : "M"}${x(p.minute).toFixed(1)} ${y(p.mgdl).toFixed(1)}`).join("") : "";
+    return `<svg class="spark" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="Glucose through the day">${band}<path d="${path}" class="spark__line" fill="none"/></svg>`;
+  }
+  function renderStatsView(box, readings, days) {
+    const unit = state.settings.units, u = unit === "mmol" ? "mmol/L" : "mg/dL";
+    const g = v => v == null ? "\u2014" : `${unit === "mmol" ? round1(convertGlucose(v, "mgdl", "mmol")) : Math.round(v)} ${u}`;
+    const pc = v => `${Math.round(v * 10) / 10}%`;
+    const s = extendedGlucoseStats(readings);
+    const ins = insulinStats(state.history, Date.now() - days * 86400_000);
+    let html = "";
+    if (!s.count) {
+      html += `<div class="empty-state"><p>No glucose readings in these ${days} days.</p><p class="empty-state__sub">Connect Nightscout / Gluroo in Settings, or import history, and the glucose figures fill in here. Insulin and food figures are below.</p></div>`;
+    } else {
+      html += `<div class="panel-card"><h2 class="panel-card__title">Glucose</h2>
+        ${statRow("Average glucose", g(s.avgMgdl))}
+        ${statRow("Estimated A1c (GMI)", `${s.gmi.toFixed(1)}%`, "from your sensor average")}
+        ${statRow("eA1c", `${s.eA1c.toFixed(1)}%`, "the older ADAG estimate Gluroo shows")}
+        ${statRow("Median", g(s.medianMgdl))}
+        ${statRow("Standard deviation", `${unit === "mmol" ? round1(convertGlucose(s.sdMgdl, "mgdl", "mmol")) : Math.round(s.sdMgdl)} ${u}`)}
+        ${statRow("Variability (CV)", `<span class="${s.cvOnTarget ? "stat--ok" : "stat--warn"}">${pc(s.cvPct)}</span>`, "steady is 36% or lower")}
+        ${statRow("Lowest / highest", `${g(s.minMgdl)} / ${g(s.maxMgdl)}`)}
+        ${statRow("Average daily range", g(s.meanDailyRangeMgdl), "highest minus lowest, each day")}
+        ${statRow("Time in tight range", pc(s.pct.tight), `70\u2013140 mg/dL`)}
+        ${statRow("Time in range", pc(s.pct.target), `70\u2013180 mg/dL`)}
+        ${statRow("Sensor active", pc(s.sensorActivePct), `${Math.round(s.readingsPerDay)} readings a day, every ${s.intervalMin} min`)}
+        ${s.enough ? "" : `<p class="panel-card__hint">There is less than 70% sensor data over a good span of days, so treat these figures as a rough guide.</p>`}
+      </div>
+      <div class="panel-card">${renderTimeInRangeHtml(readings, unit)}</div>
+      <div class="panel-card"><h2 class="panel-card__title">Low and high events</h2>
+        ${statRow("Low glucose events", `${s.lowEvents.count}`, `under ${unit === "mmol" ? "3.9" : "70"}, 15 minutes or more`)}
+        ${s.lowEvents.count ? statRow("Average low lasted", fmtDur(s.lowEvents.avgMinutes), `longest ${fmtDur(s.lowEvents.longestMinutes)}`) : ""}
+        ${statRow("Very low events", `${s.veryLowEvents.count}`, `under ${unit === "mmol" ? "3.0" : "54"}`)}
+        ${statRow("Time below range", pc(s.pct.belowRange))}
+        ${statRow("Very high events", `${s.veryHighEvents.count}`, `over ${unit === "mmol" ? "13.9" : "250"}`)}
+        ${statRow("Time above range", pc(s.pct.aboveRange))}
+      </div>`;
+    }
+    if (ins.tdd > 0 || ins.lowsTreated) {
+      html += `<div class="panel-card"><h2 class="panel-card__title">Insulin and food</h2>
+        ${statRow("Total daily insulin", `${round1(ins.tdd)} u`, ins.basalPct == null ? "bolus only: log basal to include it" : "basal plus bolus")}
+        ${ins.basalPct == null ? "" : statRow("Basal / bolus", `${Math.round(ins.basalPct)}% / ${Math.round(ins.bolusPct)}%`, `${round1(ins.avgDailyBasal)} u and ${round1(ins.avgDailyBolus)} u a day`)}
+        ${statRow("Meals a day", `${round1(ins.mealsPerDay)}`)}
+        ${ins.avgMealBolus == null ? "" : statRow("Average meal bolus", `${round1(ins.avgMealBolus)} u`)}
+        ${ins.avgMealCarbs == null ? "" : statRow("Average carbs a meal", `${Math.round(ins.avgMealCarbs)} g`)}
+        ${ins.effectiveCarbRatio == null ? "" : statRow("Carbs per unit used", `${round1(ins.effectiveCarbRatio)} g`, "meals only, across the period")}
+        ${statRow("Corrections", `${ins.correctionCount}${ins.reductionCount ? ` up, ${ins.reductionCount} down` : ""}`, ins.correctionSharePct == null ? "" : `${Math.round(ins.correctionSharePct)}% of bolus insulin`)}
+        ${ins.largestDose == null ? "" : statRow("Largest dose", `${round1(ins.largestDose)} u`)}
+        ${statRow("Lows treated", `${ins.lowsTreated}`, ins.avgLowCarbs == null ? "" : `about ${Math.round(ins.avgLowCarbs)} g each`)}
+      </div>`;
+    }
+    if (s.count) {
+      const rows = dailyStats(readings).slice(-Math.min(days, 14)).reverse();
+      html += `<div class="panel-card"><h2 class="panel-card__title">Daily graphs</h2><p class="panel-card__hint" style="margin-top:-4px;">The most recent ${rows.length} days. The shaded strip is 70\u2013180 mg/dL.</p>
+        ${rows.map(d => `<div class="day-row"><div class="day-row__head"><strong>${new Date(d.day + "T12:00:00").toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" })}</strong><span>avg ${g(d.avgMgdl)} \u00b7 ${Math.round(d.targetPct)}% in range${d.lowPct >= 1 ? ` \u00b7 ${Math.round(d.lowPct)}% low` : ""}</span></div>${sparklineSvg(d.points, unit)}</div>`).join("")}
+      </div>`;
+    }
+    html += `<p class="panel-card__hint">Based on ${s.count ? s.count.toLocaleString() + " readings over " + s.days + " days" : "your logged insulin and food"}. Estimated A1c is informational only \u2014 not a lab result. Ranges follow the international consensus (the ones FreeStyle Libre and Gluroo reports use).</p>
+      <button class="dashed-btn" id="btn-clinic-report" type="button" style="margin-top:4px;">Generate clinic report</button>`;
+    box.innerHTML = html;
+    bind("btn-clinic-report", "click", () => openClinicReport(days));
+  }
+
   async function renderGlucoseTab(days) {
     const box = el("glucose-tab-content");
     box.innerHTML = `<p class="panel-card__hint">Loading…</p>`;
@@ -1245,6 +1326,7 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
 
     const readings = result.readings;
     const spanDays = daysSpanned(readings);
+    if (glucoseView === "stats") { renderStatsView(box, readings, days); return; }
     if (readings.length === 0 || spanDays < MIN_PATTERN_DAYS) {
       box.innerHTML = `
         <div class="empty-state">
