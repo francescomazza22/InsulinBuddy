@@ -1507,3 +1507,12 @@ html[data-theme="dark"] { --glass-sheet: rgba(30,36,43,0.90); }
 .spark { width: 100%; height: 44px; display: block; margin-top: 4px; }
 .spark__band { fill: rgba(34,197,94,0.16); }
 .spark__line { stroke: var(--acc-1, #3B82F6); stroke-width: 1.6; vector-effect: non-scaling-stroke; stroke-linejoin: round; }
+
+/* Recipe editor: the Category dropdown and the weight boxes get the same padding as the Recipe Name box, so the row reads as one set. */
+.sheet .field > select, .sheet .field-grid input[type="number"] { padding: var(--space-m); font-size: 16px; box-sizing: border-box; min-height: 52px; }
+.sheet .field > input[type="text"] { min-height: 52px; }
+.ingredient-total { margin-top: var(--space-s); padding: var(--space-s) var(--space-m); border: 1.5px solid var(--line); border-radius: var(--radius-s); background: var(--surface); }
+.ingredient-total__row { display: flex; justify-content: space-between; align-items: baseline; font-size: var(--fs-m); color: var(--ink); font-variant-numeric: tabular-nums; }
+.ingredient-total.is-warn { border-color: var(--acc-1); }
+.ingredient-total__note { margin: var(--space-2xs) 0 0; font-size: var(--fs-s, 13px); color: var(--ink-soft); }
+.ingredient-total__fix { margin-top: var(--space-xs); background: none; border: 1.5px solid var(--acc-1); color: var(--acc-1); border-radius: var(--radius-s); padding: 8px 12px; font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; }

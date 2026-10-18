@@ -2,6 +2,16 @@
 // summary can never drift. Bump CHANGELOG[0].version here (and CACHE_VERSION in sw.js) on every release.
 export const CHANGELOG = [
   {
+    version: "2.48.0",
+    summary: "The recipe editor now adds up your ingredients and checks the weights you type against them.",
+    changes: [
+      "A new Ingredients total line under the list shows the combined grams and updates as you change an amount",
+      "If the Raw weight you typed doesn't match the ingredients, or the Final weight is more than the ingredients weigh, it says so, with a one-tap button to set Raw weight to the total",
+      "The Category dropdown and the weight boxes now match the Recipe Name box in height and padding",
+      "Doses and saved recipes are unchanged"
+    ]
+  },
+  {
     version: "2.47.2",
     summary: "Fixes the totals when a dose had a reduction taken off the meal.",
     changes: [

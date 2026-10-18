@@ -3772,10 +3772,11 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
             </button>
           </div>
           <div id="rs-ing-list" class="ingredient-list"></div>
+          <div id="rs-total" class="ingredient-total" hidden></div>
         </div>
 
         <div class="field-grid" style="margin-top:16px;">
-          <div class="field"><label>Raw Weight (g)</label><input type="number" id="rs-raw-weight" min="0" value="${r.rawWeight ?? ""}" placeholder="Optional"></div>
+          <div class="field"><label>Raw Weight (g)</label><input type="number" id="rs-raw-weight" min="0" step="any" inputmode="decimal" value="${r.rawWeight ?? ""}" placeholder="Optional"></div>
           <div class="field"><label>Final Weight (g) *</label><input type="number" id="rs-final-weight" min="0" value="${r.finalWeight ?? ""}" placeholder="e.g., 800"></div>
         </div>
 
@@ -3793,7 +3794,33 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
     `;
     openSheet(backdrop);
 
+    // The listed ingredients are the check on the weights typed below: their sum is the raw weight, and the finished
+    // dish can only be lighter than that (water cooks off) unless something unlisted went in.
+    function renderTotal() {
+      const box = backdrop.querySelector("#rs-total");
+      const total = Math.round(items.reduce((a, i) => a + (i.grams > 0 ? i.grams : 0), 0) * 10) / 10;
+      if (!total) { box.hidden = true; box.innerHTML = ""; return; }
+      const raw = parseFloat(backdrop.querySelector("#rs-raw-weight").value);
+      const fin = parseFloat(backdrop.querySelector("#rs-final-weight").value);
+      const notes = [];
+      if (raw > 0 && Math.abs(raw - total) > Math.max(1, total * 0.01)) notes.push(`Raw weight says ${raw} g but the ingredients add up to ${total} g`);
+      if (fin > 0 && fin > total * 1.02) notes.push(`Final weight is more than the ingredients weigh. Is something missing from the list?`);
+      box.hidden = false;
+      box.classList.toggle("is-warn", notes.length > 0);
+      box.innerHTML = `<div class="ingredient-total__row"><span>Ingredients total</span><strong>${total} g</strong></div>` +
+        notes.map(n => `<p class="ingredient-total__note">${escapeHtml(n)}</p>`).join("") +
+        (raw > 0 && Math.abs(raw - total) > Math.max(1, total * 0.01) ? `<button type="button" class="ingredient-total__fix" data-fix="raw">Set raw weight to ${total} g</button>` : "");
+    }
+    backdrop.querySelector("#rs-total").addEventListener("click", e => {
+      if (!e.target.closest('[data-fix="raw"]')) return;
+      const total = Math.round(items.reduce((a, i) => a + (i.grams > 0 ? i.grams : 0), 0) * 10) / 10;
+      backdrop.querySelector("#rs-raw-weight").value = total; renderTotal();
+    });
+    backdrop.querySelector("#rs-raw-weight").addEventListener("input", renderTotal);
+    backdrop.querySelector("#rs-final-weight").addEventListener("input", renderTotal);
+
     function renderIngredientList() {
+      renderTotal();
       const box = backdrop.querySelector("#rs-ing-list");
       if (items.length === 0) { box.innerHTML = ""; return; }
       box.innerHTML = items.map((it, idx) => {
@@ -3855,6 +3882,7 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
       if (!inp) return;
       const g = parseFloat(inp.value);
       if (items[+inp.dataset.gidx]) items[+inp.dataset.gidx].grams = g > 0 ? g : 0;
+      renderTotal();
     });
     backdrop.querySelector("#rs-ing-list").addEventListener("click", e => {
       const btn = e.target.closest("button[data-idx]");
