@@ -2,6 +2,15 @@
 // summary can never drift. Bump CHANGELOG[0].version here (and CACHE_VERSION in sw.js) on every release.
 export const CHANGELOG = [
   {
+    version: "2.46.1",
+    summary: "The doctor report can now be saved as a PDF.",
+    changes: [
+      "The report has a Save PDF button. It makes a real PDF inside the app (text you can search and zoom, with the charts as pictures) and opens the share sheet, so you can put it in Files, Mail or Messages, or AirDrop it. Before, it relied on printing, which does nothing in the home-screen app",
+      "Print is still there for a computer. If sharing is not available the PDF downloads instead",
+      "Doses are unchanged"
+    ]
+  },
+  {
     version: "2.46.0",
     summary: "A Statistics view with the figures FreeStyle Libre and Gluroo reports show.",
     changes: [

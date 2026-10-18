@@ -1,3 +1,4 @@
+import { saveReportPdf } from "./js/pdf-report.js";
 import { sanityPool, doseSanity } from "./js/dose-sanity.js";
 import { escapeHtml, escapeAttr, round1, formatQty, dayKeyFromTs, timeAgo, makeId, redact, parseDecimalInput } from "./js/util.js";
 import { convertGlucose, convertDosingSetting, roundDose as roundDoseWith, roundSignedDose as roundSignedDoseWith, activeAt, compoundGiInfo, computeDose, checkDoseConsistency, planDose, planEditDose, capDoseParts, giBand, niceScale, buildTrendBuckets, summarizeTrends, mealTypeBreakdown, absorptionMinutesForEntry as absorptionForEntry, iobFraction, cobGrams, glucoseTrendArrow, glucoseRangeClass, glucoseRangeLabel, basalByDay, summarizeBasal, ratioWasApplied, ratioByBracket, idealRatioByBracket } from "./js/calc.js";
@@ -4014,6 +4015,21 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
   bind("btn-generate-report", "click", () => renderClinicReport(glucoseRange));
   bind("btn-report-close", "click", () => { el("report-overlay").hidden = true; });
   bind("btn-report-print", "click", () => window.print());
+  // Saving: a real PDF made in the app (printing does nothing in a home-screen app), shared to Files/Mail or downloaded.
+  async function savePdfFrom(btnId, contentId, days) {
+    const btn = el(btnId), label = btn.textContent;
+    btn.disabled = true; btn.textContent = "Making PDF\u2026";
+    try {
+      const stamp = new Date().toISOString().slice(0, 10);
+      const how = await saveReportPdf(el(contentId), { title: `Insulin Buddy report, last ${days} days`, fileName: `insulin-buddy-report-${stamp}.pdf` });
+      if (how === "downloaded") dialogs.alert("The PDF was saved to your downloads.", { title: "Report saved" });
+    } catch (e) {
+      diag.log("error", "report", `PDF failed: ${e && e.message}`);
+      dialogs.alert(`The PDF could not be made (${(e && e.message) || "unknown error"}). You can still use Print.`, { title: "Could not save" });
+    } finally { btn.disabled = false; btn.textContent = label; }
+  }
+  bind("btn-report-save", "click", () => savePdfFrom("btn-report-save", "report-content", glucoseRange));
+  bind("clinic-report-save", "click", () => savePdfFrom("clinic-report-save", "clinic-report-content", glucoseRange));
 
   const glucoseViewSegmented = el("glucose-view-segmented");
   glucoseViewSegmented.addEventListener("click", e => {
