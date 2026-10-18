@@ -699,12 +699,14 @@ for (const showRecent of [false, true]) {
   });
 }
 
-await scenario("Reduced motion really stops infinite animations, not just shortens them", printSeed, async (be, dev) => {
-  const iter = () => dev.eval(`getComputedStyle(document.querySelector("#loading-screen .lock-screen__icon svg")).animationIterationCount`);
-  t.check("the spinner repeats forever normally", (await iter()) === "infinite");
+await scenario("Reduced motion stops the opening animation entirely, and it never repeats forever otherwise", printSeed, async (be, dev) => {
+  const info = () => dev.eval(`(() => { const l = document.querySelector("#loading-screen .boot__line"), r = document.querySelector("#loading-screen .boot__ring"); const a = getComputedStyle(l), b = getComputedStyle(r); return { line: a.animationName, ring: b.animationIterationCount, ringName: b.animationName }; })()`);
+  const normal = await info();
+  t.check("normally the opening trace draws and its ring pulses a few times, never forever", normal.line !== "none" && /^\d+$/.test(normal.ring) && +normal.ring > 1, JSON.stringify(normal));
   await dev.cdp.send("Emulation.setEmulatedMedia", { features: [{ name: "prefers-reduced-motion", value: "reduce" }] });
   await sleep(200);
-  t.check("with reduced motion on, it runs once", (await iter()) === "1", await iter());
+  const reduced = await info();
+  t.check("with reduced motion on, nothing animates", reduced.line === "none" && reduced.ringName === "none", JSON.stringify(reduced));
   await noErrors(dev, "device");
 });
 

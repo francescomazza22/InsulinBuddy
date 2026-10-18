@@ -41,9 +41,9 @@ await dev.eval(`(() => { const real = Date.now; Date.now = () => real() + 30000;
 await fire(); await sleep(500);
 t.check("nor does the next 30-second tick: the reading is under a minute old", reads() === afterVisible, `${afterVisible} -> ${reads()}`);
 
-t.section("no animation runs forever (apart from the one-off loading spinner)");
+t.section("no animation runs forever");
 const infinite = await dev.eval(`(() => { const out = []; for (const sh of document.styleSheets) { let rules; try { rules = sh.cssRules; } catch (e) { continue; } for (const r of rules) { const walk = rr => { if (rr.cssRules && rr.type !== 1) for (const c of rr.cssRules) walk(c); if (rr.style && /infinite/.test(rr.style.animation || rr.style.animationIterationCount || "")) out.push(rr.selectorText); }; walk(r); } } return out; })()`);
-t.check("only the loading spinner repeats", infinite.length === 1 && /loading-screen/.test(infinite[0]), JSON.stringify(infinite));
+t.check("nothing repeats forever (the opening screen plays its animations a few times and stops)", infinite.length === 0, JSON.stringify(infinite));
 
 t.check("no JS errors", (await dev.eval("window.__errs.length")) === 0 && dev.errors.length === 0, JSON.stringify(await dev.eval("window.__errs")));
 dev.close(); await app.close();

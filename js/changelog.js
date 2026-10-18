@@ -2,6 +2,17 @@
 // summary can never drift. Bump CHANGELOG[0].version here (and CACHE_VERSION in sw.js) on every release.
 export const CHANGELOG = [
   {
+    version: "2.47.0",
+    summary: "A new opening screen that matches the hour and your light or dark look, instead of a blue spinner on white.",
+    changes: [
+      "The opening screen is now a glucose trace that draws itself, with a greeting for the time of day (Good morning, afternoon or evening) and a sun or moon over a sky that shifts through dawn, morning, day, dusk and night",
+      "It is dark from the very first moment if you use dark mode, or if you follow your phone and your phone is in dark mode, so there is no bright white flash at night. The browser bar colour matches too",
+      "The look is remembered from the last time you used the app, and your phone's own setting decides on a first start",
+      "Battery: the animation plays a few times and then stops; nothing repeats forever. With Reduce Motion on, nothing moves at all",
+      "Doses are unchanged"
+    ]
+  },
+  {
     version: "2.46.2",
     summary: "A basal dose moved to a different time of day now changes between Morning and Evening by itself.",
     changes: [

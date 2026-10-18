@@ -16,6 +16,24 @@
 <link rel="manifest" href="manifest.json">
 <!-- supabase-js 2.117.3, bundled with the app (vendor/supabase.js) so starting up never depends on a CDN being reachable -->
 <script src="vendor/supabase.js" defer></script>
+<script>
+/* Runs before anything is painted, so the opening screen already matches the night or day and the chosen light or dark look
+   (the app's own settings load later). The look comes from a small hint the app saves ("dark", "light" or "auto" = follow the
+   phone); with no hint yet, the phone's own setting decides, and without even that, the hour does. */
+(function () {
+  try {
+    var h = new Date().getHours(), root = document.documentElement;
+    var tod = h < 5 ? "night" : h < 8 ? "dawn" : h < 12 ? "morning" : h < 17 ? "day" : h < 20 ? "dusk" : "night";
+    var hint = null; try { hint = localStorage.getItem("insulinBuddy.theme"); } catch (e) {}
+    var sys = window.matchMedia ? window.matchMedia("(prefers-color-scheme: dark)").matches : (h >= 19 || h < 7);
+    var dark = hint === "dark" ? true : hint === "light" ? false : sys;
+    root.setAttribute("data-theme", dark ? "dark" : "light");
+    root.setAttribute("data-tod", tod);
+    root.setAttribute("data-greeting", h < 5 ? "Good night" : h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening");
+    var m = document.querySelector('meta[name="theme-color"]'); if (m) m.setAttribute("content", dark ? "#14181D" : "#F5F3EE");
+  } catch (e) {}
+})();
+</script>
 <link rel="stylesheet" href="tokens.css">
 <link rel="stylesheet" href="style.css">
 </head>
@@ -23,13 +41,19 @@
 
 <div class="app">
 
-  <div class="lock-screen" id="loading-screen">
-    <div class="lock-screen__card">
-      <div class="lock-screen__icon">
-        <svg viewBox="0 0 24 24" fill="none"><path d="M12 3a9 9 0 019 9" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-      </div>
-      <h1>Loading your data&hellip;</h1>
+  <div class="lock-screen boot" id="loading-screen" role="status" aria-live="polite">
+    <div class="boot__sky" aria-hidden="true"><span class="boot__orb"></span></div>
+    <div class="lock-screen__card boot__card">
+      <svg class="boot__trace" viewBox="0 0 240 72" aria-hidden="true" focusable="false">
+        <rect class="boot__band" x="0" y="22" width="240" height="30" rx="6"/>
+        <path class="boot__line" pathLength="1" d="M4 46 C 28 46, 34 24, 60 26 S 98 56, 122 48 S 156 14, 184 28 S 218 40, 234 31"/>
+        <circle class="boot__ring" cx="234" cy="31" r="5"/>
+        <circle class="boot__dot" cx="234" cy="31" r="4"/>
+      </svg>
+      <h1 class="boot__greeting" id="boot-greeting">Hello</h1>
+      <p class="boot__sub">Getting your data ready</p>
     </div>
+    <script>(function(){var g=document.getElementById("boot-greeting"),t=document.documentElement.getAttribute("data-greeting");if(g&&t)g.textContent=t;})();</script>
   </div>
 
   <div class="clinic-report-overlay" id="clinic-report-overlay" hidden>

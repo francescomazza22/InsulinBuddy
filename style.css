@@ -994,8 +994,42 @@ html[data-theme="dark"] .pattern-card__preview--abstract { background-image: url
 #lock-form input[type="password"]:focus { outline: none; border-color: var(--acc-1); }
 .lock-screen__error { color: var(--brick); font-size: var(--fs-m); margin: -4px 0 var(--space-m); }
 
-#loading-screen .lock-screen__icon svg { animation: spin 0.9s linear infinite; }
-@keyframes spin { to { transform: rotate(360deg); } }
+/* ---- Opening screen: a glucose trace drawing itself under a sky that matches the hour ----
+   Every animation here plays a few times at most and then stops, so a slow start never keeps the screen redrawing. */
+.boot { overflow: hidden; --sky-top: #EAF2FB; --sky-bot: var(--paper); --orb: rgba(255,214,102,0.85); --orb-glow: rgba(255,200,80,0.35); --orb-y: 18%;
+  background: linear-gradient(180deg, var(--sky-top) 0%, var(--sky-bot) 78%); }
+html[data-tod="dawn"]    .boot { --sky-top: #FBE4D6; --orb: rgba(255,170,120,0.9);  --orb-glow: rgba(255,150,100,0.35); --orb-y: 30%; }
+html[data-tod="morning"] .boot { --sky-top: #EEF3FA; --orb: rgba(255,208,110,0.9);  --orb-glow: rgba(255,200,90,0.32);  --orb-y: 20%; }
+html[data-tod="day"]     .boot { --sky-top: #E4EEF9; --orb: rgba(255,226,140,0.9);  --orb-glow: rgba(255,226,140,0.30); --orb-y: 12%; }
+html[data-tod="dusk"]    .boot { --sky-top: #FAE0CC; --orb: rgba(255,140,90,0.9);   --orb-glow: rgba(255,120,80,0.34);  --orb-y: 30%; }
+html[data-tod="night"]   .boot { --sky-top: #E2E7F3; --orb: rgba(214,224,255,0.95); --orb-glow: rgba(180,196,255,0.30); --orb-y: 16%; }
+html[data-theme="dark"][data-tod="dawn"]    .boot { --sky-top: #2A2030; --orb-glow: rgba(255,150,110,0.22); }
+html[data-theme="dark"][data-tod="morning"] .boot { --sky-top: #1A2433; --orb-glow: rgba(255,200,100,0.16); }
+html[data-theme="dark"][data-tod="day"]     .boot { --sky-top: #17283A; --orb-glow: rgba(255,226,150,0.14); }
+html[data-theme="dark"][data-tod="dusk"]    .boot { --sky-top: #2F1C2A; --orb-glow: rgba(255,120,90,0.22); }
+html[data-theme="dark"][data-tod="night"]   .boot { --sky-top: #0B1020; --sky-bot: #14181D; --orb: rgba(205,218,255,0.9); --orb-glow: rgba(150,170,255,0.18); }
+.boot__sky { position: absolute; inset: 0; pointer-events: none; }
+.boot__orb { position: absolute; left: 50%; top: var(--orb-y); width: 120px; height: 120px; margin: -60px 0 0 -60px; border-radius: 50%;
+  background: radial-gradient(circle, var(--orb) 0 22%, var(--orb-glow) 23% 48%, transparent 70%); opacity: 0; animation: boot-orb 1.4s ease-out 0.1s 1 forwards; }
+.boot__card { position: relative; }
+.boot__trace { width: min(78vw, 280px); height: auto; display: block; margin: 0 auto var(--space-l); overflow: visible; }
+.boot__band { fill: var(--acc-1); opacity: 0.09; }
+.boot__line { fill: none; stroke: var(--acc-1); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 1; stroke-dashoffset: 1;
+  filter: drop-shadow(0 0 5px var(--orb-glow)); animation: boot-draw 1.5s cubic-bezier(.45,.05,.25,1) 0.25s 1 forwards; }
+.boot__dot { fill: var(--acc-1); opacity: 0; animation: boot-pop 0.35s ease-out 1.65s 1 forwards; }
+.boot__ring { fill: none; stroke: var(--acc-1); stroke-width: 1.5; opacity: 0; transform-box: fill-box; transform-origin: center; animation: boot-ring 1.6s ease-out 1.9s 5; }
+.boot__greeting { font-family: var(--font-display); font-size: var(--fs-h2); font-weight: 700; margin: 0 0 var(--space-3xs); opacity: 0; animation: boot-rise 0.7s ease-out 0.5s 1 forwards; }
+.boot__sub { color: var(--ink-soft); font-size: var(--fs-m); margin: 0; opacity: 0; animation: boot-rise 0.7s ease-out 0.8s 1 forwards; }
+@keyframes boot-orb  { from { opacity: 0; transform: scale(.7); } to { opacity: 1; transform: scale(1); } }
+@keyframes boot-draw { to { stroke-dashoffset: 0; } }
+@keyframes boot-pop  { from { opacity: 0; transform: scale(.4); } to { opacity: 1; transform: scale(1); } }
+@keyframes boot-ring { 0% { opacity: .7; transform: scale(1); } 100% { opacity: 0; transform: scale(3.2); } }
+@keyframes boot-rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+@media (prefers-reduced-motion: reduce) {
+  .boot__orb, .boot__greeting, .boot__sub, .boot__dot { animation: none; opacity: 1; }
+  .boot__line { animation: none; stroke-dashoffset: 0; }
+  .boot__ring { animation: none; opacity: 0; }
+}
 
 /* ================= Undo toast ================= */
 .undo-toast {

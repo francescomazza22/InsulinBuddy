@@ -5993,6 +5993,9 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
   }
   function applyTheme() {
     document.documentElement.setAttribute("data-theme", isDarkModeActive() ? "dark" : "light");
+    // A small hint the next start reads before anything is painted (see the first script in index.html), so the opening screen is dark at night.
+    try { localStorage.setItem("insulinBuddy.theme", state.settings.darkModeAuto ? "auto" : state.settings.darkMode ? "dark" : "light"); } catch (e) { /* private mode: the phone's own setting decides */ }
+    const tc = document.querySelector('meta[name="theme-color"]'); if (tc) tc.setAttribute("content", isDarkModeActive() ? "#14181D" : "#F5F3EE");
     applyCustomBackground();
     applyBackgroundPattern();
   }
