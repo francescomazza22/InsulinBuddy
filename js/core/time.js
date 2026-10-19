@@ -9,12 +9,39 @@ export function inRange(minutes, start, end) {
   if (s < e) return minutes >= s && minutes < e;
   return minutes >= s || minutes < e; // wraps past midnight
 }
-// The ratio bracket in force at a moment; falls back to the first one so there is always an answer.
+// Days of the week a bracket can be limited to (0 = Sunday, as Date.getDay). A bracket with no `days` applies every day.
+export const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+export function bracketDays(r) {
+  const d = Array.isArray(r && r.days) ? [...new Set(r.days.map(Number).filter(n => n >= 0 && n <= 6))] : [];
+  return d.length && d.length < 7 ? d.sort((a, b) => a - b) : [];     // [] = every day
+}
+export function daysLabel(r) {
+  const d = bracketDays(r);
+  if (!d.length) return "";
+  if (d.join() === "1,2,3,4,5") return "Mon\u2013Fri";
+  if (d.join() === "0,6") return "Sat\u2013Sun";
+  return d.map(n => DAY_NAMES[n]).join(", ");
+}
+// The bracket that matches a minute-of-day on a weekday, or null. Several can cover the same time: a bracket limited to
+// particular days beats an every-day one, and among those the one with the fewest days (the most specific) wins; ties go
+// to the earlier one in the list.
+export function ratioMatch(list, minutes, day) {
+  let best = null, bestRank = Infinity;
+  (list || []).forEach((r, i) => {
+    if (!inRange(minutes, r.start, r.end)) return;
+    const days = bracketDays(r);
+    if (days.length && !days.includes(day)) return;
+    const rank = (days.length ? days.length : 8) * 1000 + i;
+    if (rank < bestRank) { best = r; bestRank = rank; }
+  });
+  return best;
+}
+// The ratio bracket in force at a moment; falls back to the first every-day one (else the first) so there is always an answer.
 export function ratioAt(list, atDate) {
   const d = atDate || new Date();
   const minutes = d.getHours() * 60 + d.getMinutes();
   list = list || [];
-  return list.find(r => inRange(minutes, r.start, r.end)) || list[0] || null;
+  return ratioMatch(list, minutes, d.getDay()) || list.find(r => !bracketDays(r).length) || list[0] || null;
 }
 export function autoMealType(date) {
   const h = date.getHours() + date.getMinutes() / 60;

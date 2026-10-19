@@ -1516,3 +1516,10 @@ html[data-theme="dark"] { --glass-sheet: rgba(30,36,43,0.90); }
 .ingredient-total.is-warn { border-color: var(--acc-1); }
 .ingredient-total__note { margin: var(--space-2xs) 0 0; font-size: var(--fs-s, 13px); color: var(--ink-soft); }
 .ingredient-total__fix { margin-top: var(--space-xs); background: none; border: 1.5px solid var(--acc-1); color: var(--acc-1); border-radius: var(--radius-s); padding: 8px 12px; font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; }
+
+/* Day-of-week chips on a time-of-day ratio: lit = the range applies that day; all lit = every day. */
+.day-chips { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; flex-basis: 100%; margin-top: var(--space-s); }
+.day-chips__label { font-size: var(--fs-m); font-weight: 600; margin-right: 4px; }
+.day-chip { min-width: 40px; min-height: 36px; padding: 0 8px; border-radius: var(--radius-s); border: 1.5px solid var(--line); background: var(--surface); color: var(--ink-soft); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+.day-chip.is-on { background: var(--acc-1); border-color: var(--acc-1); color: #fff; }
+.day-chips__hint { flex-basis: 100%; margin: 4px 0 0; font-size: 12.5px; color: var(--ink-soft); }

@@ -86,6 +86,7 @@ export function validateSettings(s, path = "settings") {
   else s.timeRatios.forEach((r, i) => {
     numberField(out, r, `${path}.timeRatios[${i}]`, "ratio", { required: true, min: 0.1 });
     for (const k of ["start", "end"]) if (!/^\d{1,2}:\d{2}$/.test(String(r[k]))) out.push(problem(`${path}.timeRatios[${i}].${k}`, "error", "should look like 07:30"));
+    if (r.days !== undefined && (!Array.isArray(r.days) || r.days.some(d => !Number.isInteger(d) || d < 0 || d > 6))) out.push(problem(`${path}.timeRatios[${i}].days`, "error", "should be a list of weekday numbers 0 (Sun) to 6 (Sat)"));
   });
   return out;
 }

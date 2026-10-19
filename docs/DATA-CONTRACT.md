@@ -53,7 +53,7 @@ recipe survives its foods changing), `finalWeight` (g, total cooked weight), `ra
 
 ## Settings
 Required: `isf` (mg/dL per unit), `target` (mg/dL), `maxDose` (units), `units` (`mgdl`/`mmol`), `timeRatios` (at least one
-bracket: `id`, `name`, `start`, `end` as `HH:MM`, `ratio`; a bracket may wrap past midnight). Also `activityRatios`,
+bracket: `id`, `name`, `start`, `end` as `HH:MM`, `ratio`; a bracket may wrap past midnight; optional `days`, a list of weekday numbers 0=Sunday..6=Saturday, limits it to those days, absent or all seven = every day. Brackets may overlap: a day-limited one beats an every-day one, and fewer days beats more, then list order). Also `activityRatios`,
 `insulinModel` (`peakMinutes`, `diaMinutes`), `carbAbsorptionMinutes`, `rounding`, appearance and Nightscout options.
 Secrets (the Nightscout token) are stored per URL outside the state and are never part of a backup.
 

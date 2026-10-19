@@ -2,6 +2,16 @@
 // summary can never drift. Bump CHANGELOG[0].version here (and CACHE_VERSION in sw.js) on every release.
 export const CHANGELOG = [
   {
+    version: "2.49.0",
+    summary: "Ratio ranges can now be limited to certain days of the week, and can overlap.",
+    changes: [
+      "Each time-of-day ratio in Settings has Mon to Sun chips. Untick days to make it a special range, for example a Sunday morning ratio for a day you don't cycle",
+      "Ranges can cover the same hours. A range limited to particular days wins over an every-day one on those days; if two are limited, the one with fewer days wins",
+      "The timeline in Settings shows the ranges in force today, and the ratio picker and insights name the days",
+      "Existing ranges keep applying every day, and doses are unchanged"
+    ]
+  },
+  {
     version: "2.48.0",
     summary: "The recipe editor now adds up your ingredients and checks the weights you type against them.",
     changes: [

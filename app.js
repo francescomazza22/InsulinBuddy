@@ -18,7 +18,7 @@ import { randomBytes, toB64, fromB64, deriveKey, encryptString, decryptString, i
 import { LocalBackups, shouldAutoSnapshot } from "./js/backup.js";
 import { groupByDay, takeEntries, matchesQuery, recentDistinctMeals, mealLabel, dosingSummary, insulinStats, isBasalEntry, basalSlotForTime, basalSlotLabel, lastBasalDose, basalDoseCheck, makeBasalEntry, PAGE_SIZE } from "./js/history.js";
 import { createDialogs } from "./js/dialogs.js";
-import { toMinutes, inRange, ratioAt, autoMealType, formatDuration, clampNum } from "./js/core/time.js";
+import { toMinutes, inRange, ratioAt, ratioMatch, bracketDays, daysLabel, DAY_NAMES, autoMealType, formatDuration, clampNum } from "./js/core/time.js";
 import { toCsv, parseCsv, recipeTotals as recipeTotalsWith, parseLibraryFile, mergeLibrary } from "./js/core/library.js";
 import { buildMealEntry, adjustUsage } from "./js/core/meal-entry.js";
 import { validateState, validateEntry, validateFood, validateRecipe, hasErrors, summarizeProblems } from "./js/core/schema.js";
@@ -2425,7 +2425,7 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
     ];
     ratioPicker.innerHTML = rows.map(r => `
       <button class="ratio-picker__item" data-id="${r.id}" type="button">
-        <span class="ratio-picker__name"><span class="ratio-picker__dot" style="background:${r.color}"></span>${escapeHtml(r.name)}${r.kind === "time" ? ` <span style="color:var(--ink-soft);font-weight:400;">${r.start}–${r.end}</span>` : ""}</span>
+        <span class="ratio-picker__name"><span class="ratio-picker__dot" style="background:${r.color}"></span>${escapeHtml(r.name)}${r.kind === "time" ? ` <span style="color:var(--ink-soft);font-weight:400;">${r.start}–${r.end}${daysLabel(r) ? " · " + daysLabel(r) : ""}</span>` : ""}</span>
         <span class="ratio-picker__value">1:${r.ratio}</span>
       </button>
     `).join("") + `
@@ -4498,7 +4498,7 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
     const scale = Math.max(1, ...res.rows.map(r => Math.max(r.max || 0, r.current || 0))) * 1.08;
     box.innerHTML = res.rows.map(r => {
       const pct = v => Math.max(0, Math.min(100, (v / scale) * 100));
-      const hours = r.start ? `${escapeHtml(r.start)}\u2013${escapeHtml(r.end)}` : (r.kind === "activity" ? "activity" : "");
+      const hours = r.start ? `${escapeHtml(r.start)}\u2013${escapeHtml(r.end)}${daysLabel(r) ? " \u00b7 " + escapeHtml(daysLabel(r)) : ""}` : (r.kind === "activity" ? "activity" : "");
       const colour = r.color && /^#[0-9a-fA-F]{3,8}$/.test(r.color) ? r.color : "var(--acc-1)";
       const used = r.count > 0
         ? `<span class="rtrend__value">1:${fmt(r.avg)}</span><span class="rtrend__n">${r.count} meal${r.count === 1 ? "" : "s"}${r.min !== r.max ? ` \u00b7 range 1:${fmt(r.min)}\u20131:${fmt(r.max)}` : ""}</span>`
@@ -4543,7 +4543,7 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
     const scale = Math.max(1, ...res.rows.map(r => Math.max(r.used || 0, r.ideal || 0, r.current || 0))) * 1.08;
     const pct = v => Math.max(0, Math.min(100, (v / scale) * 100));
     box.innerHTML = res.rows.map(r => {
-      const hours = r.start ? `${escapeHtml(r.start)}\u2013${escapeHtml(r.end)}` : (r.kind === "activity" ? "activity" : "");
+      const hours = r.start ? `${escapeHtml(r.start)}\u2013${escapeHtml(r.end)}${daysLabel(r) ? " \u00b7 " + escapeHtml(daysLabel(r)) : ""}` : (r.kind === "activity" ? "activity" : "");
       const colour = r.color && /^#[0-9a-fA-F]{3,8}$/.test(r.color) ? r.color : "var(--acc-1)";
       const figures = r.count === 0
         ? `<span class="rtrend__value rtrend__value--none">\u2014</span><span class="rtrend__n">no meals</span>`
@@ -5560,14 +5560,14 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
   function renderTimeline() {
     const bar = el("timeline-bar");
     bar.innerHTML = "";
-    // build 24h segments, splitting any range that wraps midnight into two
-    const segs = [];
-    state.settings.timeRatios.forEach(r => {
-      const s = toMinutes(r.start), e = toMinutes(r.end);
-      if (s < e) segs.push({ start: s, end: e, r });
-      else { segs.push({ start: s, end: 1440, r }); segs.push({ start: 0, end: e, r }); }
-    });
-    segs.sort((a, b) => a.start - b.start);
+    // Brackets can overlap (a Sunday one over the everyday one), so draw what is actually in force today, in 15-minute steps.
+    const today = new Date().getDay(), segs = [];
+    for (let m = 0; m < 1440; m += 15) {
+      const r = ratioMatch(state.settings.timeRatios, m, today);
+      if (!r) continue;
+      const last = segs[segs.length - 1];
+      if (last && last.r === r && last.end === m) last.end = m + 15; else segs.push({ start: m, end: m + 15, r });
+    }
     segs.forEach(seg => {
       const width = ((seg.end - seg.start) / 1440) * 100;
       if (width <= 0) return;
@@ -5600,7 +5600,7 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
         <div class="ratio-row__top" data-toggle="${r.id}" style="cursor:pointer;">
           <span>
             <span class="ratio-row__name">${escapeHtml(r.name)}</span>
-            <span class="ratio-row__time">${r.start} – ${r.end}</span>
+            <span class="ratio-row__time">${r.start} – ${r.end}${daysLabel(r) ? ` · ${daysLabel(r)}` : ""}</span>
           </span>
           <span class="ratio-row__value">1:${r.ratio}</span>
           <button class="ratio-row__del" data-del="${r.id}" aria-label="Delete" style="margin-left:4px;">
@@ -5612,6 +5612,11 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
           <span>to</span>
           <input type="time" value="${r.end}" data-field="end" data-id="${r.id}">
           <span class="ratio-x">1 unit per <input type="number" min="1" value="${r.ratio}" data-field="ratio" data-id="${r.id}"> g</span>
+          <div class="day-chips" role="group" aria-label="Days this range applies">
+            <span class="day-chips__label">Days</span>
+            ${[1, 2, 3, 4, 5, 6, 0].map(d => `<button type="button" class="day-chip${bracketDays(r).length === 0 || bracketDays(r).includes(d) ? " is-on" : ""}" data-day="${d}" data-id="${r.id}" aria-pressed="${bracketDays(r).length === 0 || bracketDays(r).includes(d)}">${DAY_NAMES[d]}</button>`).join("")}
+          </div>
+          <p class="day-chips__hint">${bracketDays(r).length ? "Only on the days lit. Where it overlaps an every-day range, this one is used on those days." : "All days lit means every day. Untick days to make this a special range, for example Sunday only."}</p>
         </div>
       `;
       box.appendChild(row);
@@ -5619,6 +5624,20 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
   }
 
   bind("time-ratio-list", "click", e => {
+    const chip = e.target.closest("[data-day]");
+    if (chip) {
+      const r = state.settings.timeRatios.find(x => x.id === chip.dataset.id);
+      if (!r) return;
+      const d = +chip.dataset.day;
+      const cur = bracketDays(r).length ? bracketDays(r) : [0, 1, 2, 3, 4, 5, 6];
+      const next = cur.includes(d) ? cur.filter(x => x !== d) : [...cur, d];
+      if (!next.length) return;                       // at least one day must stay
+      if (next.length === 7) delete r.days; else r.days = next.sort((a, b) => a - b);
+      const open = !el("edit-" + r.id).hidden;
+      saveState(); renderTimeline(); renderTimeRatioList();
+      if (open) el("edit-" + r.id).hidden = false;
+      return;
+    }
     const del = e.target.closest("[data-del]");
     if (del) {
       if (state.settings.timeRatios.length <= 1) { alert("You need at least one time range."); return; }
@@ -5642,12 +5661,15 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
     saveState();
     renderTimeline();
     renderTimeRatioList();
+    const ed = el("edit-" + r.id); if (ed) ed.hidden = false;
   });
 
   const RANGE_COLORS = ["#1F9E93", "#D6A419", "#6366F1", "#D9534F", "#EC4899", "#22B8CE"];
   bind("add-time-range-btn", "click", () => {
     const id = "tr-" + Date.now();
-    state.settings.timeRatios.push({ id, name: "New range", start: "12:00", end: "14:00", ratio: 10, color: RANGE_COLORS[state.settings.timeRatios.length % RANGE_COLORS.length] });
+    let nm = "New range", k = 2;
+    while (state.settings.timeRatios.some(x => x.name === nm) || state.settings.activityRatios.some(x => x.name === nm)) nm = "New range " + k++;
+    state.settings.timeRatios.push({ id, name: nm, start: "12:00", end: "14:00", ratio: 10, color: RANGE_COLORS[state.settings.timeRatios.length % RANGE_COLORS.length] });
     saveState(); renderTimeline(); renderTimeRatioList();
   });
 

@@ -448,7 +448,7 @@ export function ratioByBracket(entries, settings) {
       min: v.length ? Math.min(...v) : null, max: v.length ? Math.max(...v) : null
     });
   };
-  for (const r of (settings && settings.timeRatios) || []) add(r.name, "time", { color: r.color, current: r.ratio, start: r.start, end: r.end });
+  for (const r of (settings && settings.timeRatios) || []) add(r.name, "time", { color: r.color, current: r.ratio, start: r.start, end: r.end, days: r.days });
   for (const r of (settings && settings.activityRatios) || []) add(r.name, "activity", { color: r.color, current: r.ratio });
   for (const name of groups.keys()) if (!seen.has(name)) add(name || "Unnamed", "other", { color: null, current: null });
   return { rows, unrecorded, total: rows.reduce((s, r) => s + r.count, 0) };
@@ -501,7 +501,7 @@ export function idealRatioByBracket(entries, settings, windowHours = 3) {
       rescueCarbs: v.reduce((s, x) => s + x.r, 0)
     });
   };
-  for (const r of (settings && settings.timeRatios) || []) add(r.name, "time", { color: r.color, current: r.ratio, start: r.start, end: r.end });
+  for (const r of (settings && settings.timeRatios) || []) add(r.name, "time", { color: r.color, current: r.ratio, start: r.start, end: r.end, days: r.days });
   for (const r of (settings && settings.activityRatios) || []) add(r.name, "activity", { color: r.color, current: r.ratio });
   for (const name of groups.keys()) if (!seen.has(name)) add(name || "Unnamed", "other", { color: null, current: null });
   return { rows, lowsCounted, lowsUnattached, rescueCarbs, windowHours: windowMs / 3600000, total: rows.reduce((s, r) => s + r.count, 0) };
