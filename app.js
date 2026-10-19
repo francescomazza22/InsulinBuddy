@@ -2419,8 +2419,11 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
   });
 
   function renderRatioPicker() {
+    // Only today's ranges: one limited to other days of the week (a Sunday-only range on a Monday) is left out to keep the
+    // list short. A range picked by hand stays listed so it can still be seen and changed.
+    const today = new Date().getDay();
     const rows = [
-      ...state.settings.timeRatios.map(r => ({ ...r, kind: "time" })),
+      ...state.settings.timeRatios.filter(r => { const d = bracketDays(r); return !d.length || d.includes(today) || r.id === draft.manualRatioId; }).map(r => ({ ...r, kind: "time" })),
       ...state.settings.activityRatios.map(r => ({ ...r, kind: "activity" }))
     ];
     ratioPicker.innerHTML = rows.map(r => `

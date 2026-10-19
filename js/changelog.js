@@ -2,6 +2,14 @@
 // summary can never drift. Bump CHANGELOG[0].version here (and CACHE_VERSION in sw.js) on every release.
 export const CHANGELOG = [
   {
+    version: "2.49.2",
+    summary: "The ratio list on the calculator only shows ranges that apply today.",
+    changes: [
+      "A range limited to other days of the week (a Sunday-only range on a Monday) is left out of the ratio picker, so the list is shorter. Settings still shows them all",
+      "Doses are unchanged"
+    ]
+  },
+  {
     version: "2.49.1",
     summary: "Time-of-day ranges and activity ratios can now be renamed.",
     changes: [

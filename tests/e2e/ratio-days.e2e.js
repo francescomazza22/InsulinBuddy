@@ -16,6 +16,10 @@ const dev = await openDevice(app, { width: 420, height: 900, mobile: true, injec
 t.section("RATIO DAYS: the calculator uses today's day-limited range");
 const pill = await dev.eval(`document.getElementById("cc-ratio-value").textContent`);
 t.check("the ratio shown is today's special one (1:7), not the every-day 1:15 or another day's 1:3", pill === "1:7", pill);
+await dev.eval(`document.getElementById("cc-ratio-pill").click()`); await sleep(250);
+const picked = await dev.eval(`[...document.querySelectorAll(".ratio-picker__item .ratio-picker__name")].map(x => x.textContent.trim())`);
+t.check("the picker lists today's ranges", picked.some(x => x.startsWith("All day")) && picked.some(x => x.startsWith("Today only")), picked.join("|"));
+t.check("and leaves out ranges limited to other days", !picked.some(x => x.startsWith("Other day")), picked.join("|"));
 t.section("RATIO DAYS: chips in Settings");
 await dev.tab("settings"); await sleep(300);
 await dev.eval(`document.querySelector('[data-seg="ratios"]') && document.querySelector('[data-seg="ratios"]').click()`); await sleep(200);
