@@ -2,6 +2,17 @@
 // summary can never drift. Bump CHANGELOG[0].version here (and CACHE_VERSION in sw.js) on every release.
 export const CHANGELOG = [
   {
+    version: "2.51.0",
+    summary: "Fresher colours, a clearer dose badge in the log, editable entry type, and swipe to edit.",
+    changes: [
+      "New, cleaner colours: a cooler, lighter background, crisper text, deeper accent colours in every palette, and a dark mode with more contrast",
+      "The dose badge in the log now shows the units actually injected as one clear number, with the split in small type underneath (for example 3 u, 2 meal + 1 corr., or 2 u, 3 meal \u2212 1 cut). A correction on its own and a treated low each have their own look",
+      "Edit now has a This entry is switch: Meal dose, Correction or Treated low. Turn a meal into a treated low (no insulin, carbs kept), a meal into a correction (food removed, you choose the dose), or put it back. The row, active insulin, trends and Nightscout follow the change, and Undo restores it",
+      "Swipe a log row to the left to reveal Edit and Delete. Tap an opened row to close it. Basal rows swipe too",
+      "Doses you log are calculated exactly as before"
+    ]
+  },
+  {
     version: "2.50.0",
     summary: "Tidier, more thumb-friendly forms and buttons across the app.",
     changes: [

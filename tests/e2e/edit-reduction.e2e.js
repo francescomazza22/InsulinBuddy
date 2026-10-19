@@ -12,7 +12,7 @@ const hist = [meal("r1", now - 3600000, { totalCarbs: 39, mealDose: 6, correctio
 const dev = await openDevice(app, { width: 420, height: 900, mobile: true, inject: `if (!localStorage.getItem("insulinBuddy.v2")) { ${seedLocal(stateBlob({ history: hist, settings: { maxDose: 40 } }))} }`, wait: 1500 });
 await dev.tab("history"); await dev.click('[data-seg="log"]'); await sleep(300);
 t.section("THE LOG SHOWS 6 - 1 AND THE EDIT KEEPS IT");
-t.check("the row shows meal minus the reduction", /6\u22121u/.test(await dev.eval(`document.getElementById("history-groups").textContent`)), await dev.eval(`document.getElementById("history-groups").textContent.replace(/\\s+/g, " ").slice(0, 160)`));
+t.check("the row shows the net dose with meal minus the reduction underneath", /5 u6 meal \u2212 1 cut/.test(await dev.eval(`document.getElementById("history-groups").textContent`)), await dev.eval(`document.getElementById("history-groups").textContent.replace(/\\s+/g, " ").slice(0, 160)`));
 await dev.eval(`document.querySelector('[data-edit="r1"]').click()`); await sleep(500);
 const prev = await dev.eval(`document.getElementById("em-preview").textContent`);
 t.check("the preview shows the net dose of 5 units", /5\.0 units/.test(prev), prev);

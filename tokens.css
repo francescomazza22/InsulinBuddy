@@ -1,15 +1,15 @@
 /* GENERATED from design/tokens.json by tools/make-tokens.mjs. Do not edit by hand: change the JSON and run the tool. */
 :root {
   /* colour */
-  --ink: #1B2A3A;
-  --ink-soft: #6B7A89;
-  --paper: #F5F3EE;
+  --ink: #17212F;
+  --ink-soft: #5B6878;
+  --paper: #F4F5F7;
   --surface: #FFFFFF;
-  --line: #E4E1D8;
-  --amber: #C8862E;
-  --brick: #A34A3B;
-  --brick-soft: #F1DCD6;
-  --green: #4C7A5E;
+  --line: #E1E5EA;
+  --amber: #B7740C;
+  --brick: #B3422F;
+  --brick-soft: #F8E1DC;
+  --green: #2E7D55;
   --app-bg: var(--paper);
 
   /* shape, spacing, type, motion */
@@ -41,10 +41,10 @@
   --motion-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
 
   /* palette accents: overridden per data-palette */
-  --acc-1: #3B82F6;
-  --acc-2: #8B5CF6;
-  --acc-3: #6366F1;
-  --acc-1-rgb: 59,130,246;
+  --acc-1: #2F6FED;
+  --acc-2: #7B5CF0;
+  --acc-3: #4F7CF7;
+  --acc-1-rgb: 47,111,237;
 
   /* Liquid Glass */
   --glass-bg: rgba(255,255,255,0.60);
@@ -57,20 +57,20 @@
 }
 
 /* ---------- Palettes ---------- */
-html[data-palette="tealViolet"] { --acc-1:#1F9E93; --acc-2:#8B5CF6; --acc-3:#38BDF8; --acc-1-rgb: 31,158,147; }
-html[data-palette="blueViolet"] { --acc-1:#3B82F6; --acc-2:#8B5CF6; --acc-3:#6366F1; --acc-1-rgb: 59,130,246; }
-html[data-palette="emeraldRose"] { --acc-1:#10B981; --acc-2:#F43F5E; --acc-3:#34D399; --acc-1-rgb: 16,185,129; }
-html[data-palette="orangePink"] { --acc-1:#F97316; --acc-2:#EC4899; --acc-3:#F59E0B; --acc-1-rgb: 249,115,22; }
-html[data-palette="cyanIndigo"] { --acc-1:#22B8CE; --acc-2:#6366F1; --acc-3:#3B82F6; --acc-1-rgb: 34,184,206; }
-html[data-palette="greenAmber"] { --acc-1:#22C55E; --acc-2:#F59E0B; --acc-3:#84CC16; --acc-1-rgb: 34,197,94; }
+html[data-palette="tealViolet"] { --acc-1:#12968B; --acc-2:#7B5CF0; --acc-3:#2FB6E8; --acc-1-rgb: 18,150,139; }
+html[data-palette="blueViolet"] { --acc-1:#2F6FED; --acc-2:#7B5CF0; --acc-3:#4F7CF7; --acc-1-rgb: 47,111,237; }
+html[data-palette="emeraldRose"] { --acc-1:#0FA67A; --acc-2:#E5446D; --acc-3:#2DC993; --acc-1-rgb: 15,166,122; }
+html[data-palette="orangePink"] { --acc-1:#E8590C; --acc-2:#DB3F7C; --acc-3:#F5A524; --acc-1-rgb: 232,89,12; }
+html[data-palette="cyanIndigo"] { --acc-1:#0FA3BD; --acc-2:#5B5BE0; --acc-3:#2F6FED; --acc-1-rgb: 15,163,189; }
+html[data-palette="greenAmber"] { --acc-1:#1FA95B; --acc-2:#E8920C; --acc-3:#7BB32E; --acc-1-rgb: 31,169,91; }
 
 /* ---------- Dark mode ---------- */
 html[data-theme="dark"] {
-  --ink: #ECEAE3;
-  --ink-soft: #9AA6B2;
-  --paper: #14181D;
-  --surface: #1C2127;
-  --line: #2B3138;
+  --ink: #E8ECF1;
+  --ink-soft: #A3AEBB;
+  --paper: #0F1318;
+  --surface: #181D23;
+  --line: #27303A;
   --brick-soft: #3A2420;
   --app-bg: var(--paper);
   --glass-bg: rgba(34,40,47,0.58);

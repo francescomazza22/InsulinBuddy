@@ -16,7 +16,7 @@ import { abstractSvg } from "./js/abstract-field.js";
 import { percentile, dailyPatternBuckets, daysSpanned, estimatedA1c, extendedGlucoseStats, dailyStats, glucoseSummaryStats, timeInRangeBreakdown, glucoseGuideRows, TIME_IN_RANGE_BANDS } from "./js/glucose-stats.js";
 import { randomBytes, toB64, fromB64, deriveKey, encryptString, decryptString, isEncryptedPayload, exportKeyRaw, importKeyRaw } from "./js/crypto.js";
 import { LocalBackups, shouldAutoSnapshot } from "./js/backup.js";
-import { groupByDay, takeEntries, matchesQuery, recentDistinctMeals, mealLabel, dosingSummary, insulinStats, isBasalEntry, basalSlotForTime, basalSlotLabel, lastBasalDose, basalDoseCheck, makeBasalEntry, PAGE_SIZE } from "./js/history.js";
+import { doseBadge, groupByDay, takeEntries, matchesQuery, recentDistinctMeals, mealLabel, dosingSummary, insulinStats, isBasalEntry, basalSlotForTime, basalSlotLabel, lastBasalDose, basalDoseCheck, makeBasalEntry, PAGE_SIZE } from "./js/history.js";
 import { createDialogs } from "./js/dialogs.js";
 import { toMinutes, inRange, ratioAt, ratioMatch, bracketDays, daysLabel, DAY_NAMES, autoMealType, formatDuration, clampNum } from "./js/core/time.js";
 import { toCsv, parseCsv, recipeTotals as recipeTotalsWith, parseLibraryFile, mergeLibrary } from "./js/core/library.js";
@@ -3945,6 +3945,62 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
 
   let expandedHistoryId = null;
 
+  // ---- hs a History row left to reveal Edit and Delete ----
+  // The buttons ride along on the right edge of the row itself, so they are never drawn behind it. They reuse the same
+  // data-edit / data-del handlers as the buttons in the expanded row. Only touch listeners, no timers: nothing runs while idle.
+  const HS_W = 144;
+  function wrapSwipe(row, id) {
+    const wrap = document.createElement("div");
+    wrap.className = "hs-row"; wrap.dataset.id = id;
+    const actions = document.createElement("div");
+    actions.className = "hs-actions";
+    actions.innerHTML = `<button type="button" class="hs-actions__edit" data-edit="${id}">Edit</button><button type="button" class="hs-actions__del" data-del="${id}">Delete</button>`;
+    row.appendChild(actions);
+    wrap.appendChild(row);
+    return wrap;
+  }
+  let hs = null, hsLastAt = 0;
+  const hsRowOf = e => e.target.closest && e.target.closest(".hs-row");
+  function hsSet(wrap, open) {
+    const r = wrap.querySelector(".history-entry");
+    wrap.classList.toggle("is-open", open);
+    r.style.transition = ""; r.style.transform = open ? `translateX(-${HS_W}px)` : "";
+  }
+  function hsCloseOthers(except) { historyGroups.querySelectorAll(".hs-row.is-open").forEach(w => { if (w !== except) hsSet(w, false); }); }
+  historyGroups.addEventListener("touchstart", e => {
+    const wrap = hsRowOf(e);
+    if (!wrap || e.touches.length !== 1) { hs = null; return; }
+    hsCloseOthers(wrap);
+    const t = e.touches[0];
+    hs = { wrap, row: wrap.querySelector(".history-entry"), x: t.clientX, y: t.clientY, base: wrap.classList.contains("is-open") ? -HS_W : 0, pos: 0, mode: null };
+  }, { passive: true });
+  historyGroups.addEventListener("touchmove", e => {
+    if (!hs) return;
+    const t = e.touches[0], dx = t.clientX - hs.x, dy = t.clientY - hs.y;
+    if (!hs.mode) {
+      if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
+      hs.mode = Math.abs(dx) > Math.abs(dy) * 1.4 ? "h" : "v";
+      if (hs.mode === "v") { hs = null; return; }       // a normal scroll: leave it alone
+      hs.row.style.transition = "none";
+    }
+    e.preventDefault();
+    hs.pos = Math.max(-HS_W - 20, Math.min(0, hs.base + dx));
+    hs.row.style.transform = `translateX(${hs.pos}px)`;
+  }, { passive: false });
+  const hsEnd = () => {
+    if (!hs) return;
+    if (hs.mode === "h") { hsLastAt = Date.now(); hsSet(hs.wrap, hs.pos < -HS_W / 2); }
+    hs = null;
+  };
+  historyGroups.addEventListener("touchend", hsEnd);
+  historyGroups.addEventListener("touchcancel", hsEnd);
+  // A tap that ends a hs, or lands on an opened row, closes it instead of expanding the row. Runs before the main click handler.
+  historyGroups.addEventListener("click", e => {
+    const wrap = hsRowOf(e);
+    if (Date.now() - hsLastAt < 300) { e.stopPropagation(); return; }
+    if (wrap && wrap.classList.contains("is-open") && !e.target.closest(".hs-actions")) { e.stopPropagation(); hsSet(wrap, false); }
+  }, true);
+
   function renderHistory(opts = {}) {
     const mealCount = state.history.filter(e => !isBasalEntry(e)).length;   // a basal dose isn't a meal
     histCountPill.textContent = `${mealCount} meal${mealCount === 1 ? "" : "s"}`;
@@ -3976,16 +4032,17 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
       groupEl.appendChild(header);
 
       group.entries.forEach(entry => {
-        if (isBasalEntry(entry)) { groupEl.appendChild(buildBasalRow(entry)); return; }
+        if (isBasalEntry(entry)) { groupEl.appendChild(wrapSwipe(buildBasalRow(entry), entry.id)); return; }
         const meal = MEAL_TYPES[entry.mealType] || MEAL_TYPES.snack;
         const row = document.createElement("div");
         row.className = "history-entry";
         row.style.borderLeftColor = meal.color;
         row.dataset.id = entry.id;
-        const doseText = entry.correctionDose > 0 ? `${entry.mealDose}+${entry.correctionDose}u` : entry.correctionDose < 0 ? `${entry.mealDose}\u2212${Math.abs(entry.correctionDose)}u` : `${entry.mealDose}u`;
-        const dosePillHtml = entry.noInsulin
-          ? `<span class="dose-pill dose-pill--warn"><svg viewBox="0 0 24 24" fill="none"><path d="M12 19V5M12 19l-5-5M12 19l5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>No insulin</span>`
-          : `<span class="dose-pill"><svg viewBox="0 0 24 24" fill="none"><path d="M12 2C12 2 5 10.5 5 15.5C5 19.6 8.13 22 12 22C15.87 22 19 19.6 19 15.5C19 10.5 12 2 12 2Z" stroke="currentColor" stroke-width="2"/></svg>${doseText}</span>`;
+        const badge = doseBadge(entry);
+        const DROP = `<svg viewBox="0 0 24 24" fill="none"><path d="M12 2C12 2 5 10.5 5 15.5C5 19.6 8.13 22 12 22C15.87 22 19 19.6 19 15.5C19 10.5 12 2 12 2Z" stroke="currentColor" stroke-width="2"/></svg>`;
+        const PULSE = `<svg viewBox="0 0 24 24" fill="none"><path d="M3 12h4l2.5-6 4 12 2.5-6H21" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+        const DOWN = `<svg viewBox="0 0 24 24" fill="none"><path d="M12 19V5M12 19l-5-5M12 19l5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+        const dosePillHtml = `<span class="dose-badge dose-badge--${badge.kind}"><span class="dose-pill${badge.kind === "low" ? " dose-pill--warn" : badge.kind === "correction" ? " dose-pill--corr" : ""}">${badge.kind === "low" ? DOWN : badge.kind === "correction" ? PULSE : DROP}${escapeHtml(badge.main)}</span>${badge.sub ? `<span class="dose-badge__sub">${escapeHtml(badge.sub)}</span>` : ""}</span>`;
         row.innerHTML = `
           <div class="history-entry__icon" style="background:${meal.color}">${meal.icon}</div>
           <div class="history-entry__main">
@@ -4012,7 +4069,7 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
             ${entry.glycemicLoad ? `<span class="gl-indicator gl-indicator--${entry.glycemicLoad.value >= 70 ? "high" : entry.glycemicLoad.value >= 56 ? "medium" : "low"} gl-indicator--compact">GI ${entry.glycemicLoad.value}${entry.glycemicLoad.partial ? "*" : ""}</span>` : ""}
           </div>
         `;
-        groupEl.appendChild(row);
+        groupEl.appendChild(wrapSwipe(row, entry.id));
       });
       historyGroups.appendChild(groupEl);
     });
@@ -4809,6 +4866,11 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
     const matchedRatio = allRatios.find(r => r.name === entry.ratioLabel);
     let selectedRatioValue = entry.ratioValue;
     let selectedRatioLabel = entry.ratioLabel;
+    // What the entry IS: a meal that was injected for, a correction on its own, or carbs taken to treat a low (no insulin).
+    // The person can change it after the fact (a "meal" that was really a treated low, say) without deleting and re-entering.
+    let kind = entry.noInsulin ? "low" : entry.mealType === "correction" ? "correction" : "meal";
+    let lastMealType = entry.mealType === "correction" ? "snack" : entry.mealType;
+    const entryTotalDose = Math.max(0, (Number(entry.mealDose) || 0) + (Number(entry.correctionDose) || 0));
 
     const backdrop = document.createElement("div");
     backdrop.className = "sheet-backdrop";
@@ -4820,6 +4882,18 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
             <svg viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
           </button>
         </div>
+        <label class="block-label">This entry is</label>
+        <div class="segmented" id="em-kind" role="group" aria-label="What this entry is">
+          <button type="button" class="segmented__btn" data-kind="meal">Meal dose</button>
+          <button type="button" class="segmented__btn" data-kind="correction">Correction</button>
+          <button type="button" class="segmented__btn" data-kind="low">Treated low</button>
+        </div>
+        <p class="panel-card__hint" id="em-kind-hint" style="margin-top:-6px;margin-bottom:14px;"></p>
+        <div class="field" id="em-corr-field" hidden>
+          <label for="em-corr-dose">Correction dose</label>
+          <div class="field__row"><input type="number" id="em-corr-dose" min="0" step="0.5" inputmode="decimal" value="${round1(entry.mealType === "correction" ? (Number(entry.correctionDose) || 0) : entryTotalDose)}"><span class="field__unit">units</span></div>
+        </div>
+        <div id="em-meal-part">
         <label class="block-label">Meal type</label>
         <div class="field-grid" id="em-meal-types" style="margin-bottom:18px;">
           ${Object.entries(MEAL_TYPES).map(([key, m]) => `
@@ -4833,13 +4907,14 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
           <input type="datetime-local" id="em-logged-time" value="${toDatetimeLocalValue(entry.ts)}" style="padding:12px 14px; border:1.5px solid var(--line); border-radius:var(--radius-s); font-size:16px; background:var(--surface); color:var(--ink); font-family:var(--font-ui);">
           <p class="panel-card__hint" style="margin-top:6px;">Changing this updates Active Insulin &amp; Carbs and Trends to match.</p>
         </div>
-        <label class="block-label">Insulin ratio</label>
+        <label class="block-label" id="em-ratio-label">Insulin ratio</label>
         <select id="em-ratio" style="width:100%; padding:12px 14px; border:1.5px solid var(--line); border-radius:var(--radius-s); font-size:0.96rem; margin-bottom:18px; background:var(--surface); color:var(--ink);">
           ${!matchedRatio ? `<option value="__original__" selected>Original: ${escapeHtml(entry.ratioLabel || "—")} (1:${entry.ratioValue})</option>` : ""}
           ${allRatios.map(r => `<option value="${r.id}" ${matchedRatio && matchedRatio.id === r.id ? "selected" : ""}>${escapeHtml(r.name)} (1:${r.ratio})</option>`).join("")}
         </select>
         <label class="block-label">Items</label>
         <div id="em-items" class="ingredient-list" style="margin-bottom:16px;"></div>
+        </div>
         ${entry.glucose != null ? `
           <div class="field">
             <label>Current glucose at the time</label>
@@ -4879,11 +4954,41 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
     // 19.5u -- and re-saving an already-capped meal would have quietly put the 19.5u back.)
     function editDoseParts(totalCarbs) {
       const glucoseEl = backdrop.querySelector("#em-glucose");
-      const plan = planEditDose({ entry, totalCarbs, ratio: selectedRatioValue, glucoseText: glucoseEl ? glucoseEl.value : null, settings: state.settings });
+      const plan = planEditDose({ entry: { ...entry, noInsulin: kind === "low" }, totalCarbs, ratio: selectedRatioValue, glucoseText: glucoseEl ? glucoseEl.value : null, settings: state.settings });
       return { meal: plan.mealDose, correction: plan.correctionDose, total: plan.finalDose, requested: plan.requested, capped: plan.capped, overMax: plan.overMax };
     }
 
+    const KIND_HINTS = {
+      meal: "Insulin for the food below, worked out from the ratio.",
+      correction: "Insulin on its own to bring glucose down, with no food. Any food on the entry is removed.",
+      low: "Carbs eaten to treat a low. They are logged, but no insulin is recorded."
+    };
+    function applyKind() {
+      backdrop.querySelectorAll("#em-kind [data-kind]").forEach(b => { const on = b.dataset.kind === kind; b.classList.toggle("is-active", on); b.setAttribute("aria-pressed", on); });
+      backdrop.querySelector("#em-kind-hint").textContent = KIND_HINTS[kind];
+      backdrop.querySelector("#em-corr-field").hidden = kind !== "correction";
+      backdrop.querySelector("#em-meal-part").hidden = kind === "correction";
+      backdrop.querySelectorAll("#em-meal-types button").forEach(b => {
+        const m = MEAL_TYPES[b.dataset.meal], on = b.dataset.meal === mealType;
+        b.style.borderColor = on ? m.color : ""; b.style.color = on ? m.color : ""; b.style.background = on ? m.color + "1a" : "";
+        b.hidden = b.dataset.meal === "correction";             // "Correction" is now picked above, not as a meal type
+      });
+      const ratioLabel = backdrop.querySelector("#em-ratio-label"), ratioSel = backdrop.querySelector("#em-ratio");
+      if (ratioLabel) ratioLabel.hidden = kind !== "meal"; ratioSel.hidden = kind !== "meal";
+      updatePreview();
+    }
+
     function updatePreview() {
+      if (kind === "correction") {
+        const d = parseFloat(backdrop.querySelector("#em-corr-dose").value) || 0;
+        backdrop.querySelector("#em-preview").textContent = `Saved as a correction of ${round1(d)} units, no food.`;
+        return;
+      }
+      if (kind === "low") {
+        const c = round1(items.reduce((s, i) => s + i.carbs, 0));
+        backdrop.querySelector("#em-preview").textContent = `Saved as treating a low: ${c}g carbs, no insulin.`;
+        return;
+      }
       const totalCarbs = round1(items.reduce((s, i) => s + i.carbs, 0));
       const parts = editDoseParts(totalCarbs);
       const capText = parts.capped ? ` — capped at your ${state.settings.maxDose} u maximum (calculated ${parts.requested} u)`
@@ -4895,12 +5000,18 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
 
     backdrop.querySelector("#em-meal-types").addEventListener("click", e => {
       const btn = e.target.closest("[data-meal]");
-      if (!btn) return;
-      mealType = btn.dataset.meal;
-      backdrop.querySelectorAll("#em-meal-types button").forEach(b => { b.style.borderColor = ""; b.style.color = ""; b.style.background = ""; });
-      const m = MEAL_TYPES[mealType];
-      btn.style.borderColor = m.color; btn.style.color = m.color; btn.style.background = m.color + "1a";
+      if (!btn || btn.dataset.meal === "correction") return;
+      mealType = lastMealType = btn.dataset.meal;
+      applyKind();
     });
+    backdrop.querySelector("#em-kind").addEventListener("click", e => {
+      const btn = e.target.closest("[data-kind]");
+      if (!btn || btn.dataset.kind === kind) return;
+      kind = btn.dataset.kind;
+      mealType = kind === "correction" ? "correction" : lastMealType;
+      applyKind();
+    });
+    backdrop.querySelector("#em-corr-dose").addEventListener("input", updatePreview);
     backdrop.querySelector("#em-items").addEventListener("input", e => {
       if (!e.target.classList.contains("em-grams-input")) return;
       const idx = parseInt(e.target.dataset.idx, 10);
@@ -4934,9 +5045,16 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
     });
 
     renderItems();
+    applyKind();
     backdrop.addEventListener("click", e => { if (e.target === backdrop || e.target.id === "em-cancel" || e.target.closest("#em-close")) closeSheet(backdrop); });
-    backdrop.querySelector("#em-save").addEventListener("click", () => {
-      if (items.length === 0 && entry.mealType !== "correction") { dialogs.alert("A meal needs at least one item — delete it instead if you want it gone."); return; }
+    backdrop.querySelector("#em-save").addEventListener("click", async () => {
+      if (items.length === 0 && kind !== "correction") { dialogs.alert(kind === "low" ? "A treated low needs the food or drink you had — add an item, or delete the entry." : "A meal needs at least one item — delete it instead if you want it gone."); return; }
+      let corrDose = 0;
+      if (kind === "correction") {
+        corrDose = parseFloat(backdrop.querySelector("#em-corr-dose").value);
+        if (!(corrDose >= 0)) { dialogs.alert("Enter the correction dose in units."); return; }
+        if (items.length && entry.mealType !== "correction" && !(await dialogs.confirm("Saving as a correction removes the food from this entry and keeps only the insulin.", { title: "Turn into a correction?", confirmText: "Turn into correction" }))) return;
+      }
       const before = structuredClone(entry);
       const totalCarbs = round1(items.reduce((s, i) => s + i.carbs, 0));
       const totalKcal = Math.round(items.reduce((s, i) => s + (i.kcal || 0), 0));
@@ -4948,16 +5066,26 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
       let newGlucose = entry.glucose;
       if (glucoseInputEl2) newGlucose = parseFloat(glucoseInputEl2.value) || null;
       entry.mealType = mealType;
-      entry.items = items;
-      entry.totalCarbs = totalCarbs;
-      entry.totalKcal = totalKcal;
-      entry.mealDose = mealDose;
-      entry.correctionDose = correctionDose;
-      if (parts.capped) entry.cappedFrom = parts.requested; else delete entry.cappedFrom;
-      entry.glucose = newGlucose;
-      entry.ratioValue = selectedRatioValue;
-      entry.ratioLabel = selectedRatioLabel;
-      entry.glycemicLoad = compoundGiInfo(items);   // was left stale, which skewed carb absorption after an edit
+      if (kind === "correction") {
+        // insulin on its own: no food, no carbs, no ratio
+        entry.items = []; entry.totalCarbs = 0; entry.totalKcal = 0;
+        entry.mealDose = 0; entry.correctionDose = round1(corrDose);
+        delete entry.cappedFrom; delete entry.noInsulin; delete entry.carbsUnknown; delete entry.eatingOut;
+        delete entry.ratioValue; delete entry.ratioLabel; delete entry.periodName; delete entry.glycemicLoad;
+        entry.glucose = newGlucose;
+      } else {
+        entry.items = items;
+        entry.totalCarbs = totalCarbs;
+        entry.totalKcal = totalKcal;
+        entry.mealDose = mealDose;
+        entry.correctionDose = correctionDose;
+        if (kind === "low") entry.noInsulin = true; else delete entry.noInsulin;
+        if (parts.capped) entry.cappedFrom = parts.requested; else delete entry.cappedFrom;
+        entry.glucose = newGlucose;
+        entry.ratioValue = selectedRatioValue;
+        entry.ratioLabel = selectedRatioLabel;
+        entry.glycemicLoad = compoundGiInfo(items);   // was left stale, which skewed carb absorption after an edit
+      }
       const timeInputEl = backdrop.querySelector("#em-logged-time");
       if (timeInputEl && timeInputEl.value) {
         const newTs = new Date(timeInputEl.value).getTime();
@@ -4972,7 +5100,7 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
       renderActivePanel();
       renderRecentMeals();
       closeSheet(backdrop);
-      showUndoToast("Meal updated", () => {
+      showUndoToast(kind === "correction" ? "Saved as a correction" : kind === "low" ? "Saved as treating a low" : "Meal updated", () => {
         for (const k of Object.keys(entry)) delete entry[k];
         Object.assign(entry, before);
         state.history.sort((a, b) => b.ts - a.ts);
@@ -5039,7 +5167,7 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
     renderPrivacySection();
   }
 
-  const BG_PRESETS = ["#F5F3EE", "#E1EDF7", "#EDE5F5", "#E5EFE7", "#F7E8E6", "#E7E9EC"];
+  const BG_PRESETS = ["#F4F5F7", "#E1EDF7", "#EDE5F5", "#E5EFE7", "#F7E8E6", "#E7E9EC"];
 
 
   function statusRow(label, dotClass, detail) {
@@ -6066,7 +6194,7 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
     document.documentElement.setAttribute("data-theme", isDarkModeActive() ? "dark" : "light");
     // A small hint the next start reads before anything is painted (see the first script in index.html), so the opening screen is dark at night.
     try { localStorage.setItem("insulinBuddy.theme", state.settings.darkModeAuto ? "auto" : state.settings.darkMode ? "dark" : "light"); } catch (e) { /* private mode: the phone's own setting decides */ }
-    const tc = document.querySelector('meta[name="theme-color"]'); if (tc) tc.setAttribute("content", isDarkModeActive() ? "#14181D" : "#F5F3EE");
+    const tc = document.querySelector('meta[name="theme-color"]'); if (tc) tc.setAttribute("content", isDarkModeActive() ? "#0F1318" : "#F4F5F7");
     applyCustomBackground();
     applyBackgroundPattern();
   }

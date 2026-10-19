@@ -681,7 +681,7 @@ const lastEntry = async dev => (await localState(dev)).history[0];
   t.check("stored total === what was on the card", e.mealDose + e.correctionDose === shown, `${e.mealDose}+${e.correctionDose} vs ${shown}`);
   t.check("the entry remembers it was capped from 19.5", e.cappedFrom === 19.5, String(e.cappedFrom));
   await dev.tab("history"); await sleep(250);
-  t.check("History shows 15u, not 19.5u", /15u/.test(await dev.text("#history-groups .history-entry")) && !/19\.5/.test(await dev.text("#history-groups .history-entry__stats")));
+  t.check("History shows 15u, not 19.5u", /15\s?u/.test(await dev.text("#history-groups .history-entry")) && !/19\.5/.test(await dev.text("#history-groups .history-entry__stats")));
   await dev.eval(`document.getElementById("history-groups").querySelector('[data-id="${e.id}"]').click()`); await sleep(100);
   t.check("expanding it explains the cap", /calculated 19\.5u/.test(await dev.text(".history-entry__cap")), await dev.text(".history-entry__cap"));
   await noErrors(dev, "device");

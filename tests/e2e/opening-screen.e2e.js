@@ -26,7 +26,7 @@ t.section("DARK LOOK AT NIGHT, from the first paint");
   t.check("it is night, with a matching greeting", e.tod === "night" && e.greeting === "Good evening", JSON.stringify(e));
   t.check("the opening screen is showing, with a sky gradient (not a flat white page)", e.shown && /gradient/.test(e.bg), e.bg);
   t.check("the whole picture is already fully visible at first paint (a start that takes a split second shows it finished)", e.op === "1,1,1,1,1" && (e.dash === "none" || e.dash === "0"), JSON.stringify([e.op, e.dash]));
-  t.check("the browser bar colour is dark too", e.meta === "#14181D", e.meta);
+  t.check("the browser bar colour is dark too", e.meta === "#0F1318", e.meta);
   dev.close();
 }
 t.section("LIGHT LOOK IN THE MORNING");
@@ -34,7 +34,7 @@ t.section("LIGHT LOOK IN THE MORNING");
   const dev = await open("light", 9);
   const e = await dev.eval(`window.__early`);
   t.check("light theme, morning, good morning", e.theme === "light" && e.tod === "morning" && e.greeting === "Good morning", JSON.stringify(e));
-  t.check("light bar colour", e.meta === "#F5F3EE");
+  t.check("light bar colour", e.meta === "#F4F5F7");
   dev.close();
 }
 t.section("AUTO FOLLOWS THE PHONE; NO HINT YET USES THE PHONE TOO");

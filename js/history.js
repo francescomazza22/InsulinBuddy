@@ -201,3 +201,16 @@ export function insulinStats(history, sinceMs) {
     lowsTreated: lows.length, avgLowCarbs: lows.length ? lows.reduce((s, e) => s + (Number(e.totalCarbs) || 0), 0) / lows.length : null
   };
 }
+
+const fmtU = n => String(Math.round(n * 10) / 10);
+/** What a meal row's dose badge says. One clear number (the units actually injected) and, when the dose has two parts, a
+ *  small line saying which is which. A treated low and a correction-only entry get their own look. */
+export function doseBadge(entry) {
+  const meal = Number(entry && entry.mealDose) || 0, corr = Number(entry && entry.correctionDose) || 0;
+  if (entry && entry.noInsulin) return { kind: "low", main: "Low treated", sub: "no insulin" };
+  const total = Math.max(0, meal + corr);
+  if (entry && (entry.mealType === "correction" || (meal === 0 && corr > 0 && !(entry.items || []).length))) return { kind: "correction", main: `${fmtU(total)} u`, sub: "correction" };
+  if (corr > 0) return { kind: "meal", main: `${fmtU(total)} u`, sub: `${fmtU(meal)} meal + ${fmtU(corr)} corr.` };
+  if (corr < 0) return { kind: "meal", main: `${fmtU(total)} u`, sub: `${fmtU(meal)} meal \u2212 ${fmtU(-corr)} cut` };
+  return { kind: "meal", main: `${fmtU(total)} u`, sub: "" };
+}

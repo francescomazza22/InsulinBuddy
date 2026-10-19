@@ -4,31 +4,31 @@ import SwiftUI
 
 enum IBTokens {
     enum Light {
-        static let ink = Color(hex: 0x1B2A3A)
-        static let inkSoft = Color(hex: 0x6B7A89)
-        static let paper = Color(hex: 0xF5F3EE)
+        static let ink = Color(hex: 0x17212F)
+        static let inkSoft = Color(hex: 0x5B6878)
+        static let paper = Color(hex: 0xF4F5F7)
         static let surface = Color(hex: 0xFFFFFF)
-        static let line = Color(hex: 0xE4E1D8)
-        static let amber = Color(hex: 0xC8862E)
-        static let brick = Color(hex: 0xA34A3B)
-        static let brickSoft = Color(hex: 0xF1DCD6)
-        static let green = Color(hex: 0x4C7A5E)
+        static let line = Color(hex: 0xE1E5EA)
+        static let amber = Color(hex: 0xB7740C)
+        static let brick = Color(hex: 0xB3422F)
+        static let brickSoft = Color(hex: 0xF8E1DC)
+        static let green = Color(hex: 0x2E7D55)
     }
     enum Dark {
-        static let ink = Color(hex: 0xECEAE3)
-        static let inkSoft = Color(hex: 0x9AA6B2)
-        static let paper = Color(hex: 0x14181D)
-        static let surface = Color(hex: 0x1C2127)
-        static let line = Color(hex: 0x2B3138)
+        static let ink = Color(hex: 0xE8ECF1)
+        static let inkSoft = Color(hex: 0xA3AEBB)
+        static let paper = Color(hex: 0x0F1318)
+        static let surface = Color(hex: 0x181D23)
+        static let line = Color(hex: 0x27303A)
         static let brickSoft = Color(hex: 0x3A2420)
     }
     enum Palette {
-        static let tealViolet = (acc1: Color(hex: 0x1F9E93), acc2: Color(hex: 0x8B5CF6), acc3: Color(hex: 0x38BDF8))
-        static let blueViolet = (acc1: Color(hex: 0x3B82F6), acc2: Color(hex: 0x8B5CF6), acc3: Color(hex: 0x6366F1))
-        static let emeraldRose = (acc1: Color(hex: 0x10B981), acc2: Color(hex: 0xF43F5E), acc3: Color(hex: 0x34D399))
-        static let orangePink = (acc1: Color(hex: 0xF97316), acc2: Color(hex: 0xEC4899), acc3: Color(hex: 0xF59E0B))
-        static let cyanIndigo = (acc1: Color(hex: 0x22B8CE), acc2: Color(hex: 0x6366F1), acc3: Color(hex: 0x3B82F6))
-        static let greenAmber = (acc1: Color(hex: 0x22C55E), acc2: Color(hex: 0xF59E0B), acc3: Color(hex: 0x84CC16))
+        static let tealViolet = (acc1: Color(hex: 0x12968B), acc2: Color(hex: 0x7B5CF0), acc3: Color(hex: 0x2FB6E8))
+        static let blueViolet = (acc1: Color(hex: 0x2F6FED), acc2: Color(hex: 0x7B5CF0), acc3: Color(hex: 0x4F7CF7))
+        static let emeraldRose = (acc1: Color(hex: 0x0FA67A), acc2: Color(hex: 0xE5446D), acc3: Color(hex: 0x2DC993))
+        static let orangePink = (acc1: Color(hex: 0xE8590C), acc2: Color(hex: 0xDB3F7C), acc3: Color(hex: 0xF5A524))
+        static let cyanIndigo = (acc1: Color(hex: 0x0FA3BD), acc2: Color(hex: 0x5B5BE0), acc3: Color(hex: 0x2F6FED))
+        static let greenAmber = (acc1: Color(hex: 0x1FA95B), acc2: Color(hex: 0xE8920C), acc3: Color(hex: 0x7BB32E))
         static let `default` = blueViolet
     }
     enum Radius {
