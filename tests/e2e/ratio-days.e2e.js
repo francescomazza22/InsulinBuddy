@@ -6,6 +6,7 @@ const t = makeChecker(); const sleep = ms => new Promise(r => setTimeout(r, ms))
 const app = await startApp(DIR, null, { "foods_data.js": FOODS_JS, "manifest.json": "{}" });
 const today = new Date().getDay(), other = (today + 3) % 7;
 const blob = stateBlob();
+blob.history = [{ id: "h1", ts: Date.now() - 3600e3, mealType: "lunch", items: [], totalCarbs: 30, mealDose: 2, correctionDose: 0, ratioLabel: "Today only", ratioValue: 7, glucose: null }];
 blob.settings.timeRatios = [
   { id: "all", name: "All day", start: "00:00", end: "00:00", ratio: 15, color: "#1F9E93" },
   { id: "mine", name: "Today only", start: "00:00", end: "00:00", ratio: 7, color: "#D6A419", days: [today] },
@@ -35,4 +36,16 @@ await dev.eval(`document.getElementById("add-time-range-btn").click()`); await s
 await dev.eval(`document.getElementById("add-time-range-btn").click()`); await sleep(200);
 st = await localState(dev); const names = st.settings.timeRatios.map(x => x.name);
 t.check("added ranges get distinct names (so reports don't merge them)", new Set(names).size === names.length, names.join("|"));
+t.section("RATIO DAYS: renaming");
+await dev.eval(`window.__alerts = []; window.alert = m => window.__alerts.push(m)`);
+await dev.eval(`(() => { const i = document.querySelector('#edit-mine [data-field="name"]'); i.value = "Sunday morning"; i.dispatchEvent(new Event("change", { bubbles: true })); })()`); await sleep(250);
+st = await localState(dev);
+t.check("the range can be renamed", st.settings.timeRatios.find(x => x.id === "mine").name === "Sunday morning");
+t.check("meals logged under the old name follow the new one", st.history.find(x => x.id === "h1").ratioLabel === "Sunday morning", st.history[0].ratioLabel);
+await dev.eval(`(() => { const i = document.querySelector('#edit-mine [data-field="name"]'); i.value = "All day"; i.dispatchEvent(new Event("change", { bubbles: true })); })()`); await sleep(250);
+st = await localState(dev);
+t.check("a name already in use is refused and the old one kept", st.settings.timeRatios.find(x => x.id === "mine").name === "Sunday morning" && (await dev.eval(`window.__alerts.length`)) === 1);
+await dev.eval(`(() => { const i = document.querySelector('#edit-mine [data-field="name"]'); i.value = "   "; i.dispatchEvent(new Event("change", { bubbles: true })); })()`); await sleep(250);
+st = await localState(dev);
+t.check("a blank name is ignored", st.settings.timeRatios.find(x => x.id === "mine").name === "Sunday morning");
 dev.close(); await app.close(); t.done && t.done(); process.exit(0);

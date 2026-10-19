@@ -1523,3 +1523,8 @@ html[data-theme="dark"] { --glass-sheet: rgba(30,36,43,0.90); }
 .day-chip { min-width: 40px; min-height: 36px; padding: 0 8px; border-radius: var(--radius-s); border: 1.5px solid var(--line); background: var(--surface); color: var(--ink-soft); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
 .day-chip.is-on { background: var(--acc-1); border-color: var(--acc-1); color: #fff; }
 .day-chips__hint { flex-basis: 100%; margin: 4px 0 0; font-size: 12.5px; color: var(--ink-soft); }
+
+.ratio-name { display: flex; align-items: center; gap: var(--space-s); flex-basis: 100%; font-size: var(--fs-m); font-weight: 600; }
+.ratio-name input { flex: 1; min-width: 0; padding: var(--space-s) var(--space-m); font-size: 16px; }
+.ratio-row__name-input { flex: 1; min-width: 0; padding: 6px 8px; font-size: 16px; font-weight: 600; background: transparent; border-color: transparent; }
+.ratio-row__name-input:focus { background: var(--surface); border-color: var(--acc-1); outline: none; }

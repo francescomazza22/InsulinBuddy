@@ -5588,6 +5588,19 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
     bar.appendChild(marker);
   }
 
+  // Renaming a range or activity: meals are tied to a range by its name, so past meals follow the new name and the
+  // insights keep them together. Names stay unique (the reports group by name); a blank or taken name is refused.
+  function renameRatio(list, r, raw) {
+    const name = String(raw || "").trim().slice(0, 40), old = r.name;
+    if (!name || name === old) return false;
+    const taken = [...state.settings.timeRatios, ...state.settings.activityRatios].some(x => x !== r && x.name === name);
+    if (taken) { alert(`There is already a range called "${name}". Pick a different name.`); return false; }
+    r.name = name;
+    const stillUsed = [...state.settings.timeRatios, ...state.settings.activityRatios].some(x => x !== r && x.name === old);
+    if (!stillUsed) state.history.forEach(e => { if (e && e.ratioLabel === old) e.ratioLabel = name; });
+    return true;
+  }
+
   function renderTimeRatioList() {
     const box = el("time-ratio-list");
     box.innerHTML = "";
@@ -5608,6 +5621,7 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
           </button>
         </div>
         <div class="ratio-row__edit" id="edit-${r.id}" hidden>
+          <label class="ratio-name"><span>Name</span><input type="text" value="${escapeAttr(r.name)}" maxlength="40" data-field="name" data-id="${r.id}" autocomplete="off"></label>
           <input type="time" value="${r.start}" data-field="start" data-id="${r.id}">
           <span>to</span>
           <input type="time" value="${r.end}" data-field="end" data-id="${r.id}">
@@ -5657,6 +5671,7 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
     const r = state.settings.timeRatios.find(x => x.id === e.target.dataset.id);
     if (!r) return;
     if (field === "ratio") r.ratio = parseFloat(e.target.value) || r.ratio;
+    else if (field === "name") renameRatio(state.settings.timeRatios, r, e.target.value);
     else r[field] = e.target.value;
     saveState();
     renderTimeline();
@@ -5683,7 +5698,7 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
       row.style.background = `${r.color}12`;
       row.innerHTML = `
         <div class="ratio-row__top">
-          <span class="ratio-row__name" style="flex:1;">${escapeHtml(r.name)}</span>
+          <input type="text" class="ratio-row__name-input" value="${escapeAttr(r.name)}" maxlength="40" data-field="name" data-id="${r.id}" aria-label="Activity name" autocomplete="off">
           <span class="ratio-x">1 unit per <input type="number" min="1" value="${r.ratio}" data-field="ratio" data-id="${r.id}" style="width:52px;padding:6px;text-align:center;"> g</span>
           <button class="ratio-row__del" data-del="${r.id}" aria-label="Delete">
             <svg viewBox="0 0 24 24" fill="none"><path d="M5 7h14M9 7V5a1 1 0 011-1h4a1 1 0 011 1v2m-9 0l1 12a2 2 0 002 2h6a2 2 0 002-2l1-12" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -5700,9 +5715,12 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
     saveState(); renderActivityRatioList();
   });
   bind("activity-ratio-list", "change", e => {
-    if (e.target.dataset.field !== "ratio") return;
+    const f = e.target.dataset.field;
+    if (f !== "ratio" && f !== "name") return;
     const r = state.settings.activityRatios.find(x => x.id === e.target.dataset.id);
-    if (r) { r.ratio = parseFloat(e.target.value) || r.ratio; saveState(); }
+    if (!r) return;
+    if (f === "name") { renameRatio(state.settings.activityRatios, r, e.target.value); saveState(); renderActivityRatioList(); return; }
+    r.ratio = parseFloat(e.target.value) || r.ratio; saveState();
   });
   bind("add-activity-btn", "click", () => {
     const name = prompt("Activity name (e.g. Sport, Stress):");

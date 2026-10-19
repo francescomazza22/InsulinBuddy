@@ -2,6 +2,15 @@
 // summary can never drift. Bump CHANGELOG[0].version here (and CACHE_VERSION in sw.js) on every release.
 export const CHANGELOG = [
   {
+    version: "2.49.1",
+    summary: "Time-of-day ranges and activity ratios can now be renamed.",
+    changes: [
+      "Open a range in Settings and use the new Name box; activity ratios have their name field right on the row",
+      "Meals already logged under the old name move to the new one, so your insights stay together",
+      "Names must be unique and can't be blank. Doses are unchanged"
+    ]
+  },
+  {
     version: "2.49.0",
     summary: "Ratio ranges can now be limited to certain days of the week, and can overlap.",
     changes: [
