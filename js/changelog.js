@@ -2,6 +2,17 @@
 // summary can never drift. Bump CHANGELOG[0].version here (and CACHE_VERSION in sw.js) on every release.
 export const CHANGELOG = [
   {
+    version: "2.50.0",
+    summary: "Tidier, more thumb-friendly forms and buttons across the app.",
+    changes: [
+      "Every text box, number box, date box and dropdown is now the same height. Three Settings dropdowns (units, rounding, check-after) were only half as tall as the rest",
+      "Small buttons (close, back, delete, favourite, the ratio and Correction pills, Restore and the info dots) keep their look but have a bigger touch area, so they are easier to hit with a thumb",
+      "The tick boxes (Favourite and so on) can be tapped anywhere on their line",
+      "In dark mode the carbs and calorie figures in food lists are brighter and easier to read, and the labels on the Settings timeline have a soft shadow so they read on pale colours",
+      "Doses are unchanged"
+    ]
+  },
+  {
     version: "2.49.2",
     summary: "The ratio list on the calculator only shows ranges that apply today.",
     changes: [

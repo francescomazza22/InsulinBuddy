@@ -1509,8 +1509,7 @@ html[data-theme="dark"] { --glass-sheet: rgba(30,36,43,0.90); }
 .spark__line { stroke: var(--acc-1, #3B82F6); stroke-width: 1.6; vector-effect: non-scaling-stroke; stroke-linejoin: round; }
 
 /* Recipe editor: the Category dropdown and the weight boxes get the same padding as the Recipe Name box, so the row reads as one set. */
-.sheet .field > select, .sheet .field-grid input[type="number"] { padding: var(--space-m); font-size: 16px; box-sizing: border-box; min-height: 52px; }
-.sheet .field > input[type="text"] { min-height: 52px; }
+.sheet .field > select, .sheet .field-grid input[type="number"] { padding: var(--space-m); font-size: 16px; box-sizing: border-box; }
 .ingredient-total { margin-top: var(--space-s); padding: var(--space-s) var(--space-m); border: 1.5px solid var(--line); border-radius: var(--radius-s); background: var(--surface); }
 .ingredient-total__row { display: flex; justify-content: space-between; align-items: baseline; font-size: var(--fs-m); color: var(--ink); font-variant-numeric: tabular-nums; }
 .ingredient-total.is-warn { border-color: var(--acc-1); }
@@ -1526,5 +1525,36 @@ html[data-theme="dark"] { --glass-sheet: rgba(30,36,43,0.90); }
 
 .ratio-name { display: flex; align-items: center; gap: var(--space-s); flex-basis: 100%; font-size: var(--fs-m); font-weight: 600; }
 .ratio-name input { flex: 1; min-width: 0; padding: var(--space-s) var(--space-m); font-size: 16px; }
-.ratio-row__name-input { flex: 1; min-width: 0; padding: 6px 8px; font-size: 16px; font-weight: 600; background: transparent; border-color: transparent; }
-.ratio-row__name-input:focus { background: var(--surface); border-color: var(--acc-1); outline: none; }
+input.ratio-row__name-input { flex: 1; min-width: 0; padding: 6px 8px; font-size: 16px; font-weight: 600; background: transparent; border-color: transparent; }
+input.ratio-row__name-input:focus { background: var(--surface); border-color: var(--acc-1); outline: none; }
+
+/* ================= UI sweep: one field height, thumb-sized taps =================
+   Every text box, number box, date/time box and dropdown is the same height, so fields never look mismatched side by side
+   (they were 22, 34, 42, 44, 46 and 52 px). Compact in-row editors (an ingredient's grams, a range's times) are 40 px. */
+:root { --field-h: 52px; --tap: 44px; }
+.app :is(input[type="text"], input[type="number"], input[type="search"], input[type="email"], input[type="url"], input[type="password"], input[type="time"], input[type="date"], input[type="datetime-local"], select),
+.sheet-backdrop :is(input[type="text"], input[type="number"], input[type="search"], input[type="email"], input[type="url"], input[type="password"], input[type="time"], input[type="date"], input[type="datetime-local"], select),
+.dialog__input { min-height: var(--field-h); box-sizing: border-box; }
+.app select, .sheet-backdrop select { padding: 12px 36px 12px 14px; font-size: 16px; }
+.ratio-row__edit :is(input[type="text"], input[type="number"], input[type="time"]), .ratio-row__top input, .ratio-row__name-input, .ingredient-row__input, input.meal-item__grams-input { min-height: 40px; }
+.field__row input, .basal-dose-row input, .field-inline-row input, .ingredient-add-row input { min-height: 0; }
+.field__row, .ingredient-add-row input, .field-inline-row input { min-height: var(--field-h); }
+.field-inline-row input { padding-top: 0; padding-bottom: 0; }
+.checkbox-row label { display: flex; align-items: center; gap: var(--space-xs); min-height: var(--tap); cursor: pointer; }
+.checkbox-row input { width: 22px; height: 22px; }
+
+/* Small buttons keep their look but get a 44 px touch area: an invisible layer reaches out around them. */
+.sheet-close, .sheet-back, .lib-item__actions button, .lib-item__star, .ingredient-row button, .ratio-row__del, .info-btn,
+.pill-btn, .carbs-pill--ratio, .browse-btn, .sync-chip, .segmented__btn, .data-row button[data-restore], [data-restore] { position: relative; }
+.sheet-close::after, .sheet-back::after, .lib-item__actions button::after, .lib-item__star::after, .ingredient-row button::after, .ratio-row__del::after, .info-btn::after,
+.pill-btn::after, .carbs-pill--ratio::after, .browse-btn::after, .sync-chip::after, .segmented__btn::after, [data-restore]::after {
+  content: ""; position: absolute; left: 50%; top: 50%; width: max(100%, var(--tap)); height: max(100%, var(--tap)); transform: translate(-50%, -50%);
+}
+.segmented__btn { min-height: 38px; }
+[data-restore] { min-height: 36px; padding-left: 14px; padding-right: 14px; }
+
+/* Dark-theme legibility: the carb and calorie figures in food lists were too dim on the dark cards (2.7:1), and the white labels on
+   the coloured Settings timeline were hard to read on the pale colours (yellow 2.3:1). */
+html[data-theme="dark"] :is(.c-carbs) { color: #7FD8A4; }
+html[data-theme="dark"] :is(.c-kcal) { color: #F0BE5E; }
+.timeline__seg { text-shadow: 0 1px 2px rgba(0,0,0,.55); }
