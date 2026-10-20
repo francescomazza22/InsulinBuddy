@@ -2,6 +2,16 @@
 // summary can never drift. Bump CHANGELOG[0].version here (and CACHE_VERSION in sw.js) on every release.
 export const CHANGELOG = [
   {
+    version: "2.51.1",
+    summary: "The Current meal tile and the log tiles now match in size and spacing.",
+    changes: [
+      "The Current meal tile on the Calculator had grown far too tall since 2.50 because a hidden text box inside it had been stretched. It is back to a compact tile, sized in step with the log rows",
+      "Ingredient rows in the recipe editor are compact again for the same reason",
+      "Log rows are all about the same height: the GI chip now sits next to the food names instead of stacking under the dose, and the Basal row is centred to match",
+      "Doses are unchanged"
+    ]
+  },
+  {
     version: "2.51.0",
     summary: "Fresher colours, a clearer dose badge in the log, editable entry type, and swipe to edit.",
     changes: [

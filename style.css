@@ -1532,11 +1532,12 @@ input.ratio-row__name-input:focus { background: var(--surface); border-color: va
    Every text box, number box, date/time box and dropdown is the same height, so fields never look mismatched side by side
    (they were 22, 34, 42, 44, 46 and 52 px). Compact in-row editors (an ingredient's grams, a range's times) are 40 px. */
 :root { --field-h: 52px; --tap: 44px; }
-.app :is(input[type="text"], input[type="number"], input[type="search"], input[type="email"], input[type="url"], input[type="password"], input[type="time"], input[type="date"], input[type="datetime-local"], select),
-.sheet-backdrop :is(input[type="text"], input[type="number"], input[type="search"], input[type="email"], input[type="url"], input[type="password"], input[type="time"], input[type="date"], input[type="datetime-local"], select),
+/* :where() keeps this rule at zero specificity, so any component that needs a compact input (a grams box inside a row) just says so. */
+:where(.app, .sheet-backdrop) :where(input[type="text"], input[type="number"], input[type="search"], input[type="email"], input[type="url"], input[type="password"], input[type="time"], input[type="date"], input[type="datetime-local"], select),
 .dialog__input { min-height: var(--field-h); box-sizing: border-box; }
 .app select, .sheet-backdrop select { padding: 12px 36px 12px 14px; font-size: 16px; }
-.ratio-row__edit :is(input[type="text"], input[type="number"], input[type="time"]), .ratio-row__top input, .ratio-row__name-input, .ingredient-row__input, input.meal-item__grams-input { min-height: 40px; }
+.ratio-row__edit :is(input[type="text"], input[type="number"], input[type="time"]), .ratio-row__top input, .ratio-row__name-input, .ingredient-row__input, .em-grams-input { min-height: 40px; }
+input.meal-item__grams-input { min-height: 0; }
 .field__row input, .basal-dose-row input, .field-inline-row input, .ingredient-add-row input { min-height: 0; }
 .field__row, .ingredient-add-row input, .field-inline-row input { min-height: var(--field-h); }
 .field-inline-row input { padding-top: 0; padding-bottom: 0; }
@@ -1574,3 +1575,12 @@ html[data-theme="dark"] :is(.c-kcal) { color: #F0BE5E; }
 .hs-row:not(.is-open) .hs-actions button { visibility: hidden; }
 .hs-row.is-open .hs-actions button, .hs-row .history-entry[style*="translateX"] .hs-actions button { visibility: visible; }
 @media (prefers-reduced-motion: reduce) { .hs-row .history-entry { transition: none; } }
+
+/* Tiles share one scale: the Current meal tile on the Calculator and the rows in the log have the same padding, name size, detail size
+   and a similar height. (The log's GI chip sits with the food names instead of stacking under the dose and making some rows taller.) */
+.meal-item__content { padding: var(--space-m) 14px; min-height: 60px; }
+.meal-item__name { font-size: var(--fs-l); line-height: 1.25; }
+.meal-item__meta { font-size: var(--fs-s); margin-top: 3px; }
+.meal-item__carbs { font-size: var(--fs-l); }
+.history-entry { align-items: center; min-height: 76px; }
+.history-entry__foods .gl-indicator { margin-left: var(--space-2xs); vertical-align: 1px; }

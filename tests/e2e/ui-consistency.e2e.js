@@ -30,4 +30,11 @@ hs = await heights(".sheet-backdrop");
 t.check("Basal sheet: the dose and date boxes match", hs.length >= 1 && new Set(hs.map(x => x.h)).size === 1, JSON.stringify(hs));
 const bc = await hitSize("#basal-close");
 t.check("basal close has a 44px touch area", bc && bc.w >= 44 && bc.h >= 44, JSON.stringify(bc));
+
+t.section("UI: tiles share one scale");
+await dev.tab("calculator"); await sleep(300);
+await dev.eval(`document.querySelector(".food-pick-item").click()`); await sleep(300);
+await dev.eval(`(() => { const g = document.getElementById("cc-grams"); g.value = "80"; g.dispatchEvent(new Event("input", { bubbles: true })); const b = document.getElementById("cc-add-btn"); if (b) b.click(); })()`); await sleep(500);
+const tile = await dev.eval(`(() => { const m = document.querySelector(".meal-item"); const i = m && m.querySelector(".meal-item__grams-input"); return m ? { tile: Math.round(m.getBoundingClientRect().height), input: i ? Math.round(i.getBoundingClientRect().height) : 0 } : null; })()`);
+t.check("the Current meal tile is compact (under 80px) and its grams text is not stretched", tile && tile.tile > 40 && tile.tile < 80 && tile.input < 30, JSON.stringify(tile));
 dev.close(); await app.close(); t.done && t.done(); process.exit(0);
