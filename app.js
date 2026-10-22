@@ -18,6 +18,7 @@ import { randomBytes, toB64, fromB64, deriveKey, encryptString, decryptString, i
 import { LocalBackups, shouldAutoSnapshot } from "./js/backup.js";
 import { doseBadge, groupByDay, takeEntries, matchesQuery, recentDistinctMeals, mealLabel, dosingSummary, insulinStats, isBasalEntry, basalSlotForTime, basalSlotLabel, lastBasalDose, basalDoseCheck, makeBasalEntry, PAGE_SIZE } from "./js/history.js";
 import { createDialogs } from "./js/dialogs.js";
+import { installClearButtons } from "./js/clear-field.js";
 import { toMinutes, inRange, ratioAt, ratioMatch, bracketDays, daysLabel, DAY_NAMES, autoMealType, formatDuration, clampNum } from "./js/core/time.js";
 import { toCsv, parseCsv, recipeTotals as recipeTotalsWith, parseLibraryFile, mergeLibrary } from "./js/core/library.js";
 import { buildMealEntry, adjustUsage } from "./js/core/meal-entry.js";
@@ -337,6 +338,7 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
 
   // ================= Services: dialogs, diagnostics, local backups, Nightscout =================
   const dialogs = createDialogs(document);
+  installClearButtons(document);   // the X at the end of every text field while it is being edited
   const diagSecrets = () => { try { return [nightscoutToken()]; } catch { return []; } };
   const diag = createDiag({ storage: store, secrets: diagSecrets });
   hookGlobalErrors(window, diag);
@@ -756,7 +758,7 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
             <svg viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
           </button>
         </div>
-        <div class="segmented browse-tabs" id="browse-tabs">
+        <div class="segmented segmented--sub browse-tabs" id="browse-tabs">
           <button class="segmented__btn" data-tab="fav" type="button">Favourites</button>
           <button class="segmented__btn" data-tab="used" type="button">Most used</button>
           <button class="segmented__btn" data-tab="recipes" type="button">Recipes</button>
@@ -928,8 +930,7 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
       row.classList.remove("is-swiped");
       const gramsInput = row.querySelector(".meal-item__grams-input");
       gramsInput.classList.add("is-editing");
-      gramsInput.focus();
-      gramsInput.select();
+      gramsInput.focus();   // caret after the number, nothing pre-selected
     }
   });
 
@@ -1324,6 +1325,7 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
     box.innerHTML = `<p class="panel-card__hint">Loading…</p>`;
     const result = await fetchStoredGlucoseReadings(days);
     if (!box.isConnected) return; // left the tab while this was loading
+    if (!result.ok && result.signIn) { box.innerHTML = `<div class="empty-state"><p>No glucose history yet</p><p class="empty-state__sub">${escapeHtml(result.reason)} Your readings then build up here.</p></div>`; return; }
     if (!result.ok) { box.innerHTML = `<p class="panel-card__hint" style="color:#B91C1C;">${escapeHtml(result.reason)}</p>`; return; }
 
     const readings = result.readings;
@@ -1841,7 +1843,8 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
 
     refreshSlot();
     openSheet(backdrop);
-    unitsInput.focus({ preventScroll: true }); unitsInput.select();   // so typing today's dose replaces the prefilled one
+    unitsInput.focus({ preventScroll: true });   // caret after the prefilled dose, nothing pre-selected; the X or backspace clears it
+    try { const n = unitsInput.value.length; unitsInput.setSelectionRange(n, n); } catch { /* number inputs have no selection API */ }
   }
 
   // Quick-reference panel: mg/dL and mmol/L side by side, 40-400 in steps of 10. Split into two halves
@@ -2983,7 +2986,7 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
   const GLUCOSE_CACHE_TTL_MS = 60_000;
 
   async function fetchStoredGlucoseReadings(days) {
-    if (!supabaseClient || !currentUser) return { ok: false, reason: "Sign in to Cloud Sync to build up glucose history." };
+    if (!supabaseClient || !currentUser) return { ok: false, signIn: true, reason: "Sign in to Cloud Sync to build up glucose history." };
     if (!nightscoutConfigured()) return { ok: false, reason: "Set up Nightscout Sync first." };
     const cached = glucoseReadingsCache.get(days);
     if (cached && Date.now() - cached.at < GLUCOSE_CACHE_TTL_MS) return { ok: true, readings: cached.readings };
@@ -5699,6 +5702,8 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
       const last = segs[segs.length - 1];
       if (last && last.r === r && last.end === m) last.end = m + 15; else segs.push({ start: m, end: m + 15, r });
     }
+    // Full "Morning · 1:10" only where it fits; a narrow slice shows just its ratio, a sliver shows nothing (the rows below name every range).
+    const barPx = bar.clientWidth || 320, fits = (text, px) => text.length * 6.6 + 12 <= px;
     segs.forEach(seg => {
       const width = ((seg.end - seg.start) / 1440) * 100;
       if (width <= 0) return;
@@ -5706,7 +5711,9 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
       div.className = "timeline__seg";
       div.style.width = width + "%";
       div.style.background = seg.r.color;
-      div.textContent = width > 10 ? `${seg.r.name} · 1:${seg.r.ratio}` : "";
+      const px = width / 100 * barPx, full = `${seg.r.name} · 1:${seg.r.ratio}`, short = `1:${seg.r.ratio}`;
+      div.textContent = fits(full, px) ? full : fits(short, px) ? short : "";
+      div.title = full;
       bar.appendChild(div);
     });
 

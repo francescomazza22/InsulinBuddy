@@ -1633,3 +1633,81 @@ input.meal-item__grams-input.is-editing { width: 64px; }
 .history-entry__stats { gap: var(--space-3xs); }
 /* On wide screens a general "inputs are body size" rule out-ranked the grams box, so its number looked bigger than the "g" beside it. */
 .app .meal-item input.meal-item__grams-input:not(.is-editing) { font-size: inherit; }
+
+/* ================= TIDY 2: the rest of the app (2.53.0) ================= */
+
+/* Secondary switches (a date range, a sub-view, Foods/Recipes) are slimmer and quieter than the main tabs above
+   them, so a screen never shows two or three identical heavy bars stacked on top of each other. */
+.segmented.segmented--sub {
+  border: 0; box-shadow: none; padding: 3px; margin-bottom: var(--space-m);
+  background: color-mix(in srgb, var(--ink-soft) 10%, transparent);
+}
+.segmented--sub .segmented__btn { min-height: 30px; padding: var(--space-2xs) var(--space-xs); font-size: var(--fs-s); }
+.segmented--sub .segmented__btn.is-active { background: var(--surface); color: var(--ink); box-shadow: 0 1px 3px rgba(0,0,0,0.12), 0 0 0 1px var(--line) inset; }
+#glucose-view-segmented { margin-top: calc(-1 * var(--space-2xs)); }
+
+/* Trends cards: the line under a chart title is a quiet subtitle, not a second title; longer notes read left-aligned. */
+.trend-readout { font-weight: 500; color: var(--ink-soft); margin: calc(-1 * var(--space-2xs)) 0 var(--space-s); }
+.panel-card .trend-caption, #trend-insights .trend-caption { text-align: left; line-height: 1.45; }
+.ideal-window { margin: var(--space-s) 0 var(--space-m); }
+.ins-heading { margin-left: 0; margin-right: 0; }
+
+/* Settings: a field with a unit ("50 mg/dL") is one box, not a box inside a box. */
+.field__row input[type] { border: 0; border-radius: 0; background: transparent; box-shadow: none; }
+
+/* Ratio rows: the 1:10 pill and the bin line up down the list, whatever the length of the name. */
+.ratio-row__top > span:first-child { flex: 1; min-width: 0; }
+.ratio-row__value { min-width: 52px; text-align: center; }
+.timeline__seg { padding: 0 var(--space-3xs); }
+
+/* Insulin type: three equal choices on one row instead of a lopsided 2 + 1. */
+.insulin-preset-grid { grid-template-columns: repeat(3, 1fr); }
+.insulin-preset-btn--wide { grid-column: auto; }
+.insulin-preset-btn { display: flex; align-items: center; justify-content: center; min-height: var(--field-h); padding: var(--space-xs) var(--space-2xs); font-size: var(--fs-s); line-height: 1.25; }
+
+/* A secondary button ("Learn from my history now") had no style of its own and showed as a glaring white block in dark mode. */
+.btn--ghost { background: var(--surface); color: var(--acc-1); border: 1.5px solid var(--line); }
+.btn--ghost:active { background: var(--paper); }
+
+/* Library chips in dark mode: a soft tint of their colour instead of bright pastel blocks. */
+html[data-theme="dark"] .lib-item__badge { filter: none; background: color-mix(in srgb, currentColor 16%, transparent); }
+html[data-theme="dark"] .cat-fruits { color: #F29BBE; }
+html[data-theme="dark"] .cat-vegetables { color: #95D386; }
+html[data-theme="dark"] .cat-grains { color: #E6C165; }
+html[data-theme="dark"] .cat-protein { color: #A3B3F6; }
+html[data-theme="dark"] .cat-dairy { color: #86C9E0; }
+html[data-theme="dark"] .cat-beverages { color: #74D5C5; }
+html[data-theme="dark"] .cat-snacks { color: #C9A2F3; }
+html[data-theme="dark"] .cat-other { color: #AEB8C4; }
+
+/* Recipe editor: search, grams and + on one line, like the Calculator. */
+.ingredient-box { display: flex; flex-wrap: wrap; column-gap: var(--space-xs); align-items: flex-start; }
+.ingredient-search-wrap { flex: 1 1 140px; min-width: 0; margin-bottom: 0; }
+.ingredient-add-row { flex: 0 0 auto; }
+.ingredient-box > :not(.ingredient-search-wrap):not(.ingredient-add-row) { flex: 0 0 100%; }
+
+/* The clear (X) at the end of a text field while it's being edited (js/clear-field.js). One look everywhere,
+   including the Calculator's food search, which keeps its own button. */
+.field-clear, .search-input-clear {
+  position: absolute; z-index: 2; width: 28px; height: 28px; padding: 0; border: 0; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center; cursor: pointer;
+  background: color-mix(in srgb, var(--ink-soft) 22%, transparent); color: var(--ink);
+}
+.search-input-clear { right: var(--space-xs); }
+.field-clear svg, .search-input-clear svg { width: 14px; height: 14px; display: block; }
+.field-clear::after { content: ""; position: absolute; inset: -8px; }
+.dose-card .field-clear { background: rgba(255,255,255,0.28); color: #fff; }
+input.has-clear { padding-right: 44px !important; }
+input.add-row__search { padding-right: 44px; }
+input[type="search"]::-webkit-search-cancel-button { -webkit-appearance: none; appearance: none; display: none; }
+.field-clear--compact { width: 22px; height: 22px; }
+.field-clear--compact svg { width: 12px; height: 12px; }
+input.has-clear--compact { padding-left: var(--space-2xs) !important; padding-right: 30px !important; text-align: left !important; }
+
+/* One focus look for every field: the border turns the accent colour with a soft halo (it was a double ring on
+   some boxes and only a border change on others). Boxes with a unit beside them light up as one row. */
+input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):focus-visible, select:focus-visible, textarea:focus-visible {
+  outline: none; border-color: var(--acc-1); box-shadow: 0 0 0 3px rgba(var(--acc-1-rgb), 0.2);
+}
+.field__row input:focus-visible, .correction-row__input input:focus-visible, input.meal-item__grams-input:focus-visible { box-shadow: none; }
+.field__row:focus-within { border-color: var(--acc-1); box-shadow: 0 0 0 3px rgba(var(--acc-1-rgb), 0.2); }

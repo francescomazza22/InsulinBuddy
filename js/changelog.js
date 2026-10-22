@@ -2,6 +2,21 @@
 // summary can never drift. Bump CHANGELOG[0].version here (and CACHE_VERSION in sw.js) on every release.
 export const CHANGELOG = [
   {
+    version: "2.53.0",
+    summary: "Every text box gets a clear X, nothing opens pre-selected, and the rest of the app is tidied to match the Calculator.",
+    changes: [
+      "While you type in any text or number box, a small X sits at its right-hand end. Tap it to empty the box; the keyboard stays up. It disappears when you leave the box",
+      "Nothing opens with its text already selected: the Log basal box shows last time's dose with the cursor after it, and editing a meal's grams does the same. Typing no longer wipes the number by surprise",
+      "Every box looks the same when you're in it: an accent-coloured border with a soft glow (some had a double ring, others only changed colour)",
+      "Date-range and sub-view switches (7 / 14 / 30 days, Daily Pattern, Foods / Recipes, the Browse tabs) are slimmer and quieter than the main tabs, so screens no longer stack two or three identical bars",
+      "Trends: the line under each chart title is a quiet subtitle, and longer notes read left-aligned",
+      "Glucose: not being signed in to Cloud Sync is shown as a calm empty message instead of red error text",
+      "Settings: boxes with a unit (50 mg/dL) are one box instead of a box inside a box; the ratio pills and bins line up; the ratio timeline never cuts a label in half; the three insulin types sit on one row; Learn from my history now is no longer a glaring white block in dark mode; food category chips are softer in dark mode",
+      "Recipe editor: ingredient search, grams and + now sit on one line, like the Calculator",
+      "Doses are unchanged"
+    ]
+  },
+  {
     version: "2.52.0",
     summary: "A tidier Calculator and log: even spacing, one text size per job, nothing cut off.",
     changes: [

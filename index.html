@@ -237,7 +237,7 @@
 
         <div class="add-row">
           <div class="search-input-wrap">
-            <input type="text" id="cc-search" class="add-row__search" placeholder="Search foods&hellip;" autocomplete="off">
+            <input type="text" id="cc-search" class="add-row__search" placeholder="Search foods&hellip;" autocomplete="off" data-noclear>
             <button class="search-input-clear" id="cc-search-clear" type="button" aria-label="Clear search" hidden>
               <svg viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
             </button>
@@ -293,7 +293,7 @@
       </div>
 
       <div id="history-trends-panel" hidden>
-        <div class="segmented" id="trends-range-segmented">
+        <div class="segmented segmented--sub" id="trends-range-segmented">
           <button class="segmented__btn" data-range="7" type="button">7 days</button>
           <button class="segmented__btn is-active" data-range="14" type="button">14 days</button>
           <button class="segmented__btn" data-range="30" type="button">30 days</button>
@@ -340,13 +340,13 @@
       </div>
 
       <div id="history-glucose-panel" hidden>
-        <div class="segmented" id="glucose-range-segmented">
+        <div class="segmented segmented--sub" id="glucose-range-segmented">
           <button class="segmented__btn" data-range="7" type="button">7 days</button>
           <button class="segmented__btn is-active" data-range="14" type="button">14 days</button>
           <button class="segmented__btn" data-range="30" type="button">30 days</button>
           <button class="segmented__btn" data-range="90" type="button">90 days</button>
         </div>
-        <div class="segmented" id="glucose-view-segmented" style="margin-top:8px;">
+        <div class="segmented segmented--sub" id="glucose-view-segmented">
           <button class="segmented__btn is-active" data-glview="pattern" type="button">Daily Pattern</button>
           <button class="segmented__btn" data-glview="tir" type="button">Time in Range</button>
           <button class="segmented__btn" data-glview="stats" type="button">Statistics</button>
@@ -396,7 +396,7 @@
           </button>
         </div>
 
-      <div class="segmented" id="lib-segmented">
+      <div class="segmented segmented--sub" id="lib-segmented">
         <button class="segmented__btn is-active" data-seg="foods" type="button">Foods</button>
         <button class="segmented__btn" data-seg="recipes" type="button">Recipes</button>
       </div>

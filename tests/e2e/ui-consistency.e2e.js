@@ -4,6 +4,7 @@ import { FOODS_JS, stateBlob, meal } from "./helpers.js";
 const DIR = new URL("../..", import.meta.url).pathname;
 const t = makeChecker(); const sleep = ms => new Promise(r => setTimeout(r, ms));
 const app = await startApp(DIR, null, { "foods_data.js": FOODS_JS, "manifest.json": "{}" });
+const basalSeed = slot => ({ id: "bas-" + slot, ts: Date.now() - (slot === "am" ? 30 : 31) * 3600000, entryType: "basal", mealType: "basal", periodName: slot === "am" ? "morning" : "evening", basalDose: 14, basalSlot: slot, items: [], totalCarbs: 0, totalKcal: 0, glycemicLoad: null, mealDose: 0, correctionDose: 0, noInsulin: false, glucose: null, ratioLabel: "", ratioValue: null });
 const blob = stateBlob({ history: [meal("gi1", Date.now() - 3600000, { glycemicLoad: { value: 35, partial: true }, items: [{ refType: "food", refId: "s1", name: "Banana Bread", grams: 69, carbsPer100g: 41, kcalPer100g: 250, gi: 35, carbs: 28.5, kcal: 172 }, { refType: "food", refId: "s2", name: "Nutella", grams: 10, carbsPer100g: 60, kcalPer100g: 540, gi: 33, carbs: 6, kcal: 54 }] })] });
 blob.recipes = [{ id: "r1", name: "Banana Bread", category: "snacks", notes: "", favorite: false, usageCount: 0, rawWeight: null, finalWeight: 559, items: [{ foodId: "s1", name: "Zucchero", grams: 87, carbsPer100g: 100, kcalPer100g: 400 }] }];
 const dev = await openDevice(app, { width: 390, height: 844, mobile: true, inject: `if (!localStorage.getItem("insulinBuddy.v2")) { ${seedLocal(blob)} }`, wait: 1800 });
@@ -52,4 +53,25 @@ t.section("UI: the log's GI chip stays whole");
 await dev.tab("history"); await sleep(400);
 const chip = await dev.eval(`(() => { const g = document.querySelector('[data-id="gi1"] .history-entry__foods .gl-indicator'); if (!g) return null; return { rects: g.getClientRects().length, h: Math.round(g.getBoundingClientRect().height) }; })()`);
 t.check("the GI chip in a log row is one piece on one line", chip && chip.rects === 1 && chip.h <= 20, JSON.stringify(chip));
-dev.close(); await app.close(); t.done && t.done(); process.exit(0);
+t.section("UI: every text field has a clear X while editing, and nothing opens pre-selected");
+await dev.cdp.send("Page.bringToFront"); await dev.cdp.send("Emulation.setFocusEmulationEnabled", { enabled: true });   // headless Chrome only delivers focus and key events to a front, focused page
+await dev.tab("settings"); await dev.click('#settings-segmented [data-seg="ratios"]'); await sleep(200);
+const cx = await dev.eval(`(() => { const i = document.getElementById("set-isf"); i.focus(); const b = document.querySelector(".field-clear"); if (!b || !b.isConnected) return { shown: false }; const ir = i.getBoundingClientRect(), br = b.getBoundingClientRect(); let fired = 0; i.addEventListener("input", () => fired++, { once: true }); b.click(); return { shown: true, inside: br.left > ir.left + ir.width / 2 && br.right <= ir.right + 1 && br.top >= ir.top && br.bottom <= ir.bottom + 1, value: i.value, fired, focused: document.activeElement === i, goneWhenEmpty: !b.isConnected }; })()`);
+t.check("a Settings number field shows an X inside its right-hand end while focused", cx.shown && cx.inside, JSON.stringify(cx));
+t.check("tapping the X empties the field, tells the app, and keeps the keyboard up", cx.value === "" && cx.fired === 1 && cx.focused && cx.goneWhenEmpty, JSON.stringify(cx));
+await dev.eval(`document.activeElement.blur()`); await sleep(100);
+await dev.tab("history"); await sleep(200);
+const hx = await dev.eval(`(() => { const i = document.getElementById("history-search"); i.focus(); i.value = "pane"; i.dispatchEvent(new Event("input", { bubbles: true })); const b = document.querySelector(".field-clear"); const shown = !!b && b.isConnected; i.blur(); return { shown, hiddenAfterBlur: !document.querySelector(".field-clear") }; })()`);
+t.check("the meal search gets the same X, and it goes away when you leave the field", hx.shown && hx.hiddenAfterBlur, JSON.stringify(hx));
+await dev.eval(`(() => { const i = document.getElementById("history-search"); i.value = ""; i.dispatchEvent(new Event("input", { bubbles: true })); })()`);
+dev.close();
+// Fresh device: the basal sheet opens on last time's dose with the caret after it (typing adds to it; the X clears it).
+const dev2 = await openDevice(app, { width: 390, height: 844, mobile: true, inject: `if (!localStorage.getItem("insulinBuddy.v2")) { ${seedLocal(stateBlob({ history: [basalSeed("am"), basalSeed("pm")] }))} }`, wait: 1800 });
+await dev2.cdp.send("Emulation.setFocusEmulationEnabled", { enabled: true });
+await dev2.tab("history"); await sleep(300);
+await dev2.eval(`document.getElementById("btn-log-basal").click()`); await sleep(600);
+const before = await dev2.eval(`document.getElementById("basal-units").value`);
+await dev2.cdp.send("Input.insertText", { text: "5" }); await sleep(100);   // a pre-selected box would be replaced by the "5"
+const after = await dev2.eval(`document.getElementById("basal-units").value`);
+t.check("the basal dose box opens with last time's dose, not pre-selected (typing adds to it instead of wiping it)", before === "14" && after === "145", JSON.stringify({ before, after }));
+dev2.close(); await app.close(); t.done && t.done(); process.exit(0);
