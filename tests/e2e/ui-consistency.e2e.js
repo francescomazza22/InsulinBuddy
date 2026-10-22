@@ -64,6 +64,14 @@ await dev.tab("history"); await sleep(200);
 const hx = await dev.eval(`(() => { const i = document.getElementById("history-search"); i.focus(); i.value = "pane"; i.dispatchEvent(new Event("input", { bubbles: true })); const b = document.querySelector(".field-clear"); const shown = !!b && b.isConnected; i.blur(); return { shown, hiddenAfterBlur: !document.querySelector(".field-clear") }; })()`);
 t.check("the meal search gets the same X, and it goes away when you leave the field", hx.shown && hx.hiddenAfterBlur, JSON.stringify(hx));
 await dev.eval(`(() => { const i = document.getElementById("history-search"); i.value = ""; i.dispatchEvent(new Event("input", { bubbles: true })); })()`);
+t.section("UI: the Log bar never covers the tab bar");
+await dev.tab("calculator"); await sleep(300);
+const lap = () => dev.eval(`(() => { const l = document.getElementById("cc-sticky-log-bar").getBoundingClientRect(), b = document.querySelector(".tabbar").getBoundingClientRect(); return Math.round(l.bottom - b.top); })()`);
+const lap0 = await lap();
+await dev.cdp.send("Emulation.setSafeAreaInsetsOverride", { insets: { top: 47, bottom: 34 } }); await sleep(400);   // the iPhone home strip arriving after start-up
+const lap1 = await lap();
+await dev.cdp.send("Emulation.setSafeAreaInsetsOverride", { insets: {} }).catch(() => {});
+t.check("the Log bar sits on the tab bar, also when the iPhone's bottom safe area appears after start-up", lap0 === 0 && lap1 === 0, JSON.stringify({ atStart: lap0, afterSafeArea: lap1 }));
 dev.close();
 // Fresh device: the basal sheet opens on last time's dose with the caret after it (typing adds to it; the X clears it).
 const dev2 = await openDevice(app, { width: 390, height: 844, mobile: true, inject: `if (!localStorage.getItem("insulinBuddy.v2")) { ${seedLocal(stateBlob({ history: [basalSeed("am"), basalSeed("pm")] }))} }`, wait: 1800 });

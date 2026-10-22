@@ -6269,6 +6269,14 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
     if (!restorePlace()) showView("calculator");
     syncTabbarHeightVar();
     window.addEventListener("resize", syncTabbarHeightVar);
+    // The tab bar can change height without the window resizing: on the iPhone home-screen app the bottom safe area
+    // (the home-indicator strip) is often applied after start-up, and fonts can load late. Measuring only at start-up
+    // left the Log bar sitting over the tab bar. A ResizeObserver only fires when a size really changes, so it costs nothing at rest.
+    if (typeof ResizeObserver === "function") {
+      const ro = new ResizeObserver(() => syncTabbarHeightVar());
+      [document.querySelector(".tabbar"), el("cc-sticky-log-bar")].forEach(n => { if (n) ro.observe(n, { box: "border-box" }); });   // border-box: the safe area changes padding, not content
+    }
+    window.addEventListener("pageshow", syncTabbarHeightVar);
 
     // Keep the auto-selected ratio (and the settings timeline's "now" marker) accurate
     // as real time passes, not just at page load.

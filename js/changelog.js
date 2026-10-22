@@ -2,6 +2,14 @@
 // summary can never drift. Bump CHANGELOG[0].version here (and CACHE_VERSION in sw.js) on every release.
 export const CHANGELOG = [
   {
+    version: "2.53.1",
+    summary: "The Log Meal button no longer sits on top of the tab bar on iPhone.",
+    changes: [
+      "On the iPhone home-screen app the Log Meal to History bar could overlap the Calculator / Insights / Settings tabs. The phone adds its home-indicator space after the app starts, which made the tab bar taller, but the Log bar kept its old position. It now moves whenever the tab bar changes size",
+      "Doses are unchanged"
+    ]
+  },
+  {
     version: "2.53.0",
     summary: "Every text box gets a clear X, nothing opens pre-selected, and the rest of the app is tidied to match the Calculator.",
     changes: [
