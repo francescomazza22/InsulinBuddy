@@ -1,10 +1,10 @@
 // UI sweep guard: fields share one height, and small icon buttons have a thumb-sized touch area.
 import { startApp, openDevice, makeChecker, seedLocal } from "./harness.js";
-import { FOODS_JS, stateBlob } from "./helpers.js";
+import { FOODS_JS, stateBlob, meal } from "./helpers.js";
 const DIR = new URL("../..", import.meta.url).pathname;
 const t = makeChecker(); const sleep = ms => new Promise(r => setTimeout(r, ms));
 const app = await startApp(DIR, null, { "foods_data.js": FOODS_JS, "manifest.json": "{}" });
-const blob = stateBlob();
+const blob = stateBlob({ history: [meal("gi1", Date.now() - 3600000, { glycemicLoad: { value: 35, partial: true }, items: [{ refType: "food", refId: "s1", name: "Banana Bread", grams: 69, carbsPer100g: 41, kcalPer100g: 250, gi: 35, carbs: 28.5, kcal: 172 }, { refType: "food", refId: "s2", name: "Nutella", grams: 10, carbsPer100g: 60, kcalPer100g: 540, gi: 33, carbs: 6, kcal: 54 }] })] });
 blob.recipes = [{ id: "r1", name: "Banana Bread", category: "snacks", notes: "", favorite: false, usageCount: 0, rawWeight: null, finalWeight: 559, items: [{ foodId: "s1", name: "Zucchero", grams: 87, carbsPer100g: 100, kcalPer100g: 400 }] }];
 const dev = await openDevice(app, { width: 390, height: 844, mobile: true, inject: `if (!localStorage.getItem("insulinBuddy.v2")) { ${seedLocal(blob)} }`, wait: 1800 });
 const heights = scope => dev.eval(`(() => { const s = document.querySelector(${JSON.stringify(scope)}) || document.body; return [...s.querySelectorAll('input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=hidden]):not([data-field]):not(.ingredient-row__input):not(.meal-item__grams-input), select')].filter(e => { const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0 && !e.closest('[hidden]') && !e.closest('.field__row') && !e.closest('.basal-dose-row'); }).map(e => ({ id: e.id || e.name || e.type, h: Math.round(e.getBoundingClientRect().height) })); })()`);
@@ -37,4 +37,19 @@ await dev.eval(`document.querySelector(".food-pick-item").click()`); await sleep
 await dev.eval(`(() => { const g = document.getElementById("cc-grams"); g.value = "80"; g.dispatchEvent(new Event("input", { bubbles: true })); const b = document.getElementById("cc-add-btn"); if (b) b.click(); })()`); await sleep(500);
 const tile = await dev.eval(`(() => { const m = document.querySelector(".meal-item"); const i = m && m.querySelector(".meal-item__grams-input"); return m ? { tile: Math.round(m.getBoundingClientRect().height), input: i ? Math.round(i.getBoundingClientRect().height) : 0 } : null; })()`);
 t.check("the Current meal tile is compact (under 80px) and its grams text is not stretched", tile && tile.tile > 40 && tile.tile < 80 && tile.input < 30, JSON.stringify(tile));
+const gap = await dev.eval(`(() => { const i = document.querySelector(".meal-item__grams-input"); const r = document.createRange(); r.selectNodeContents(i.parentNode); const meta = i.parentNode.getBoundingClientRect(); const ir = i.getBoundingClientRect(); return { input: Math.round(ir.width), fs: [getComputedStyle(i).fontSize, getComputedStyle(i.parentNode).fontSize] }; })()`);
+t.check("the grams box hugs its digits (no hole before the g) and uses the line's font size", gap.input < 26 && gap.fs[0] === gap.fs[1], JSON.stringify(gap));
+
+t.section("UI: the dose card keeps one compact scale");
+await dev.click("#cc-correction-toggle"); await sleep(200);
+await dev.click("#cc-correction-manual-link"); await sleep(200);
+await dev.eval(`(() => { const i = document.getElementById("cc-correction-manual-input"); i.value = "0.5"; i.dispatchEvent(new Event("input", { bubbles: true })); })()`); await sleep(300);
+const dc = await dev.eval(`(() => { const h = s => Math.round(document.querySelector(s).getBoundingClientRect().height); const b = document.getElementById("cc-dose-breakdown"), c = document.querySelector(".dose-card__controls"); const br = b.getBoundingClientRect(), cr = c.getBoundingClientRect(), vr = document.querySelector(".dose-card__value-row").getBoundingClientRect(); return { sign: h(".correction-sign__btn"), input: h("#cc-correction-manual-input"), above: Math.round(br.top - vr.bottom), below: Math.round(cr.top - br.bottom), hidden: b.hidden }; })()`);
+t.check("Add/Subtract is a slim switch (under 40px) and the number box is a 44px thumb target", dc.sign < 40 && dc.input === 44, JSON.stringify(dc));
+t.check("the dose breakdown has the same gap above and below it", !dc.hidden && Math.abs(dc.above - dc.below) <= 2, JSON.stringify(dc));
+
+t.section("UI: the log's GI chip stays whole");
+await dev.tab("history"); await sleep(400);
+const chip = await dev.eval(`(() => { const g = document.querySelector('[data-id="gi1"] .history-entry__foods .gl-indicator'); if (!g) return null; return { rects: g.getClientRects().length, h: Math.round(g.getBoundingClientRect().height) }; })()`);
+t.check("the GI chip in a log row is one piece on one line", chip && chip.rects === 1 && chip.h <= 20, JSON.stringify(chip));
 dev.close(); await app.close(); t.done && t.done(); process.exit(0);

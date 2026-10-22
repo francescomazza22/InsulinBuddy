@@ -1584,3 +1584,52 @@ html[data-theme="dark"] :is(.c-kcal) { color: #F0BE5E; }
 .meal-item__carbs { font-size: var(--fs-l); }
 .history-entry { align-items: center; min-height: 76px; }
 .history-entry__foods .gl-indicator { margin-left: var(--space-2xs); vertical-align: 1px; }
+
+/* ================= TIDY: one rhythm on the Calculator and in the log (2.52.0) =================
+   One gap between every row of the dose card, one compact scale inside it (28px pills, 38px Add/Subtract switch,
+   44px number box), grams that hug their number, and a GI chip that never splits across two lines. */
+
+/* Dose card: the breakdown line had 15px above it and none below, so the pills sat on top of it. */
+.dose-card__breakdown { margin: 0 0 var(--dose-gap); font-weight: 500; color: rgba(255,255,255,0.9); line-height: 1.3; }
+.dose-card__value-row + .dose-card__breakdown[hidden] + .dose-card__nudge { margin-top: 0; }
+.dose-card__controls .pill-btn { font-size: var(--fs-xs); }
+
+/* Correction / eating-out panel: same spacing above and below the divider, labels in one size. */
+.correction-row, #cc-eating-out-row { margin-top: var(--space-m); padding-top: var(--space-m); }
+.correction-row label, #cc-eating-out-row label { font-size: var(--fs-s); font-weight: 600; margin-bottom: var(--space-xs); }
+.correction-row__labelrow label { margin-bottom: 0; }
+.correction-row__labelrow { margin-bottom: var(--space-xs); }
+.correction-row__manual-note, .correction-mode-link { font-size: var(--fs-xs); line-height: 1.4; }
+.correction-row__manual-note { margin-top: var(--space-xs); }
+.correction-mode-link { margin-top: var(--space-xs); }
+
+/* Add / Subtract: a two-way switch, styled like the Correction pill when on, instead of two oversized buttons. */
+.correction-sign { gap: 0; padding: 3px; margin: 0 0 var(--space-xs); background: rgba(0,0,0,0.18); border-radius: var(--radius-pill); }
+.correction-sign__btn, .correction-sign__btn.is-active {
+  min-height: 32px; padding: 0 var(--space-m); border: 0; box-shadow: none; background: transparent;
+  font: 600 var(--fs-s) var(--font-ui); color: rgba(255,255,255,0.9);
+}
+.correction-sign__btn.is-active { background: #fff; color: var(--acc-1); }
+.correction-sign__btn:focus-visible { outline: 2px solid #fff; outline-offset: 1px; }
+
+/* Number boxes inside the dose card: 44px (a full thumb target) rather than the 52px page fields, with a softer focus ring. */
+.correction-row__input input, #cc-eating-out-row .correction-row__input input { min-height: 44px; padding: 0 var(--space-m); }
+.correction-row__input:focus-within { outline-width: 1.5px; outline-offset: 0; }
+.correction-row__input span, .correction-row__unit-label { font-size: var(--fs-s); }
+
+/* Current meal: the grams box is as wide as its digits, so "69g" reads like "28.5g" instead of "69   g". */
+input.meal-item__grams-input { width: calc(var(--qch, 3) * 1ch + 2px); }
+input.meal-item__grams-input.is-editing { width: 64px; }
+.meal-item__meta { font-variant-numeric: tabular-nums; }
+
+/* Log rows: food names take one line and end in "…" (tap the row for the full list); the GI chip sits after them, whole, never split. */
+.history-entry__foods { display: flex; align-items: center; gap: var(--space-2xs); -webkit-line-clamp: unset; overflow: visible; min-width: 0; }
+.history-entry__food-names { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; line-height: 1.35; }
+.history-entry__foods .gl-indicator { margin-left: 0; flex-shrink: 0; white-space: nowrap; vertical-align: baseline; }
+/* Small chips in a row (NS, GI) share one height and line. */
+.history-entry .ns-badge, .history-entry .gl-indicator--compact { display: inline-flex; align-items: center; height: 18px; padding: 0 var(--space-2xs); line-height: 1; box-sizing: border-box; }
+.history-entry__title { row-gap: var(--space-3xs); }
+.history-entry__foods { margin-top: var(--space-3xs); }
+.history-entry__stats { gap: var(--space-3xs); }
+/* On wide screens a general "inputs are body size" rule out-ranked the grams box, so its number looked bigger than the "g" beside it. */
+.app .meal-item input.meal-item__grams-input:not(.is-editing) { font-size: inherit; }

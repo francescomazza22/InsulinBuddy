@@ -898,7 +898,7 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
           <div class="meal-item__main">
             <p class="meal-item__name">${escapeHtml(item.name)}</p>
             <p class="meal-item__meta">
-              <input type="number" class="meal-item__grams-input" min="0" step="${isUnit ? "0.5" : "1"}" value="${qtyDisplay}" data-idx="${idx}" aria-label="${isUnit ? "Quantity" : "Grams"}">${suffix}${item.kcal ? " · ~<span class=\"meal-item__kcal\">" + Math.round(item.kcal) + "</span> kcal" : ""}
+              <input type="number" class="meal-item__grams-input" min="0" step="${isUnit ? "0.5" : "1"}" value="${qtyDisplay}" data-idx="${idx}" style="--qch:${String(qtyDisplay).length}" aria-label="${isUnit ? "Quantity" : "Grams"}">${suffix}${item.kcal ? " · ~<span class=\"meal-item__kcal\">" + Math.round(item.kcal) + "</span> kcal" : ""}
             </p>
           </div>
           <div class="meal-item__carbs">${round1(item.carbs)}g</div>
@@ -943,6 +943,7 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
     const idx = parseInt(e.target.dataset.idx, 10);
     const item = draft.items[idx];
     if (!item) return;
+    e.target.style.setProperty("--qch", String(e.target.value || "0").length);
     const entered = parseFloat(e.target.value) || 0;
     let grams;
     if (item.quantity != null && item.gramsPerUnit) {
@@ -4047,7 +4048,7 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
           <div class="history-entry__icon" style="background:${meal.color}">${meal.icon}</div>
           <div class="history-entry__main">
             <p class="history-entry__title"><span class="history-entry__name">${meal.label}</span> <span class="muted">${formatTime(entry.ts)}${ratioWasApplied(entry) ? `${entry.periodName ? ` · ${escapeHtml(entry.periodName)}` : ""} · 1:${round1(entry.ratioValue)}` : ""}</span>${nsBadgeHtml(entry)}</p>
-            <p class="history-entry__foods">${entry.items.length ? entry.items.map(i => escapeHtml(i.name)).join(", ") : (entry.carbsUnknown ? "Eating out — carbs not logged" : "No food — correction only")}${entry.glycemicLoad ? ` <span class="gl-indicator gl-indicator--${entry.glycemicLoad.value >= 70 ? "high" : entry.glycemicLoad.value >= 56 ? "medium" : "low"} gl-indicator--compact">GI ${entry.glycemicLoad.value}${entry.glycemicLoad.partial ? "*" : ""}</span>` : ""}</p>
+            <p class="history-entry__foods"><span class="history-entry__food-names">${entry.items.length ? entry.items.map(i => escapeHtml(i.name)).join(", ") : (entry.carbsUnknown ? "Eating out — carbs not logged" : "No food — correction only")}</span>${entry.glycemicLoad ? `<span class="gl-indicator gl-indicator--${entry.glycemicLoad.value >= 70 ? "high" : entry.glycemicLoad.value >= 56 ? "medium" : "low"} gl-indicator--compact">GI ${entry.glycemicLoad.value}${entry.glycemicLoad.partial ? "*" : ""}</span>` : ""}</p>
             <div class="history-entry__detail" hidden>
               ${entry.items.map(i => {
                 const isUnit = i.quantity != null && i.unitLabel;

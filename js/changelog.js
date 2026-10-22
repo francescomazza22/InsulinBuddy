@@ -2,6 +2,18 @@
 // summary can never drift. Bump CHANGELOG[0].version here (and CACHE_VERSION in sw.js) on every release.
 export const CHANGELOG = [
   {
+    version: "2.52.0",
+    summary: "A tidier Calculator and log: even spacing, one text size per job, nothing cut off.",
+    changes: [
+      "The dose card has the same gap between every row. The Meal + correction line no longer sits on top of the Correction, Treating a Low and Eating Out buttons",
+      "Add and Subtract are now a slim two-way switch, styled like the Correction button when it is on, and the correction number box matches the rest of the card instead of being oversized",
+      "Current meal rows read 69g instead of 69   g: the grams number hugs its unit and is the same size as the text beside it (it looked bigger on iPad and computer)",
+      "In the log, the GI chip is always one piece on the same line as the food names. Long food lists end in … instead of being cut mid-word; tap the row to see every food",
+      "The NS and GI chips in a log row are the same height",
+      "Doses are unchanged"
+    ]
+  },
+  {
     version: "2.51.1",
     summary: "The Current meal tile and the log tiles now match in size and spacing.",
     changes: [
