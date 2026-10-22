@@ -2,6 +2,15 @@
 // summary can never drift. Bump CHANGELOG[0].version here (and CACHE_VERSION in sw.js) on every release.
 export const CHANGELOG = [
   {
+    version: "2.53.2",
+    summary: "The Grams number stays centred while you type.",
+    changes: [
+      "On the Calculator, the number in the Grams box jumped to the left when the clear X appeared. It now stays in the middle of the box, with the X beside it",
+      "The Grams box is a little wider so amounts up to four digits fit comfortably next to the X",
+      "Doses are unchanged"
+    ]
+  },
+  {
     version: "2.53.1",
     summary: "The Log Meal button no longer sits on top of the tab bar on iPhone.",
     changes: [

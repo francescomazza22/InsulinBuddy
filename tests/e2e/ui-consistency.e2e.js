@@ -60,6 +60,9 @@ const cx = await dev.eval(`(() => { const i = document.getElementById("set-isf")
 t.check("a Settings number field shows an X inside its right-hand end while focused", cx.shown && cx.inside, JSON.stringify(cx));
 t.check("tapping the X empties the field, tells the app, and keeps the keyboard up", cx.value === "" && cx.fired === 1 && cx.focused && cx.goneWhenEmpty, JSON.stringify(cx));
 await dev.eval(`document.activeElement.blur()`); await sleep(100);
+await dev.tab("calculator"); await sleep(200);
+const gc = await dev.eval(`(() => { const i = document.getElementById("cc-grams"); i.focus(); i.value = "56"; i.dispatchEvent(new Event("input", { bubbles: true })); const cs = getComputedStyle(i); const b = document.querySelector(".field-clear").getBoundingClientRect(), r = i.getBoundingClientRect(); const pl = parseFloat(cs.paddingLeft), pr = parseFloat(cs.paddingRight); i.blur(); return { pl, pr, align: cs.textAlign, room: Math.round(r.width - pl - pr), xInRightMargin: b.left >= r.right - pr - 1 }; })()`);
+t.check("the Grams number stays centred with the X showing, and has room for 4 digits", gc.pl === gc.pr && gc.align === "center" && gc.room >= 38 && gc.xInRightMargin, JSON.stringify(gc));
 await dev.tab("history"); await sleep(200);
 const hx = await dev.eval(`(() => { const i = document.getElementById("history-search"); i.focus(); i.value = "pane"; i.dispatchEvent(new Event("input", { bubbles: true })); const b = document.querySelector(".field-clear"); const shown = !!b && b.isConnected; i.blur(); return { shown, hiddenAfterBlur: !document.querySelector(".field-clear") }; })()`);
 t.check("the meal search gets the same X, and it goes away when you leave the field", hx.shown && hx.hiddenAfterBlur, JSON.stringify(hx));
