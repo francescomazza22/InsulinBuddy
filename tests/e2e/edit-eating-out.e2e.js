@@ -26,6 +26,8 @@ t.section("EATING OUT: CHANGE THE DATE AND TIME");
 await dev.eval(`document.querySelector('[data-edit="eo1"]').click()`); await sleep(500);
 t.check("the sheet opens as Eating out", await dev.eval(`!!document.querySelector('#em-kind [data-kind="eatout"].is-active')`));
 t.check("the time box is shown", await visible("#em-logged-time"));
+const tb = await dev.eval(`(() => { const i = document.getElementById("em-logged-time"), f = document.getElementById("em-eatout-dose").closest(".field__row"); const a = i.getBoundingClientRect(), b = f.getBoundingClientRect(); const cs = getComputedStyle(i); return { left: Math.round(a.left - b.left), right: Math.round(a.right - b.right), appearance: cs.webkitAppearance || cs.appearance, minWidth: cs.minWidth, align: cs.textAlign }; })()`);
+t.check("the time box lines up exactly with the boxes below it, with plain styling iPhone can't stretch", tb.left === 0 && tb.right === 0 && tb.appearance === "none" && tb.minWidth === "0px" && tb.align === "left", JSON.stringify(tb));
 t.check("the insulin taken is shown as 6 units", (await dev.eval(`(document.getElementById("em-eatout-dose") || {}).value`)) === "6");
 t.check("no ratio or food list to trip over", !(await visible("#em-ratio")) && !(await visible("#em-items")));
 await setTime(local(target));

@@ -2,6 +2,18 @@
 // summary can never drift. Bump CHANGELOG[0].version here (and CACHE_VERSION in sw.js) on every release.
 export const CHANGELOG = [
   {
+    version: "2.53.4",
+    summary: "Swiping a log row is more precise, and the date and time box fits the screen on iPhone.",
+    changes: [
+      "Swipe to Edit / Delete follows your thumb: a slightly diagonal swipe now counts (it was often taken for a scroll and did nothing), and the row no longer jumps when the swipe starts",
+      "A quick short flick opens or closes a row; a slow drag opens once it is 40% of the way. Before, only a drag past halfway counted",
+      "Dragging past the buttons slows down gently instead of stopping dead",
+      "Edit and Delete respond straight after the swipe that reveals them (a tap in the first moment used to be ignored)",
+      "The Logged time box on Edit Meal (and the basal time) no longer runs off the right edge on iPhone; it lines up with the boxes below it",
+      "Doses are unchanged"
+    ]
+  },
+  {
     version: "2.53.3",
     summary: "You can now edit an Eating out entry: change its date and time, the insulin you took, or the meal type.",
     changes: [

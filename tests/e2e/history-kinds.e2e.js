@@ -59,22 +59,49 @@ t.check("saved as a correction: type, no food, no carbs, 1.5 u", e6.mealType ===
 t.check("the row reads as a correction", (await badge("h6")) === "1.5 u correction", await badge("h6"));
 
 t.section("HISTORY: swipe a row to reveal Edit and Delete");
-const swipeTouch = (id, dx) => dev.eval(`(async () => {
+// A finger moving dx across (and dy down) over ms milliseconds, in 8 steps, like a real thumb. Returns the row's
+// position just before lifting, so the drag itself can be checked.
+const swipeTouch = (id, dx, ms = 250, dy = 0) => dev.eval(`(async () => {
   const r = document.querySelector('.history-entry[data-id="${id}"]'); const b = r.getBoundingClientRect();
-  const mk = (type, x) => new TouchEvent(type, { bubbles: true, cancelable: true, touches: type === "touchend" ? [] : [new Touch({ identifier: 1, target: r, clientX: x, clientY: b.top + 20 })], changedTouches: [new Touch({ identifier: 1, target: r, clientX: x, clientY: b.top + 20 })] });
-  const x0 = b.left + 200; r.dispatchEvent(mk("touchstart", x0));
-  for (let i = 1; i <= 6; i++) r.dispatchEvent(mk("touchmove", x0 + ${dx} * i / 6));
-  r.dispatchEvent(mk("touchend", x0 + ${dx})); return true; })()`);
+  const mk = (type, x, y) => new TouchEvent(type, { bubbles: true, cancelable: true, touches: type === "touchend" ? [] : [new Touch({ identifier: 1, target: r, clientX: x, clientY: y })], changedTouches: [new Touch({ identifier: 1, target: r, clientX: x, clientY: y })] });
+  const x0 = b.left + 200, y0 = b.top + 20, wait = t => new Promise(res => setTimeout(res, t));
+  r.dispatchEvent(mk("touchstart", x0, y0));
+  for (let i = 1; i <= 8; i++) { await wait(${ms} / 8); r.dispatchEvent(mk("touchmove", x0 + ${dx} * i / 8, y0 + ${dy} * i / 8)); }
+  const m = /translateX\\((-?[\\d.]+)px\\)/.exec(r.style.transform); const pos = m ? +m[1] : 0;
+  r.dispatchEvent(mk("touchend", x0 + ${dx}, y0 + ${dy})); return pos; })()`);
+const isOpen = id => dev.eval(`document.querySelector('.hs-row[data-id="${id}"]').classList.contains("is-open")`);
+const closeAll = () => dev.eval(`document.querySelectorAll(".hs-row.is-open .history-entry").forEach(r => r.click())`);
 await swipeTouch("h1", -150); await sleep(350);
 t.check("a left swipe opens the row", await dev.eval(`document.querySelector('.hs-row[data-id="h1"]').classList.contains("is-open")`));
 t.check("the row slid left by the width of the buttons", await dev.eval(`/-144px/.test(document.querySelector('.history-entry[data-id="h1"]').style.transform)`));
 const vis = await dev.eval(`(() => { const e = document.querySelector('.history-entry[data-id="h1"] .hs-actions__edit'); const r = e.getBoundingClientRect(); const top = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2); return { w: Math.round(r.width), onScreen: r.right <= innerWidth + 1, hit: top === e }; })()`);
 t.check("Edit is on screen and tappable", vis.onScreen && vis.hit && vis.w > 40, JSON.stringify(vis));
-t.check("a short swipe does not open it", (await swipeTouch("h2", -30), await sleep(300), await dev.eval(`!document.querySelector('.hs-row[data-id="h2"]').classList.contains("is-open")`)));
+t.check("a short slow swipe does not open it", (await swipeTouch("h2", -30, 500), await sleep(300), !(await isOpen("h2"))));
 t.check("opening another row closes the first", (await swipeTouch("h2", -150), await sleep(300), await dev.eval(`!document.querySelector('.hs-row[data-id="h1"]').classList.contains("is-open") && document.querySelector('.hs-row[data-id="h2"]').classList.contains("is-open")`)));
 await dev.eval(`document.querySelector('.history-entry[data-id="h2"] .hs-actions__edit').click()`); await sleep(450);
 t.check("tapping Edit opens that meal's edit sheet", await dev.eval(`!!document.getElementById("em-save")`));
 await dev.eval(`document.getElementById("em-cancel").click()`); await sleep(300);
 await dev.eval(`document.querySelector('.history-entry[data-id="h2"]').click()`); await sleep(200);
 t.check("tapping an open row closes it instead of expanding it", await dev.eval(`!document.querySelector('.hs-row[data-id="h2"]').classList.contains("is-open") && document.querySelector('.history-entry[data-id="h2"] .history-entry__detail').hidden`));
+
+t.section("HISTORY: the swipe follows the thumb precisely");
+await closeAll(); await sleep(400);
+const drag = await swipeTouch("h3", -80, 400); await sleep(400);
+t.check("while dragging, the row moves smoothly from where the swipe was recognised (no jump)", drag === -70, String(drag));
+t.check("a slow drag past 40% of the buttons opens", await isOpen("h3"));
+await closeAll(); await sleep(400);
+await swipeTouch("h3", -40, 60); await sleep(400);
+t.check("a quick short flick opens the row", await isOpen("h3"));
+await swipeTouch("h3", 40, 60); await sleep(400);
+t.check("a quick flick right closes it again", !(await isOpen("h3")));
+await swipeTouch("h3", -150, 300, 120); await sleep(400);   // 150 across, 120 down
+t.check("a slightly diagonal thumb still counts as a swipe (it used to be read as a scroll)", await isOpen("h3"));
+await closeAll(); await sleep(400);
+const over = await swipeTouch("h3", -260, 300); await sleep(400);
+t.check("dragging past the buttons slows down (rubber band) instead of stopping dead", over < -170 && over > -195, String(over));
+await closeAll(); await sleep(400);
+await swipeTouch("h3", -150, 200); await sleep(80);   // tap Edit 80 ms after lifting the finger
+await dev.eval(`document.querySelector('.history-entry[data-id="h3"] .hs-actions__edit').click()`); await sleep(450);
+t.check("Edit works straight after the swipe that revealed it", await dev.eval(`!!document.getElementById("em-save")`));
+await dev.eval(`document.getElementById("em-cancel").click()`); await sleep(300);
 dev.close(); await app.close(); t.done && t.done(); process.exit(0);

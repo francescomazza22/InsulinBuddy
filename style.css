@@ -1721,3 +1721,12 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):focus-visib
 #em-kind .segmented__btn { white-space: nowrap; font-size: var(--fs-s); padding-left: var(--space-3xs); padding-right: var(--space-3xs); }
 #em-logged-time { width: 100%; box-sizing: border-box; }
 .btn--secondary { background: var(--surface); border: 1.5px solid var(--line); color: var(--ink); }
+
+/* Date and time boxes (Edit meal's Logged time, the basal time). iPhone Safari draws these natively: it gives them a fixed
+   minimum width that ignores width: 100% (the box ran off the right edge of the sheet) and centres the text. Plain
+   appearance lets them size like every other field, with the text on the left like the boxes around them. */
+input[type="datetime-local"], input[type="date"] {
+  -webkit-appearance: none; appearance: none; display: block;
+  width: 100%; min-width: 0; max-width: 100%; box-sizing: border-box; text-align: left;
+}
+input[type="datetime-local"]::-webkit-date-and-time-value, input[type="date"]::-webkit-date-and-time-value { text-align: left; margin: 0; }

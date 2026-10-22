@@ -19,6 +19,7 @@ import { LocalBackups, shouldAutoSnapshot } from "./js/backup.js";
 import { doseBadge, groupByDay, takeEntries, matchesQuery, recentDistinctMeals, mealLabel, dosingSummary, insulinStats, isBasalEntry, basalSlotForTime, basalSlotLabel, lastBasalDose, basalDoseCheck, makeBasalEntry, PAGE_SIZE } from "./js/history.js";
 import { createDialogs } from "./js/dialogs.js";
 import { installClearButtons } from "./js/clear-field.js";
+import { swipeAxis, swipePos, swipeSettle, swipeVelocity } from "./js/swipe.js";
 import { toMinutes, inRange, ratioAt, ratioMatch, bracketDays, daysLabel, DAY_NAMES, autoMealType, formatDuration, clampNum } from "./js/core/time.js";
 import { toCsv, parseCsv, recipeTotals as recipeTotalsWith, parseLibraryFile, mergeLibrary } from "./js/core/library.js";
 import { buildMealEntry, adjustUsage } from "./js/core/meal-entry.js";
@@ -3971,38 +3972,49 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
     r.style.transition = ""; r.style.transform = open ? `translateX(-${HS_W}px)` : "";
   }
   function hsCloseOthers(except) { historyGroups.querySelectorAll(".hs-row.is-open").forEach(w => { if (w !== except) hsSet(w, false); }); }
+  // Swipe a row left to reveal Edit / Delete. The rules (direction, rubber band, flick or distance) live in js/swipe.js.
   historyGroups.addEventListener("touchstart", e => {
     const wrap = hsRowOf(e);
-    if (!wrap || e.touches.length !== 1) { hs = null; return; }
+    if (!wrap || e.touches.length !== 1 || e.target.closest(".hs-actions")) { hs = null; return; }
     hsCloseOthers(wrap);
     const t = e.touches[0];
-    hs = { wrap, row: wrap.querySelector(".history-entry"), x: t.clientX, y: t.clientY, base: wrap.classList.contains("is-open") ? -HS_W : 0, pos: 0, mode: null };
+    hs = { wrap, row: wrap.querySelector(".history-entry"), x: t.clientX, y: t.clientY, base: wrap.classList.contains("is-open") ? -HS_W : 0, pos: 0, mode: null, x0: 0, samples: [] };
   }, { passive: true });
   historyGroups.addEventListener("touchmove", e => {
     if (!hs) return;
-    const t = e.touches[0], dx = t.clientX - hs.x, dy = t.clientY - hs.y;
+    if (e.touches.length !== 1) { hsSet(hs.wrap, hs.base !== 0); hs = null; return; }   // a second finger: put the row back
+    const t = e.touches[0];
     if (!hs.mode) {
-      if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
-      hs.mode = Math.abs(dx) > Math.abs(dy) * 1.4 ? "h" : "v";
-      if (hs.mode === "v") { hs = null; return; }       // a normal scroll: leave it alone
+      const axis = swipeAxis(t.clientX - hs.x, t.clientY - hs.y);
+      if (!axis) return;
+      if (axis === "v") { hs = null; return; }         // a normal scroll: leave it alone
+      hs.mode = "h"; hs.x0 = t.clientX;                // follow the finger from here, so the row doesn't jump
       hs.row.style.transition = "none";
     }
     e.preventDefault();
-    hs.pos = Math.max(-HS_W - 20, Math.min(0, hs.base + dx));
+    const now = e.timeStamp || performance.now();
+    hs.samples.push({ x: t.clientX, t: now }); if (hs.samples.length > 8) hs.samples.shift();
+    hs.pos = swipePos(hs.base, t.clientX - hs.x0, HS_W);
     hs.row.style.transform = `translateX(${hs.pos}px)`;
   }, { passive: false });
-  const hsEnd = () => {
+  const hsEnd = e => {
     if (!hs) return;
-    if (hs.mode === "h") { hsLastAt = Date.now(); hsSet(hs.wrap, hs.pos < -HS_W / 2); }
+    if (hs.mode === "h") {
+      hsLastAt = Date.now();
+      const v = swipeVelocity(hs.samples, (e && e.timeStamp) || performance.now());
+      hsSet(hs.wrap, swipeSettle({ pos: hs.pos, velocity: v, width: HS_W }));
+    }
     hs = null;
   };
   historyGroups.addEventListener("touchend", hsEnd);
-  historyGroups.addEventListener("touchcancel", hsEnd);
-  // A tap that ends a hs, or lands on an opened row, closes it instead of expanding the row. Runs before the main click handler.
+  historyGroups.addEventListener("touchcancel", () => { if (hs && hs.mode === "h") hsSet(hs.wrap, hs.base !== 0); hs = null; });
+  // The tap the browser sends at the end of a swipe is ignored (it would expand the row); a tap on an opened row closes it.
+  // Edit and Delete always work, even straight after the swipe that revealed them.
   historyGroups.addEventListener("click", e => {
     const wrap = hsRowOf(e);
+    if (e.target.closest(".hs-actions")) return;
     if (Date.now() - hsLastAt < 300) { e.stopPropagation(); return; }
-    if (wrap && wrap.classList.contains("is-open") && !e.target.closest(".hs-actions")) { e.stopPropagation(); hsSet(wrap, false); }
+    if (wrap && wrap.classList.contains("is-open")) { e.stopPropagation(); hsSet(wrap, false); }
   }, true);
 
   function renderHistory(opts = {}) {
