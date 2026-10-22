@@ -1714,3 +1714,10 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):focus-visib
 }
 .field__row input:focus-visible, .correction-row__input input:focus-visible, input.meal-item__grams-input:focus-visible { box-shadow: none; }
 .field__row:focus-within { border-color: var(--acc-1); box-shadow: 0 0 0 3px rgba(var(--acc-1-rgb), 0.2); }
+
+/* Edit Meal (2.53.3): the "This entry is" switch fits four choices on one line, the time box is full width like every
+   other field, and secondary buttons (the meal types, Cancel, Create account) are styled everywhere -- outside the
+   bottom action row they used to fall back to the browser's plain white button, glaring in dark mode. */
+#em-kind .segmented__btn { white-space: nowrap; font-size: var(--fs-s); padding-left: var(--space-3xs); padding-right: var(--space-3xs); }
+#em-logged-time { width: 100%; box-sizing: border-box; }
+.btn--secondary { background: var(--surface); border: 1.5px solid var(--line); color: var(--ink); }

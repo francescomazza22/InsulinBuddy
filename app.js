@@ -4871,7 +4871,10 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
     let selectedRatioLabel = entry.ratioLabel;
     // What the entry IS: a meal that was injected for, a correction on its own, or carbs taken to treat a low (no insulin).
     // The person can change it after the fact (a "meal" that was really a treated low, say) without deleting and re-entering.
-    let kind = entry.noInsulin ? "low" : entry.mealType === "correction" ? "correction" : "meal";
+    // An Eating Out entry is insulin taken for food whose carbs were never counted: it keeps its own kind, so editing it
+    // never runs the "needs at least one item" check or recalculates the dose from its 0 g of carbs.
+    const wasEatOut = !!entry.carbsUnknown;
+    let kind = entry.noInsulin ? "low" : entry.mealType === "correction" ? "correction" : wasEatOut ? "eatout" : "meal";
     let lastMealType = entry.mealType === "correction" ? "snack" : entry.mealType;
     const entryTotalDose = Math.max(0, (Number(entry.mealDose) || 0) + (Number(entry.correctionDose) || 0));
 
@@ -4890,8 +4893,18 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
           <button type="button" class="segmented__btn" data-kind="meal">Meal dose</button>
           <button type="button" class="segmented__btn" data-kind="correction">Correction</button>
           <button type="button" class="segmented__btn" data-kind="low">Treated low</button>
+          ${wasEatOut ? `<button type="button" class="segmented__btn" data-kind="eatout">Eating out</button>` : ""}
         </div>
         <p class="panel-card__hint" id="em-kind-hint" style="margin-top:-6px;margin-bottom:14px;"></p>
+        <div class="field">
+          <label for="em-logged-time">Logged time</label>
+          <input type="datetime-local" id="em-logged-time" value="${toDatetimeLocalValue(entry.ts)}" style="padding:12px 14px; border:1.5px solid var(--line); border-radius:var(--radius-s); font-size:16px; background:var(--surface); color:var(--ink); font-family:var(--font-ui);">
+          <p class="panel-card__hint" style="margin-top:6px;">Changing this updates Active Insulin &amp; Carbs and Trends to match.</p>
+        </div>
+        <div class="field" id="em-eatout-field" hidden>
+          <label for="em-eatout-dose">Insulin taken</label>
+          <div class="field__row"><input type="text" id="em-eatout-dose" inputmode="decimal" autocomplete="off" value="${round1(Number(entry.mealDose) || 0)}"><span class="field__unit">units</span></div>
+        </div>
         <div class="field" id="em-corr-field" hidden>
           <label for="em-corr-dose">Correction dose</label>
           <div class="field__row"><input type="number" id="em-corr-dose" min="0" step="0.5" inputmode="decimal" value="${round1(entry.mealType === "correction" ? (Number(entry.correctionDose) || 0) : entryTotalDose)}"><span class="field__unit">units</span></div>
@@ -4905,18 +4918,15 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
             </button>
           `).join("")}
         </div>
-        <div class="field">
-          <label for="em-logged-time">Logged time</label>
-          <input type="datetime-local" id="em-logged-time" value="${toDatetimeLocalValue(entry.ts)}" style="padding:12px 14px; border:1.5px solid var(--line); border-radius:var(--radius-s); font-size:16px; background:var(--surface); color:var(--ink); font-family:var(--font-ui);">
-          <p class="panel-card__hint" style="margin-top:6px;">Changing this updates Active Insulin &amp; Carbs and Trends to match.</p>
-        </div>
         <label class="block-label" id="em-ratio-label">Insulin ratio</label>
         <select id="em-ratio" style="width:100%; padding:12px 14px; border:1.5px solid var(--line); border-radius:var(--radius-s); font-size:0.96rem; margin-bottom:18px; background:var(--surface); color:var(--ink);">
           ${!matchedRatio ? `<option value="__original__" selected>Original: ${escapeHtml(entry.ratioLabel || "—")} (1:${entry.ratioValue})</option>` : ""}
           ${allRatios.map(r => `<option value="${r.id}" ${matchedRatio && matchedRatio.id === r.id ? "selected" : ""}>${escapeHtml(r.name)} (1:${r.ratio})</option>`).join("")}
         </select>
+        <div id="em-items-part">
         <label class="block-label">Items</label>
         <div id="em-items" class="ingredient-list" style="margin-bottom:16px;"></div>
+        </div>
         </div>
         ${entry.glucose != null ? `
           <div class="field">
@@ -4955,6 +4965,13 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
     // ONE calculation for both the preview and the save, so the preview can never promise a dose that saving then
     // stores differently. (It used to cap the number it showed but save the uncapped parts: preview 15.0u, stored
     // 19.5u -- and re-saving an already-capped meal would have quietly put the 19.5u back.)
+    // Eating Out: the units typed here, through the same dose plan (no ratio, so the typed meal units are used as they are).
+    function eatOutUnits() { const v = parseDecimalInput(backdrop.querySelector("#em-eatout-dose").value); return isNaN(v) ? NaN : v; }
+    function eatOutParts() {
+      const glucoseEl = backdrop.querySelector("#em-glucose");
+      const plan = planEditDose({ entry: { ...entry, noInsulin: false, mealDose: Math.max(0, eatOutUnits() || 0) }, totalCarbs: 0, ratio: 0, glucoseText: glucoseEl ? glucoseEl.value : null, settings: state.settings });
+      return { meal: plan.mealDose, correction: plan.correctionDose, total: plan.finalDose, requested: plan.requested, capped: plan.capped, overMax: plan.overMax };
+    }
     function editDoseParts(totalCarbs) {
       const glucoseEl = backdrop.querySelector("#em-glucose");
       const plan = planEditDose({ entry: { ...entry, noInsulin: kind === "low" }, totalCarbs, ratio: selectedRatioValue, glucoseText: glucoseEl ? glucoseEl.value : null, settings: state.settings });
@@ -4964,13 +4981,16 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
     const KIND_HINTS = {
       meal: "Insulin for the food below, worked out from the ratio.",
       correction: "Insulin on its own to bring glucose down, with no food. Any food on the entry is removed.",
-      low: "Carbs eaten to treat a low. They are logged, but no insulin is recorded."
+      low: "Carbs eaten to treat a low. They are logged, but no insulin is recorded.",
+      eatout: "Insulin taken for a meal eaten out. Carbs weren't counted, so the dose is kept as you entered it."
     };
     function applyKind() {
       backdrop.querySelectorAll("#em-kind [data-kind]").forEach(b => { const on = b.dataset.kind === kind; b.classList.toggle("is-active", on); b.setAttribute("aria-pressed", on); });
       backdrop.querySelector("#em-kind-hint").textContent = KIND_HINTS[kind];
       backdrop.querySelector("#em-corr-field").hidden = kind !== "correction";
       backdrop.querySelector("#em-meal-part").hidden = kind === "correction";
+      backdrop.querySelector("#em-eatout-field").hidden = kind !== "eatout";
+      backdrop.querySelector("#em-items-part").hidden = kind === "eatout";
       backdrop.querySelectorAll("#em-meal-types button").forEach(b => {
         const m = MEAL_TYPES[b.dataset.meal], on = b.dataset.meal === mealType;
         b.style.borderColor = on ? m.color : ""; b.style.color = on ? m.color : ""; b.style.background = on ? m.color + "1a" : "";
@@ -4982,6 +5002,14 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
     }
 
     function updatePreview() {
+      if (kind === "eatout") {
+        const u = eatOutUnits();
+        if (isNaN(u)) { backdrop.querySelector("#em-preview").textContent = "That isn't a number I can read. Try something like 1.5 or 1,5"; return; }
+        const parts = eatOutParts();
+        const capText = parts.capped ? ` — capped at your ${state.settings.maxDose} u maximum (entered ${parts.requested} u)` : "";
+        backdrop.querySelector("#em-preview").textContent = `Saved as eating out: ${parts.total.toFixed(1)} units, carbs not logged.${capText}`;
+        return;
+      }
       if (kind === "correction") {
         const d = parseFloat(backdrop.querySelector("#em-corr-dose").value) || 0;
         backdrop.querySelector("#em-preview").textContent = `Saved as a correction of ${round1(d)} units, no food.`;
@@ -5015,6 +5043,7 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
       applyKind();
     });
     backdrop.querySelector("#em-corr-dose").addEventListener("input", updatePreview);
+    backdrop.querySelector("#em-eatout-dose").addEventListener("input", updatePreview);
     backdrop.querySelector("#em-items").addEventListener("input", e => {
       if (!e.target.classList.contains("em-grams-input")) return;
       const idx = parseInt(e.target.dataset.idx, 10);
@@ -5051,7 +5080,8 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
     applyKind();
     backdrop.addEventListener("click", e => { if (e.target === backdrop || e.target.id === "em-cancel" || e.target.closest("#em-close")) closeSheet(backdrop); });
     backdrop.querySelector("#em-save").addEventListener("click", async () => {
-      if (items.length === 0 && kind !== "correction") { dialogs.alert(kind === "low" ? "A treated low needs the food or drink you had — add an item, or delete the entry." : "A meal needs at least one item — delete it instead if you want it gone."); return; }
+      if (kind === "eatout" && isNaN(eatOutUnits())) { dialogs.alert("Enter the insulin you took, in units (for example 1.5 or 1,5)."); return; }
+      if (items.length === 0 && kind !== "correction" && kind !== "eatout") { dialogs.alert(kind === "low" ? "A treated low needs the food or drink you had — add an item, or delete the entry." : "A meal needs at least one item — delete it instead if you want it gone."); return; }
       let corrDose = 0;
       if (kind === "correction") {
         corrDose = parseFloat(backdrop.querySelector("#em-corr-dose").value);
@@ -5062,7 +5092,7 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
       const totalCarbs = round1(items.reduce((s, i) => s + i.carbs, 0));
       const totalKcal = Math.round(items.reduce((s, i) => s + (i.kcal || 0), 0));
       // The same calculation the preview just showed, so what it promised is what gets saved.
-      const parts = editDoseParts(totalCarbs);
+      const parts = kind === "eatout" ? eatOutParts() : editDoseParts(totalCarbs);
       const mealDose = parts.meal;
       const correctionDose = parts.correction;
       const glucoseInputEl2 = backdrop.querySelector("#em-glucose");
@@ -5075,6 +5105,13 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
         entry.mealDose = 0; entry.correctionDose = round1(corrDose);
         delete entry.cappedFrom; delete entry.noInsulin; delete entry.carbsUnknown; delete entry.eatingOut;
         delete entry.ratioValue; delete entry.ratioLabel; delete entry.periodName; delete entry.glycemicLoad;
+        entry.glucose = newGlucose;
+      } else if (kind === "eatout") {
+        // still Eating Out: no food list, carbs not counted, the typed insulin kept
+        entry.items = []; entry.totalCarbs = 0; entry.totalKcal = 0; entry.glycemicLoad = null;
+        entry.carbsUnknown = true; delete entry.noInsulin;
+        entry.mealDose = mealDose; entry.correctionDose = correctionDose;
+        if (parts.capped) entry.cappedFrom = parts.requested; else delete entry.cappedFrom;
         entry.glucose = newGlucose;
       } else {
         entry.items = items;
@@ -5103,7 +5140,7 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
       renderActivePanel();
       renderRecentMeals();
       closeSheet(backdrop);
-      showUndoToast(kind === "correction" ? "Saved as a correction" : kind === "low" ? "Saved as treating a low" : "Meal updated", () => {
+      showUndoToast(kind === "correction" ? "Saved as a correction" : kind === "low" ? "Saved as treating a low" : kind === "eatout" ? "Eating out updated" : "Meal updated", () => {
         for (const k of Object.keys(entry)) delete entry[k];
         Object.assign(entry, before);
         state.history.sort((a, b) => b.ts - a.ts);

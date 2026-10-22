@@ -2,6 +2,17 @@
 // summary can never drift. Bump CHANGELOG[0].version here (and CACHE_VERSION in sw.js) on every release.
 export const CHANGELOG = [
   {
+    version: "2.53.3",
+    summary: "You can now edit an Eating out entry: change its date and time, the insulin you took, or the meal type.",
+    changes: [
+      "Editing an Eating out entry used to stop with \"A meal needs at least one item\", so a new date or time could never be saved. It now opens as Eating out, with the time, the insulin you took and the meal type",
+      "Your dose is kept exactly as entered. It is never recalculated from the 0 g of carbs on the entry (which would have set it to zero)",
+      "Corrections can have their time changed too: the Logged time box now shows for every kind of entry",
+      "Tidier Edit screen: the four entry types fit on one line, the time box is full width, and the meal-type buttons no longer show as white blocks in dark mode",
+      "Doses are calculated exactly as before"
+    ]
+  },
+  {
     version: "2.53.2",
     summary: "The Grams number stays centred while you type.",
     changes: [
