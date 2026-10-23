@@ -1770,3 +1770,8 @@ html[data-theme="dark"] .undo-toast::after { background: color-mix(in srgb, var(
 #panel-general .toggle-row { margin-bottom: 0; min-height: var(--tap); }
 #panel-general .toggle-hint { margin: calc(-1 * var(--space-2xs)) 0 0; padding-left: calc(17px + var(--space-xs)); padding-right: 60px; }
 .settings-divider { border-top: 1px solid var(--line); margin: var(--space-m) 0; }
+
+/* Recipe editor (2.53.8): a one-line hint under the ingredient search when + can't add yet, and a red edge on a gram
+   amount that isn't a number. */
+.ingredient-hint { flex: 0 0 100%; margin: var(--space-xs) 0 0; font-size: var(--fs-s); color: var(--amber); }
+input.ingredient-row__input.is-invalid { border-color: var(--brick); box-shadow: 0 0 0 3px color-mix(in srgb, var(--brick) 20%, transparent); }

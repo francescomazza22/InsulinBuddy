@@ -3584,27 +3584,27 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
 
         <div class="field-inline-row">
           <label>Carbs per 100g</label>
-          <input type="number" id="fs-carbs" value="${f.carbs ?? ""}" step="0.1" placeholder="e.g., 28">
+          <input type="text" inputmode="decimal" autocomplete="off" spellcheck="false" id="fs-carbs" value="${f.carbs ?? ""}" placeholder="e.g., 28">
         </div>
         <div class="field-inline-row">
           <label>Calories per 100g <span class="field__optional">(optional)</span></label>
-          <input type="number" id="fs-kcal" value="${f.kcal ?? ""}" step="1" placeholder="e.g., 150">
+          <input type="text" inputmode="decimal" autocomplete="off" spellcheck="false" id="fs-kcal" value="${f.kcal ?? ""}" placeholder="e.g., 150">
         </div>
         <div class="field-inline-row">
           <label>Fat per 100g <span class="field__optional">(optional)</span></label>
-          <input type="number" id="fs-fat" value="${f.fat ?? ""}" step="0.1" placeholder="e.g., 5">
+          <input type="text" inputmode="decimal" autocomplete="off" spellcheck="false" id="fs-fat" value="${f.fat ?? ""}" placeholder="e.g., 5">
         </div>
         <div class="field-inline-row">
           <label>Protein per 100g <span class="field__optional">(optional)</span></label>
-          <input type="number" id="fs-protein" value="${f.protein ?? ""}" step="0.1" placeholder="e.g., 8">
+          <input type="text" inputmode="decimal" autocomplete="off" spellcheck="false" id="fs-protein" value="${f.protein ?? ""}" placeholder="e.g., 8">
         </div>
         <div class="field-inline-row">
           <label>Salt per 100g <span class="field__optional">(optional)</span></label>
-          <input type="number" id="fs-salt" value="${f.salt ?? ""}" step="0.1" placeholder="e.g., 0.5">
+          <input type="text" inputmode="decimal" autocomplete="off" spellcheck="false" id="fs-salt" value="${f.salt ?? ""}" placeholder="e.g., 0.5">
         </div>
         <div class="field-inline-row">
           <label>Glycemic Index <span class="field__optional">(optional)</span></label>
-          <input type="number" id="fs-gi" value="${f.gi ?? ""}" step="1" min="0" max="110" placeholder="e.g., 55">
+          <input type="text" inputmode="decimal" autocomplete="off" spellcheck="false" id="fs-gi" value="${f.gi ?? ""}" placeholder="e.g., 55">
         </div>
         ${Array.isArray(f.estimated) && f.estimated.length ? `<p class="panel-card__hint" style="margin:-4px 0 12px;">Filled from typical values: ${f.estimated.map(k => ({ gi: "GI", fat: "fat", protein: "protein", salt: "salt", kcal: "calories" }[k] || k)).join(", ")}. Change any you know better.</p>` : ""}
 
@@ -3615,7 +3615,7 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
         <div class="unit-fields" id="fs-unit-fields" ${f.unitBased ? "" : "hidden"}>
           <div class="field-grid" style="margin-bottom:16px;">
             <div class="field" style="margin-bottom:0;"><label>Unit name</label><input type="text" id="fs-unit-label" value="${escapeAttr(f.unitLabel || "")}" placeholder="e.g., sandwich"></div>
-            <div class="field" style="margin-bottom:0;"><label>Weight per unit (g)</label><input type="number" id="fs-grams-per-unit" value="${f.gramsPerUnit ?? ""}" step="1" placeholder="e.g., 220"></div>
+            <div class="field" style="margin-bottom:0;"><label>Weight per unit (g)</label><input type="text" inputmode="decimal" autocomplete="off" spellcheck="false" id="fs-grams-per-unit" value="${f.gramsPerUnit ?? ""}" placeholder="e.g., 50"></div>
           </div>
         </div>
 
@@ -3643,11 +3643,16 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
     backdrop.addEventListener("click", e => { if (e.target === backdrop || e.target.id === "fs-cancel" || e.target.closest("#fs-close")) closeSheet(backdrop); });
     backdrop.querySelector("#fs-save").addEventListener("click", () => {
       const name = backdrop.querySelector("#fs-name").value.trim();
-      const carbs = parseFloat(backdrop.querySelector("#fs-carbs").value);
-      if (!name || isNaN(carbs)) { dialogs.alert("Please enter at least a name and carbs per 100g."); return; }
+      // Every amount is read with the decimal-comma parser: "12,5" is 12.5, never 125.
+      const num = id => { const t = backdrop.querySelector(id).value.trim(); return t === "" ? null : parseDecimalInput(t); };
+      const carbs = num("#fs-carbs");
+      if (!name || carbs == null || isNaN(carbs)) { dialogs.alert("Please enter at least a name and carbs per 100g (for example 28 or 12,5)."); return; }
+      const optional = { kcal: num("#fs-kcal"), fat: num("#fs-fat"), protein: num("#fs-protein"), salt: num("#fs-salt"), gi: num("#fs-gi") };
+      const unreadable = Object.entries(optional).filter(([, v]) => v != null && isNaN(v)).map(([k]) => ({ kcal: "Calories", fat: "Fat", protein: "Protein", salt: "Salt", gi: "GI" })[k]);
+      if (unreadable.length) { dialogs.alert(`${unreadable.join(", ")}: that isn't a number I can read. Try something like 1.5 or 1,5, or leave it empty.`); return; }
       const unitBased = backdrop.querySelector("#fs-unit-based").checked;
       const unitLabel = backdrop.querySelector("#fs-unit-label").value.trim();
-      const gramsPerUnit = parseFloat(backdrop.querySelector("#fs-grams-per-unit").value);
+      const gramsPerUnit = num("#fs-grams-per-unit");
       if (unitBased && (!unitLabel || !gramsPerUnit || gramsPerUnit <= 0)) {
         dialogs.alert("For a quantity-based food, please give it a unit name and a weight per unit greater than 0.");
         return;
@@ -3656,11 +3661,11 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
         name,
         category: backdrop.querySelector("#fs-cat").value,
         carbs,
-        kcal: parseFloat(backdrop.querySelector("#fs-kcal").value) || null,
-        fat: parseFloat(backdrop.querySelector("#fs-fat").value) || null,
-        protein: parseFloat(backdrop.querySelector("#fs-protein").value) || null,
-        salt: parseFloat(backdrop.querySelector("#fs-salt").value) || null,
-        gi: parseFloat(backdrop.querySelector("#fs-gi").value) || null,
+        kcal: optional.kcal || null,
+        fat: optional.fat || null,
+        protein: optional.protein || null,
+        salt: optional.salt || null,
+        gi: optional.gi || null,
         notes: backdrop.querySelector("#fs-notes").value.trim(),
         favorite: backdrop.querySelector("#fs-fav").checked,
         unitBased,
@@ -3776,18 +3781,19 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
             <div class="ingredient-dropdown" id="rs-ing-dropdown" hidden></div>
           </div>
           <div class="ingredient-add-row">
-            <input type="number" id="rs-ing-weight" placeholder="Grams" min="0">
+            <input type="text" inputmode="decimal" autocomplete="off" spellcheck="false" id="rs-ing-weight" placeholder="Grams" aria-label="Grams">
             <button type="button" id="rs-ing-add" aria-label="Add ingredient">
               <svg viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
             </button>
           </div>
+          <p class="ingredient-hint" id="rs-ing-hint" role="status" hidden></p>
           <div id="rs-ing-list" class="ingredient-list"></div>
           <div id="rs-total" class="ingredient-total" hidden></div>
         </div>
 
         <div class="field-grid" style="margin-top:16px;">
-          <div class="field"><label>Raw Weight (g)</label><input type="number" id="rs-raw-weight" min="0" step="any" inputmode="decimal" value="${r.rawWeight ?? ""}" placeholder="Optional"></div>
-          <div class="field"><label>Final Weight (g) *</label><input type="number" id="rs-final-weight" min="0" value="${r.finalWeight ?? ""}" placeholder="e.g., 800"></div>
+          <div class="field"><label>Raw Weight (g)</label><input type="text" inputmode="decimal" autocomplete="off" spellcheck="false" id="rs-raw-weight" value="${r.rawWeight ?? ""}" placeholder="Optional"></div>
+          <div class="field"><label>Final Weight (g) *</label><input type="text" inputmode="decimal" autocomplete="off" spellcheck="false" id="rs-final-weight" value="${r.finalWeight ?? ""}" placeholder="e.g., 800"></div>
         </div>
 
         <div class="field">
@@ -3810,8 +3816,8 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
       const box = backdrop.querySelector("#rs-total");
       const total = Math.round(items.reduce((a, i) => a + (i.grams > 0 ? i.grams : 0), 0) * 10) / 10;
       if (!total) { box.hidden = true; box.innerHTML = ""; return; }
-      const raw = parseFloat(backdrop.querySelector("#rs-raw-weight").value);
-      const fin = parseFloat(backdrop.querySelector("#rs-final-weight").value);
+      const raw = parseDecimalInput(backdrop.querySelector("#rs-raw-weight").value);
+      const fin = parseDecimalInput(backdrop.querySelector("#rs-final-weight").value);
       const notes = [];
       if (raw > 0 && Math.abs(raw - total) > Math.max(1, total * 0.01)) notes.push(`Raw weight says ${raw} g but the ingredients add up to ${total} g`);
       if (fin > 0 && fin > total * 1.02) notes.push(`Final weight is more than the ingredients weigh. Is something missing from the list?`);
@@ -3838,7 +3844,7 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
         return `
           <div class="ingredient-row">
             <span class="ingredient-row__name">${escapeHtml(name)}</span>
-            <span class="ingredient-row__grams"><input type="number" class="ingredient-row__input" data-gidx="${idx}" value="${it.grams}" min="0" step="any" inputmode="decimal" aria-label="Grams of ${escapeAttr(name)}">g</span>
+            <span class="ingredient-row__grams"><input type="text" inputmode="decimal" autocomplete="off" spellcheck="false" class="ingredient-row__input" data-gidx="${idx}" value="${escapeAttr(it.grams)}" aria-label="Grams of ${escapeAttr(name)}">g</span>
             <button type="button" data-idx="${idx}" aria-label="Remove ingredient">
               <svg viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
             </button>
@@ -3858,22 +3864,51 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
       dd.hidden = false;
     }
 
-    backdrop.querySelector("#rs-ing-search").addEventListener("input", () => { ingredientSelection = null; renderDropdown(); });
+    const hint = msg => { const h = backdrop.querySelector("#rs-ing-hint"); h.textContent = msg || ""; h.hidden = !msg; };
+    const closeDropdown = () => { const dd = backdrop.querySelector("#rs-ing-dropdown"); dd.hidden = true; dd.innerHTML = ""; };
+    function pickFood(f) {
+      ingredientSelection = { foodId: f.id, name: f.name };
+      backdrop.querySelector("#rs-ing-search").value = f.name;
+      closeDropdown(); hint("");
+    }
+    // A typed name counts without tapping the suggestion: an exact name (any case), or the only food that matches.
+    function resolveTypedFood() {
+      if (ingredientSelection) return state.library.find(f => f.id === ingredientSelection.foodId) || null;
+      const q = backdrop.querySelector("#rs-ing-search").value.trim().toLowerCase();
+      if (!q) return null;
+      const exact = state.library.filter(f => f.name.toLowerCase() === q);
+      if (exact.length === 1) return exact[0];
+      const partial = state.library.filter(f => f.name.toLowerCase().includes(q));
+      return partial.length === 1 ? partial[0] : null;
+    }
+    backdrop.querySelector("#rs-ing-search").addEventListener("input", () => { ingredientSelection = null; hint(""); renderDropdown(); });
+    backdrop.querySelector("#rs-ing-search").addEventListener("keydown", e => {
+      if (e.key === "Enter") { e.preventDefault(); const f = resolveTypedFood() || state.library.find(x => x.name.toLowerCase().includes(e.target.value.trim().toLowerCase()) && e.target.value.trim()); if (f) { pickFood(f); backdrop.querySelector("#rs-ing-weight").focus(); } }
+      if (e.key === "Escape") closeDropdown();
+    });
+    // Leaving the search box closes the suggestions (a tap on a suggestion still lands: it keeps the focus, see below).
+    backdrop.querySelector("#rs-ing-search").addEventListener("blur", () => setTimeout(closeDropdown, 0));
+    ["pointerdown", "mousedown"].forEach(t => backdrop.querySelector("#rs-ing-dropdown").addEventListener(t, e => e.preventDefault()));
     backdrop.querySelector("#rs-ing-dropdown").addEventListener("click", e => {
       const btn = e.target.closest(".ingredient-dropdown__item");
       if (!btn) return;
       const f = state.library.find(x => x.id === btn.dataset.id);
       if (!f) return;
-      ingredientSelection = { foodId: f.id, name: f.name };
-      backdrop.querySelector("#rs-ing-search").value = f.name;
-      backdrop.querySelector("#rs-ing-dropdown").hidden = true;
+      pickFood(f);
       backdrop.querySelector("#rs-ing-weight").focus();
     });
 
     function addIngredient() {
-      const weight = parseFloat(backdrop.querySelector("#rs-ing-weight").value);
-      if (!ingredientSelection) { backdrop.querySelector("#rs-ing-search").focus(); return; }
-      if (!weight || weight <= 0) { backdrop.querySelector("#rs-ing-weight").focus(); return; }
+      const weight = parseDecimalInput(backdrop.querySelector("#rs-ing-weight").value);
+      const typed = backdrop.querySelector("#rs-ing-search").value.trim();
+      const picked = resolveTypedFood();
+      if (!picked) {
+        hint(typed ? `No single food called "${typed}" in your library: pick one from the list.` : "Search for an ingredient first.");
+        if (typed) renderDropdown();
+        backdrop.querySelector("#rs-ing-search").focus(); return;
+      }
+      pickFood(picked);
+      if (!(weight > 0)) { hint("Enter the grams for this ingredient (for example 87 or 87,5)."); backdrop.querySelector("#rs-ing-weight").focus(); return; }
       const food = state.library.find(f => f.id === ingredientSelection.foodId);
       items.push({
         foodId: ingredientSelection.foodId, name: ingredientSelection.name, grams: weight,
@@ -3882,16 +3917,19 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
       ingredientSelection = null;
       backdrop.querySelector("#rs-ing-search").value = "";
       backdrop.querySelector("#rs-ing-weight").value = "";
+      hint("");
       renderIngredientList();
+      backdrop.querySelector("#rs-ing-search").focus({ preventScroll: true });   // ready for the next ingredient
     }
     backdrop.querySelector("#rs-ing-add").addEventListener("click", addIngredient);
-    backdrop.querySelector("#rs-ing-weight").addEventListener("keydown", e => { if (e.key === "Enter") addIngredient(); });
+    backdrop.querySelector("#rs-ing-weight").addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); addIngredient(); } });
     // Tweak an amount in place: no need to remove and re-add the ingredient.
     backdrop.querySelector("#rs-ing-list").addEventListener("input", e => {
       const inp = e.target.closest("input[data-gidx]");
       if (!inp) return;
-      const g = parseFloat(inp.value);
+      const g = parseDecimalInput(inp.value);   // "87,5" is 87.5, never 875
       if (items[+inp.dataset.gidx]) items[+inp.dataset.gidx].grams = g > 0 ? g : 0;
+      inp.classList.toggle("is-invalid", inp.value.trim() !== "" && !(g >= 0));
       renderTotal();
     });
     backdrop.querySelector("#rs-ing-list").addEventListener("click", e => {
@@ -3906,10 +3944,13 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
     });
     backdrop.querySelector("#rs-save").addEventListener("click", () => {
       const name = backdrop.querySelector("#rs-name").value.trim();
-      const finalWeight = parseFloat(backdrop.querySelector("#rs-final-weight").value);
+      const finalWeight = parseDecimalInput(backdrop.querySelector("#rs-final-weight").value);
+      const rawText = backdrop.querySelector("#rs-raw-weight").value.trim();
+      const rawWeight = rawText ? parseDecimalInput(rawText) : null;
       if (!name) { dialogs.alert("Give the recipe a name."); return; }
       if (items.length === 0) { dialogs.alert("Add at least one ingredient."); return; }
       if (items.some(i => !(i.grams > 0))) { dialogs.alert("Every ingredient needs an amount in grams (or remove it)."); return; }
+      if (rawText && !(rawWeight > 0)) { dialogs.alert("Raw Weight isn't a number I can read. Try something like 653 or 653,5, or leave it empty."); return; }
       if (!finalWeight || finalWeight <= 0) { dialogs.alert("Final Weight is required — it's the total weight of the finished dish, used to work out carbs per 100g."); return; }
       const payload = {
         name,
@@ -3917,7 +3958,7 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
         notes: backdrop.querySelector("#rs-notes").value.trim(),
         favorite: backdrop.querySelector("#rs-fav").checked,
         items,
-        rawWeight: parseFloat(backdrop.querySelector("#rs-raw-weight").value) || null,
+        rawWeight: rawWeight || null,
         finalWeight
       };
       if (isEdit) Object.assign(r, payload);

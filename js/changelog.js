@@ -2,6 +2,17 @@
 // summary can never drift. Bump CHANGELOG[0].version here (and CACHE_VERSION in sw.js) on every release.
 export const CHANGELOG = [
   {
+    version: "2.53.8",
+    summary: "The recipe and food editors read amounts correctly, and adding an ingredient is simpler.",
+    changes: [
+      "Fixed: a comma in an amount was ignored, so 87,5 g became 875 g, a final weight of 614,5 became 6145, and 12,5 g carbs per 100 g became 125. Every amount in the recipe and food editors now reads 87,5 as 87.5, the same as the calculator. Anything that isn't a number is refused with a message instead of being saved as something else",
+      "Type a food name and tap + (or press Enter): it is added without having to tap the suggestion, as long as only one food matches. If it can't be added, a line under the search says why",
+      "The suggestion list closes when you move to another box, and after adding an ingredient the cursor goes back to the search, ready for the next one",
+      "All amount boxes open the number keyboard",
+      "Doses are unchanged; recipes and foods saved with a mis-read amount keep their saved value until you edit them"
+    ]
+  },
+  {
     version: "2.53.7",
     summary: "Security fixes: a shared food or recipe file can no longer run code in the app, and the app now refuses any script that isn't its own.",
     changes: [
