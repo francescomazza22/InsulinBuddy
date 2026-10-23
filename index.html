@@ -2,6 +2,9 @@
 <html lang="en" data-theme="light" data-palette="blueViolet">
 <head>
 <meta charset="UTF-8">
+<!-- Content Security Policy: only this app's own scripts may run -- no inline scripts, no inline event handlers, nothing
+     from other sites. If anything ever slipped untrusted text into the page as markup, the browser still refuses to run it. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' https: wss:; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Insulin Buddy</title>
 <meta name="description" content="Calculate insulin doses from your meals and insulin-to-carb ratios.">
@@ -16,24 +19,7 @@
 <link rel="manifest" href="manifest.json">
 <!-- supabase-js 2.117.3, bundled with the app (vendor/supabase.js) so starting up never depends on a CDN being reachable -->
 <script src="vendor/supabase.js" defer></script>
-<script>
-/* Runs before anything is painted, so the opening screen already matches the night or day and the chosen light or dark look
-   (the app's own settings load later). The look comes from a small hint the app saves ("dark", "light" or "auto" = follow the
-   phone); with no hint yet, the phone's own setting decides, and without even that, the hour does. */
-(function () {
-  try {
-    var h = new Date().getHours(), root = document.documentElement;
-    var tod = h < 5 ? "night" : h < 8 ? "dawn" : h < 12 ? "morning" : h < 17 ? "day" : h < 20 ? "dusk" : "night";
-    var hint = null; try { hint = localStorage.getItem("insulinBuddy.theme"); } catch (e) {}
-    var sys = window.matchMedia ? window.matchMedia("(prefers-color-scheme: dark)").matches : (h >= 19 || h < 7);
-    var dark = hint === "dark" ? true : hint === "light" ? false : sys;
-    root.setAttribute("data-theme", dark ? "dark" : "light");
-    root.setAttribute("data-tod", tod);
-    root.setAttribute("data-greeting", h < 5 ? "Good night" : h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening");
-    var m = document.querySelector('meta[name="theme-color"]'); if (m) m.setAttribute("content", dark ? "#0F1318" : "#F4F5F7");
-  } catch (e) {}
-})();
-</script>
+<script src="js/boot-head.js"></script>
 <link rel="stylesheet" href="tokens.css">
 <link rel="stylesheet" href="style.css">
 </head>
@@ -54,7 +40,7 @@
       <h1 class="boot__greeting" id="boot-greeting">Hello</h1>
       <p class="boot__sub">Getting your data ready</p>
     </div>
-    <script>(function(){var g=document.getElementById("boot-greeting"),t=document.documentElement.getAttribute("data-greeting");if(g&&t)g.textContent=t;})();</script>
+    <script src="js/boot-greeting.js"></script>
   </div>
 
   <div class="clinic-report-overlay" id="clinic-report-overlay" hidden>
@@ -841,35 +827,6 @@
 
 <script src="foods_data.js" defer></script>
 <script type="module" src="app.js"></script>
-<script>
-  /* The "Loading" cover is visible from the very first paint (so a slow start never shows an empty app) and app.js hides it
-     once it has something to show. This is only a safety net in case app.js never runs at all. */
-  setTimeout(function () { var l = document.getElementById("loading-screen"); if (l) l.hidden = true; }, 12000);
-</script>
-<script>
-  if ("serviceWorker" in navigator) {
-    window.addEventListener("load", () => {
-      navigator.serviceWorker.register("sw.js").catch(err => console.error("Service worker registration failed:", err));
-    });
-    // A new deploy activates a new worker (see sw.js's CACHE_VERSION); reload
-    // once so the tab actually picks up the update instead of running the old
-    // code until the next manual refresh. The flag stops a reload loop if the
-    // controller changes more than once in a session.
-    //
-    // Only an UPDATE needs this. If a worker already controlled the page when it
-    // loaded, a new one taking over means newer code is waiting. On a first visit
-    // (or after the saved copy was cleared) nothing controls the page yet and it
-    // has just come from the network, so the worker taking control changes
-    // nothing: reloading then only made the page flash and load twice about 300ms
-    // after opening, and threw away anything started in that first moment.
-    const hadController = !!navigator.serviceWorker.controller;
-    let swReloaded = false;
-    navigator.serviceWorker.addEventListener("controllerchange", () => {
-      if (!hadController || swReloaded) return;
-      swReloaded = true;
-      location.reload();
-    });
-  }
-</script>
+<script src="js/boot-tail.js"></script>
 </body>
 </html>

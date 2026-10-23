@@ -112,7 +112,7 @@ export function mergeLibrary(library, recipes, parsed, makeId = (p) => p + Date.
     if (!item.name) return;
     const existing = library.find(f => f.name.toLowerCase() === item.name.toLowerCase());
     if (existing) { Object.assign(existing, item, { id: existing.id }); res.foodsUpdated++; }
-    else { library.push({ id: makeId("food-"), usageCount: 0, ...item }); res.foodsAdded++; }
+    else { library.push({ usageCount: 0, ...item, id: makeId("food-") }); res.foodsAdded++; }   // always our own id: a file's id is never trusted
   });
   parsed.recipes.forEach(item => {
     if (!item.name) return;
@@ -123,7 +123,7 @@ export function mergeLibrary(library, recipes, parsed, makeId = (p) => p + Date.
     });
     const existing = recipes.find(r => r.name.toLowerCase() === item.name.toLowerCase());
     if (existing) { Object.assign(existing, item, { id: existing.id }); res.recipesUpdated++; }
-    else { recipes.unshift({ id: makeId("recipe-"), favorite: false, ...item }); res.recipesAdded++; }
+    else { recipes.unshift({ favorite: false, ...item, id: makeId("recipe-") }); res.recipesAdded++; }
   });
   return res;
 }

@@ -13,11 +13,12 @@ const noTime = { ...meal("h-notime", 0), ts: undefined };
 const textDose = { ...meal("h-textdose", Date.now() - 7200000), mealDose: "four" };
 const backup = { settings: {}, library: [{ id: "x1", name: "Test cake", carbs: 50 }, { name: "No carbs here" }], recipes: [], history: [good, noTime, textDose] };
 
-await dev.eval(`window.__msg = ""; window.alert = m => { window.__msg = m; };`);
 await dev.tab("settings"); await sleep(200);
 await dev.eval(`(async () => { const dt = new DataTransfer(); dt.items.add(new File([${JSON.stringify(JSON.stringify(backup))}], "backup.json")); const i = document.getElementById("import-all-file-input"); i.files = dt.files; i.dispatchEvent(new Event("change", { bubbles: true })); })()`);
-await dev.waitFor(`window.__msg.length > 0`);
-const msg = await dev.eval(`window.__msg`);
+// The result is shown in the app's own dialog (never the browser's alert(), which would freeze the page).
+await dev.waitFor(`!!document.querySelector(".dialog")`);
+const msg = await dev.eval(`document.querySelector(".dialog").textContent`);
+await dev.eval(`(() => { const b = document.querySelector(".dialog__btn--primary, .dialog__btn"); if (b) b.click(); })()`);
 const st = await localState(dev);
 t.check("the sound meal was imported", st.history.some(h => h.id === "h-good"));
 t.check("the meal with no time was skipped", !st.history.some(h => h.id === "h-notime"));

@@ -1382,7 +1382,7 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
       <div class="band-preset-row">
         <span class="band-preset-row__label">Bands:</span>
         <select id="band-preset-select">
-          ${Object.entries(GLUCOSE_BAND_PRESETS).map(([key, p]) => `<option value="${key}"${key === glucoseBandPreset ? " selected" : ""}>${p.label}</option>`).join("")}
+          ${Object.entries(GLUCOSE_BAND_PRESETS).map(([key, p]) => `<option value="${escapeAttr(key)}"${key === glucoseBandPreset ? " selected" : ""}>${p.label}</option>`).join("")}
         </select>
       </div>
     `;
@@ -1652,7 +1652,7 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
           </button>
         </div>
         <div class="graph-tabs" id="aiog-tabs">
-          ${tabs.map(t => `<button class="graph-tab${t.key === startTab ? " is-active" : ""}" data-tab="${t.key}" type="button">${t.label}</button>`).join("")}
+          ${tabs.map(t => `<button class="graph-tab${t.key === startTab ? " is-active" : ""}" data-tab="${escapeAttr(t.key)}" type="button">${t.label}</button>`).join("")}
         </div>
         <div id="aiog-content"></div>
       </div>
@@ -1688,8 +1688,8 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
         <p class="history-entry__foods">Long-acting insulin</p>
         <div class="history-entry__detail" hidden>
           <div class="history-entry__row-actions">
-            <button data-edit="${entry.id}" type="button">Edit</button>
-            <button class="danger" data-del="${entry.id}" type="button">Delete</button>
+            <button data-edit="${escapeAttr(entry.id)}" type="button">Edit</button>
+            <button class="danger" data-del="${escapeAttr(entry.id)}" type="button">Delete</button>
           </div>
         </div>
       </div>
@@ -2434,8 +2434,8 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
       ...state.settings.activityRatios.map(r => ({ ...r, kind: "activity" }))
     ];
     ratioPicker.innerHTML = rows.map(r => `
-      <button class="ratio-picker__item" data-id="${r.id}" type="button">
-        <span class="ratio-picker__name"><span class="ratio-picker__dot" style="background:${r.color}"></span><span class="ratio-picker__label">${escapeHtml(r.name)}</span>${r.kind === "time" ? (() => { const meta = daysLabel(r) ? `${daysLabel(r)} · ${r.start}–${r.end}` : `${r.start}–${r.end}`; return `<span class="ratio-picker__meta" title="${escapeAttr(meta)}">${escapeHtml(meta)}</span>`; })() : ""}</span>
+      <button class="ratio-picker__item" data-id="${escapeAttr(r.id)}" type="button">
+        <span class="ratio-picker__name"><span class="ratio-picker__dot" style="background:${escapeAttr(r.color)}"></span><span class="ratio-picker__label">${escapeHtml(r.name)}</span>${r.kind === "time" ? (() => { const meta = daysLabel(r) ? `${daysLabel(r)} · ${r.start}–${r.end}` : `${r.start}–${r.end}`; return `<span class="ratio-picker__meta" title="${escapeAttr(meta)}">${escapeHtml(meta)}</span>`; })() : ""}</span>
         <span class="ratio-picker__value">1:${r.ratio}</span>
       </button>
     `).join("") + `
@@ -3472,7 +3472,7 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
       const row = document.createElement("div");
       row.className = "lib-item";
       row.innerHTML = `
-        <button class="lib-item__star${f.favorite ? " is-fav" : ""}" data-id="${f.id}" aria-label="Toggle favorite">
+        <button class="lib-item__star${f.favorite ? " is-fav" : ""}" data-id="${escapeAttr(f.id)}" aria-label="Toggle favorite">
           <svg viewBox="0 0 24 24" fill="${f.favorite ? "currentColor" : "none"}"><path d="M12 3.5l2.6 5.6 6 .7-4.4 4.2 1.1 6-5.3-3-5.3 3 1.1-6-4.4-4.2 6-.7z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>
         </button>
         <div class="lib-item__main">
@@ -3487,9 +3487,9 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
         </div>
         <span class="lib-item__usage" title="Times used" aria-label="Used ${f.usageCount || 0} times"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 12a8 8 0 0114-5.3M20 12a8 8 0 01-14 5.3M18 3v4h-4M6 21v-4h4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>${f.usageCount || 0}</span>
         <div class="lib-item__actions">
-          <button data-act="edit" data-id="${f.id}" aria-label="Edit"><svg viewBox="0 0 24 24" fill="none"><path d="M4 20l4-1 11-11-3-3L5 16z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg></button>
-          <button data-act="copy" data-id="${f.id}" aria-label="Duplicate"><svg viewBox="0 0 24 24" fill="none"><rect x="9" y="9" width="11" height="11" rx="2" stroke="currentColor" stroke-width="1.6"/><path d="M5 15V6a2 2 0 012-2h9" stroke="currentColor" stroke-width="1.6"/></svg></button>
-          <button class="danger" data-act="delete" data-id="${f.id}" aria-label="Delete"><svg viewBox="0 0 24 24" fill="none"><path d="M5 7h14M9 7V5a1 1 0 011-1h4a1 1 0 011 1v2m-9 0l1 12a2 2 0 002 2h6a2 2 0 002-2l1-12" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+          <button data-act="edit" data-id="${escapeAttr(f.id)}" aria-label="Edit"><svg viewBox="0 0 24 24" fill="none"><path d="M4 20l4-1 11-11-3-3L5 16z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg></button>
+          <button data-act="copy" data-id="${escapeAttr(f.id)}" aria-label="Duplicate"><svg viewBox="0 0 24 24" fill="none"><rect x="9" y="9" width="11" height="11" rx="2" stroke="currentColor" stroke-width="1.6"/><path d="M5 15V6a2 2 0 012-2h9" stroke="currentColor" stroke-width="1.6"/></svg></button>
+          <button class="danger" data-act="delete" data-id="${escapeAttr(f.id)}" aria-label="Delete"><svg viewBox="0 0 24 24" fill="none"><path d="M5 7h14M9 7V5a1 1 0 011-1h4a1 1 0 011 1v2m-9 0l1 12a2 2 0 002 2h6a2 2 0 002-2l1-12" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
         </div>
       `;
       libFoodsList.appendChild(row);
@@ -3622,7 +3622,7 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
         <div class="field">
           <label>Category</label>
           <select id="fs-cat">
-            ${CATEGORIES.map(c => `<option value="${c.id}" ${c.id === f.category ? "selected" : ""}>${c.label}</option>`).join("")}
+            ${CATEGORIES.map(c => `<option value="${escapeAttr(c.id)}" ${c.id === f.category ? "selected" : ""}>${c.label}</option>`).join("")}
           </select>
         </div>
         <div class="field">
@@ -3644,12 +3644,12 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
     backdrop.querySelector("#fs-save").addEventListener("click", () => {
       const name = backdrop.querySelector("#fs-name").value.trim();
       const carbs = parseFloat(backdrop.querySelector("#fs-carbs").value);
-      if (!name || isNaN(carbs)) { alert("Please enter at least a name and carbs per 100g."); return; }
+      if (!name || isNaN(carbs)) { dialogs.alert("Please enter at least a name and carbs per 100g."); return; }
       const unitBased = backdrop.querySelector("#fs-unit-based").checked;
       const unitLabel = backdrop.querySelector("#fs-unit-label").value.trim();
       const gramsPerUnit = parseFloat(backdrop.querySelector("#fs-grams-per-unit").value);
       if (unitBased && (!unitLabel || !gramsPerUnit || gramsPerUnit <= 0)) {
-        alert("For a quantity-based food, please give it a unit name and a weight per unit greater than 0.");
+        dialogs.alert("For a quantity-based food, please give it a unit name and a weight per unit greater than 0.");
         return;
       }
       const payload = {
@@ -3694,7 +3694,7 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
         ? `<span class="c-carbs">${t.carbsPer100g}g carbs</span>${t.kcalPer100g ? ` · <span class="c-kcal">~${t.kcalPer100g} kcal</span>` : ""}`
         : `<span style="color:var(--brick);">Set a final weight to use this in the Calculator</span>`;
       row.innerHTML = `
-        <button class="lib-item__star${r.favorite ? " is-fav" : ""}" data-id="${r.id}" aria-label="Toggle favorite">
+        <button class="lib-item__star${r.favorite ? " is-fav" : ""}" data-id="${escapeAttr(r.id)}" aria-label="Toggle favorite">
           <svg viewBox="0 0 24 24" fill="${r.favorite ? "currentColor" : "none"}"><path d="M12 3.5l2.6 5.6 6 .7-4.4 4.2 1.1 6-5.3-3-5.3 3 1.1-6-4.4-4.2 6-.7z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>
         </button>
         <div class="lib-item__main">
@@ -3703,13 +3703,13 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
           <p class="lib-item__meta">${perG}</p>
           <p class="lib-item__note">${r.items.map(it => {
             const name = it.name || (state.library.find(x => x.id === it.foodId) || {}).name;
-            return name ? `${name} (${it.grams}g)` : "";
+            return name ? `${escapeHtml(name)} (${escapeHtml(it.grams)}g)` : "";
           }).filter(Boolean).join(", ")}${r.finalWeight ? ` — final weight ${r.finalWeight}g` : ""}</p>
         </div>
         <span class="lib-item__usage" title="Times used" aria-label="Used ${r.usageCount || 0} times"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 12a8 8 0 0114-5.3M20 12a8 8 0 01-14 5.3M18 3v4h-4M6 21v-4h4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>${r.usageCount || 0}</span>
         <div class="lib-item__actions">
-          <button data-act="edit" data-id="${r.id}" aria-label="Edit"><svg viewBox="0 0 24 24" fill="none"><path d="M4 20l4-1 11-11-3-3L5 16z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg></button>
-          <button class="danger" data-act="delete" data-id="${r.id}" aria-label="Delete"><svg viewBox="0 0 24 24" fill="none"><path d="M5 7h14M9 7V5a1 1 0 011-1h4a1 1 0 011 1v2m-9 0l1 12a2 2 0 002 2h6a2 2 0 002-2l1-12" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+          <button data-act="edit" data-id="${escapeAttr(r.id)}" aria-label="Edit"><svg viewBox="0 0 24 24" fill="none"><path d="M4 20l4-1 11-11-3-3L5 16z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg></button>
+          <button class="danger" data-act="delete" data-id="${escapeAttr(r.id)}" aria-label="Delete"><svg viewBox="0 0 24 24" fill="none"><path d="M5 7h14M9 7V5a1 1 0 011-1h4a1 1 0 011 1v2m-9 0l1 12a2 2 0 002 2h6a2 2 0 002-2l1-12" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
         </div>
       `;
       libRecipesList.appendChild(row);
@@ -3765,7 +3765,7 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
         <div class="field-grid">
           <div class="field"><label>Recipe Name</label><input type="text" id="rs-name" value="${escapeAttr(r.name)}" placeholder="e.g., Chocolate Cake" autocomplete="off" autocorrect="off"></div>
           <div class="field"><label>Category</label>
-            <select id="rs-cat">${CATEGORIES.map(c => `<option value="${c.id}" ${c.id === r.category ? "selected" : ""}>${c.label}</option>`).join("")}</select>
+            <select id="rs-cat">${CATEGORIES.map(c => `<option value="${escapeAttr(c.id)}" ${c.id === r.category ? "selected" : ""}>${c.label}</option>`).join("")}</select>
           </div>
         </div>
 
@@ -3854,7 +3854,7 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
       if (!q) { dd.hidden = true; dd.innerHTML = ""; return; }
       const matches = state.library.filter(f => f.name.toLowerCase().includes(q)).slice(0, 8);
       if (matches.length === 0) { dd.hidden = true; dd.innerHTML = ""; return; }
-      dd.innerHTML = matches.map(f => `<button type="button" class="ingredient-dropdown__item" data-id="${f.id}">${escapeHtml(f.name)} <span>${f.carbs}g carbs/100g</span></button>`).join("");
+      dd.innerHTML = matches.map(f => `<button type="button" class="ingredient-dropdown__item" data-id="${escapeAttr(f.id)}">${escapeHtml(f.name)} <span>${f.carbs}g carbs/100g</span></button>`).join("");
       dd.hidden = false;
     }
 
@@ -3907,10 +3907,10 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
     backdrop.querySelector("#rs-save").addEventListener("click", () => {
       const name = backdrop.querySelector("#rs-name").value.trim();
       const finalWeight = parseFloat(backdrop.querySelector("#rs-final-weight").value);
-      if (!name) { alert("Give the recipe a name."); return; }
-      if (items.length === 0) { alert("Add at least one ingredient."); return; }
-      if (items.some(i => !(i.grams > 0))) { alert("Every ingredient needs an amount in grams (or remove it)."); return; }
-      if (!finalWeight || finalWeight <= 0) { alert("Final Weight is required — it's the total weight of the finished dish, used to work out carbs per 100g."); return; }
+      if (!name) { dialogs.alert("Give the recipe a name."); return; }
+      if (items.length === 0) { dialogs.alert("Add at least one ingredient."); return; }
+      if (items.some(i => !(i.grams > 0))) { dialogs.alert("Every ingredient needs an amount in grams (or remove it)."); return; }
+      if (!finalWeight || finalWeight <= 0) { dialogs.alert("Final Weight is required — it's the total weight of the finished dish, used to work out carbs per 100g."); return; }
       const payload = {
         name,
         category: backdrop.querySelector("#rs-cat").value,
@@ -3961,7 +3961,7 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
     wrap.className = "hs-row"; wrap.dataset.id = id;
     const actions = document.createElement("div");
     actions.className = "hs-actions";
-    actions.innerHTML = `<button type="button" class="hs-actions__edit" data-edit="${id}">Edit</button><button type="button" class="hs-actions__del" data-del="${id}">Delete</button>`;
+    actions.innerHTML = `<button type="button" class="hs-actions__edit" data-edit="${escapeAttr(id)}">Edit</button><button type="button" class="hs-actions__del" data-del="${escapeAttr(id)}">Delete</button>`;
     row.appendChild(actions);
     wrap.appendChild(row);
     return wrap;
@@ -4075,9 +4075,9 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
               ${ratioWasApplied(entry) ? `<p class="history-entry__ratio">Ratio used: ${escapeHtml(entry.ratioLabel || "")} 1:${round1(entry.ratioValue)}</p>` : ""}
               ${entry.cappedFrom ? `<p class="history-entry__cap">Capped at your maximum dose (calculated ${entry.cappedFrom}u)</p>` : ""}
               <div class="history-entry__row-actions">
-                <button data-use="${entry.id}" type="button">Use Again</button>
-                <button data-edit="${entry.id}" type="button">Edit</button>
-                <button class="danger" data-del="${entry.id}" type="button">Delete</button>
+                <button data-use="${escapeAttr(entry.id)}" type="button">Use Again</button>
+                <button data-edit="${escapeAttr(entry.id)}" type="button">Edit</button>
+                <button class="danger" data-del="${escapeAttr(entry.id)}" type="button">Delete</button>
               </div>
             </div>
           </div>
@@ -4826,7 +4826,7 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
     el("recent-meals-header").hidden = meals.length === 0;
     el("recent-meals-row").hidden = meals.length === 0;
     el("recent-meals-row").innerHTML = meals.map(entry => `
-      <button class="recent-meal-chip" data-id="${entry.id}" type="button">
+      <button class="recent-meal-chip" data-id="${escapeAttr(entry.id)}" type="button">
         <span class="recent-meal-chip__name">${escapeHtml(mealLabel(entry))}</span>
         <span class="recent-meal-chip__meta">${round1(entry.totalCarbs)}g carbs</span>
       </button>
@@ -4927,7 +4927,7 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
         <label class="block-label">Meal type</label>
         <div class="field-grid" id="em-meal-types" style="margin-bottom:18px;">
           ${Object.entries(MEAL_TYPES).map(([key, m]) => `
-            <button class="btn btn--secondary" data-meal="${key}" type="button" style="display:flex;align-items:center;gap:8px;justify-content:center;${key === mealType ? `border-color:${m.color};color:${m.color};background:${m.color}1a;` : ""}">
+            <button class="btn btn--secondary" data-meal="${escapeAttr(key)}" type="button" style="display:flex;align-items:center;gap:8px;justify-content:center;${key === mealType ? `border-color:${m.color};color:${m.color};background:${m.color}1a;` : ""}">
               <span style="color:${m.color};width:18px;height:18px;">${m.icon}</span>${m.label}
             </button>
           `).join("")}
@@ -4935,7 +4935,7 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
         <label class="block-label" id="em-ratio-label">Insulin ratio</label>
         <select id="em-ratio" style="width:100%; padding:12px 14px; border:1.5px solid var(--line); border-radius:var(--radius-s); font-size:0.96rem; margin-bottom:18px; background:var(--surface); color:var(--ink);">
           ${!matchedRatio ? `<option value="__original__" selected>Original: ${escapeHtml(entry.ratioLabel || "—")} (1:${entry.ratioValue})</option>` : ""}
-          ${allRatios.map(r => `<option value="${r.id}" ${matchedRatio && matchedRatio.id === r.id ? "selected" : ""}>${escapeHtml(r.name)} (1:${r.ratio})</option>`).join("")}
+          ${allRatios.map(r => `<option value="${escapeAttr(r.id)}" ${matchedRatio && matchedRatio.id === r.id ? "selected" : ""}>${escapeHtml(r.name)} (1:${r.ratio})</option>`).join("")}
         </select>
         <div id="em-items-part">
         <label class="block-label">Items</label>
@@ -5526,14 +5526,14 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
     const TICK = '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 13l4 4L19 7" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
     grid.innerHTML = `<button class="bg-swatch bg-swatch--default${!active ? " is-active" : ""}" type="button" data-color="" aria-pressed="${!active}" aria-label="Theme default background" title="Theme default">${!active ? TICK : ""}</button>` +
       BG_PRESETS.map(color => `
-      <button class="bg-swatch${color === active ? " is-active" : ""}" type="button" data-color="${color}" style="background:${color};" aria-pressed="${color === active}" aria-label="Background color ${color}">
+      <button class="bg-swatch${color === active ? " is-active" : ""}" type="button" data-color="${escapeAttr(color)}" style="background:${color};" aria-pressed="${color === active}" aria-label="Background color ${color}">
         ${color === active ? TICK : ""}
       </button>
     `).join("");
     resetBtn.hidden = true;
     const pattern = backgroundPatternOf(state.settings);
     el("bg-pattern-grid").innerHTML = [["none", "Plain"], ["doodles", "Doodles"], ["abstract", "Abstract"]].map(([id, label]) => `
-      <button class="pattern-card${pattern === id ? " is-selected" : ""}" type="button" data-pattern="${id}" aria-pressed="${pattern === id}">
+      <button class="pattern-card${pattern === id ? " is-selected" : ""}" type="button" data-pattern="${escapeAttr(id)}" aria-pressed="${pattern === id}">
         <span class="pattern-card__preview${id === "none" ? "" : ` pattern-card__preview--${id}`}"></span>
         <span class="pattern-card__name">${label}</span>
       </button>
@@ -5787,7 +5787,7 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
     const name = String(raw || "").trim().slice(0, 40), old = r.name;
     if (!name || name === old) return false;
     const taken = [...state.settings.timeRatios, ...state.settings.activityRatios].some(x => x !== r && x.name === name);
-    if (taken) { alert(`There is already a range called "${name}". Pick a different name.`); return false; }
+    if (taken) { dialogs.alert(`There is already a range called "${name}". Pick a different name.`); return false; }
     r.name = name;
     const stillUsed = [...state.settings.timeRatios, ...state.settings.activityRatios].some(x => x !== r && x.name === old);
     if (!stillUsed) state.history.forEach(e => { if (e && e.ratioLabel === old) e.ratioLabel = name; });
@@ -5800,28 +5800,28 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
     state.settings.timeRatios.forEach(r => {
       const row = document.createElement("div");
       row.className = "ratio-row";
-      row.style.borderLeft = `4px solid ${r.color}`;
-      row.style.background = `${r.color}12`;
+      row.style.borderLeft = `4px solid ${escapeAttr(r.color)}`;
+      row.style.background = `${escapeAttr(r.color)}12`;
       row.innerHTML = `
-        <div class="ratio-row__top" data-toggle="${r.id}" style="cursor:pointer;">
+        <div class="ratio-row__top" data-toggle="${escapeAttr(r.id)}" style="cursor:pointer;">
           <span>
             <span class="ratio-row__name">${escapeHtml(r.name)}</span>
             <span class="ratio-row__time">${r.start} – ${r.end}${daysLabel(r) ? ` · ${daysLabel(r)}` : ""}</span>
           </span>
           <span class="ratio-row__value">1:${r.ratio}</span>
-          <button class="ratio-row__del" data-del="${r.id}" aria-label="Delete" style="margin-left:4px;">
+          <button class="ratio-row__del" data-del="${escapeAttr(r.id)}" aria-label="Delete" style="margin-left:4px;">
             <svg viewBox="0 0 24 24" fill="none"><path d="M5 7h14M9 7V5a1 1 0 011-1h4a1 1 0 011 1v2m-9 0l1 12a2 2 0 002 2h6a2 2 0 002-2l1-12" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
           </button>
         </div>
         <div class="ratio-row__edit" id="edit-${r.id}" hidden>
-          <label class="ratio-name"><span>Name</span><input type="text" value="${escapeAttr(r.name)}" maxlength="40" data-field="name" data-id="${r.id}" autocomplete="off"></label>
-          <input type="time" value="${r.start}" data-field="start" data-id="${r.id}">
+          <label class="ratio-name"><span>Name</span><input type="text" value="${escapeAttr(r.name)}" maxlength="40" data-field="name" data-id="${escapeAttr(r.id)}" autocomplete="off"></label>
+          <input type="time" value="${r.start}" data-field="start" data-id="${escapeAttr(r.id)}">
           <span>to</span>
-          <input type="time" value="${r.end}" data-field="end" data-id="${r.id}">
-          <span class="ratio-x">1 unit per <input type="number" min="1" value="${r.ratio}" data-field="ratio" data-id="${r.id}"> g</span>
+          <input type="time" value="${r.end}" data-field="end" data-id="${escapeAttr(r.id)}">
+          <span class="ratio-x">1 unit per <input type="number" min="1" value="${r.ratio}" data-field="ratio" data-id="${escapeAttr(r.id)}"> g</span>
           <div class="day-chips" role="group" aria-label="Days this range applies">
             <span class="day-chips__label">Days</span>
-            ${[1, 2, 3, 4, 5, 6, 0].map(d => `<button type="button" class="day-chip${bracketDays(r).length === 0 || bracketDays(r).includes(d) ? " is-on" : ""}" data-day="${d}" data-id="${r.id}" aria-pressed="${bracketDays(r).length === 0 || bracketDays(r).includes(d)}">${DAY_NAMES[d]}</button>`).join("")}
+            ${[1, 2, 3, 4, 5, 6, 0].map(d => `<button type="button" class="day-chip${bracketDays(r).length === 0 || bracketDays(r).includes(d) ? " is-on" : ""}" data-day="${d}" data-id="${escapeAttr(r.id)}" aria-pressed="${bracketDays(r).length === 0 || bracketDays(r).includes(d)}">${DAY_NAMES[d]}</button>`).join("")}
           </div>
           <p class="day-chips__hint">${bracketDays(r).length ? "Only on the days lit. Where it overlaps an every-day range, this one is used on those days." : "All days lit means every day. Untick days to make this a special range, for example Sunday only."}</p>
         </div>
@@ -5847,7 +5847,7 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
     }
     const del = e.target.closest("[data-del]");
     if (del) {
-      if (state.settings.timeRatios.length <= 1) { alert("You need at least one time range."); return; }
+      if (state.settings.timeRatios.length <= 1) { dialogs.alert("You need at least one time range."); return; }
       state.settings.timeRatios = state.settings.timeRatios.filter(r => r.id !== del.dataset.del);
       saveState(); renderTimeline(); renderTimeRatioList();
       return;
@@ -5887,13 +5887,13 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
     state.settings.activityRatios.forEach(r => {
       const row = document.createElement("div");
       row.className = "ratio-row";
-      row.style.borderLeft = `4px solid ${r.color}`;
-      row.style.background = `${r.color}12`;
+      row.style.borderLeft = `4px solid ${escapeAttr(r.color)}`;
+      row.style.background = `${escapeAttr(r.color)}12`;
       row.innerHTML = `
         <div class="ratio-row__top">
-          <input type="text" class="ratio-row__name-input" value="${escapeAttr(r.name)}" maxlength="40" data-field="name" data-id="${r.id}" aria-label="Activity name" autocomplete="off">
-          <span class="ratio-x">1 unit per <input type="number" min="1" value="${r.ratio}" data-field="ratio" data-id="${r.id}" style="width:52px;padding:6px;text-align:center;"> g</span>
-          <button class="ratio-row__del" data-del="${r.id}" aria-label="Delete">
+          <input type="text" class="ratio-row__name-input" value="${escapeAttr(r.name)}" maxlength="40" data-field="name" data-id="${escapeAttr(r.id)}" aria-label="Activity name" autocomplete="off">
+          <span class="ratio-x">1 unit per <input type="number" min="1" value="${r.ratio}" data-field="ratio" data-id="${escapeAttr(r.id)}" style="width:52px;padding:6px;text-align:center;"> g</span>
+          <button class="ratio-row__del" data-del="${escapeAttr(r.id)}" aria-label="Delete">
             <svg viewBox="0 0 24 24" fill="none"><path d="M5 7h14M9 7V5a1 1 0 011-1h4a1 1 0 011 1v2m-9 0l1 12a2 2 0 002 2h6a2 2 0 002-2l1-12" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
           </button>
         </div>
@@ -5915,8 +5915,8 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
     if (f === "name") { renameRatio(state.settings.activityRatios, r, e.target.value); saveState(); renderActivityRatioList(); return; }
     r.ratio = parseFloat(e.target.value) || r.ratio; saveState();
   });
-  bind("add-activity-btn", "click", () => {
-    const name = prompt("Activity name (e.g. Sport, Stress):");
+  bind("add-activity-btn", "click", async () => {
+    const name = (await dialogs.prompt("For example Sport or Stress.", { title: "Activity name", placeholder: "Activity name", confirmText: "Add" }) || "").trim();
     if (!name) return;
     state.settings.activityRatios.push({ id: "ar-" + Date.now(), name, ratio: 15, color: RANGE_COLORS[state.settings.activityRatios.length % RANGE_COLORS.length] });
     saveState(); renderActivityRatioList();
@@ -5977,7 +5977,7 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
   function downloadText(filename, text, mime) { return platform.files.save(filename, text, mime); }
 
   function exportRecipesCsv() {
-    if (!state.recipes.length) { alert("You have no recipes to export yet."); return; }
+    if (!state.recipes.length) { dialogs.alert("You have no recipes to export yet."); return; }
     const recipeHeaders = ["raw_weight", "total_carbs", "usage_count", "final_weight", "notes", "total_calories", "calories_per_100g", "name", "ingredients", "carbs_per_100g", "category", "id"];
       const recipeRows = state.recipes.map(r => {
         const t = recipeTotals(r);
@@ -6060,7 +6060,7 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
       if (total.recipesAdded || total.recipesUpdated) parts.push(`Recipes: ${total.recipesAdded} added, ${total.recipesUpdated} updated`);
       if (!parts.length && !bad.length) parts.push("Nothing to import in that file");
       if (bad.length) parts.push(`Could not read: ${bad.join(", ")}. Make sure it's a CSV or JSON export`);
-      alert(`Import complete. ${parts.join(". ")}.`);
+      dialogs.alert(`Import complete. ${parts.join(". ")}.`);
       e.target.value = "";
     })();
   });
@@ -6103,10 +6103,10 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
 
         saveState();
         renderLibrary(); renderHistory(); renderSettings(); renderRecentMeals();
-        alert(`Import complete.\nFoods: ${foodsAdded} added, ${foodsUpdated} updated.\nRecipes: ${recipesAdded} added, ${recipesUpdated} updated.\nHistory: ${historyAdded} added.${skipped ? `\n\n${skipped} record${skipped === 1 ? "" : "s"} could not be read and ${skipped === 1 ? "was" : "were"} skipped.` : ""}\n\nSettings were left untouched.`);
+        dialogs.alert(`Import complete.\nFoods: ${foodsAdded} added, ${foodsUpdated} updated.\nRecipes: ${recipesAdded} added, ${recipesUpdated} updated.\nHistory: ${historyAdded} added.${skipped ? `\n\n${skipped} record${skipped === 1 ? "" : "s"} could not be read and ${skipped === 1 ? "was" : "were"} skipped.` : ""}\n\nSettings were left untouched.`);
       } catch (err) {
         console.error(err);
-        alert("Could not read that file. Make sure it's a JSON backup exported from this app.");
+        dialogs.alert("Could not read that file. Make sure it's a JSON backup exported from this app.");
       }
       e.target.value = "";
     };
@@ -6117,9 +6117,9 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
   function renderPaletteGrid() {
     const grid = el("palette-grid");
     grid.innerHTML = PALETTES.map(p => `
-      <button class="palette-card${state.settings.palette === p.id ? " is-selected" : ""}" data-id="${p.id}" type="button">
+      <button class="palette-card${state.settings.palette === p.id ? " is-selected" : ""}" data-id="${escapeAttr(p.id)}" type="button">
         ${state.settings.palette === p.id ? `<span class="palette-card__check"><svg viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>` : ""}
-        <span class="palette-card__dots" data-swatch="${p.id}"><span style="background:var(--acc-1)"></span><span style="background:var(--acc-2)"></span></span>
+        <span class="palette-card__dots" data-swatch="${escapeAttr(p.id)}"><span style="background:var(--acc-1)"></span><span style="background:var(--acc-2)"></span></span>
         <span class="palette-card__name">${p.name}</span>
       </button>
     `).join("");
@@ -6183,7 +6183,7 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
   bind("btn-refresh-app", "click", () => location.reload());
 
   bind("btn-delete-all", "click", async () => {
-    if (!confirm("This deletes ALL data — settings, library, recipes and history — permanently. This can't be undone. Continue?")) return;
+    if (!(await dialogs.confirm("This deletes ALL data — settings, library, recipes and history — permanently. This can't be undone.", { title: "Delete everything?", confirmText: "Delete everything", danger: true }))) return;
     store.removeItem(STORAGE_KEY);
     store.removeItem(LOCK_KEY);
     encryptionKey = null;
@@ -6200,7 +6200,7 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
     state = normalizeState({});
     stateFp = makeFingerprint(state);
     renderEverything();
-    alert("All data has been deleted.");
+    dialogs.alert("All data has been deleted.");
   });
 
   // ================= Init =================

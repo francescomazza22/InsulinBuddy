@@ -1543,15 +1543,14 @@
      "usageCount": 4
     },
     {
-     "id": "food-1",
      "usageCount": 0,
      "name": "Bread",
-     "carbs": 49
+     "carbs": 49,
+     "id": "food-1"
     }
    ],
    "recipes": [
     {
-     "id": "recipe-2",
      "favorite": false,
      "name": "Bowl",
      "items": [
@@ -1560,7 +1559,8 @@
        "grams": 50,
        "foodId": "food-1"
       }
-     ]
+     ],
+     "id": "recipe-2"
     }
    ]
   }

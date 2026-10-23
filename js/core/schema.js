@@ -20,13 +20,19 @@ function numberField(out, o, path, key, { required = false, nullable = false, mi
   if (min != null && v < min) out.push(problem(`${path}.${key}`, "error", `should not be below ${min}`));
 }
 
+// An id is a short run of letters, digits and - _ . : -- every id the app makes fits. Anything else (quotes, angle brackets,
+// spaces) can only have come from a hand-made or tampered file, and is refused so it can never reach the page as markup.
+export const SAFE_ID = /^[A-Za-z0-9_.:-]{1,128}$/;
+const idProblem = (v, path) => !isStr(v) || !v ? problem(`${path}.id`, "error", "needs a text id")
+  : !SAFE_ID.test(v) ? problem(`${path}.id`, "error", "has characters an id can't contain") : null;
+
 export function isBasal(entry) { return !!entry && (entry.entryType === "basal" || entry.mealType === "basal"); }
 
 // One history record: a meal/correction, or a basal dose.
 export function validateEntry(e, path = "entry") {
   const out = [];
   if (!isObj(e)) return [problem(path, "error", "is not an object")];
-  if (!isStr(e.id) || !e.id) out.push(problem(`${path}.id`, "error", "needs a text id"));
+  { const p = idProblem(e.id, path); if (p) out.push(p); }
   numberField(out, e, path, "ts", { required: true });
   if (isBasal(e)) {
     numberField(out, e, path, "basalDose", { required: true, min: 0 });
@@ -54,7 +60,7 @@ export function validateFood(f, path = "food") {
   const out = [];
   if (!isObj(f)) return [problem(path, "error", "is not an object")];
   if (!isStr(f.name) || !f.name.trim()) out.push(problem(`${path}.name`, "error", "needs a name"));
-  if (f.id != null && !isStr(f.id)) out.push(problem(`${path}.id`, "error", "should be text"));
+  if (f.id != null) { const p = idProblem(f.id, path); if (p) out.push(p); }
   numberField(out, f, path, "carbs", { required: true, min: 0 });          // per 100 g
   for (const k of ["kcal", "protein", "fat", "salt", "gi", "gramsPerUnit"]) numberField(out, f, path, k, { nullable: true, min: 0 });
   if (f.unitBased && !(isNum(f.gramsPerUnit) && f.gramsPerUnit > 0)) out.push(problem(`${path}.gramsPerUnit`, "warn", "a per-unit food needs grams per unit"));
@@ -65,6 +71,7 @@ export function validateRecipe(r, path = "recipe") {
   const out = [];
   if (!isObj(r)) return [problem(path, "error", "is not an object")];
   if (!isStr(r.name) || !r.name.trim()) out.push(problem(`${path}.name`, "error", "needs a name"));
+  if (r.id != null) { const p = idProblem(r.id, path); if (p) out.push(p); }
   if (!Array.isArray(r.items)) { out.push(problem(`${path}.items`, "error", "should be a list")); return out; }
   r.items.forEach((it, i) => {
     if (!isObj(it)) { out.push(problem(`${path}.items[${i}]`, "error", "is not an object")); return; }

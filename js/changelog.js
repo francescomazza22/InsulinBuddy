@@ -2,6 +2,17 @@
 // summary can never drift. Bump CHANGELOG[0].version here (and CACHE_VERSION in sw.js) on every release.
 export const CHANGELOG = [
   {
+    version: "2.53.7",
+    summary: "Security fixes: a shared food or recipe file can no longer run code in the app, and the app now refuses any script that isn't its own.",
+    changes: [
+      "Fixed: a crafted recipe file could run code in the app when you opened the Recipes list (ingredient names were shown as page markup). Names from files are now always shown as plain text",
+      "Imported foods and recipes always get the app's own ids, and a backup with odd characters in an id is refused, so nothing in a file can slip markup into the page",
+      "The app now runs under a strict Content Security Policy: only its own script files can run. Even if something ever slipped through, the browser would refuse to run it",
+      "Messages and questions (import results, Delete everything, new activity name) now use the app's own dialogs instead of the browser's pop-ups",
+      "Doses are unchanged"
+    ]
+  },
+  {
     version: "2.53.6",
     summary: "A tidier top of the General settings: colour themes, background and the appearance switches.",
     changes: [
