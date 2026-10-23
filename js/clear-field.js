@@ -9,6 +9,7 @@
 // hold an X (inline grams editors, the 2-digit basal dose); passwords; and anything marked data-noclear (a field
 // that already has its own clear button).
 
+const IN_ROW = ".ingredient-row, .ratio-row, .ratio-x, .meal-item, .basal-dose-row, .em-grams-input";
 const TEXT_TYPES = new Set(["text", "search", "number", "email", "url", "tel"]);
 const MIN_WIDTH = 72;   // px: narrower boxes (inline grams editors, the 2-digit basal dose) would lose their content under the X
 const SIZE = 28;        // px: the visible circle; ::after widens the touch area
@@ -21,6 +22,9 @@ export function isClearable(input) {
   if (!TEXT_TYPES.has(type)) return false;
   if (input.readOnly || input.disabled) return false;
   if (input.hasAttribute("data-noclear") || input.closest("[data-noclear]")) return false;
+  // Small amount boxes inside a list row (recipe ingredients, Edit Meal items, ratio rows, the Current meal) have their own
+  // remove button right beside them, and too little room for a number plus an X: they never get one.
+  if (input.closest(IN_ROW)) return false;
   return input.offsetWidth >= MIN_WIDTH;
 }
 
@@ -60,10 +64,15 @@ export function installClearButtons(doc = document) {
     if (!parent) { hide(); return; }
     // The X is positioned inside the field's own parent, so it scrolls with it (sheets, panels) for free.
     if (doc.defaultView.getComputedStyle(parent).position === "static") parent.style.position = "relative";
-    if (btn.previousSibling !== input) input.after(btn);
     const compact = input.offsetWidth < COMPACT_BELOW, size = compact ? COMPACT_SIZE : SIZE;
+    const was = input.getBoundingClientRect();
+    if (btn.previousSibling !== input) input.after(btn);
     input.classList.add("has-clear");
     input.classList.toggle("has-clear--compact", compact);
+    // Safety net: the X must never move or resize the box it sits in. If it did (a layout this code doesn't know about),
+    // take it away again and leave that box without one.
+    const now = input.getBoundingClientRect();
+    if (Math.abs(now.left - was.left) > 1 || Math.abs(now.width - was.width) > 1) { hide(); input.setAttribute("data-noclear", ""); current = null; return; }
     btn.classList.toggle("field-clear--compact", compact);
     btn.style.top = `${input.offsetTop + (input.offsetHeight - size) / 2}px`;
     btn.style.left = `${input.offsetLeft + input.offsetWidth - size - (compact ? 5 : 8)}px`;

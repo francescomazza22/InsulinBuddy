@@ -26,6 +26,17 @@ await typeInto("#rs-final-weight", "614,5");
 t.check("the Final Weight box keeps 614,5 as typed", (await dev.eval(`document.getElementById("rs-final-weight").value`)) === "614,5");
 t.check("every amount box asks for the number keyboard", await dev.eval(`["#rs-ing-weight", "#rs-raw-weight", "#rs-final-weight", ".ingredient-row__input"].every(s => document.querySelector(s).inputMode === "decimal")`));
 
+t.section("RECIPE INPUTS: a gram box stays put while you type in it");
+// The iPhone draws these boxes a few px wider than Chrome; use that width so the clear-X size limit is crossed as on the phone.
+await dev.eval(`(() => { const st = document.createElement("style"); st.id = "phone-width"; st.textContent = ".ingredient-row__input { width: 80px !important; }"; document.head.appendChild(st); })()`); await sleep(100);
+const rowBox = () => dev.eval(`(() => { const i = document.querySelectorAll(".ingredient-row__input")[1], r = i.getBoundingClientRect(); return { left: Math.round(r.left), width: Math.round(r.width), x: !!document.querySelector(".field-clear"), fits: i.scrollWidth <= i.clientWidth, value: i.value }; })()`);
+const b0 = await rowBox();
+await dev.eval(`document.querySelectorAll(".ingredient-row__input")[1].focus()`); await sleep(200);
+const b1 = await rowBox();
+t.check("focusing an ingredient's grams doesn't move or resize the box, and adds no second X beside the row's remove button", b0.left === b1.left && b0.width === b1.width && !b1.x, JSON.stringify({ b0, b1 }));
+t.check("a three-digit amount (300) is shown whole while editing", b1.value === "300" && b1.fits, JSON.stringify(b1));
+await dev.eval(`document.getElementById("phone-width").remove(); document.activeElement.blur()`); await sleep(100);
+
 t.section("RECIPE INPUTS: adding an ingredient");
 await typeInto("#rs-ing-search", "farina");
 t.check("typing shows suggestions", await dev.eval(`!document.getElementById("rs-ing-dropdown").hidden`));

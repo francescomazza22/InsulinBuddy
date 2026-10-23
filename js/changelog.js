@@ -2,6 +2,15 @@
 // summary can never drift. Bump CHANGELOG[0].version here (and CACHE_VERSION in sw.js) on every release.
 export const CHANGELOG = [
   {
+    version: "2.53.9",
+    summary: "Gram boxes in the recipe editor stay put while you type, and show three-digit amounts in full.",
+    changes: [
+      "Tapping an ingredient's grams in the recipe editor made the box jump to the left, put a second X over the row's remove button, and cut off amounts like 300. The small amount boxes inside a row (recipe ingredients, Edit Meal items, ratios) no longer get the clear X: they already sit next to their own remove button",
+      "The clear X can no longer move or resize any box: if it ever would, it simply isn't shown on that box",
+      "Doses are unchanged"
+    ]
+  },
+  {
     version: "2.53.8",
     summary: "The recipe and food editors read amounts correctly, and adding an ingredient is simpler.",
     changes: [
