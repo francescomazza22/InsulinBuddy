@@ -71,13 +71,15 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
     { id: "other", label: "Other" }
   ];
 
+  // Each card shows the theme's two working colours -- colour 1 (buttons, switches, charts) and colour 2 (where the dose
+  // card fades to) -- read straight from the design tokens via data-swatch, so the card can never drift from the real theme.
   const PALETTES = [
-    { id: "tealViolet", name: "Teal & Violet", dots: ["#1F9E93", "#8B5CF6", "#38BDF8"] },
-    { id: "blueViolet", name: "Blue & Purple", dots: ["#3B82F6", "#8B5CF6", "#6366F1"] },
-    { id: "emeraldRose", name: "Emerald & Rose", dots: ["#10B981", "#F43F5E", "#34D399"] },
-    { id: "orangePink", name: "Orange & Pink", dots: ["#F97316", "#EC4899", "#F59E0B"] },
-    { id: "cyanIndigo", name: "Cyan & Indigo", dots: ["#22B8CE", "#6366F1", "#3B82F6"] },
-    { id: "greenAmber", name: "Green & Amber", dots: ["#22C55E", "#F59E0B", "#84CC16"] }
+    { id: "tealViolet", name: "Teal & Violet" },
+    { id: "blueViolet", name: "Blue & Purple" },
+    { id: "emeraldRose", name: "Emerald & Rose" },
+    { id: "orangePink", name: "Orange & Pink" },
+    { id: "cyanIndigo", name: "Cyan & Indigo" },
+    { id: "greenAmber", name: "Green & Amber" }
   ];
 
   const MEAL_TYPES = {
@@ -2433,7 +2435,7 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
     ];
     ratioPicker.innerHTML = rows.map(r => `
       <button class="ratio-picker__item" data-id="${r.id}" type="button">
-        <span class="ratio-picker__name"><span class="ratio-picker__dot" style="background:${r.color}"></span>${escapeHtml(r.name)}${r.kind === "time" ? ` <span style="color:var(--ink-soft);font-weight:400;">${r.start}–${r.end}${daysLabel(r) ? " · " + daysLabel(r) : ""}</span>` : ""}</span>
+        <span class="ratio-picker__name"><span class="ratio-picker__dot" style="background:${r.color}"></span><span class="ratio-picker__label">${escapeHtml(r.name)}</span>${r.kind === "time" ? (() => { const meta = daysLabel(r) ? `${daysLabel(r)} · ${r.start}–${r.end}` : `${r.start}–${r.end}`; return `<span class="ratio-picker__meta" title="${escapeAttr(meta)}">${escapeHtml(meta)}</span>`; })() : ""}</span>
         <span class="ratio-picker__value">1:${r.ratio}</span>
       </button>
     `).join("") + `
@@ -6113,7 +6115,7 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
     grid.innerHTML = PALETTES.map(p => `
       <button class="palette-card${state.settings.palette === p.id ? " is-selected" : ""}" data-id="${p.id}" type="button">
         ${state.settings.palette === p.id ? `<span class="palette-card__check"><svg viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>` : ""}
-        <span class="palette-card__dots">${p.dots.map(c => `<span style="background:${c}"></span>`).join("")}</span>
+        <span class="palette-card__dots" data-swatch="${p.id}"><span style="background:var(--acc-1)"></span><span style="background:var(--acc-2)"></span></span>
         <span class="palette-card__name">${p.name}</span>
       </button>
     `).join("");

@@ -36,7 +36,7 @@ ${decl(t.glass.light, "glass-")}
 }
 
 /* ---------- Palettes ---------- */
-${Object.entries(t.palette.set).map(([n, p]) => `html[data-palette="${n}"] { --acc-1:${p["acc-1"]}; --acc-2:${p["acc-2"]}; --acc-3:${p["acc-3"]}; --acc-1-rgb: ${hexToRgb(p["acc-1"])}; }`).join("\n")}
+${Object.entries(t.palette.set).map(([n, p]) => `html[data-palette="${n}"], [data-swatch="${n}"] { --acc-1:${p["acc-1"]}; --acc-2:${p["acc-2"]}; --acc-3:${p["acc-3"]}; --acc-1-rgb: ${hexToRgb(p["acc-1"])}; }`).join("\n")}
 
 /* ---------- Dark mode ---------- */
 html[data-theme="dark"] {

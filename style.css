@@ -1730,3 +1730,19 @@ input[type="datetime-local"], input[type="date"] {
   width: 100%; min-width: 0; max-width: 100%; box-sizing: border-box; text-align: left;
 }
 input[type="datetime-local"]::-webkit-date-and-time-value, input[type="date"]::-webkit-date-and-time-value { text-align: left; margin: 0; }
+
+/* Ratio picker (2.53.5): every row on one line. The name stays whole; the time and days shrink with "…" when space runs
+   out (the full text is in the tooltip), and the ratio never wraps. */
+.ratio-picker__item { gap: var(--space-s); }
+.ratio-picker__name { flex: 1 1 auto; min-width: 0; white-space: nowrap; }
+.ratio-picker__label { flex: 0 0 auto; }
+.ratio-picker__meta { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; color: var(--ink-soft); font-weight: 400; font-size: var(--fs-m); }
+.ratio-picker__value { flex: 0 0 auto; white-space: nowrap; font-variant-numeric: tabular-nums; }
+/* Undo used the theme's third colour, now retired: it takes colour 1 like every other action. */
+#undo-toast-btn { color: var(--acc-1); }
+.undo-toast::after { background: var(--acc-1); }
+/* On the dark bar in dark mode the accent is lifted a little to stay readable. */
+html[data-theme="dark"] #undo-toast-btn { color: color-mix(in srgb, var(--acc-1) 65%, white); }
+html[data-theme="dark"] .undo-toast::after { background: color-mix(in srgb, var(--acc-1) 65%, white); }
+/* The two colour dots sit centred above the theme name. */
+.palette-card__dots { justify-content: center; }

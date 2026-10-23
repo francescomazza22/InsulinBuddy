@@ -75,9 +75,21 @@ await dev.cdp.send("Emulation.setSafeAreaInsetsOverride", { insets: { top: 47, b
 const lap1 = await lap();
 await dev.cdp.send("Emulation.setSafeAreaInsetsOverride", { insets: {} }).catch(() => {});
 t.check("the Log bar sits on the tab bar, also when the iPhone's bottom safe area appears after start-up", lap0 === 0 && lap1 === 0, JSON.stringify({ atStart: lap0, afterSafeArea: lap1 }));
+t.section("UI: theme cards show the two colours each theme uses, matching the real theme");
+await dev.tab("settings"); await dev.click('#settings-segmented [data-seg="general"]'); await sleep(300);
+const pc = await dev.eval(`(() => { const card = document.querySelector('.palette-card[data-id="blueViolet"]'); const dots = [...card.querySelectorAll(".palette-card__dots span")].map(d => getComputedStyle(d).backgroundColor); return { n: dots.length, dots }; })()`);
+t.check("each theme card shows exactly two colours", pc.n === 2, JSON.stringify(pc));
+t.check("Blue & Purple's dots are its real colours 1 and 2 (#2F6FED, #7B5CF0)", pc.dots[0] === "rgb(47, 111, 237)" && pc.dots[1] === "rgb(123, 92, 240)", JSON.stringify(pc.dots));
+
 dev.close();
 // Fresh device: the basal sheet opens on last time's dose with the caret after it (typing adds to it; the X clears it).
-const dev2 = await openDevice(app, { width: 390, height: 844, mobile: true, inject: `if (!localStorage.getItem("insulinBuddy.v2")) { ${seedLocal(stateBlob({ history: [basalSeed("am"), basalSeed("pm")] }))} }`, wait: 1800 });
+const seed2 = stateBlob({ history: [basalSeed("am"), basalSeed("pm")] });
+seed2.settings.timeRatios = [
+  { id: "m", name: "Morning", start: "05:30", end: "11:00", ratio: 13.5, color: "#1F9E93" },
+  { id: "e", name: "Evening", start: "11:00", end: "05:30", ratio: 15, color: "#6366F1" },
+  { id: "sun", name: "Sunday Morning", start: "05:30", end: "11:00", ratio: 10, color: "#EC4899", days: [0, 1, 2, 3, 4, 5, 6].filter(d => d !== (new Date().getDay() + 1) % 7) }   // six days, today always included
+];
+const dev2 = await openDevice(app, { width: 390, height: 844, mobile: true, inject: `if (!localStorage.getItem("insulinBuddy.v2")) { ${seedLocal(seed2)} }`, wait: 1800 });
 await dev2.cdp.send("Emulation.setFocusEmulationEnabled", { enabled: true });
 await dev2.tab("history"); await sleep(300);
 await dev2.eval(`document.getElementById("btn-log-basal").click()`); await sleep(600);
@@ -85,4 +97,10 @@ const before = await dev2.eval(`document.getElementById("basal-units").value`);
 await dev2.cdp.send("Input.insertText", { text: "5" }); await sleep(100);   // a pre-selected box would be replaced by the "5"
 const after = await dev2.eval(`document.getElementById("basal-units").value`);
 t.check("the basal dose box opens with last time's dose, not pre-selected (typing adds to it instead of wiping it)", before === "14" && after === "145", JSON.stringify({ before, after }));
+t.section("UI: every row of the ratio list is one line");
+await dev2.tab("calculator"); await sleep(300);
+await dev2.click("#cc-ratio-pill"); await sleep(400);
+const rp = await dev2.eval(`[...document.querySelectorAll(".ratio-picker__item")].map(b => ({ h: Math.round(b.getBoundingClientRect().height), name: (b.querySelector(".ratio-picker__label") || b.querySelector(".ratio-picker__name")).textContent.trim(), meta: (b.querySelector(".ratio-picker__meta") || {}).textContent || "" }))`);
+t.check("all rows are the same single-line height, the long day-limited one included", rp.length >= 3 && new Set(rp.map(r => r.h)).size === 1 && rp.some(r => r.name === "Sunday Morning"), JSON.stringify(rp));
+t.check("a day-limited range shows its days first (what sets it apart), then its time", /^(Sun|Mon)/.test(rp.find(r => r.name === "Sunday Morning").meta), JSON.stringify(rp.find(r => r.name === "Sunday Morning")));
 dev2.close(); await app.close(); t.done && t.done(); process.exit(0);

@@ -2,6 +2,16 @@
 // summary can never drift. Bump CHANGELOG[0].version here (and CACHE_VERSION in sw.js) on every release.
 export const CHANGELOG = [
   {
+    version: "2.53.5",
+    summary: "Theme cards show the two colours each theme really uses, and the ratio list keeps every row on one line.",
+    changes: [
+      "Each colour theme card now shows two colours: colour 1 (buttons, switches, charts) and colour 2 (where the dose card fades to). The third colour was only used on the Undo button, which now uses colour 1 like everything else",
+      "The card colours now come from the theme itself, so they always match. Before, they were slightly different shades",
+      "In the ratio list (tap the Ratio pill), every row is on one line. A range limited to certain days shows its days first, then its time, and shortens with \u2026 if it runs out of room",
+      "Doses are unchanged"
+    ]
+  },
+  {
     version: "2.53.4",
     summary: "Swiping a log row is more precise, and the date and time box fits the screen on iPhone.",
     changes: [
