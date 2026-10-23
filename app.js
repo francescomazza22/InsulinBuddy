@@ -5521,12 +5521,16 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
     const active = state.settings.customBackground;
     darkNote.hidden = !isDarkModeActive();
     grid.style.opacity = isDarkModeActive() ? "0.5" : "1";
-    grid.innerHTML = BG_PRESETS.map(color => `
-      <button class="bg-swatch${color === active ? " is-active" : ""}" type="button" data-color="${color}" style="background:${color};" aria-label="Background color ${color}">
-        ${color === active ? '<svg viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>' : ""}
+    // The first circle is the theme's own background (no custom colour), so one circle is always ticked and there is no
+    // separate "Reset" button to find.
+    const TICK = '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 13l4 4L19 7" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+    grid.innerHTML = `<button class="bg-swatch bg-swatch--default${!active ? " is-active" : ""}" type="button" data-color="" aria-pressed="${!active}" aria-label="Theme default background" title="Theme default">${!active ? TICK : ""}</button>` +
+      BG_PRESETS.map(color => `
+      <button class="bg-swatch${color === active ? " is-active" : ""}" type="button" data-color="${color}" style="background:${color};" aria-pressed="${color === active}" aria-label="Background color ${color}">
+        ${color === active ? TICK : ""}
       </button>
     `).join("");
-    resetBtn.hidden = !active;
+    resetBtn.hidden = true;
     const pattern = backgroundPatternOf(state.settings);
     el("bg-pattern-grid").innerHTML = [["none", "Plain"], ["doodles", "Doodles"], ["abstract", "Abstract"]].map(([id, label]) => `
       <button class="pattern-card${pattern === id ? " is-selected" : ""}" type="button" data-pattern="${id}" aria-pressed="${pattern === id}">
@@ -5563,7 +5567,7 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
   bind("bg-swatch-grid", "click", e => {
     const btn = e.target.closest(".bg-swatch");
     if (!btn) return;
-    state.settings.customBackground = btn.dataset.color;
+    state.settings.customBackground = btn.dataset.color || null;   // the first circle ("") is the theme default
     applyCustomBackground();
     saveState();
     renderBackgroundSection();

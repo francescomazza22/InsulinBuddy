@@ -1746,3 +1746,27 @@ html[data-theme="dark"] #undo-toast-btn { color: color-mix(in srgb, var(--acc-1)
 html[data-theme="dark"] .undo-toast::after { background: color-mix(in srgb, var(--acc-1) 65%, white); }
 /* The two colour dots sit centred above the theme name. */
 .palette-card__dots { justify-content: center; }
+
+/* ================= General tab, top (2.53.6) =================
+   Background: a row of even circles led by "Theme default", the picked one ringed in the accent colour.
+   Pattern: a real sub-heading, the quieter size switch and a short note with room around it.
+   Appearance switches: one even spacing, each note tucked under its own switch. */
+.bg-swatch-grid { display: flex; flex-wrap: wrap; justify-content: space-between; gap: var(--space-xs); margin-top: var(--space-s); }
+.bg-swatch { width: 38px; height: 38px; aspect-ratio: auto; border: 1px solid color-mix(in srgb, var(--ink) 18%, transparent); flex: 0 0 auto; }
+.bg-swatch svg { color: #1B2A3A; }
+.bg-swatch.is-active { border-color: transparent; border-width: 1px; }
+.bg-swatch.is-active::after { inset: -4px; border: 2px solid var(--acc-1); }
+.bg-swatch--default { background: linear-gradient(135deg, var(--app-bg) 0 50%, var(--surface) 50% 100%); }
+.bg-swatch--default svg { color: var(--ink); }
+.settings-sub { margin: var(--space-l) 0 var(--space-xs); }
+.pattern-grid { margin: 0 0 var(--space-s); }
+.pattern-card { font-size: var(--fs-s); padding: var(--space-2xs); gap: var(--space-2xs); }
+.pattern-card__preview { height: 64px; }
+.pattern-card__name { padding-bottom: var(--space-3xs); }
+#bg-pattern-size { margin: 0 0 var(--space-s); }
+.settings-note { margin: var(--space-xs) 0 0; line-height: 1.45; }
+.palette-card { padding: var(--space-s) var(--space-m) var(--space-m); }
+.palette-card__name { text-align: center; }
+#panel-general .toggle-row { margin-bottom: 0; min-height: var(--tap); }
+#panel-general .toggle-hint { margin: calc(-1 * var(--space-2xs)) 0 0; padding-left: calc(17px + var(--space-xs)); padding-right: 60px; }
+.settings-divider { border-top: 1px solid var(--line); margin: var(--space-m) 0; }

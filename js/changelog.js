@@ -2,6 +2,17 @@
 // summary can never drift. Bump CHANGELOG[0].version here (and CACHE_VERSION in sw.js) on every release.
 export const CHANGELOG = [
   {
+    version: "2.53.6",
+    summary: "A tidier top of the General settings: colour themes, background and the appearance switches.",
+    changes: [
+      "Color Theme explains what the two colours do: the first for buttons, switches and charts, the second where the dose card fades to",
+      "Background: the first circle is now Theme default, ticked whenever you haven't picked a colour, instead of a separate Reset button. The circles are a little smaller, the chosen one has a ring in your theme colour, and they have a clearer edge in light mode",
+      "Pattern has a proper heading, the size switch matches the other quiet switches, the cards are more compact, and the note under them is shorter",
+      "Match System Appearance, Dark Mode and Recently Logged are evenly spaced, each note tucked under its own switch",
+      "Doses are unchanged"
+    ]
+  },
+  {
     version: "2.53.5",
     summary: "Theme cards show the two colours each theme really uses, and the ratio list keeps every row on one line.",
     changes: [

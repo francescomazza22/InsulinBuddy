@@ -79,6 +79,13 @@ t.section("UI: theme cards show the two colours each theme uses, matching the re
 await dev.tab("settings"); await dev.click('#settings-segmented [data-seg="general"]'); await sleep(300);
 const pc = await dev.eval(`(() => { const card = document.querySelector('.palette-card[data-id="blueViolet"]'); const dots = [...card.querySelectorAll(".palette-card__dots span")].map(d => getComputedStyle(d).backgroundColor); return { n: dots.length, dots }; })()`);
 t.check("each theme card shows exactly two colours", pc.n === 2, JSON.stringify(pc));
+const sw = async () => dev.eval(`[...document.querySelectorAll("#bg-swatch-grid .bg-swatch")].map(b => (b.dataset.color || "default") + (b.classList.contains("is-active") ? "*" : "")).join(" ")`);
+t.check("the background circles start with Theme default, ticked when no colour is picked", /^default\* /.test(await sw()), await sw());
+await dev.click('#bg-swatch-grid [data-color="#E1EDF7"]'); await sleep(250);
+const picked = await dev.eval(`JSON.parse(localStorage.getItem("insulinBuddy.v2")).settings.customBackground`);
+await dev.click('#bg-swatch-grid .bg-swatch--default'); await sleep(250);
+const restored = await dev.eval(`JSON.parse(localStorage.getItem("insulinBuddy.v2")).settings.customBackground`);
+t.check("picking a colour saves it, and the Theme default circle puts the theme's own background back", picked === "#E1EDF7" && restored == null && /^default\* /.test(await sw()), JSON.stringify({ picked, restored }));
 t.check("Blue & Purple's dots are its real colours 1 and 2 (#2F6FED, #7B5CF0)", pc.dots[0] === "rgb(47, 111, 237)" && pc.dots[1] === "rgb(123, 92, 240)", JSON.stringify(pc.dots));
 
 dev.close();
