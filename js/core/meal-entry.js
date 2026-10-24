@@ -15,7 +15,8 @@ export function buildMealEntry({ now, mealType, periodEntry, ratioEntry, items, 
       quantity: i.quantity ?? null, unitLabel: i.unitLabel ?? null, gramsPerUnit: i.gramsPerUnit ?? null,
       gi: i.gi ?? null,
       carbsPer100g: i.carbsPer100g, kcalPer100g: i.kcalPer100g,
-      carbs: i.carbs, kcal: i.kcal
+      carbs: i.carbs, kcal: i.kcal,
+      ...(i.portion ? { portion: i.portion } : {})   // "1/8" or "2 slices" when the amount was picked as a portion of a recipe
     })),
     totalCarbs: eatingOut ? 0 : round1(items.reduce((s, i) => s + i.carbs, 0)),
     totalKcal: eatingOut ? 0 : Math.round(items.reduce((s, i) => s + (i.kcal || 0), 0)),

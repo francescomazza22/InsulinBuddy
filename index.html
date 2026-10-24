@@ -228,10 +228,15 @@
               <svg viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
             </button>
           </div>
-          <input type="number" id="cc-grams" class="add-row__grams" placeholder="Grams" min="0" step="1" inputmode="decimal" aria-label="Grams">
+          <input type="text" id="cc-grams" class="add-row__grams" placeholder="Grams" inputmode="decimal" autocomplete="off" spellcheck="false" aria-label="Grams">
           <button class="add-row__btn" id="cc-add-btn" type="button" aria-label="Add food">
             <svg viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
           </button>
+        </div>
+        <!-- For a recipe: one-tap portions (1/2 ... 1/8, slices) and what the amount works out to. Also shows why an amount can't be added. -->
+        <div class="portion" id="cc-portion" hidden>
+          <div class="portion__chips" id="cc-portion-chips" role="group" aria-label="Portion of the dish"></div>
+          <p class="portion__note" id="cc-portion-note" role="status"></p>
         </div>
 
         <div class="food-pick-list" id="cc-food-list"></div>

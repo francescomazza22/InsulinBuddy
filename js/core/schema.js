@@ -79,6 +79,7 @@ export function validateRecipe(r, path = "recipe") {
     numberField(out, it, `${path}.items[${i}]`, "carbsPer100g", { nullable: true, min: 0 });
   });
   numberField(out, r, path, "finalWeight", { nullable: true, min: 0 });
+  numberField(out, r, path, "slices", { nullable: true, min: 0 });   // how many slices the whole dish is cut into (optional)
   return out;
 }
 

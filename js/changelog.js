@@ -2,6 +2,18 @@
 // summary can never drift. Bump CHANGELOG[0].version here (and CACHE_VERSION in sw.js) on every release.
 export const CHANGELOG = [
   {
+    version: "2.54.0",
+    summary: "Add a recipe as a portion of the dish: tap 1/8 or type 1/3, or use slices, instead of weighing it.",
+    changes: [
+      "When you pick a recipe on the Calculator, quick buttons appear under the Grams box: 1/2, 1/3, 1/4, 1/6 and 1/8. Tap one, or type a fraction like 2/3 in the box, and a line shows what it works out to (for example 1/8 of the dish (614 g) = 76.8 g · 20 g carbs) before you add it",
+      "Slices: give a recipe its number of slices (Settings > Library > edit the recipe > Slices) and 1 slice and 2 slices join the buttons; you can also type 1,5 slices",
+      "A portion uses this batch's cooked weight if you enter one, otherwise the recipe's saved weight. A fraction of the dish is always that fraction of its carbs",
+      "The meal row and Last time you had this show the portion (1/8 · 77 g). The log stores ordinary grams and carbs, so trends, Nightscout and Apple Health are unchanged",
+      "Plain grams still work, now with a decimal comma too (87,5). Fractions and slices are only for recipes, and impossible ones (1/0, 9/8, more slices than the dish) are refused with a reason",
+      "Doses are calculated exactly as before, from the grams the portion works out to"
+    ]
+  },
+  {
     version: "2.53.10",
     summary: "The Undo bar is back to its proper look and animation, and every animation in the app is now tested.",
     changes: [

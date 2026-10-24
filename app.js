@@ -20,6 +20,7 @@ import { doseBadge, groupByDay, takeEntries, matchesQuery, recentDistinctMeals, 
 import { createDialogs } from "./js/dialogs.js";
 import { installClearButtons } from "./js/clear-field.js";
 import { swipeAxis, swipePos, swipeSettle, swipeVelocity } from "./js/swipe.js";
+import { parsePortion, FRACTION_CHIPS, fractionLabel, slicesLabel } from "./js/portion.js";
 import { toMinutes, inRange, ratioAt, ratioMatch, bracketDays, daysLabel, DAY_NAMES, autoMealType, formatDuration, clampNum } from "./js/core/time.js";
 import { toCsv, parseCsv, recipeTotals as recipeTotalsWith, parseLibraryFile, mergeLibrary } from "./js/core/library.js";
 import { buildMealEntry, adjustUsage } from "./js/core/meal-entry.js";
@@ -673,6 +674,7 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
       return {
         id: "recipe:" + r.id, refType: "recipe", refId: r.id, name: r.name,
         carbsPer100g: t.carbsPer100g, kcalPer100g: t.kcalPer100g, notes: r.notes,
+        dishWeight: r.finalWeight, slices: r.slices > 0 ? r.slices : null,
         usageCount: r.usageCount || 0, favorite: r.favorite,
         unitBased: false, unitLabel: null, gramsPerUnit: null
       };
@@ -723,10 +725,10 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
     el("cc-search-clear").hidden = false;
     renderFoodPickList();
     gramsInput.disabled = false;
-    gramsInput.placeholder = item.unitBased ? "Qty" : "Grams";
-    gramsInput.step = item.unitBased ? "0.5" : "1";
+    gramsInput.placeholder = item.unitBased ? "Qty" : item.refType === "recipe" ? "g or 1/8" : "Grams";
     batchWeightG = null;
     renderPickExtra();
+    renderPortion();
     gramsInput.focus();
   }
 
@@ -734,10 +736,10 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
   searchInput.addEventListener("input", () => {
     selectedPickId = null;
     gramsInput.placeholder = "Grams";
-    gramsInput.step = "1";
     searchClearBtn.hidden = searchInput.value.length === 0;
     renderFoodPickList();
     renderPickExtra();
+    renderPortion();
   });
   searchClearBtn.addEventListener("click", () => {
     searchInput.value = "";
@@ -824,16 +826,20 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
     const items = pickableItems();
     const item = items.find(i => i.id === selectedPickId);
     if (!item || item.carbsPer100g == null) return;
-    const entered = parseFloat(gramsInput.value);
-    if (!entered || entered <= 0) { gramsInput.focus(); return; }
 
-    let grams, quantity = null, unitLabel = null;
+    let grams, quantity = null, unitLabel = null, portion = null;
     if (item.unitBased) {
-      quantity = entered;
+      const qty = parseDecimalInput(gramsInput.value);
+      if (!(qty > 0)) { portionMessage(gramsInput.value.trim() ? "Enter how many, for example 1 or 1,5." : ""); gramsInput.focus(); return; }
+      quantity = qty;
       unitLabel = item.unitLabel;
       grams = quantity * item.gramsPerUnit;
     } else {
-      grams = entered;
+      // Grams, or for a recipe a portion of the dish ("1/8", "2 slices"), always turned into grams here.
+      const p = parsePortion(gramsInput.value, portionContext(item));
+      if (!p.ok) { portionMessage(p.empty ? "" : p.error); gramsInput.focus(); return; }
+      grams = p.grams;
+      portion = p.label;
     }
 
     // A recipe cooked to a different weight this time: the whole batch's carbs spread over THIS batch's weight.
@@ -844,7 +850,7 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
     }
     batchWeightG = null;
     draft.items.push({
-      refType: type, refId: id, name: item.name, grams, quantity, unitLabel,
+      refType: type, refId: id, name: item.name, grams, quantity, unitLabel, ...(portion ? { portion } : {}),
       gramsPerUnit: item.unitBased ? item.gramsPerUnit : null,
       carbsPer100g: cPer100, kcalPer100g: kPer100, gi: item.gi || null,
       carbs: Math.round(cPer100 * grams) / 100,
@@ -856,9 +862,9 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
     gramsInput.value = "";
     gramsInput.disabled = false;
     gramsInput.placeholder = "Grams";
-    gramsInput.step = "1";
     renderFoodPickList();
     renderPickExtra();
+    renderPortion();
     renderMealItems();
     recompute();
     saveDraftLocal();
@@ -903,7 +909,7 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
           <div class="meal-item__main">
             <p class="meal-item__name">${escapeHtml(item.name)}</p>
             <p class="meal-item__meta">
-              <input type="number" class="meal-item__grams-input" min="0" step="${isUnit ? "0.5" : "1"}" value="${qtyDisplay}" data-idx="${idx}" style="--qch:${String(qtyDisplay).length}" aria-label="${isUnit ? "Quantity" : "Grams"}">${suffix}${item.kcal ? " · ~<span class=\"meal-item__kcal\">" + Math.round(item.kcal) + "</span> kcal" : ""}
+              ${item.portion ? `<span class="meal-item__portion">${escapeHtml(item.portion)}</span> · ` : ""}<input type="number" class="meal-item__grams-input" min="0" step="${isUnit ? "0.5" : "1"}" value="${qtyDisplay}" data-idx="${idx}" style="--qch:${String(qtyDisplay).length}" aria-label="${isUnit ? "Quantity" : "Grams"}">${suffix}${item.kcal ? " · ~<span class=\"meal-item__kcal\">" + Math.round(item.kcal) + "</span> kcal" : ""}
             </p>
           </div>
           <div class="meal-item__carbs">${round1(item.carbs)}g</div>
@@ -957,6 +963,7 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
       grams = entered;
     }
     item.grams = grams;
+    if (item.portion) { delete item.portion; const pl = e.target.closest(".meal-item").querySelector(".meal-item__portion"); if (pl) { pl.nextSibling && pl.nextSibling.nodeType === 3 && (pl.nextSibling.textContent = ""); pl.remove(); } }   // changed by hand: no longer "1/8"
     item.carbs = item.carbsPer100g != null ? Math.round(item.carbsPer100g * grams) / 100 : item.carbs;
     item.kcal = item.kcalPer100g ? Math.round(item.kcalPer100g * grams) / 100 : item.kcal;
     const row = e.target.closest(".meal-item");
@@ -2735,6 +2742,43 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
   const gluUnitShort = () => (state.settings.units === "mmol" ? "mmol/L" : "mg/dL");
   let batchWeightG = null; // cooked weight of THIS batch, for a recipe being added (null = use the recipe's saved weight)
 
+  // ----- Portions of a recipe (1/8, 2 slices) -----
+  // The dish's weight is this batch's weight when one is entered, else the recipe's saved cooked weight.
+  function portionContext(item) {
+    if (!item || item.refType !== "recipe") return { dishWeight: null, slices: null };
+    return { dishWeight: batchWeightG > 0 ? batchWeightG : item.dishWeight, slices: item.slices };
+  }
+  function portionMessage(text, isError = true) {
+    const box = el("cc-portion"), note = el("cc-portion-note");
+    note.textContent = text || "";
+    note.classList.toggle("is-error", !!text && isError);
+    box.hidden = !text && !box.querySelector(".portion__chip");
+  }
+  // Under the Grams box: for a recipe, one-tap portions and what the typed amount works out to.
+  function renderPortion() {
+    const box = el("cc-portion"), chips = el("cc-portion-chips");
+    const item = selectedPickId ? pickableItems().find(i => i.id === selectedPickId) : null;
+    if (!item || item.refType !== "recipe") { chips.innerHTML = ""; portionMessage(""); box.hidden = true; return; }
+    const ctx = portionContext(item);
+    const typed = gramsInput.value.trim();
+    const slice = item.slices ? [1, 2].filter(n => n <= item.slices).map(n => ({ text: slicesLabel(n), title: `${slicesLabel(n)} of ${item.slices}` })) : [];
+    const options = [...FRACTION_CHIPS.map(([n, d]) => ({ text: fractionLabel(n, d), title: `${fractionLabel(n, d)} of the dish` })), ...slice];
+    chips.innerHTML = options.map(o => `<button type="button" class="portion__chip${o.text === typed ? " is-active" : ""}" data-portion="${escapeAttr(o.text)}" title="${escapeAttr(o.title)}" aria-pressed="${o.text === typed}">${escapeHtml(o.text)}</button>`).join("");
+    box.hidden = false;
+    const p = parsePortion(typed, ctx);
+    if (p.empty) { portionMessage(`Grams, or a portion of the whole dish (${Math.round(ctx.dishWeight)} g)${item.slices ? `, ${item.slices} slices` : ""}.`, false); return; }
+    if (!p.ok) { portionMessage(p.error); return; }
+    const carbs = Math.round(item.carbsPer100g * (ctx.dishWeight === item.dishWeight ? 1 : item.dishWeight / ctx.dishWeight) * p.grams) / 100;
+    portionMessage(p.kind === "grams" ? `${p.grams} g · ${round1(carbs)} g carbs` : `${p.label} of the dish (${Math.round(ctx.dishWeight)} g) = ${p.grams} g · ${round1(carbs)} g carbs`, false);
+  }
+  el("cc-portion-chips").addEventListener("click", e => {
+    const b = e.target.closest("[data-portion]");
+    if (!b) return;
+    gramsInput.value = b.dataset.portion;
+    renderPortion();
+  });
+  gramsInput.addEventListener("input", () => { if (selectedPickId) renderPortion(); else portionMessage(""); });
+
   // Under the food list: for the food you just picked, the last few times you had it, and (for a recipe) a batch weight.
   function renderPickExtra() {
     const box = el("cc-pick-extra");
@@ -2747,14 +2791,14 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
       if (r && t) {
         const per = batchWeightG > 0 ? Math.round((t.totalCarbs / batchWeightG) * 1000) / 10 : t.carbsPer100g;
         html += `<div class="pick-extra__batch"><label for="cc-batch-weight">This batch's cooked weight</label>
-          <div class="field__row"><input type="number" id="cc-batch-weight" inputmode="decimal" min="0" step="1" placeholder="${r.finalWeight}" value="${batchWeightG || ""}"><span class="field__unit">g</span></div>
+          <div class="field__row"><input type="text" id="cc-batch-weight" inputmode="decimal" autocomplete="off" placeholder="${r.finalWeight}" value="${batchWeightG || ""}"><span class="field__unit">g</span></div>
           <p class="pick-extra__note">${t.totalCarbs} g carbs in the whole batch → <b>${per} g per 100 g</b>${batchWeightG > 0 ? ` (recipe default ${t.carbsPer100g})` : ""}. Leave empty to use the saved weight of ${r.finalWeight} g.</p></div>`;
       }
     }
     const last = lastTimesFor(state.history, cachedReadings(), { refId: item.refId, name: item.name }, 3);
     if (last.length) {
       const when = ts => new Date(ts).toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" });
-      const amount = l => (l.quantity != null && l.unitLabel ? `${formatQty(l.quantity)} ${l.unitLabel}${l.quantity === 1 ? "" : "s"}` : l.grams != null ? `${Math.round(l.grams)} g` : "");
+      const amount = l => (l.quantity != null && l.unitLabel ? `${formatQty(l.quantity)} ${l.unitLabel}${l.quantity === 1 ? "" : "s"}` : l.grams != null ? `${l.portion ? escapeHtml(l.portion) + " · " : ""}${Math.round(l.grams)} g` : "");
       html += `<div class="pick-extra__last"><div class="pick-extra__title">Last time you had this</div>` + last.map(l => `<div class="pick-extra__row"><span>${when(l.ts)} · ${amount(l)}${l.alone ? "" : " (with other foods)"}</span><span>${l.noInsulin ? "no insulin" : round1(l.dose) + " u"}${l.after3h != null ? ` · 3 h later ${fmtGluShort(l.after3h)}` : ""}</span></div>`).join("") + `</div>`;
     }
     box.innerHTML = html;
@@ -2762,8 +2806,9 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
   }
   document.addEventListener("input", e => {
     if (!e.target || e.target.id !== "cc-batch-weight") return;
-    const v = parseFloat(e.target.value);
+    const v = parseDecimalInput(e.target.value);
     batchWeightG = v > 0 ? v : null;
+    renderPortion();
     const note = el("cc-pick-extra").querySelector(".pick-extra__note");
     const item = pickableItems().find(i => i.id === selectedPickId), r = item && state.recipes.find(x => x.id === item.refId);
     if (note && r) { const t = recipeTotals(r); const per = batchWeightG ? Math.round((t.totalCarbs / batchWeightG) * 1000) / 10 : t.carbsPer100g; note.innerHTML = `${t.totalCarbs} g carbs in the whole batch → <b>${per} g per 100 g</b>${batchWeightG ? ` (recipe default ${t.carbsPer100g})` : ""}. Leave empty to use the saved weight of ${r.finalWeight} g.`; }
@@ -3797,6 +3842,12 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
         </div>
 
         <div class="field">
+          <label for="rs-slices">Slices <span class="field__optional">(Optional)</span></label>
+          <input type="text" inputmode="numeric" autocomplete="off" id="rs-slices" value="${r.slices > 0 ? escapeAttr(r.slices) : ""}" placeholder="e.g., 12">
+          <p class="panel-card__hint" style="margin-top:6px;">How many slices the whole dish is cut into. On the Calculator you can then add "1 slice" or "2 slices" instead of grams.</p>
+        </div>
+
+        <div class="field">
           <label>Notes <span class="field__optional">(Optional)</span></label>
           <textarea id="rs-notes" rows="2" placeholder="Cooking instructions, tips, etc&hellip;">${escapeHtml(r.notes || "")}</textarea>
         </div>
@@ -3950,6 +4001,9 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
       if (!name) { dialogs.alert("Give the recipe a name."); return; }
       if (items.length === 0) { dialogs.alert("Add at least one ingredient."); return; }
       if (items.some(i => !(i.grams > 0))) { dialogs.alert("Every ingredient needs an amount in grams (or remove it)."); return; }
+      const slicesText = backdrop.querySelector("#rs-slices").value.trim();
+      const slices = slicesText ? parseDecimalInput(slicesText) : null;
+      if (slicesText && !(Number.isInteger(slices) && slices >= 1 && slices <= 200)) { dialogs.alert("Slices should be a whole number, like 8 or 12 — or leave it empty."); return; }
       if (rawText && !(rawWeight > 0)) { dialogs.alert("Raw Weight isn't a number I can read. Try something like 653 or 653,5, or leave it empty."); return; }
       if (!finalWeight || finalWeight <= 0) { dialogs.alert("Final Weight is required — it's the total weight of the finished dish, used to work out carbs per 100g."); return; }
       const payload = {
@@ -3959,6 +4013,7 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
         favorite: backdrop.querySelector("#rs-fav").checked,
         items,
         rawWeight: rawWeight || null,
+        slices: slices || null,
         finalWeight
       };
       if (isEdit) Object.assign(r, payload);

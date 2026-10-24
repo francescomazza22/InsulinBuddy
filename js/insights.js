@@ -284,7 +284,7 @@ export function lastTimesFor(entries, readings, { refId = null, name = "" } = {}
     .sort((a, b) => b.ts - a.ts).slice(0, count).map(e => {
       const it = e.items.find(hit);
       return {
-        ts: e.ts, grams: it.grams ?? null, quantity: it.quantity ?? null, unitLabel: it.unitLabel ?? null,
+        ts: e.ts, grams: it.grams ?? null, quantity: it.quantity ?? null, unitLabel: it.unitLabel ?? null, ...(it.portion ? { portion: it.portion } : {}),
         totalCarbs: carbsOf(e), dose: insulinOf(e), noInsulin: !!e.noInsulin, alone: e.items.length === 1,
         start: glucoseAt(sorted, e.ts, 10), after3h: glucoseAt(sorted, e.ts + 3 * HOUR, 15)
       };
