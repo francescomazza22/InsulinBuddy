@@ -1028,7 +1028,6 @@ html[data-theme="dark"][data-tod="night"]   .boot { --sky-top: #0B1020; --sky-bo
 @media (prefers-reduced-motion: reduce) {
   .boot__pulse, .boot__ring { animation: none; opacity: 0; }
 }
-}
 
 /* ================= Undo toast ================= */
 .undo-toast {
@@ -1739,11 +1738,9 @@ input[type="datetime-local"]::-webkit-date-and-time-value, input[type="date"]::-
 .ratio-picker__meta { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; color: var(--ink-soft); font-weight: 400; font-size: var(--fs-m); }
 .ratio-picker__value { flex: 0 0 auto; white-space: nowrap; font-variant-numeric: tabular-nums; }
 /* Undo used the theme's third colour, now retired: it takes colour 1 like every other action. */
-#undo-toast-btn { color: var(--acc-1); }
-.undo-toast::after { background: var(--acc-1); }
-/* On the dark bar in dark mode the accent is lifted a little to stay readable. */
-html[data-theme="dark"] #undo-toast-btn { color: color-mix(in srgb, var(--acc-1) 65%, white); }
-html[data-theme="dark"] .undo-toast::after { background: color-mix(in srgb, var(--acc-1) 65%, white); }
+/* The Undo bar is dark in both themes, so the accent is lifted a little to stay readable on it. */
+#undo-toast-btn { color: color-mix(in srgb, var(--acc-1) 65%, white); }
+.undo-toast::after { background: color-mix(in srgb, var(--acc-1) 65%, white); }
 /* The two colour dots sit centred above the theme name. */
 .palette-card__dots { justify-content: center; }
 

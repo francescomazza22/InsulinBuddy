@@ -2,6 +2,17 @@
 // summary can never drift. Bump CHANGELOG[0].version here (and CACHE_VERSION in sw.js) on every release.
 export const CHANGELOG = [
   {
+    version: "2.53.10",
+    summary: "The Undo bar is back to its proper look and animation, and every animation in the app is now tested.",
+    changes: [
+      "Fixed: since 2.47.1 a stray character in the stylesheet made the browser drop the Undo bar's whole style. It showed as plain text in the page instead of a floating pill above the tab bar, and never slid in. It now floats, slides up, and shows its countdown line again",
+      "The Undo word on the bar is easier to read in light mode",
+      "A new check walks the stylesheet so a stray bracket can never silently drop a style again",
+      "A new test plays every animation and effect (opening screen, Log button pulse, row swipes, Undo bar and its countdown, switches, chart highlights, sheets, glass) and checks each one runs, stops, and stays still when Reduce motion is on",
+      "Doses are unchanged"
+    ]
+  },
+  {
     version: "2.53.9",
     summary: "Gram boxes in the recipe editor stay put while you type, and show three-digit amounts in full.",
     changes: [
