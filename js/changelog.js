@@ -2,6 +2,15 @@
 // summary can never drift. Bump CHANGELOG[0].version here (and CACHE_VERSION in sw.js) on every release.
 export const CHANGELOG = [
   {
+    version: "2.58.0",
+    summary: "The reset button on the dose card moves next to the carbs, so it's easier to tap without hitting Ratio.",
+    changes: [
+      "The bin button now sits just before the carbs figure instead of right above the Ratio pill. It was so close that a tap near its edge could open the ratio picker instead; now its whole touch area is clear",
+      "It's round and the same height as the pills beside it, and the carbs figure lines up above the Ratio pill",
+      "Doses are calculated exactly as before"
+    ]
+  },
+  {
     version: "2.57.0",
     summary: "Follows Apple's accessibility guidelines: your iPhone's text size, Increase Contrast and bigger touch areas, with the same look.",
     changes: [
