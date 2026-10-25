@@ -2,6 +2,16 @@
 // summary can never drift. Bump CHANGELOG[0].version here (and CACHE_VERSION in sw.js) on every release.
 export const CHANGELOG = [
   {
+    version: "2.61.1",
+    summary: "Opened meals are readable again: food names no longer squash to one letter per line.",
+    changes: [
+      "In an opened meal, 2.61.0 could squeeze a food's name down to one letter per line. Each name now keeps a proper width; when the amount and carbs don't fit beside it they move to the line below, on the right, and always stay together",
+      "A meal's carbs and kcal sit on two lines on every screen, so the time, ratio and buttons stay on one line even with a big carb total",
+      "Amounts below 1 are no longer plural: 0.1 Intera, not 0.1 Interas",
+      "Doses are calculated exactly as before"
+    ]
+  },
+  {
     version: "2.61.0",
     summary: "A Whole button for recipes, and every number now says what it is.",
     changes: [

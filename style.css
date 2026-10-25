@@ -494,8 +494,8 @@ html[data-theme="dark"] .cat-snacks, html[data-theme="dark"] .cat-other { filter
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: var(--space-s); align-items: start;
 }
-/* Two or more cards per row (iPad and PC): carbs above kcal, so "52g carbs" doesn't push the time and ratio onto two lines. */
-@media (min-width: 700px) { .history-group .stat-line { flex-direction: column; align-items: flex-end; gap: 0; } }
+/* Carbs above kcal, so "115.5g carbs" doesn't push the time, ratio and buttons onto two lines. */
+.history-group .stat-line { flex-direction: column; align-items: flex-end; gap: 0; }
 .history-group__date { grid-column: 1 / -1; font-size: var(--fs-xs); font-weight: 700; color: var(--ink-soft); margin: var(--space-2xs) 2px 0; }
 .history-entry {
   background: var(--surface); border: 1.5px solid var(--line); border-left-width: 4px;
@@ -523,8 +523,11 @@ html[data-theme="dark"] .cat-snacks, html[data-theme="dark"] .cat-other { filter
 html[data-theme="dark"] .dose-pill--warn { color: #FBBF24; border-color: #FBBF2499; }
 .dose-pill svg { width: 11px; height: 11px; }
 .history-entry__detail { margin-top: 9px; padding-top: 9px; border-top: 1px dashed var(--line); font-size: var(--fs-s); color: var(--ink-soft); }
-.history-entry__item { display: flex; align-items: baseline; gap: var(--space-xs); margin-bottom: var(--space-3xs); }
-.history-entry__item-name { flex: 1; min-width: 0; overflow-wrap: anywhere; }   /* wraps rather than cutting the name now the carbs say "carbs" */
+/* A food in an opened meal: the name gets its own width (at least 6em); when the amount and carbs don't fit beside it they drop to the
+   next line, kept to the right. (2.61.0 let the name shrink to nothing: one letter per line in a narrow card.) */
+.history-entry__item { display: flex; flex-wrap: wrap; align-items: baseline; column-gap: var(--space-xs); margin-bottom: var(--space-3xs); }
+.history-entry__item-name { flex: 1 1 auto; min-width: 6em; overflow-wrap: break-word; }
+.history-entry__item-amt { margin-left: auto; display: inline-flex; align-items: baseline; gap: var(--space-xs); white-space: nowrap; }
 .history-entry__item-unit { font-size: var(--fs-xs); font-weight: 500; }
 .history-entry__item-qty { color: var(--ink-soft); opacity: 0.75; font-size: var(--fs-xs); flex-shrink: 0; }
 .history-entry__item-carbs { font-weight: 600; color: var(--green); flex-shrink: 0; min-width: 38px; text-align: right; }

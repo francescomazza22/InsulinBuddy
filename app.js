@@ -892,7 +892,7 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
       row.dataset.idx = idx;
       const isUnit = item.quantity != null && item.unitLabel;
       const qtyDisplay = isUnit ? formatQty(item.quantity) : item.grams;
-      const suffix = isUnit ? " " + escapeHtml(item.unitLabel) + (item.quantity === 1 ? "" : "s") : "g";
+      const suffix = isUnit ? " " + escapeHtml(item.unitLabel) + (item.quantity > 1 ? "s" : "") : "g";
       row.innerHTML = `
         <button class="meal-item__edit-reveal" type="button" aria-label="Edit">
           <svg viewBox="0 0 24 24" fill="none"><path d="M4 20l4-1 11-11-3-3L5 16z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg>
@@ -2795,7 +2795,7 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
     const last = lastTimesFor(state.history, cachedReadings(), { refId: item.refId, name: item.name }, 3);
     if (last.length) {
       const when = ts => new Date(ts).toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" });
-      const amount = l => (l.quantity != null && l.unitLabel ? `${formatQty(l.quantity)} ${l.unitLabel}${l.quantity === 1 ? "" : "s"}` : l.grams != null ? `${l.portion ? escapeHtml(l.portion) + " · " : ""}${Math.round(l.grams)} g` : "");
+      const amount = l => (l.quantity != null && l.unitLabel ? `${formatQty(l.quantity)} ${l.unitLabel}${l.quantity > 1 ? "s" : ""}` : l.grams != null ? `${l.portion ? escapeHtml(l.portion) + " · " : ""}${Math.round(l.grams)} g` : "");
       html += `<div class="pick-extra__last"><div class="pick-extra__title">Last time you had this</div>` + last.map(l => `<div class="pick-extra__row"><span>${when(l.ts)} · ${amount(l)}${l.alone ? "" : " (with other foods)"}</span><span>${l.noInsulin ? "no insulin" : round1(l.dose) + " u"}${l.after3h != null ? ` · 3 h later ${fmtGluShort(l.after3h)} ${gluUnitShort()}` : ""}</span></div>`).join("") + `</div>`;
     }
     box.innerHTML = html;
@@ -4162,8 +4162,8 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
             <div class="history-entry__detail" hidden>
               ${entry.items.map(i => {
                 const isUnit = i.quantity != null && i.unitLabel;
-                const qtyLabel = isUnit ? `${formatQty(i.quantity)} ${escapeHtml(i.unitLabel)}${i.quantity === 1 ? "" : "s"}` : (i.grams ? escapeHtml(i.grams) + "g" : "");
-                return `<div class="history-entry__item"><span class="history-entry__item-name">${escapeHtml(i.name)}</span><span class="history-entry__item-qty">${qtyLabel}</span><span class="history-entry__item-carbs">${round1(i.carbs)}g<span class="history-entry__item-unit"> carbs</span></span></div>`;
+                const qtyLabel = isUnit ? `${formatQty(i.quantity)} ${escapeHtml(i.unitLabel)}${i.quantity > 1 ? "s" : ""}` : (i.grams ? escapeHtml(i.grams) + "g" : "");
+                return `<div class="history-entry__item"><span class="history-entry__item-name">${escapeHtml(i.name)}</span><span class="history-entry__item-amt"><span class="history-entry__item-qty">${qtyLabel}</span><span class="history-entry__item-carbs">${round1(i.carbs)}g<span class="history-entry__item-unit"> carbs</span></span></span></div>`;
               }).join("")}
               ${ratioWasApplied(entry) ? `<p class="history-entry__ratio">Ratio used: ${escapeHtml(entry.ratioLabel || "")} ${ratioText(round1(entry.ratioValue))}</p>` : ""}
               ${entry.cappedFrom ? `<p class="history-entry__cap">Capped at your maximum dose (calculated ${entry.cappedFrom}u)</p>` : ""}
@@ -5056,7 +5056,7 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
       backdrop.querySelector("#em-items").innerHTML = items.map((it, idx) => {
         const isUnit = it.quantity != null && it.unitLabel;
         const val = isUnit ? formatQty(it.quantity) : it.grams;
-        const suffix = isUnit ? escapeHtml(it.unitLabel) + (it.quantity === 1 ? "" : "s") : "g";
+        const suffix = isUnit ? escapeHtml(it.unitLabel) + (it.quantity > 1 ? "s" : "") : "g";
         return `
         <div class="ingredient-row">
           <span class="ingredient-row__name">${escapeHtml(it.name)}</span>
