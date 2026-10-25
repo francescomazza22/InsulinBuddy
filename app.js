@@ -22,7 +22,7 @@ import { installClearButtons } from "./js/clear-field.js";
 import { swipeAxis, swipePos, swipeSettle, swipeVelocity } from "./js/swipe.js";
 import { parsePortion, FRACTION_CHIPS, WHOLE_CHIP, fractionLabel, slicesLabel } from "./js/portion.js";
 import { PALETTES, DEFAULT_PALETTE, paletteId, RATIO_COLOURS, refreshRatioColours } from "./js/palettes.js";
-import { toMinutes, inRange, ratioAt, ratioMatch, bracketDays, daysLabel, DAY_NAMES, autoMealType, formatDuration, clampNum } from "./js/core/time.js";
+import { toMinutes, inRange, ratioAt, ratioMatch, bracketDays, daysLabel, DAY_NAMES, autoMealType, formatDuration, clampNum, normalizeTime } from "./js/core/time.js";
 import { toCsv, parseCsv, recipeTotals as recipeTotalsWith, parseLibraryFile, mergeLibrary, repairRecipe } from "./js/core/library.js";
 import { buildMealEntry, adjustUsage } from "./js/core/meal-entry.js";
 import { validateState, validateEntry, validateFood, validateRecipe, hasErrors, summarizeProblems } from "./js/core/schema.js";
@@ -5892,8 +5892,10 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
     return true;
   }
 
-  function renderTimeRatioList() {
+  // Panels that were open stay open when the list is redrawn (plus any ids passed in, e.g. a range just added).
+  function renderTimeRatioList(alsoOpen = []) {
     const box = el("time-ratio-list");
+    const open = new Set([...box.querySelectorAll(".ratio-row__edit:not([hidden])")].map(x => x.id.slice(5)).concat(alsoOpen));
     box.innerHTML = "";
     state.settings.timeRatios.forEach(r => {
       const row = document.createElement("div");
@@ -5911,7 +5913,7 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
             <svg viewBox="0 0 24 24" fill="none"><path d="M5 7h14M9 7V5a1 1 0 011-1h4a1 1 0 011 1v2m-9 0l1 12a2 2 0 002 2h6a2 2 0 002-2l1-12" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
           </button>
         </div>
-        <div class="ratio-row__edit" id="edit-${r.id}" hidden>
+        <div class="ratio-row__edit" id="edit-${escapeAttr(r.id)}"${open.has(r.id) ? "" : " hidden"}>
           <label class="ratio-name"><span>Name</span><input type="text" value="${escapeAttr(r.name)}" maxlength="40" data-field="name" data-id="${escapeAttr(r.id)}" autocomplete="off"></label>
           <input type="time" value="${r.start}" data-field="start" data-id="${escapeAttr(r.id)}">
           <span>to</span>
@@ -5938,9 +5940,7 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
       const next = cur.includes(d) ? cur.filter(x => x !== d) : [...cur, d];
       if (!next.length) return;                       // at least one day must stay
       if (next.length === 7) delete r.days; else r.days = next.sort((a, b) => a - b);
-      const open = !el("edit-" + r.id).hidden;
       saveState(); renderTimeline(); renderTimeRatioList();
-      if (open) el("edit-" + r.id).hidden = false;
       return;
     }
     const del = e.target.closest("[data-del]");
@@ -5956,18 +5956,43 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
       box.hidden = !box.hidden;
     }
   });
+  // Edits change the range in place and only refresh the row's summary line and the timeline. The list is never rebuilt
+  // under the field being edited: iPhone's time wheel fires change events while it is still open, and rebuilding the
+  // list destroyed the field (closing or breaking the picker, and sending later spins to a field no longer on the page).
+  // A cleared, half-typed or invalid time or ratio is never saved; leaving the field puts the saved value back.
+  function refreshTimeRatioRow(r) {
+    const top = [...el("time-ratio-list").querySelectorAll("[data-toggle]")].find(x => x.dataset.toggle === r.id);
+    if (!top) return;
+    top.querySelector(".ratio-row__name").textContent = r.name;
+    top.querySelector(".ratio-row__time").textContent = `${r.start} – ${r.end}${daysLabel(r) ? ` · ${daysLabel(r)}` : ""}`;
+    top.querySelector(".ratio-row__value").textContent = ratioText(r.ratio);
+  }
+  function timeRatioFieldValue(r, field, raw) {
+    if (field === "start" || field === "end") return normalizeTime(raw);
+    if (field === "ratio") { const n = parseFloat(String(raw).replace(",", ".")); return Number.isFinite(n) && n >= 0.1 ? n : null; }
+    return null;
+  }
   bind("time-ratio-list", "change", e => {
     const field = e.target.dataset.field;
     if (!field) return;
     const r = state.settings.timeRatios.find(x => x.id === e.target.dataset.id);
     if (!r) return;
-    if (field === "ratio") r.ratio = parseFloat(e.target.value) || r.ratio;
-    else if (field === "name") renameRatio(state.settings.timeRatios, r, e.target.value);
-    else r[field] = e.target.value;
+    if (field === "name") {
+      if (!renameRatio(state.settings.timeRatios, r, e.target.value)) { e.target.value = r.name; return; }
+    } else {
+      const v = timeRatioFieldValue(r, field, e.target.value);
+      if (v === null || v === r[field]) return;
+      r[field] = v;
+    }
     saveState();
     renderTimeline();
-    renderTimeRatioList();
-    const ed = el("edit-" + r.id); if (ed) ed.hidden = false;
+    refreshTimeRatioRow(r);
+  });
+  bind("time-ratio-list", "focusout", e => {
+    const field = e.target.dataset && e.target.dataset.field;
+    if (field !== "start" && field !== "end" && field !== "ratio") return;
+    const r = state.settings.timeRatios.find(x => x.id === e.target.dataset.id);
+    if (r && timeRatioFieldValue(r, field, e.target.value) !== r[field]) e.target.value = r[field];
   });
 
   const RANGE_COLORS = RATIO_COLOURS;
@@ -5976,7 +6001,7 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
     let nm = "New range", k = 2;
     while (state.settings.timeRatios.some(x => x.name === nm) || state.settings.activityRatios.some(x => x.name === nm)) nm = "New range " + k++;
     state.settings.timeRatios.push({ id, name: nm, start: "12:00", end: "14:00", ratio: 10, color: RANGE_COLORS[state.settings.timeRatios.length % RANGE_COLORS.length] });
-    saveState(); renderTimeline(); renderTimeRatioList();
+    saveState(); renderTimeline(); renderTimeRatioList([id]);
   });
 
   function renderActivityRatioList() {

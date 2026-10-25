@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { toMinutes, inRange, ratioAt, autoMealType, formatDuration, clampNum } from "../../js/core/time.js";
+import { toMinutes, inRange, ratioAt, autoMealType, formatDuration, clampNum, normalizeTime } from "../../js/core/time.js";
 import { toCsv, parseCsv, splitCsvLine, recipeTotals, parseLibraryFile, mergeLibrary } from "../../js/core/library.js";
 import { buildMealEntry, adjustUsage } from "../../js/core/meal-entry.js";
 
@@ -9,6 +9,15 @@ test("time: ranges wrap past midnight, equal bounds mean all day", () => {
   assert.ok(inRange(60, "22:00", "06:00"));
   assert.ok(!inRange(720, "22:00", "06:00"));
   assert.ok(inRange(5, "00:00", "00:00"));
+});
+test("time: normalizeTime keeps only whole, valid times as HH:MM", () => {
+  assert.equal(normalizeTime("07:30"), "07:30");
+  assert.equal(normalizeTime("7:30"), "07:30");
+  assert.equal(normalizeTime("13:30:00"), "13:30");
+  assert.equal(normalizeTime("13:30:00.000"), "13:30");
+  assert.equal(normalizeTime("00:00"), "00:00");
+  assert.equal(normalizeTime("23:59"), "23:59");
+  for (const bad of ["", "   ", null, undefined, "24:00", "12:60", "12", "12:3", "ab:cd", "12:30 pm"]) assert.equal(normalizeTime(bad), null, String(bad));
 });
 test("time: ratioAt picks the bracket, falls back to the first", () => {
   const list = [{ name: "Morning", start: "06:00", end: "12:00" }, { name: "Rest", start: "12:00", end: "06:00" }];

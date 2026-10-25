@@ -2,6 +2,16 @@
 // summary can never drift. Bump CHANGELOG[0].version here (and CACHE_VERSION in sw.js) on every release.
 export const CHANGELOG = [
   {
+    version: "2.62.1",
+    summary: "Editing the times of a ratio range no longer breaks the time picker.",
+    changes: [
+      "Changing a range's start or end time keeps the time wheel open and working: the row no longer redraws under your finger",
+      "A cleared or half-typed time is never saved; leaving the field puts the last good time back (an empty time used to stop the range from ever applying)",
+      "A new range opens ready to edit, and ranges you have open stay open while you change days or times",
+      "Doses are calculated exactly as before"
+    ]
+  },
+  {
     version: "2.62.0",
     summary: "Use again is now behind the swipe, next to Edit and Delete.",
     changes: [

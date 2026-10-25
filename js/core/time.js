@@ -3,6 +3,15 @@ export function toMinutes(hhmm) {
   const [h, m] = hhmm.split(":").map(Number);
   return h * 60 + m;
 }
+// A time field's value as "HH:MM", or null when it is empty, half-typed or out of range. Seconds ("13:30:00", which
+// some browsers send) are dropped and a one-digit hour is padded, so saved ranges always look like "07:30".
+export function normalizeTime(v) {
+  const m = /^(\d{1,2}):(\d{2})(?::\d{2}(?:\.\d+)?)?$/.exec(String(v == null ? "" : v).trim());
+  if (!m) return null;
+  const h = +m[1], min = +m[2];
+  if (h > 23 || min > 59) return null;
+  return `${String(h).padStart(2, "0")}:${m[2]}`;
+}
 export function inRange(minutes, start, end) {
   const s = toMinutes(start), e = toMinutes(end);
   if (s === e) return true;
