@@ -91,10 +91,10 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
   function iconApple() { return '<svg viewBox="0 0 24 24" fill="none"><path d="M12 8.5c-3.5-2.5-8 0-8 5S7.5 21 10 20c1-.4 1-.4 2 0 2.5 1 6-2.5 6-6.5s-4.5-7.5-6-5z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M12 8.5c0-1.5.5-3 2-4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>'; }
 
   const DEFAULT_TIME_RATIOS = [
-    { id: "tr-morning", name: "Morning", start: "05:30", end: "11:00", ratio: 10, color: "#0C817B" },
-    { id: "tr-lunch",   name: "Lunch",   start: "11:00", end: "15:00", ratio: 8,  color: "#B25000" },
-    { id: "tr-evening", name: "Evening", start: "15:00", end: "23:30", ratio: 15, color: "#6155F5" },
-    { id: "tr-night",   name: "Night",   start: "23:30", end: "05:30", ratio: 12, color: "#D70015" }
+    { id: "tr-morning", name: "Morning", start: "05:30", end: "11:00", ratio: 10, color: "#C93400" },
+    { id: "tr-lunch",   name: "Lunch",   start: "11:00", end: "15:00", ratio: 8,  color: "#248A3D" },
+    { id: "tr-evening", name: "Evening", start: "15:00", end: "23:30", ratio: 15, color: "#8944AB" },
+    { id: "tr-night",   name: "Night",   start: "23:30", end: "05:30", ratio: 12, color: "#0064D2" }
   ];
   const DEFAULT_ACTIVITY_RATIOS = [
     { id: "ar-sport", name: "Sport", ratio: 18, color: "#8B5CF6" }

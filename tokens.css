@@ -57,16 +57,18 @@
 }
 
 /* ---------- Palettes ---------- */
+html[data-palette="redOrange"], [data-swatch="redOrange"] { --acc-1:#D70015; --acc-2:#FF8D28; --acc-3:#D70015; --acc-1-rgb: 215,0,21; }
+html[data-palette="orangeYellow"], [data-swatch="orangeYellow"] { --acc-1:#C93400; --acc-2:#FFCC00; --acc-3:#C93400; --acc-1-rgb: 201,52,0; }
+html[data-palette="greenMint"], [data-swatch="greenMint"] { --acc-1:#248A3D; --acc-2:#00C8B3; --acc-3:#248A3D; --acc-1-rgb: 36,138,61; }
+html[data-palette="tealCyan"], [data-swatch="tealCyan"] { --acc-1:#008299; --acc-2:#00C0E8; --acc-3:#008299; --acc-1-rgb: 0,130,153; }
 html[data-palette="blueIndigo"], [data-swatch="blueIndigo"] { --acc-1:#0088FF; --acc-2:#6155F5; --acc-3:#0088FF; --acc-1-rgb: 0,136,255; }
-html[data-palette="indigoPurple"], [data-swatch="indigoPurple"] { --acc-1:#6155F5; --acc-2:#CB30E0; --acc-3:#6155F5; --acc-1-rgb: 97,85,245; }
 html[data-palette="purplePink"], [data-swatch="purplePink"] { --acc-1:#CB30E0; --acc-2:#FF2D55; --acc-3:#CB30E0; --acc-1-rgb: 203,48,224; }
-html[data-palette="blueTeal"], [data-swatch="blueTeal"] { --acc-1:#0088FF; --acc-2:#00C3D0; --acc-3:#0088FF; --acc-1-rgb: 0,136,255; }
-html[data-palette="indigoCyan"], [data-swatch="indigoCyan"] { --acc-1:#6155F5; --acc-2:#00C0E8; --acc-3:#6155F5; --acc-1-rgb: 97,85,245; }
+html[data-theme="dark"][data-palette="redOrange"], html[data-theme="dark"] [data-swatch="redOrange"] { --acc-1:#FF4245; --acc-2:#FF9230; --acc-3:#FF4245; --acc-1-rgb: 255,66,69; }
+html[data-theme="dark"][data-palette="orangeYellow"], html[data-theme="dark"] [data-swatch="orangeYellow"] { --acc-1:#FF9230; --acc-2:#FFD600; --acc-3:#FF9230; --acc-1-rgb: 255,146,48; }
+html[data-theme="dark"][data-palette="greenMint"], html[data-theme="dark"] [data-swatch="greenMint"] { --acc-1:#30D158; --acc-2:#00DAC3; --acc-3:#30D158; --acc-1-rgb: 48,209,88; }
+html[data-theme="dark"][data-palette="tealCyan"], html[data-theme="dark"] [data-swatch="tealCyan"] { --acc-1:#00D2E0; --acc-2:#3CD3FE; --acc-3:#00D2E0; --acc-1-rgb: 0,210,224; }
 html[data-theme="dark"][data-palette="blueIndigo"], html[data-theme="dark"] [data-swatch="blueIndigo"] { --acc-1:#0091FF; --acc-2:#6D7CFF; --acc-3:#0091FF; --acc-1-rgb: 0,145,255; }
-html[data-theme="dark"][data-palette="indigoPurple"], html[data-theme="dark"] [data-swatch="indigoPurple"] { --acc-1:#6D7CFF; --acc-2:#DB34F2; --acc-3:#6D7CFF; --acc-1-rgb: 109,124,255; }
 html[data-theme="dark"][data-palette="purplePink"], html[data-theme="dark"] [data-swatch="purplePink"] { --acc-1:#DB34F2; --acc-2:#FF375F; --acc-3:#DB34F2; --acc-1-rgb: 219,52,242; }
-html[data-theme="dark"][data-palette="blueTeal"], html[data-theme="dark"] [data-swatch="blueTeal"] { --acc-1:#0091FF; --acc-2:#00D2E0; --acc-3:#0091FF; --acc-1-rgb: 0,145,255; }
-html[data-theme="dark"][data-palette="indigoCyan"], html[data-theme="dark"] [data-swatch="indigoCyan"] { --acc-1:#6D7CFF; --acc-2:#3CD3FE; --acc-3:#6D7CFF; --acc-1-rgb: 109,124,255; }
 
 /* ---------- Dark mode ---------- */
 html[data-theme="dark"] {

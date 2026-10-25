@@ -2,6 +2,15 @@
 // summary can never drift. Bump CHANGELOG[0].version here (and CACHE_VERSION in sw.js) on every release.
 export const CHANGELOG = [
   {
+    version: "2.56.0",
+    summary: "Six clearly different colour themes, and ratio colours that are easy to tell apart.",
+    changes: [
+      "New themes, each starting from a different Apple colour: Red & Orange, Orange & Yellow, Green & Mint, Teal & Cyan, Blue & Indigo (still the default) and Purple & Pink. Your current theme moves to the closest one",
+      "Ratio colours are now orange, green, purple, blue, pink and brown, so the bar under Time-Based Ratios no longer has look-alike neighbours. Ratios using the old preset colours switch over by themselves; custom colours are left alone",
+      "Doses are calculated exactly as before: only colours changed"
+    ]
+  },
+  {
     version: "2.55.0",
     summary: "New look: Apple's iOS colours throughout, with five new themes and a true-black dark mode.",
     changes: [

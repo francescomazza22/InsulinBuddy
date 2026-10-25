@@ -31,3 +31,10 @@ test("saved ratio ranges with the old preset colours move to the iOS ones; custo
   assert.equal(refreshRatioColours({}), false);
   assert.equal(refreshRatioColours(null), false);
 });
+
+test("2.55.0's ratio colours (too alike) move to the new distinct ones, and the six are all different", () => {
+  const s = { timeRatios: [{ color: "#0C817B" }, { color: "#B25000" }, { color: "#6155F5" }, { color: "#D70015" }] };
+  assert.equal(refreshRatioColours(s), true);
+  assert.deepEqual(s.timeRatios.map(r => r.color), RATIO_COLOURS.slice(0, 4));
+  assert.equal(new Set(RATIO_COLOURS).size, 6);
+});
