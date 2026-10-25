@@ -3164,7 +3164,7 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
     if (rangeClass === "low" || rangeClass === "high") classes.push(`glucose-pill--${rangeClass}`);
     if (stale) classes.push("glucose-pill--stale");
     pill.className = classes.join(" ");
-    pill.textContent = arrow ? `${value} ${arrow}` : `${value}`;
+    pill.textContent = `${value} ${gluUnitShort()}${arrow ? " " + arrow : ""}`;   // the unit makes it read as glucose, not as the dose beside it
     pill.title = stale
       ? "Last reading is more than 15 minutes old"
       : "Latest glucose from Nightscout — always double-check before dosing";

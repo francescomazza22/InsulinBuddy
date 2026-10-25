@@ -2,6 +2,15 @@
 // summary can never drift. Bump CHANGELOG[0].version here (and CACHE_VERSION in sw.js) on every release.
 export const CHANGELOG = [
   {
+    version: "2.59.0",
+    summary: "Your glucose reading on the dose card moves next to the carbs and shows its unit, so it can't be mistaken for the dose.",
+    changes: [
+      "The live glucose reading sat right after \"Insulin dose\", so 123 looked like the answer. It now sits on the right with the carbs, as 123 mg/dL → (or mmol/L)",
+      "It's the same size as the carbs pill: same height, text size and weight. Low and high readings keep their white and yellow colours, and tapping it still opens the glucose details",
+      "Doses are calculated exactly as before"
+    ]
+  },
+  {
     version: "2.58.0",
     summary: "The reset button on the dose card moves next to the carbs, so it's easier to tap without hitting Ratio.",
     changes: [

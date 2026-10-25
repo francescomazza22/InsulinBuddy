@@ -149,7 +149,7 @@ input:focus-visible, select:focus-visible, button:focus-visible { outline: 2px s
   color: #fff; border-radius: var(--radius-l); padding: 13px 14px var(--space-m); margin-bottom: 14px;
 }
 .dose-card__top { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--dose-gap); }
-.dose-card__top-right { display: flex; align-items: center; gap: var(--space-2xs); flex-shrink: 0; }
+.dose-card__top-right { display: flex; align-items: center; gap: var(--space-2xs); flex-shrink: 1; min-width: 0; flex-wrap: wrap; justify-content: flex-end; row-gap: var(--space-2xs); }   /* wraps only at very large text sizes */
 .dose-card__label { font-size: var(--fs-2xs); font-weight: 700; color: rgba(255,255,255,0.85); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .carbs-pill { background: rgba(255,255,255,0.22); padding: 3px var(--space-s); border-radius: var(--radius-pill); font-size: var(--fs-xs); font-weight: 600; border: none; color: #fff; font-family: var(--font-ui); cursor: default; white-space: nowrap; }
 .carbs-pill--ratio { background: rgba(0,0,0,0.24); cursor: pointer; appearance: none; flex-shrink: 0; white-space: nowrap; }
@@ -163,6 +163,9 @@ input:focus-visible, select:focus-visible, button:focus-visible { outline: 2px s
 .glucose-pill--high { background: rgba(255,196,60,0.95); color: #6b4a00; }
 .glucose-pill--stale { opacity: 0.55; }
 .glucose-pill { cursor: pointer; }
+/* On the dose card the glucose reading sits with the carbs on the right (2.59.0), away from the "Insulin dose" label it
+   used to look like the answer to, and matches the carbs pill's size. */
+.dose-card .glucose-pill { height: var(--dose-pill-h); padding: 0 var(--space-s); font-weight: 600; gap: 0.3em; line-height: 1; }
 
 /* ================= Glucose tab: FreeStyle-Libre-style banner + range picker ================= */
 .glucose-banner {
@@ -913,7 +916,7 @@ html[data-theme="dark"] .pattern-card__preview--abstract { background-image: url
   .dose-card .pill-btn { font-size: var(--fs-s); gap: var(--space-2xs); padding-left: var(--space-s); padding-right: var(--space-s); }
   .dose-card .pill-btn svg { width: 14px; height: 14px; }
   .dose-card .carbs-pill { font-size: var(--fs-s); padding-left: 14px; padding-right: 14px; }
-  .dose-card .glucose-pill { font-size: var(--fs-s); padding: var(--space-3xs) var(--space-m); }
+  .dose-card .glucose-pill { font-size: var(--fs-s); padding: 0 14px; }
   .dose-card__top-right { gap: 9px; }
   .segmented { max-width: 520px; }
   /* Calculator: dose and Log button on the left, held in view while you scroll the meal on the right. */
