@@ -2,6 +2,16 @@
 // summary can never drift. Bump CHANGELOG[0].version here (and CACHE_VERSION in sw.js) on every release.
 export const CHANGELOG = [
   {
+    version: "2.62.0",
+    summary: "Use again is now behind the swipe, next to Edit and Delete.",
+    changes: [
+      "Swipe a meal left to see Use again (green), Edit and Delete",
+      "On iPhone and iPad an opened meal no longer repeats the Use Again / Edit / Delete buttons at the bottom. On a computer, where you can't swipe, they stay",
+      "Basal doses still swipe to Edit and Delete only",
+      "Doses are calculated exactly as before"
+    ]
+  },
+  {
     version: "2.61.1",
     summary: "Opened meals are readable again: food names no longer squash to one letter per line.",
     changes: [

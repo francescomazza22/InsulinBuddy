@@ -532,6 +532,9 @@ html[data-theme="dark"] .dose-pill--warn { color: #FBBF24; border-color: #FBBF24
 .history-entry__item-qty { color: var(--ink-soft); opacity: 0.75; font-size: var(--fs-xs); flex-shrink: 0; }
 .history-entry__item-carbs { font-weight: 600; color: var(--green); flex-shrink: 0; min-width: 38px; text-align: right; }
 .history-entry__row-actions { display: flex; gap: var(--space-s); margin-top: var(--space-s); }
+/* On touch screens (iPhone, iPad) Use again / Edit / Delete live behind the swipe, so the opened meal doesn't repeat them.
+   A mouse can't swipe, so on a PC they stay here. */
+@media (hover: none) and (pointer: coarse) { .history-entry__row-actions { display: none; } }
 .history-entry__row-actions button { background: none; border: none; color: var(--ink-soft); font-size: var(--fs-s); font-weight: 600; cursor: pointer; padding: 0; }
 .history-entry__row-actions button.danger { color: var(--brick); }
 
@@ -1585,6 +1588,8 @@ html[data-theme="dark"] :is(.c-kcal) { color: #F0BE5E; }
 .hs-actions { position: absolute; top: -1.5px; bottom: -1.5px; left: calc(100% + 6px); width: 138px; display: flex; gap: 6px; }
 .hs-actions button { flex: 1; border: none; border-radius: var(--radius-m); font: inherit; font-size: var(--fs-m); font-weight: 700; color: #fff; cursor: pointer; }
 .hs-actions__edit { background: var(--acc-1); }
+.hs-actions--three { width: 210px; }
+.hs-actions__use { background: var(--green); line-height: 1.15; }   /* its own colour, apart from Edit (theme) and Delete (red) */
 .hs-actions__del { background: var(--brick); }
 .hs-row:not(.is-open) .hs-actions button { visibility: hidden; }
 .hs-row.is-open .hs-actions button, .hs-row .history-entry[style*="translateX"] .hs-actions button { visibility: visible; }

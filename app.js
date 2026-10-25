@@ -4048,13 +4048,16 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
   // ---- hs a History row left to reveal Edit and Delete ----
   // The buttons ride along on the right edge of the row itself, so they are never drawn behind it. They reuse the same
   // data-edit / data-del handlers as the buttons in the expanded row. Only touch listeners, no timers: nothing runs while idle.
-  const HS_W = 144;
-  function wrapSwipe(row, id) {
+  const HS_W = 144;            // tray with Edit + Delete
+  const HS_W_USE = 216;        // tray with Use Again + Edit + Delete (meals; basal doses can't be used again)
+  const hsW = wrap => Number(wrap.dataset.w) || HS_W;
+  function wrapSwipe(row, id, { useAgain = false } = {}) {
     const wrap = document.createElement("div");
-    wrap.className = "hs-row"; wrap.dataset.id = id;
+    wrap.className = "hs-row"; wrap.dataset.id = id; wrap.dataset.w = useAgain ? HS_W_USE : HS_W;
     const actions = document.createElement("div");
-    actions.className = "hs-actions";
-    actions.innerHTML = `<button type="button" class="hs-actions__edit" data-edit="${escapeAttr(id)}">Edit</button><button type="button" class="hs-actions__del" data-del="${escapeAttr(id)}">Delete</button>`;
+    actions.className = "hs-actions" + (useAgain ? " hs-actions--three" : "");
+    actions.innerHTML = (useAgain ? `<button type="button" class="hs-actions__use" data-use="${escapeAttr(id)}">Use again</button>` : "") +
+      `<button type="button" class="hs-actions__edit" data-edit="${escapeAttr(id)}">Edit</button><button type="button" class="hs-actions__del" data-del="${escapeAttr(id)}">Delete</button>`;
     row.appendChild(actions);
     wrap.appendChild(row);
     return wrap;
@@ -4064,16 +4067,16 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
   function hsSet(wrap, open) {
     const r = wrap.querySelector(".history-entry");
     wrap.classList.toggle("is-open", open);
-    r.style.transition = ""; r.style.transform = open ? `translateX(-${HS_W}px)` : "";
+    r.style.transition = ""; r.style.transform = open ? `translateX(-${hsW(wrap)}px)` : "";
   }
   function hsCloseOthers(except) { historyGroups.querySelectorAll(".hs-row.is-open").forEach(w => { if (w !== except) hsSet(w, false); }); }
-  // Swipe a row left to reveal Edit / Delete. The rules (direction, rubber band, flick or distance) live in js/swipe.js.
+  // Swipe a row left to reveal Use again (meals) / Edit / Delete. The rules (direction, rubber band, flick or distance) live in js/swipe.js.
   historyGroups.addEventListener("touchstart", e => {
     const wrap = hsRowOf(e);
     if (!wrap || e.touches.length !== 1 || e.target.closest(".hs-actions")) { hs = null; return; }
     hsCloseOthers(wrap);
     const t = e.touches[0];
-    hs = { wrap, row: wrap.querySelector(".history-entry"), x: t.clientX, y: t.clientY, base: wrap.classList.contains("is-open") ? -HS_W : 0, pos: 0, mode: null, x0: 0, samples: [] };
+    hs = { wrap, row: wrap.querySelector(".history-entry"), x: t.clientX, y: t.clientY, base: wrap.classList.contains("is-open") ? -hsW(wrap) : 0, w: hsW(wrap), pos: 0, mode: null, x0: 0, samples: [] };
   }, { passive: true });
   historyGroups.addEventListener("touchmove", e => {
     if (!hs) return;
@@ -4089,7 +4092,7 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
     e.preventDefault();
     const now = e.timeStamp || performance.now();
     hs.samples.push({ x: t.clientX, t: now }); if (hs.samples.length > 8) hs.samples.shift();
-    hs.pos = swipePos(hs.base, t.clientX - hs.x0, HS_W);
+    hs.pos = swipePos(hs.base, t.clientX - hs.x0, hs.w);
     hs.row.style.transform = `translateX(${hs.pos}px)`;
   }, { passive: false });
   const hsEnd = e => {
@@ -4097,7 +4100,7 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
     if (hs.mode === "h") {
       hsLastAt = Date.now();
       const v = swipeVelocity(hs.samples, (e && e.timeStamp) || performance.now());
-      hsSet(hs.wrap, swipeSettle({ pos: hs.pos, velocity: v, width: HS_W }));
+      hsSet(hs.wrap, swipeSettle({ pos: hs.pos, velocity: v, width: hs.w }));
     }
     hs = null;
   };
@@ -4179,7 +4182,7 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
             ${entry.carbsUnknown ? `<span class="stat-line"><span class="stat-grams">Carbs not logged</span></span>` : `<span class="stat-line"><span class="stat-grams">${entry.totalCarbs}g carbs</span><span class="stat-kcal">${entry.totalKcal || 0} kcal</span></span>`}
           </div>
         `;
-        groupEl.appendChild(wrapSwipe(row, entry.id));
+        groupEl.appendChild(wrapSwipe(row, entry.id, { useAgain: true }));
       });
       historyGroups.appendChild(groupEl);
     });

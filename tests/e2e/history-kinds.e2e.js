@@ -73,7 +73,7 @@ const isOpen = id => dev.eval(`document.querySelector('.hs-row[data-id="${id}"]'
 const closeAll = () => dev.eval(`document.querySelectorAll(".hs-row.is-open .history-entry").forEach(r => r.click())`);
 await swipeTouch("h1", -150); await sleep(350);
 t.check("a left swipe opens the row", await dev.eval(`document.querySelector('.hs-row[data-id="h1"]').classList.contains("is-open")`));
-t.check("the row slid left by the width of the buttons", await dev.eval(`/-144px/.test(document.querySelector('.history-entry[data-id="h1"]').style.transform)`));
+t.check("the row slid left by the width of the three buttons", await dev.eval(`/-216px/.test(document.querySelector('.history-entry[data-id="h1"]').style.transform)`));
 const vis = await dev.eval(`(() => { const e = document.querySelector('.history-entry[data-id="h1"] .hs-actions__edit'); const r = e.getBoundingClientRect(); const top = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2); return { w: Math.round(r.width), onScreen: r.right <= innerWidth + 1, hit: top === e }; })()`);
 t.check("Edit is on screen and tappable", vis.onScreen && vis.hit && vis.w > 40, JSON.stringify(vis));
 t.check("a short slow swipe does not open it", (await swipeTouch("h2", -30, 500), await sleep(300), !(await isOpen("h2"))));
@@ -86,8 +86,8 @@ t.check("tapping an open row closes it instead of expanding it", await dev.eval(
 
 t.section("HISTORY: the swipe follows the thumb precisely");
 await closeAll(); await sleep(400);
-const drag = await swipeTouch("h3", -80, 400); await sleep(400);
-t.check("while dragging, the row moves smoothly from where the swipe was recognised (no jump)", drag === -70, String(drag));
+const drag = await swipeTouch("h3", -100, 400); await sleep(400);
+t.check("while dragging, the row moves smoothly from where the swipe was recognised (no jump)", drag === -87.5, String(drag));
 t.check("a slow drag past 40% of the buttons opens", await isOpen("h3"));
 await closeAll(); await sleep(400);
 await swipeTouch("h3", -40, 60); await sleep(400);
@@ -98,10 +98,28 @@ await swipeTouch("h3", -150, 300, 120); await sleep(400);   // 150 across, 120 d
 t.check("a slightly diagonal thumb still counts as a swipe (it used to be read as a scroll)", await isOpen("h3"));
 await closeAll(); await sleep(400);
 const over = await swipeTouch("h3", -260, 300); await sleep(400);
-t.check("dragging past the buttons slows down (rubber band) instead of stopping dead", over < -170 && over > -195, String(over));
+t.check("dragging past the buttons slows down (rubber band) instead of stopping dead", over < -216 && over > -240, String(over));
 await closeAll(); await sleep(400);
 await swipeTouch("h3", -150, 200); await sleep(80);   // tap Edit 80 ms after lifting the finger
 await dev.eval(`document.querySelector('.history-entry[data-id="h3"] .hs-actions__edit').click()`); await sleep(450);
 t.check("Edit works straight after the swipe that revealed it", await dev.eval(`!!document.getElementById("em-save")`));
 await dev.eval(`document.getElementById("em-cancel").click()`); await sleep(300);
+
+t.section("HISTORY: Use again sits behind the swipe, in its own colour");
+await closeAll(); await sleep(400);
+await swipeTouch("h5", -250, 300); await sleep(400);
+const tray = await dev.eval(`(() => { const a = document.querySelector('.history-entry[data-id="h5"] .hs-actions'); return [...a.querySelectorAll("button")].map(b => { const r = b.getBoundingClientRect(); const top = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2); return { text: b.textContent, bg: getComputedStyle(b).backgroundColor, onScreen: r.left >= 0 && r.right <= innerWidth, hit: b.contains(top) }; }); })()`);
+t.check("the tray is Use again, Edit, Delete", tray.map(b => b.text).join("|") === "Use again|Edit|Delete", JSON.stringify(tray.map(b => b.text)));
+t.check("all three are on screen and tappable", tray.every(b => b.onScreen && b.hit), JSON.stringify(tray));
+t.check("Use again has a colour of its own", new Set(tray.map(b => b.bg)).size === 3, JSON.stringify(tray.map(b => b.bg)));
+await dev.eval(`document.querySelector('.history-entry[data-id="h5"] .hs-actions__use').click()`); await sleep(600);
+t.check("tapping Use again puts that meal in the Calculator", await dev.eval(`(() => { const v = document.getElementById("view-calculator"); return !!v && !v.hidden && [...document.querySelectorAll(".meal-item__name")].some(n => n.textContent === "Banana"); })()`));
+await dev.tab("history"); await sleep(400);
+t.section("HISTORY: on a touch screen the opened meal has no button row; with a mouse it does");
+await dev.cdp.send("Emulation.setTouchEmulationEnabled", { enabled: true, maxTouchPoints: 5 }); await sleep(300);
+await dev.eval(`document.querySelector('.history-entry[data-id="h1"]').click()`); await sleep(300);
+const touchState = await dev.eval(`(() => { const d = document.querySelector('.history-entry[data-id="h1"] .history-entry__detail'); return { touch: matchMedia("(hover: none) and (pointer: coarse)").matches, open: !d.hidden, display: getComputedStyle(d.querySelector(".history-entry__row-actions")).display }; })()`);
+t.check("touch: the opened meal shows no Use Again / Edit / Delete row", touchState.touch && touchState.open && touchState.display === "none", JSON.stringify(touchState));
+await dev.cdp.send("Emulation.setTouchEmulationEnabled", { enabled: false }); await sleep(300);
+t.check("mouse: the row is there, so a PC can still edit and delete", await dev.eval(`getComputedStyle(document.querySelector('.history-entry[data-id="h1"] .history-entry__row-actions')).display !== "none"`));
 dev.close(); await app.close(); t.done && t.done(); process.exit(0);
