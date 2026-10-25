@@ -2,6 +2,16 @@
 // summary can never drift. Bump CHANGELOG[0].version here (and CACHE_VERSION in sw.js) on every release.
 export const CHANGELOG = [
   {
+    version: "2.62.2",
+    summary: "Every field checked: activity ratios and the insulin and carb timing boxes fixed.",
+    changes: [
+      "Activity ratios (Sport, Stress…) now edit in place like the time ranges: renaming no longer redraws the list under you, and a zero or negative ratio is never saved",
+      "Clearing an insulin action or carb absorption box and leaving it now keeps your saved value. It used to put back the factory default (a 300-minute DIA became 360) and switch the preset to Custom",
+      "Every editable field on every screen, panel and sheet is now tested the same way on phone, tablet and computer widths",
+      "Doses are calculated exactly as before"
+    ]
+  },
+  {
     version: "2.62.1",
     summary: "Editing the times of a ratio range no longer breaks the time picker.",
     changes: [

@@ -5582,13 +5582,18 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
     renderActivePanel();
   });
 
+  // A cleared or non-numeric box keeps the value already saved (it used to fall back to the factory default, so clearing
+  // the DIA box quietly turned a 300-minute setting into 360 and switched the preset to Custom).
+  const boxInt = (id, current) => { const n = parseInt(el(id).value, 10); return Number.isFinite(n) ? n : current; };
   function handleInsulinFieldEdit() {
-    const dia = clampNum(parseInt(el("insulin-dia-input").value, 10) || 360, 180, 600);
-    const peakRaw = clampNum(parseInt(el("insulin-peak-input").value, 10) || 75, 20, 120);
+    const im0 = state.settings.insulinModel;
+    const dia = clampNum(boxInt("insulin-dia-input", im0.diaMinutes), 180, 600);
+    const peakRaw = clampNum(boxInt("insulin-peak-input", im0.peakMinutes), 20, 120);
     // tau's denominator is (1 - 2*peak/dia); peak must stay well below half of
     // DIA or the exponential curve becomes numerically unstable. Clamping here
     // rather than just validating keeps the field always usable.
     const peak = Math.min(peakRaw, Math.floor(dia / 2) - 10);
+    if (peak === im0.peakMinutes && dia === im0.diaMinutes) { renderInsulinCarbSettings(); return; }   // nothing changed: keep the preset
     state.settings.insulinModel = { preset: "custom", peakMinutes: peak, diaMinutes: dia };
     saveState();
     renderInsulinCarbSettings();
@@ -5598,12 +5603,15 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
   bind("insulin-dia-input", "change", handleInsulinFieldEdit);
 
   function handleCarbAbsEdit() {
-    state.settings.carbAbsorptionMinutes = {
-      high: clampNum(parseInt(el("carb-abs-high").value, 10) || 120, 30, 360),
-      medium: clampNum(parseInt(el("carb-abs-medium").value, 10) || 180, 30, 360),
-      low: clampNum(parseInt(el("carb-abs-low").value, 10) || 240, 30, 480),
-      unknown: clampNum(parseInt(el("carb-abs-unknown").value, 10) || 180, 30, 480)
+    const ca0 = state.settings.carbAbsorptionMinutes;
+    const next = {
+      high: clampNum(boxInt("carb-abs-high", ca0.high), 30, 360),
+      medium: clampNum(boxInt("carb-abs-medium", ca0.medium), 30, 360),
+      low: clampNum(boxInt("carb-abs-low", ca0.low), 30, 480),
+      unknown: clampNum(boxInt("carb-abs-unknown", ca0.unknown), 30, 480)
     };
+    if (["high", "medium", "low", "unknown"].every(k => next[k] === ca0[k])) { renderInsulinCarbSettings(); return; }
+    state.settings.carbAbsorptionMinutes = next;
     saveState();
     renderInsulinCarbSettings();
     renderActivePanel();
@@ -6030,13 +6038,26 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
     state.settings.activityRatios = state.settings.activityRatios.filter(r => r.id !== del.dataset.del);
     saveState(); renderActivityRatioList();
   });
+  // Edited in place, like the time ranges: the list is never rebuilt under the field being typed in, and a cleared,
+  // zero or negative ratio is never saved (leaving the field puts the saved value back).
   bind("activity-ratio-list", "change", e => {
     const f = e.target.dataset.field;
     if (f !== "ratio" && f !== "name") return;
     const r = state.settings.activityRatios.find(x => x.id === e.target.dataset.id);
     if (!r) return;
-    if (f === "name") { renameRatio(state.settings.activityRatios, r, e.target.value); saveState(); renderActivityRatioList(); return; }
-    r.ratio = parseFloat(e.target.value) || r.ratio; saveState();
+    if (f === "name") {
+      if (!renameRatio(state.settings.activityRatios, r, e.target.value)) { e.target.value = r.name; return; }
+    } else {
+      const v = timeRatioFieldValue(r, "ratio", e.target.value);
+      if (v === null || v === r.ratio) return;
+      r.ratio = v;
+    }
+    saveState();
+  });
+  bind("activity-ratio-list", "focusout", e => {
+    if (!e.target.dataset || e.target.dataset.field !== "ratio") return;
+    const r = state.settings.activityRatios.find(x => x.id === e.target.dataset.id);
+    if (r && timeRatioFieldValue(r, "ratio", e.target.value) !== r.ratio) e.target.value = r.ratio;
   });
   bind("add-activity-btn", "click", async () => {
     const name = (await dialogs.prompt("For example Sport or Stress.", { title: "Activity name", placeholder: "Activity name", confirmText: "Add" }) || "").trim();
