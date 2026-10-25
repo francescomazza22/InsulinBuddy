@@ -2,6 +2,17 @@
 // summary can never drift. Bump CHANGELOG[0].version here (and CACHE_VERSION in sw.js) on every release.
 export const CHANGELOG = [
   {
+    version: "2.63.1",
+    summary: "The clear X works again on iPhone and iPad, in every field.",
+    changes: [
+      "Tapping the X in a field now clears it on iPhone and iPad. Before, the tap was swallowed and nothing happened (it only worked with a mouse)",
+      "The Library search and the Nightscout address now get an X too. Showing the X made those two boxes a little wider, so a safety check switched it off for them",
+      "The X now empties the insulin action and carb timing boxes properly, so you can type a new number. Leave one empty and your saved value comes back",
+      "All 28 fields with an X were tested with real touch taps and mouse clicks, along with the food search's own X, the remove X on meal items and the close X on sheets",
+      "Doses are calculated exactly as before"
+    ]
+  },
+  {
     version: "2.63.0",
     summary: "Foods logged by quantity get one-tap portions: 1, 1/2, 1/3, 1/4, 1/6, 1/8.",
     changes: [
