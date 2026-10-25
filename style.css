@@ -150,7 +150,7 @@ input:focus-visible, select:focus-visible, button:focus-visible { outline: 2px s
 }
 .dose-card__top { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--dose-gap); }
 .dose-card__top-right { display: flex; align-items: center; gap: var(--space-2xs); flex-shrink: 1; min-width: 0; flex-wrap: wrap; justify-content: flex-end; row-gap: var(--space-2xs); }   /* wraps only at very large text sizes */
-.dose-card__label { font-size: var(--fs-2xs); font-weight: 700; color: rgba(255,255,255,0.85); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dose-card__label { font-size: var(--fs-l); font-weight: 700; color: rgba(255,255,255,0.85); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }   /* 2.64.1: card heading, bigger than the pills beside it (was --fs-2xs, too small) */
 .carbs-pill { background: rgba(255,255,255,0.22); padding: 3px var(--space-s); border-radius: var(--radius-pill); font-size: var(--fs-xs); font-weight: 600; border: none; color: #fff; font-family: var(--font-ui); cursor: default; white-space: nowrap; }
 .carbs-pill--ratio { background: rgba(0,0,0,0.24); cursor: pointer; appearance: none; flex-shrink: 0; white-space: nowrap; }
 .dose-card__top-left { display: flex; align-items: center; gap: var(--space-xs); min-width: 0; }

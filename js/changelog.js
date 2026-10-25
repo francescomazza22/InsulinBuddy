@@ -2,6 +2,15 @@
 // summary can never drift. Bump CHANGELOG[0].version here (and CACHE_VERSION in sw.js) on every release.
 export const CHANGELOG = [
   {
+    version: "2.64.1",
+    summary: "The \u201cInsulin dose\u201d label on the calculator is bigger.",
+    changes: [
+      "The \u201cInsulin dose\u201d heading at the top left of the dose card is larger (about 15px on a phone instead of 11px), so it reads as the card's title rather than smaller than the pills beside it",
+      "It still fits on one line with the glucose and carbs pills, down to the smallest iPhone; nothing else on the card moved",
+      "Doses are calculated exactly as before"
+    ]
+  },
+  {
     version: "2.64.0",
     summary: "Glucose charts now have numbers up the side.",
     changes: [
