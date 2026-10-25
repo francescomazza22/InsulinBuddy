@@ -27,15 +27,17 @@
   --space-xl: 24px;
   --font-ui: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   --font-display: var(--font-ui);
-  --fs-2xs: 0.68rem;
-  --fs-xs: 0.74rem;
-  --fs-s: 0.8rem;
-  --fs-m: 0.86rem;
-  --fs-l: 0.92rem;
-  --fs-body: 1rem;
-  --fs-h3: 1.1rem;
-  --fs-h2: 1.3rem;
-  --fs-h1: 1.4rem;
+  /* Text follows the iPhone's text size (Dynamic Type, see the end of this file); --rem is 16px everywhere else. */
+  --rem: 1rem;
+  --fs-2xs: calc(0.69 * var(--rem));
+  --fs-xs: calc(0.74 * var(--rem));
+  --fs-s: calc(0.8 * var(--rem));
+  --fs-m: calc(0.86 * var(--rem));
+  --fs-l: calc(0.92 * var(--rem));
+  --fs-body: calc(1 * var(--rem));
+  --fs-h3: calc(1.1 * var(--rem));
+  --fs-h2: calc(1.3 * var(--rem));
+  --fs-h1: calc(1.4 * var(--rem));
   --motion-fast: 120ms;
   --motion-base: 200ms;
   --motion-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
@@ -89,4 +91,26 @@ html[data-theme="dark"] {
   --glass-line: rgba(0,0,0,0.35);
   --glass-shadow: 0 10px 28px rgba(0,0,0,0.35), 0 2px 6px rgba(0,0,0,0.25);
   --acc-1:#0091FF; --acc-2:#6D7CFF; --acc-3:#0091FF; --acc-1-rgb: 0,145,255;
+}
+
+/* ---------- Increase Contrast (iOS Settings > Accessibility) ---------- */
+@media (prefers-contrast: more) {
+  :root {
+    --ink-soft: #48484A;
+    --line: #AEAEB2;
+  }
+  html[data-theme="dark"] {
+    --ink-soft: #D1D1D6;
+    --line: #636366;
+  }
+}
+
+/* ---------- Dynamic Type: iPhone and iPad only ----------
+   -apple-system-body is the iPhone's chosen text size (17px at the default setting). Every text size is written as a
+   multiple of --rem, scaled so the default setting looks exactly as before (17px x 16/17 = 16px) and capped at 140% so
+   the largest accessibility sizes can't break the layout. Mac Safari also knows the font but reports 13px, so the
+   block is limited to touch Safari (-webkit-touch-callout exists only on iOS). Spacing stays in px and never changes. */
+@supports (font: -apple-system-body) and (-webkit-touch-callout: none) {
+  html { font: -apple-system-body; font-family: var(--font-ui); line-height: normal; --rem: min(calc(1rem * 16 / 17), 22.4px); }
+  body { font-size: var(--rem); }   /* text with no size of its own inherits 16px at the default setting, as before */
 }

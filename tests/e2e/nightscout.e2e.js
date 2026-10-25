@@ -688,7 +688,7 @@ for (const showRecent of [false, true]) {
       const R = e => e.getBoundingClientRect();
       const panel = document.querySelector(".active-panel");
       const recent = document.getElementById("recent-meals-header");
-      const add = Array.from(document.querySelectorAll("#cc-food-section .section-header")).find(e => e.textContent.trim() === "ADD FOOD ITEM");
+      const add = Array.from(document.querySelectorAll("#cc-food-section .section-header")).find(e => e.textContent.trim() === "Add food item");
       const next = recent && !recent.hidden ? recent : add;
       return { panelShown: !panel.hidden, gap: R(next).top - R(panel).bottom, mealItemsDisplay: getComputedStyle(document.getElementById("cc-meal-items")).display };
     })()`);

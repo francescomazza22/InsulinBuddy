@@ -52,7 +52,7 @@ enum IBTokens {
     }
     /// Point sizes at the web's 16px base (1rem = 16pt).
     enum FontSize {
-        static let n2xs: CGFloat = 10.9
+        static let n2xs: CGFloat = 11
         static let xs: CGFloat = 11.8
         static let s: CGFloat = 12.8
         static let m: CGFloat = 13.8

@@ -1944,7 +1944,7 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
         ${ticks}
       </svg>`;
   }
-  const keyDot = (color, dashed, text) => `<span style="display:flex; align-items:center; gap:6px; font-size:0.8rem; color:var(--ink-soft);"><span style="width:16px; height:0; border-top:2px ${dashed ? "dashed" : "solid"} ${color}; display:inline-block;"></span>${text}</span>`;
+  const keyDot = (color, dashed, text) => `<span style="display:flex; align-items:center; gap:6px; font-size:calc(0.8 * var(--rem)); color:var(--ink-soft);"><span style="width:16px; height:0; border-top:2px ${dashed ? "dashed" : "solid"} ${color}; display:inline-block;"></span>${text}</span>`;
 
   function basalLine(b) {
     const un = v => round1(v);
@@ -1973,7 +1973,7 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
       ${secHead("Observed vs expected", "expected", 18)}
       <p class="panel-card__hint">From ${clockTime(exp.anchor.t)} (your reading then: ${glucoseDisp(exp.anchor.mgdl)} ${u}), what your logged meal and correction insulin alone would do, using your Settings. ${basalLine(exp.basal)}</p>
       ${chart}
-      <div style="display:flex; gap:16px; justify-content:center; flex-wrap:wrap; margin-top:8px;">${keyDot("#3B82F6", false, "Your readings")}${keyDot("#6B7280", true, "Expected from insulin alone")}${exp.basal.markers.length ? `<span style="display:flex; align-items:center; gap:6px; font-size:0.8rem; color:var(--ink-soft);"><span style="color:#0D9488;">&#9650;</span>Basal dose</span>` : ""}</div>
+      <div style="display:flex; gap:16px; justify-content:center; flex-wrap:wrap; margin-top:8px;">${keyDot("#3B82F6", false, "Your readings")}${keyDot("#6B7280", true, "Expected from insulin alone")}${exp.basal.markers.length ? `<span style="display:flex; align-items:center; gap:6px; font-size:calc(0.8 * var(--rem)); color:var(--ink-soft);"><span style="color:#0D9488;">&#9650;</span>Basal dose</span>` : ""}</div>
       ${exp.capped ? `<p class="panel-card__hint" style="margin-top:8px;">The dashed line stops at ${glucoseDisp(EXPECTED_FLOOR)} ${u}: that is only what the insulin would do with nothing else going on, and real glucose does not keep falling. Your liver, basal insulin and food all push back.</p>` : ""}
       <p class="panel-card__hint" style="margin-top:12px;">${msg}</p>`;
   }
@@ -2075,8 +2075,8 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
   function aiogLegendHtml() {
     return `
       <div style="display:flex; gap:16px; justify-content:center; margin-top:8px;">
-        <span style="display:flex; align-items:center; gap:6px; font-size:0.8rem; color:var(--ink-soft);"><span style="width:10px; height:10px; border-radius:50%; background:#3B82F6; display:inline-block;"></span>Insulin (u)</span>
-        <span style="display:flex; align-items:center; gap:6px; font-size:0.8rem; color:var(--ink-soft);"><span style="width:10px; height:10px; border-radius:50%; background:#D97706; display:inline-block;"></span>Carbs (g)</span>
+        <span style="display:flex; align-items:center; gap:6px; font-size:calc(0.8 * var(--rem)); color:var(--ink-soft);"><span style="width:10px; height:10px; border-radius:50%; background:#3B82F6; display:inline-block;"></span>Insulin (u)</span>
+        <span style="display:flex; align-items:center; gap:6px; font-size:calc(0.8 * var(--rem)); color:var(--ink-soft);"><span style="width:10px; height:10px; border-radius:50%; background:#D97706; display:inline-block;"></span>Carbs (g)</span>
       </div>
     `;
   }
@@ -4026,7 +4026,7 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
   let historyLimit = PAGE_SIZE;   // how many meals the Log shows before "Show older"
 
   function formatDateHeader(ts) {
-    return new Date(ts).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" }).toUpperCase();
+    return new Date(ts).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
   }
   function formatTime(ts) {
     return new Date(ts).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
@@ -5019,7 +5019,7 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
           `).join("")}
         </div>
         <label class="block-label" id="em-ratio-label">Insulin ratio</label>
-        <select id="em-ratio" style="width:100%; padding:12px 14px; border:1.5px solid var(--line); border-radius:var(--radius-s); font-size:0.96rem; margin-bottom:18px; background:var(--surface); color:var(--ink);">
+        <select id="em-ratio" style="width:100%; padding:12px 14px; border:1.5px solid var(--line); border-radius:var(--radius-s); font-size:calc(0.96 * var(--rem)); margin-bottom:18px; background:var(--surface); color:var(--ink);">
           ${!matchedRatio ? `<option value="__original__" selected>Original: ${escapeHtml(entry.ratioLabel || "—")} (1:${entry.ratioValue})</option>` : ""}
           ${allRatios.map(r => `<option value="${escapeAttr(r.id)}" ${matchedRatio && matchedRatio.id === r.id ? "selected" : ""}>${escapeHtml(r.name)} (1:${r.ratio})</option>`).join("")}
         </select>
@@ -5052,7 +5052,7 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
         <div class="ingredient-row">
           <span class="ingredient-row__name">${escapeHtml(it.name)}</span>
           <input type="number" min="0" step="${isUnit ? "0.5" : "1"}" value="${val}" data-idx="${idx}" class="em-grams-input" style="width:70px;padding:6px 8px;text-align:right;">
-          <span style="width:34px;font-size:0.8rem;color:var(--ink-soft);">${suffix}</span>
+          <span style="width:34px;font-size:calc(0.8 * var(--rem));color:var(--ink-soft);">${suffix}</span>
           <button type="button" data-idx="${idx}" class="em-remove" aria-label="Remove item">
             <svg viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
           </button>

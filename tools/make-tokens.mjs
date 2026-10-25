@@ -27,7 +27,9 @@ ${decl(px(t.radius), "radius-")}
 ${decl(px(t.space), "space-")}
   --font-ui: ${t.type.family.ui};
   --font-display: ${t.type.family.display};
-${decl(rem(t.type.size), "fs-")}
+  /* Text follows the iPhone's text size (Dynamic Type, see the end of this file); --rem is 16px everywhere else. */
+  --rem: 1rem;
+${Object.entries(t.type.size).map(([k, v]) => `  --fs-${k}: calc(${v} * var(--rem));`).join("\n")}
 ${decl(t.motion, "motion-")}
 
   /* palette accents: overridden per data-palette */
@@ -49,6 +51,26 @@ ${decl(t.color.dark)}
   --app-bg: var(--paper);
 ${decl(t.glass.dark, "glass-")}
   ${accents(def["acc-1-dark"], def["acc-2-dark"], def["acc-1-dark"])}
+}
+
+/* ---------- Increase Contrast (iOS Settings > Accessibility) ---------- */
+@media (prefers-contrast: more) {
+  :root {
+${decl(t.contrast.light).replace(/^/gm, "  ")}
+  }
+  html[data-theme="dark"] {
+${decl(t.contrast.dark).replace(/^/gm, "  ")}
+  }
+}
+
+/* ---------- Dynamic Type: iPhone and iPad only ----------
+   -apple-system-body is the iPhone's chosen text size (17px at the default setting). Every text size is written as a
+   multiple of --rem, scaled so the default setting looks exactly as before (17px x 16/17 = 16px) and capped at 140% so
+   the largest accessibility sizes can't break the layout. Mac Safari also knows the font but reports 13px, so the
+   block is limited to touch Safari (-webkit-touch-callout exists only on iOS). Spacing stays in px and never changes. */
+@supports (font: -apple-system-body) and (-webkit-touch-callout: none) {
+  html { font: -apple-system-body; font-family: var(--font-ui); line-height: normal; --rem: min(calc(1rem * 16 / 17), 22.4px); }
+  body { font-size: var(--rem); }   /* text with no size of its own inherits 16px at the default setting, as before */
 }
 `;
 

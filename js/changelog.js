@@ -2,6 +2,17 @@
 // summary can never drift. Bump CHANGELOG[0].version here (and CACHE_VERSION in sw.js) on every release.
 export const CHANGELOG = [
   {
+    version: "2.57.0",
+    summary: "Follows Apple's accessibility guidelines: your iPhone's text size, Increase Contrast and bigger touch areas, with the same look.",
+    changes: [
+      "Text now follows your iPhone's text size (Settings > Display & Brightness > Text Size). At the normal size the app looks exactly as before; bigger sizes grow the text up to 140% without moving the spacing",
+      "Increase Contrast (Settings > Accessibility > Display & Text Size) makes grey text and lines darker in light mode and brighter in dark mode",
+      "Small buttons keep their size but now react to a tap anywhere in Apple's 44-point area: the remove X on a meal row, the dashed Add buttons, the switches and the background circles join the pills and icons that already did",
+      "Section headings are in normal case (Current meal, Add food item, dates in Insights) like Apple's own apps, and the smallest labels are now Apple's minimum 11 points",
+      "Doses are calculated exactly as before"
+    ]
+  },
+  {
     version: "2.56.0",
     summary: "Six clearly different colour themes, and ratio colours that are easy to tell apart.",
     changes: [

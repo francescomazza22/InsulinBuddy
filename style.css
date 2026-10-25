@@ -47,7 +47,7 @@ button, .tab, .segmented__btn { touch-action: manipulation; }
 }
 .fab svg { width: 20px; height: 20px; }
 
-.section-header { font-size: var(--fs-xs); font-weight: 700; letter-spacing: 0.04em; color: var(--ink-soft); margin: var(--space-3xs) 0 var(--space-xs); }
+.section-header { font-size: var(--fs-xs); font-weight: 700; color: var(--ink-soft); margin: var(--space-3xs) 0 var(--space-xs); }
 #recent-meals-header { margin-top: var(--space-3xs); }
 .recent-meals-row { display: flex; gap: var(--space-xs); overflow-x: auto; padding-bottom: 2px; margin-bottom: var(--space-xs); scrollbar-width: none; }
 .recent-meals-row::-webkit-scrollbar { display: none; }
@@ -119,7 +119,7 @@ input:focus-visible, select:focus-visible, button:focus-visible { outline: 2px s
 .log-row { padding: 9px 0 9px var(--space-m); border-top: 1px solid var(--line); border-left: 3px solid transparent; }
 .log-row--error { border-left-color: #DC2626; }
 .log-row--warn { border-left-color: #D97706; }
-.log-row__head { display: flex; align-items: center; gap: var(--space-xs); font-size: var(--fs-xs); font-weight: 700; color: var(--ink-soft); text-transform: uppercase; letter-spacing: 0.03em; }
+.log-row__head { display: flex; align-items: center; gap: var(--space-xs); font-size: var(--fs-xs); font-weight: 700; color: var(--ink-soft); }
 .log-row__count { color: var(--acc-1); }
 .log-row__ago { margin-left: auto; font-weight: 500; text-transform: none; letter-spacing: 0; }
 .log-row__msg { font-size: var(--fs-m); margin-top: 3px; word-break: break-word; }
@@ -150,7 +150,7 @@ input:focus-visible, select:focus-visible, button:focus-visible { outline: 2px s
 }
 .dose-card__top { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--dose-gap); }
 .dose-card__top-right { display: flex; align-items: center; gap: var(--space-2xs); flex-shrink: 0; }
-.dose-card__label { font-size: var(--fs-2xs); font-weight: 700; letter-spacing: 0.06em; color: rgba(255,255,255,0.85); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dose-card__label { font-size: var(--fs-2xs); font-weight: 700; color: rgba(255,255,255,0.85); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .carbs-pill { background: rgba(255,255,255,0.22); padding: 3px var(--space-s); border-radius: var(--radius-pill); font-size: var(--fs-xs); font-weight: 600; border: none; color: #fff; font-family: var(--font-ui); cursor: default; white-space: nowrap; }
 .carbs-pill--ratio { background: rgba(0,0,0,0.24); cursor: pointer; appearance: none; flex-shrink: 0; white-space: nowrap; }
 .dose-card__top-left { display: flex; align-items: center; gap: var(--space-xs); min-width: 0; }
@@ -174,7 +174,7 @@ input:focus-visible, select:focus-visible, button:focus-visible { outline: 2px s
 .glucose-banner--high { background: #FCE49B; color: #5C4408; }
 .glucose-banner--unknown { background: var(--surface); border: 1.5px dashed var(--line); color: var(--ink-soft); }
 .glucose-banner__label { font-size: var(--fs-2xs); font-weight: 800; letter-spacing: 0.04em; margin-bottom: 2px; }
-.glucose-banner__value { font-family: var(--font-display); font-size: 1.7rem; font-weight: 700; line-height: 1.1; font-variant-numeric: tabular-nums; display: flex; align-items: baseline; justify-content: center; gap: var(--space-2xs); }
+.glucose-banner__value { font-family: var(--font-display); font-size: calc(1.7 * var(--rem)); font-weight: 700; line-height: 1.1; font-variant-numeric: tabular-nums; display: flex; align-items: baseline; justify-content: center; gap: var(--space-2xs); }
 .glucose-banner__arrow { font-size: var(--fs-h3); }
 .glucose-banner__meta { font-size: var(--fs-2xs); font-weight: 600; opacity: 0.8; margin-top: 2px; }
 .glucose-range-picker { display: flex; gap: var(--space-2xs); justify-content: center; margin-bottom: var(--space-s); }
@@ -185,7 +185,7 @@ input:focus-visible, select:focus-visible, button:focus-visible { outline: 2px s
 .glucose-range-btn.is-active { background: var(--acc-1); border-color: var(--acc-1); color: #fff; }
 .carbs-pill--muted { background: var(--surface); color: var(--ink-soft); border: 1px solid var(--line); }
 .dose-card__value-row { display: flex; align-items: center; justify-content: space-between; gap: var(--space-xs); margin-bottom: var(--dose-gap); }
-.dose-card__value { display: flex; align-items: baseline; gap: var(--space-2xs); font-family: var(--font-display); font-size: 1.55rem; line-height: 1; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+.dose-card__value { display: flex; align-items: baseline; gap: var(--space-2xs); font-family: var(--font-display); font-size: calc(1.55 * var(--rem)); line-height: 1; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
 .dose-card__unit { font-family: var(--font-ui); font-size: var(--fs-s); font-weight: 500; color: rgba(255,255,255,0.82); }
 .dose-card__controls { display: flex; gap: var(--space-2xs); }
 .dose-card__controls .pill-btn { flex: 1 1 auto; min-width: 0; justify-content: center; padding-left: var(--space-2xs); padding-right: var(--space-2xs); }
@@ -322,7 +322,7 @@ input.meal-item__grams-input.is-editing {
   border: 1.5px solid var(--acc-1); background: var(--surface); color: var(--ink);
   box-shadow: 0 0 0 3px rgba(0,0,0,0.04);
 }
-.app input.meal-item__grams-input.is-editing { font-size: 16px; }
+.app input.meal-item__grams-input.is-editing { font-size: max(16px, var(--rem)); }
 input.meal-item__grams-input:focus { outline: none; }
 .meal-item__carbs { font-family: var(--font-display); font-size: var(--fs-body); font-weight: 700; color: var(--amber); flex-shrink: 0; }
 .meal-item__remove { background: none; border: none; color: var(--ink-soft); cursor: pointer; padding: var(--space-3xs); flex-shrink: 0; }
@@ -376,14 +376,14 @@ input.meal-item__grams-input:focus { outline: none; }
 .graph-tab.is-active { background: var(--paper); color: var(--ink); box-shadow: 0 0 0 1.5px var(--line) inset; }
 
 .search-row { display: flex; gap: var(--space-xs); margin-bottom: var(--space-s); }
-.search-row input { flex: 1; padding: var(--space-m) 14px; font-size: 16px; }
+.search-row input { flex: 1; padding: var(--space-m) 14px; font-size: max(16px, var(--rem)); }
 .icon-btn { width: 44px; flex-shrink: 0; border: 1.5px solid var(--line); background: var(--surface); border-radius: var(--radius-s); cursor: pointer; display: flex; align-items: center; justify-content: center; color: var(--ink-soft); }
 .icon-btn svg { width: 18px; height: 18px; }
 .icon-btn.is-active { color: var(--acc-1); border-color: var(--acc-1); }
 
 .filter-panel { background: var(--surface); border: 1.5px solid var(--line); border-radius: var(--radius-m); padding: 14px; margin-bottom: 14px; display: flex; flex-direction: column; gap: var(--space-m); }
 .filter-panel__row { display: flex; align-items: center; justify-content: space-between; gap: var(--space-s); font-size: var(--fs-m); }
-.filter-panel__row select { padding: var(--space-xs) var(--space-s); font-size: 16px; }
+.filter-panel__row select { padding: var(--space-xs) var(--space-s); font-size: max(16px, var(--rem)); }
 .filter-panel__row label { display: flex; align-items: center; gap: var(--space-xs); font-weight: 600; }
 
 .lib-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: var(--space-xs); align-items: start; }
@@ -433,10 +433,10 @@ html[data-theme="dark"] .cat-snacks, html[data-theme="dark"] .cat-other { filter
 .field-inline-row { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: var(--space-s) 0; border-bottom: 1px solid var(--line); }
 .field-inline-row:last-of-type { border-bottom: none; }
 .field-inline-row label { font-size: var(--fs-m); font-weight: 600; color: var(--ink); flex: 1; }
-.field-inline-row input { width: 116px; flex-shrink: 0; padding: var(--space-s) var(--space-m); font-size: 16px; text-align: right; font-variant-numeric: tabular-nums; }
+.field-inline-row input { width: 116px; flex-shrink: 0; padding: var(--space-s) var(--space-m); font-size: max(16px, var(--rem)); text-align: right; font-variant-numeric: tabular-nums; }
 .sheet textarea {
   width: 100%; border: 1.5px solid var(--line); border-radius: var(--radius-s); background: var(--surface);
-  padding: var(--space-m) 14px; font-size: 16px; color: var(--ink); font-family: var(--font-ui); resize: vertical;
+  padding: var(--space-m) 14px; font-size: max(16px, var(--rem)); color: var(--ink); font-family: var(--font-ui); resize: vertical;
 }
 .sheet textarea:focus { outline: none; border-color: var(--acc-1); }
 .sheet .field-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-m); min-width: 0; }
@@ -490,7 +490,7 @@ html[data-theme="dark"] .cat-snacks, html[data-theme="dark"] .cat-other { filter
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: var(--space-s); align-items: start;
 }
-.history-group__date { grid-column: 1 / -1; font-size: var(--fs-xs); font-weight: 700; letter-spacing: 0.06em; color: var(--ink-soft); margin: var(--space-2xs) 2px 0; text-transform: uppercase; }
+.history-group__date { grid-column: 1 / -1; font-size: var(--fs-xs); font-weight: 700; color: var(--ink-soft); margin: var(--space-2xs) 2px 0; }
 .history-entry {
   background: var(--surface); border: 1.5px solid var(--line); border-left-width: 4px;
   border-radius: var(--radius-m); padding: var(--space-m) 14px; display: flex; gap: var(--space-m); align-items: flex-start;
@@ -553,7 +553,7 @@ html[data-theme="dark"] .dose-pill--warn { color: #FBBF24; border-color: #FBBF24
 .ratio-row__del { background: none; border: none; color: var(--ink-soft); cursor: pointer; padding: var(--space-3xs); }
 .ratio-row__del svg { width: 15px; height: 15px; display: block; }
 .ratio-row__edit { margin-top: var(--space-s); padding-top: var(--space-s); border-top: 1px solid var(--line); display: flex; gap: var(--space-xs); align-items: center; flex-wrap: wrap; }
-.ratio-row__edit input[type="time"] { padding: var(--space-xs); font-size: 16px; }
+.ratio-row__edit input[type="time"] { padding: var(--space-xs); font-size: max(16px, var(--rem)); }
 .ratio-row__edit .ratio-x { display: flex; align-items: center; gap: var(--space-2xs); font-size: var(--fs-m); }
 .ratio-row__edit .ratio-x input { width: 60px; padding: var(--space-xs); text-align: center; }
 
@@ -648,7 +648,7 @@ html[data-theme="dark"] .disclaimer-banner { background: #3A310F; color: #E8CE85
    type beats a single class), so this wins without touching their other
    properties like width or text-align. */
 .app input, .app select, .app textarea,
-.sheet-backdrop input, .sheet-backdrop select, .sheet-backdrop textarea { font-size: 16px; }
+.sheet-backdrop input, .sheet-backdrop select, .sheet-backdrop textarea { font-size: max(16px, var(--rem)); }
 
 /* Clean, consistent number inputs across browsers (no spinner arrows) */
 input[type="number"] { -moz-appearance: textfield; }
@@ -713,7 +713,7 @@ input[type="number"]::-webkit-inner-spin-button {
 
 .ingredient-box { border: 1.5px solid var(--line); border-radius: var(--radius-m); padding: var(--space-m); background: var(--paper); margin-bottom: var(--space-3xs); }
 .ingredient-search-wrap { position: relative; margin-bottom: var(--space-xs); }
-.ingredient-search-wrap input { width: 100%; padding: var(--space-m) 14px; font-size: 16px; background: var(--surface); }
+.ingredient-search-wrap input { width: 100%; padding: var(--space-m) 14px; font-size: max(16px, var(--rem)); background: var(--surface); }
 .ingredient-dropdown {
   position: absolute; left: 0; right: 0; top: calc(100% + 4px); background: var(--surface);
   border: 1.5px solid var(--line); border-radius: var(--radius-s); max-height: 220px; overflow-y: auto;
@@ -727,7 +727,7 @@ input[type="number"]::-webkit-inner-spin-button {
 .ingredient-dropdown__item:hover { background: var(--paper); }
 .ingredient-dropdown__item span { color: var(--ink-soft); font-size: var(--fs-s); flex-shrink: 0; }
 .ingredient-add-row { display: flex; gap: var(--space-xs); }
-.ingredient-add-row input { width: 84px; flex-shrink: 0; padding: var(--space-m) var(--space-s); font-size: 16px; background: var(--surface); text-align: center; }
+.ingredient-add-row input { width: 84px; flex-shrink: 0; padding: var(--space-m) var(--space-s); font-size: max(16px, var(--rem)); background: var(--surface); text-align: center; }
 .ingredient-add-row button {
   width: 44px; flex-shrink: 0; border: none; border-radius: var(--radius-s); background: var(--acc-1);
   color: #fff; cursor: pointer; display: flex; align-items: center; justify-content: center;
@@ -903,7 +903,7 @@ html[data-theme="dark"] .pattern-card__preview--abstract { background-image: url
   .app input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), .app select, .app textarea,
   .sheet-backdrop input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), .sheet-backdrop select, .sheet-backdrop textarea { font-size: var(--fs-body); }
   .view { max-width: 1180px; }
-  .dose-card__value { font-size: 2rem; }
+  .dose-card__value { font-size: calc(2 * var(--rem)); }
   /* More room on a big screen: taller, roomier buttons and a bit more air around the card. */
   .dose-card { --dose-pill-h: 36px; --dose-gap: 12px; padding: 18px 20px 17px; }
   .dose-card__controls { gap: 9px; }
@@ -987,7 +987,7 @@ html[data-theme="dark"] .pattern-card__preview--abstract { background-image: url
 .lock-screen__card h1 { font-family: var(--font-display); font-size: var(--fs-h2); font-weight: 700; margin: 0 0 var(--space-xs); }
 .lock-screen__card > p { color: var(--ink-soft); font-size: var(--fs-m); line-height: 1.5; margin: 0 0 22px; }
 #lock-form input[type="password"] {
-  width: 100%; padding: 13px 14px; font-size: 16px; text-align: center;
+  width: 100%; padding: 13px 14px; font-size: max(16px, var(--rem)); text-align: center;
   border: 1.5px solid var(--line); border-radius: var(--radius-s); background: var(--surface);
   color: var(--ink); margin-bottom: var(--space-m);
 }
@@ -1148,7 +1148,7 @@ html[data-theme="dark"] .undo-toast { background: var(--surface); border: 1px so
 .history-search { margin-bottom: var(--space-m); }
 .history-search input {
   width: 100%; padding: 11px 14px; border: 1.5px solid var(--line); border-radius: var(--radius-s);
-  background: var(--surface); color: var(--ink); font-size: 16px; font-family: var(--font-ui);
+  background: var(--surface); color: var(--ink); font-size: max(16px, var(--rem)); font-family: var(--font-ui);
 }
 
 /* The Basal button shares the search field's row, so it costs no extra height. */
@@ -1207,7 +1207,7 @@ html[data-theme="dark"] .undo-toast { background: var(--surface); border: 1px so
 .dialog { background: var(--surface); color: var(--ink); width: 100%; max-width: 380px; border-radius: var(--radius-m); padding: 20px; box-shadow: 0 16px 48px rgba(0,0,0,0.3); }
 .dialog__title { margin: 0 0 var(--space-xs); font-family: var(--font-display); font-size: var(--fs-h3); }
 .dialog__message { margin: 0 0 var(--space-l); font-size: var(--fs-l); line-height: 1.45; white-space: pre-line; color: var(--ink); }
-.dialog__input { width: 100%; padding: var(--space-m) 14px; margin-bottom: var(--space-l); border: 1.5px solid var(--line); border-radius: var(--radius-s); background: var(--paper); color: var(--ink); font-size: 16px; font-family: var(--font-ui); }
+.dialog__input { width: 100%; padding: var(--space-m) 14px; margin-bottom: var(--space-l); border: 1.5px solid var(--line); border-radius: var(--radius-s); background: var(--paper); color: var(--ink); font-size: max(16px, var(--rem)); font-family: var(--font-ui); }
 .dialog__actions { display: flex; gap: var(--space-s); justify-content: flex-end; }
 .dialog__btn { flex: 1; padding: var(--space-m) 14px; border-radius: var(--radius-s); border: 1.5px solid transparent; font: 600 var(--fs-l) var(--font-ui); cursor: pointer; }
 .dialog__btn--primary { background: var(--acc-1); color: #fff; }
@@ -1237,12 +1237,12 @@ html[data-theme="dark"] .undo-toast { background: var(--surface); border: 1px so
 .ins-li__val { font-family: var(--font-display); font-weight: 700; font-variant-numeric: tabular-nums; color: var(--ink); }
 .ins-list li .rtrend__n { grid-column: 1 / -1; }
 .ins-big { display: flex; align-items: baseline; gap: var(--space-xs); flex-wrap: wrap; margin: var(--space-3xs) 0 2px; }
-.ins-big__num { font-family: var(--font-display); font-weight: 800; font-size: 2rem; color: var(--ink); font-variant-numeric: tabular-nums; }
+.ins-big__num { font-family: var(--font-display); font-weight: 800; font-size: calc(2 * var(--rem)); color: var(--ink); font-variant-numeric: tabular-nums; }
 .ins-big__unit { color: var(--ink-soft); font-size: var(--fs-m); }
 .ins-cols { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-s); margin-top: var(--space-2xs); }
 .ins-col { background: var(--surface-2, rgba(128,128,128,0.10)); border-radius: var(--radius-s); padding: var(--space-s) var(--space-m); }
-.ins-col__title { font-size: var(--fs-xs); font-weight: 700; color: var(--ink-soft); text-transform: uppercase; letter-spacing: 0.04em; }
-.ins-col__num { font-family: var(--font-display); font-weight: 800; font-size: 1.5rem; color: var(--ink); font-variant-numeric: tabular-nums; margin: 2px 0; }
+.ins-col__title { font-size: var(--fs-xs); font-weight: 700; color: var(--ink-soft); }
+.ins-col__num { font-family: var(--font-display); font-weight: 800; font-size: calc(1.5 * var(--rem)); color: var(--ink); font-variant-numeric: tabular-nums; margin: 2px 0; }
 
 /* ---- Features on your own history ---- */
 .pick-extra { margin: var(--space-xs) 0 0; padding: var(--space-s) var(--space-m); border-radius: var(--radius-s); background: var(--surface-2, rgba(128,128,128,0.10)); font-size: var(--fs-s); color: var(--ink-soft); }
@@ -1423,7 +1423,7 @@ html[data-theme="dark"] { --glass-sheet: rgba(30,36,43,0.90); }
 .palette-card, .pattern-card, .ingredient-row, .insulin-preset-btn, .icon-btn { color: var(--ink); }
 .lib-item__star:not(.is-fav) { color: var(--ink-soft); opacity: 0.5; }
 /* Text fields directly inside a form row fill the row (the Food Name box used to stop short). */
-.sheet .field > input[type="text"], .sheet .field > input[type="email"], .sheet .field > input[type="url"] { width: 100%; box-sizing: border-box; padding: var(--space-m); font-size: 16px; }
+.sheet .field > input[type="text"], .sheet .field > input[type="email"], .sheet .field > input[type="url"] { width: 100%; box-sizing: border-box; padding: var(--space-m); font-size: max(16px, var(--rem)); }
 
 /* ---- Soft scrollbars ----
    The browser's default scrollbar is a square bar with arrows that runs the full height of a panel and pokes out of its
@@ -1508,7 +1508,7 @@ html[data-theme="dark"] { --glass-sheet: rgba(30,36,43,0.90); }
 .spark__line { stroke: var(--acc-1, #3B82F6); stroke-width: 1.6; vector-effect: non-scaling-stroke; stroke-linejoin: round; }
 
 /* Recipe editor: the Category dropdown and the weight boxes get the same padding as the Recipe Name box, so the row reads as one set. */
-.sheet .field > select, .sheet .field-grid input[type="number"] { padding: var(--space-m); font-size: 16px; box-sizing: border-box; }
+.sheet .field > select, .sheet .field-grid input[type="number"] { padding: var(--space-m); font-size: max(16px, var(--rem)); box-sizing: border-box; }
 .ingredient-total { margin-top: var(--space-s); padding: var(--space-s) var(--space-m); border: 1.5px solid var(--line); border-radius: var(--radius-s); background: var(--surface); }
 .ingredient-total__row { display: flex; justify-content: space-between; align-items: baseline; font-size: var(--fs-m); color: var(--ink); font-variant-numeric: tabular-nums; }
 .ingredient-total.is-warn { border-color: var(--acc-1); }
@@ -1523,8 +1523,8 @@ html[data-theme="dark"] { --glass-sheet: rgba(30,36,43,0.90); }
 .day-chips__hint { flex-basis: 100%; margin: 4px 0 0; font-size: 12.5px; color: var(--ink-soft); }
 
 .ratio-name { display: flex; align-items: center; gap: var(--space-s); flex-basis: 100%; font-size: var(--fs-m); font-weight: 600; }
-.ratio-name input { flex: 1; min-width: 0; padding: var(--space-s) var(--space-m); font-size: 16px; }
-input.ratio-row__name-input { flex: 1; min-width: 0; padding: 6px 8px; font-size: 16px; font-weight: 600; background: transparent; border-color: transparent; }
+.ratio-name input { flex: 1; min-width: 0; padding: var(--space-s) var(--space-m); font-size: max(16px, var(--rem)); }
+input.ratio-row__name-input { flex: 1; min-width: 0; padding: 6px 8px; font-size: max(16px, var(--rem)); font-weight: 600; background: transparent; border-color: transparent; }
 input.ratio-row__name-input:focus { background: var(--surface); border-color: var(--acc-1); outline: none; }
 
 /* ================= UI sweep: one field height, thumb-sized taps =================
@@ -1534,7 +1534,7 @@ input.ratio-row__name-input:focus { background: var(--surface); border-color: va
 /* :where() keeps this rule at zero specificity, so any component that needs a compact input (a grams box inside a row) just says so. */
 :where(.app, .sheet-backdrop) :where(input[type="text"], input[type="number"], input[type="search"], input[type="email"], input[type="url"], input[type="password"], input[type="time"], input[type="date"], input[type="datetime-local"], select),
 .dialog__input { min-height: var(--field-h); box-sizing: border-box; }
-.app select, .sheet-backdrop select { padding: 12px 36px 12px 14px; font-size: 16px; }
+.app select, .sheet-backdrop select { padding: 12px 36px 12px 14px; font-size: max(16px, var(--rem)); }
 .ratio-row__edit :is(input[type="text"], input[type="number"], input[type="time"]), .ratio-row__top input, .ratio-row__name-input, .ingredient-row__input, .em-grams-input { min-height: 40px; }
 input.meal-item__grams-input { min-height: 0; }
 .field__row input, .basal-dose-row input, .field-inline-row input, .ingredient-add-row input { min-height: 0; }
@@ -1545,11 +1545,15 @@ input.meal-item__grams-input { min-height: 0; }
 
 /* Small buttons keep their look but get a 44 px touch area: an invisible layer reaches out around them. */
 .sheet-close, .sheet-back, .lib-item__actions button, .lib-item__star, .ingredient-row button, .ratio-row__del, .info-btn,
-.pill-btn, .carbs-pill--ratio, .browse-btn, .sync-chip, .segmented__btn, .data-row button[data-restore], [data-restore] { position: relative; }
+.pill-btn, .carbs-pill--ratio, .browse-btn, .sync-chip, .segmented__btn, .data-row button[data-restore], [data-restore],
+.meal-item__remove, .dashed-btn, .switch { position: relative; }
 .sheet-close::after, .sheet-back::after, .lib-item__actions button::after, .lib-item__star::after, .ingredient-row button::after, .ratio-row__del::after, .info-btn::after,
-.pill-btn::after, .carbs-pill--ratio::after, .browse-btn::after, .sync-chip::after, .segmented__btn::after, [data-restore]::after {
+.pill-btn::after, .carbs-pill--ratio::after, .browse-btn::after, .sync-chip::after, .segmented__btn::after, [data-restore]::after,
+.meal-item__remove::after, .dashed-btn::after, .switch::after {
   content: ""; position: absolute; left: 50%; top: 50%; width: max(100%, var(--tap)); height: max(100%, var(--tap)); transform: translate(-50%, -50%);
 }
+/* The background circles already use ::after for their ring, so their touch layer is ::before (2.57.0). */
+.bg-swatch::before { content: ""; position: absolute; left: 50%; top: 50%; width: max(100%, var(--tap)); height: max(100%, var(--tap)); transform: translate(-50%, -50%); }
 .segmented__btn { min-height: 38px; }
 [data-restore] { min-height: 36px; padding-left: 14px; padding-right: 14px; }
 
