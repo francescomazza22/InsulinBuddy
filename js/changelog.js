@@ -2,6 +2,15 @@
 // summary can never drift. Bump CHANGELOG[0].version here (and CACHE_VERSION in sw.js) on every release.
 export const CHANGELOG = [
   {
+    version: "2.60.0",
+    summary: "The bin button on the dose card is gone; Clear All now shows whenever there's anything to clear.",
+    changes: [
+      "The dose card's top row is just your glucose reading and the carbs, without the bin button",
+      "Clear All at the bottom does the same job, and now appears whenever the calculator has something in it: food with no insulin, Correction or Eating Out switched on, or a typed glucose count, not only when there's a dose to log",
+      "Doses are calculated exactly as before"
+    ]
+  },
+  {
     version: "2.59.0",
     summary: "Your glucose reading on the dose card moves next to the carbs and shows its unit, so it can't be mistaken for the dose.",
     changes: [

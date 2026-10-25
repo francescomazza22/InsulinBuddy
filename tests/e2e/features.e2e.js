@@ -35,14 +35,14 @@ t.check("100 g of it counts 65 g carbs, not 52", /65/.test(carbsPill), carbsPill
 
 t.section("LOW TREATMENT: your usual amount");
 t.check("the usual-amount note is not visible until Treating a Low is on", await dev.eval(`getComputedStyle(document.getElementById("quick-carb-usual")).display === "none"`));
-await dev.eval(`document.getElementById("cc-reset-btn").click()`); await sleep(300);
+await dev.eval(`document.getElementById("cc-clear-all-btn").click()`); await sleep(300);
 await dev.eval(`document.getElementById("cc-no-insulin-toggle").click()`); await sleep(300);
 const usual = await dev.eval(`document.getElementById("quick-carb-usual").hidden ? "" : document.getElementById("quick-carb-usual").textContent`);
 t.check("shows the middle of the last 4 treatments (17.5 g, range 15-30)", /17\.5 g/.test(usual) && /4 low treatments/.test(usual) && /15–30/.test(usual), usual);
 await dev.eval(`document.getElementById("cc-no-insulin-toggle").click()`); await sleep(200);
 
 t.section("AFTER-MEAL CHECK: reminder card");
-await dev.eval(`document.getElementById("cc-reset-btn").click()`); await sleep(300);
+await dev.eval(`document.getElementById("cc-clear-all-btn").click()`); await sleep(300);
 await logMeal(dev, 0, 100); await sleep(500);
 const rem = await dev.eval(`document.getElementById("cc-reminder").hidden ? "" : document.getElementById("cc-reminder").textContent.replace(/\\s+/g, " ")`);
 t.check("a card says to check glucose in about 3 h", /Check your glucose at/.test(rem) && /3 h after/.test(rem), rem);
@@ -56,7 +56,7 @@ await dev.eval(`document.dispatchEvent(new Event("visibilitychange"))`); await s
 t.check("when due it says so, with a Done button", /Time to check your glucose/.test(await dev.text("#cc-reminder")) && /Done/.test(await dev.text("#cc-reminder")));
 await dev.eval(`document.getElementById("reminder-done").click()`); await sleep(200);
 t.check("Done clears it", await dev.eval(`document.getElementById("cc-reminder").hidden`));
-await dev.eval(`document.getElementById("cc-reset-btn").click()`);
+await dev.eval(`document.getElementById("cc-clear-all-btn").click()`);
 t.check("no JS errors", (await dev.eval("window.__errs.length")) === 0 && dev.errors.length === 0, JSON.stringify(await dev.eval("window.__errs")) + dev.errors.join("|"));
 dev.close(); await app.close();
 process.exit(t.summary() ? 0 : 1);

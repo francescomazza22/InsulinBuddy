@@ -8,7 +8,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 const app = await startApp(DIR, null, { "foods_data.js": FOODS_JS });
 const rects = dev => dev.eval(`(() => {
   const r = id => { const e = document.getElementById(id); if (!e || e.hidden) return null; const b = e.getBoundingClientRect(); return b.width ? { t: b.top, b: b.bottom, l: b.left, r: b.right } : null; };
-  return { toast: r("undo-toast"), log: r("cc-log-btn"), reset: r("cc-reset-btn"), bar: r("cc-sticky-log-bar"), tab: (() => { const e = document.querySelector(".tabbar"); const b = e.getBoundingClientRect(); return b.width ? { t: b.top, b: b.bottom, l: b.left, r: b.right } : null; })() };
+  return { toast: r("undo-toast"), log: r("cc-log-btn"), clear: r("cc-clear-all-btn"), bar: r("cc-sticky-log-bar"), tab: (() => { const e = document.querySelector(".tabbar"); const b = e.getBoundingClientRect(); return b.width ? { t: b.top, b: b.bottom, l: b.left, r: b.right } : null; })() };
 })()`);
 const overlap = (a, b) => !!a && !!b && a.l < b.r && a.r > b.l && a.t < b.b && a.b > b.t;
 
@@ -19,7 +19,7 @@ for (const [label, width, height, mobile] of [["phone", 390, 800, true], ["table
   const q = await rects(dev);
   t.check("the Undo bar is showing", !!q.toast);
   t.check("it does not cover the Log button", !overlap(q.toast, q.log), JSON.stringify(q));
-  t.check("it does not cover the Reset button", !overlap(q.toast, q.reset), JSON.stringify(q));
+  t.check("it does not cover the Clear All button", !overlap(q.toast, q.clear), JSON.stringify(q));
   t.check("it does not cover the Log bar", !overlap(q.toast, q.bar), JSON.stringify(q));
   t.check("it does not cover the tab bar", !overlap(q.toast, q.tab), JSON.stringify(q));
   t.check("and it is fully on screen", q.toast && q.toast.t >= 0 && q.toast.b <= height, JSON.stringify(q.toast));

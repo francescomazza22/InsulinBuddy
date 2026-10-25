@@ -644,7 +644,6 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
   const addBtn = el("cc-add-btn");
   const foodListBox = el("cc-food-list");
   const logBtn = el("cc-log-btn");
-  const resetBtn = el("cc-reset-btn");
   const clearAllBtn = el("cc-clear-all-btn");
 
   let selectedPickId = null; // id of highlighted item in the pick list (format "food:ID" or "recipe:ID")
@@ -2294,7 +2293,10 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
     }
     whyEl.textContent = why; whyEl.hidden = !why;
     logBtn.classList.toggle("btn--pulse", hasSomethingToLog);
-    clearAllBtn.hidden = !hasSomethingToLog;
+    // Clear All is the one way to start over (the dose card's bin went in 2.60.0), so it shows whenever there is anything to
+    // clear, not only when there is a dose: food with no insulin, a switched-on Correction or a typed glucose count too.
+    const hasAnythingToClear = draft.items.length > 0 || draft.correctionOn || draft.noInsulinOn || draft.eatingOutOn || glucoseInput.value.trim() !== "";
+    clearAllBtn.hidden = !(hasSomethingToLog || hasAnythingToClear);
 
     const glIndicator = el("cc-gl-indicator");
     const giInfo = compoundGiInfo(draft.items);
@@ -2566,7 +2568,6 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
     renderMealItems();
     recompute();
   }
-  resetBtn.addEventListener("click", resetDraft);
   clearAllBtn.addEventListener("click", resetDraft);
 
   // Meal type is detected automatically from time of day — no prompt needed

@@ -210,9 +210,6 @@ input:focus-visible, select:focus-visible, button:focus-visible { outline: 2px s
 .pill-btn.is-active { background: #fff; color: var(--acc-1); border-color: #fff; }
 .pill-btn--warn.is-active { background: #FBBF24; color: #7C2D12; border-color: #FBBF24; }
 .pill-btn--icon { padding: 5px; }
-/* The reset button sits before the carbs pill (2.58.0), so its touch area no longer overlaps the Ratio pill below, and is a
-   round button the same height as the pills beside it. */
-.dose-card .pill-btn--icon { width: var(--dose-pill-h); padding: 0; display: inline-flex; align-items: center; justify-content: center; border-radius: var(--radius-pill); }
 .dose-card__no-insulin-note { font-size: var(--fs-xs); color: rgba(255,255,255,0.95); background: rgba(0,0,0,0.15); padding: var(--space-2xs) 9px; border-radius: var(--radius-s); margin: var(--space-xs) 0 0; }
 /* Says out loud when the shown dose is not what the calculation came to, instead of capping silently. */
 .dose-card__cap-note { border-left: 3px solid #FBBF24; background: rgba(0,0,0,0.24); font-weight: 600; }
