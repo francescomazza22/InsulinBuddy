@@ -14,6 +14,7 @@ export function healthTarget(platform) {
     name: "health", statusKey: "hk",
     partsFor(entry) {
       const ts = entry.ts;
+      if (entry.entryType === "activity") return [];   // nothing to write: Health gets workouts from the watch/phone itself
       if (entry.entryType === "basal") {
         const units = Math.round((entry.basalDose || 0) * 100) / 100;
         return units > 0 ? [{ key: "basal", treatment: { id: `${entry.id}:basal`, ts, units, kind: "basal" } }] : [];

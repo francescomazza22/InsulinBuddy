@@ -297,7 +297,7 @@ export function buildTrendBuckets(history, days, nowMs = Date.now()) {
   for (const entry of history) {
     // Basal (long-acting) doses aren't meals or boluses: counting one would make a day with only a basal
     // dose look like a day of eating nothing, and summarizeTrends would count it as a regular meal.
-    if (entry.entryType === "basal") continue;
+    if (entry.entryType === "basal" || entry.entryType === "activity") continue;   // logged activity (2.65.0) isn't a meal either
     const b = byKey.get(dayKeyFromTs(entry.ts));
     if (!b) continue;
     inRange.push(entry);
@@ -417,7 +417,7 @@ export function glucoseRangeLabel(rangeClass) {
  * insulin, an Eating Out entry (the dose was typed in, carbs weren't counted), or a correction on its own. Works on old
  * entries too, because it only looks at what every entry already stores. */
 export function ratioWasApplied(e) {
-  if (!e || e.entryType === "basal" || e.mealType === "basal") return false;
+  if (!e || e.entryType === "basal" || e.mealType === "basal" || e.entryType === "activity") return false;
   if (e.noInsulin || e.carbsUnknown) return false;
   return Number(e.ratioValue) > 0 && Number(e.totalCarbs) > 0 && Number(e.mealDose) > 0;
 }
@@ -431,7 +431,7 @@ export function ratioByBracket(entries, settings) {
   const groups = new Map();
   let unrecorded = 0;
   for (const e of entries || []) {
-    if (!e || e.entryType === "basal" || e.mealType === "basal") continue;
+    if (!e || e.entryType === "basal" || e.mealType === "basal" || e.entryType === "activity") continue;
     if (ratioWasApplied(e)) {
       const key = e.ratioLabel || "";
       if (!groups.has(key)) groups.set(key, []);
@@ -466,7 +466,7 @@ export function ratioByBracket(entries, settings) {
  * the ratios used. A bracket with no lows after its meals comes out equal to what was used. */
 export function idealRatioByBracket(entries, settings, windowHours = 3) {
   const windowMs = Math.max(0, Number(windowHours) || 0) * 3600000;
-  const list = (entries || []).filter(e => e && e.entryType !== "basal" && e.mealType !== "basal" && Number.isFinite(e.ts)).slice().sort((a, b) => a.ts - b.ts);
+  const list = (entries || []).filter(e => e && e.entryType !== "basal" && e.mealType !== "basal" && e.entryType !== "activity" && Number.isFinite(e.ts)).slice().sort((a, b) => a.ts - b.ts);
   const hasInsulin = e => !e.noInsulin && ((Number(e.mealDose) || 0) + (Number(e.correctionDose) || 0)) > 0;
   const rescue = new Map(); // dosing entry -> grams of low-treatment carbs credited to it
   let lowsCounted = 0, lowsUnattached = 0, rescueCarbs = 0;

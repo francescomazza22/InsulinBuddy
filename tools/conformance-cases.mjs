@@ -9,6 +9,7 @@ const MODEL = { insulinModel: { peakMinutes: 75, diaMinutes: 360 }, carbAbsorpti
 const DEFAULTS = { settings: { isf: 50, target: 100, units: "mgdl", rounding: "0.5", maxDose: 15, timeRatios: [{ id: "a", name: "Day", start: "06:00", end: "23:30", ratio: 10 }, { id: "n", name: "Night", start: "23:30", end: "06:00", ratio: 12 }], activityRatios: [], insulinModel: { preset: "rapid", peakMinutes: 75, diaMinutes: 360 }, carbAbsorptionMinutes: { high: 120, medium: 180, low: 240, unknown: 180 } }, library: [], recipes: [], history: [] };
 const meal = (id, ts, o = {}) => ({ id, ts, mealType: "lunch", periodName: "day", items: [{ refType: "food", refId: "f1", name: "Rice", grams: 100, carbs: 28, kcal: 130, carbsPer100g: 28, kcalPer100g: 130, gi: 70 }], totalCarbs: 28, totalKcal: 130, glycemicLoad: { value: 70, partial: false }, carbsUnknown: false, mealDose: 2.5, correctionDose: 0, noInsulin: false, glucose: null, ratioLabel: "Day", ratioValue: 10, ...o });
 const basal = (id, ts, units, slot) => ({ id, ts, entryType: "basal", mealType: "basal", periodName: slot === "am" ? "morning" : "evening", basalDose: units, basalSlot: slot, items: [], totalCarbs: 0, totalKcal: 0, glycemicLoad: null, mealDose: 0, correctionDose: 0, noInsulin: false, glucose: null, ratioLabel: "", ratioValue: null });
+const activity = (id, ts, o = {}) => ({ id, ts, entryType: "activity", mealType: "activity", activityType: "run", activityName: "", durationMin: 45, intensity: "moderate", note: "", items: [], totalCarbs: 0, totalKcal: 0, glycemicLoad: null, mealDose: 0, correctionDose: 0, noInsulin: false, glucose: null, ratioLabel: "", ratioValue: null, ...o });
 const stateOf = (o = {}) => ({ schemaVersion: 2, settings: DEFAULTS.settings, settingsUpdatedAt: 0, library: [], recipes: [], history: [], deleted: { history: {}, library: {}, recipes: {} }, ...o });
 const round = (x, d = 2) => Number(x.toFixed(d));
 
@@ -168,6 +169,7 @@ for (const format of ["combined", "split"]) {
   add("sync", `treatmentsForEntry ${format}: nothing to send but a note`, "treatmentsForEntry", tEntry({ mealDose: 0, correctionDose: 0, totalCarbs: 0, items: [] }), { format });
 }
 add("sync", "treatmentsForEntry: basal goes as a Note, never as insulin", "treatmentsForEntry", basal("bb", T0, 16, "pm"), { format: "combined" });
+add("sync", "treatmentsForEntry: an activity goes as a Note, no insulin or carbs", "treatmentsForEntry", activity("aa", T0, { activityType: "other", activityName: "Climbing", intensity: "hard", durationMin: 90, note: "indoor wall" }), { format: "split" });
 add("sync", "treatmentsForEntry: basal morning", "treatmentsForEntry", basal("bb", T0, 12.5, "am"), { format: "split" });
 for (const u of ["https://x.ns.example.com/?token=abc-123", "https://x.ns.example.com/", "https://x.ns.example.com///?token=a%20b&x=1", "", null, "https://x.example.com/?foo=1&token=zzz"]) {
   add("sync", `nsToken ${JSON.stringify(u)}`, "nsToken", u);
@@ -181,6 +183,8 @@ add("sync", "entriesToGlucoseRows: filters junk and duplicates", "entriesToGluco
 const goodEntry = meal("v1", T0);
 add("core", "validateEntry: a sound meal", "validateEntry", goodEntry);
 add("core", "validateEntry: a sound basal", "validateEntry", basal("v2", T0, 16, "pm"));
+add("core", "validateEntry: a sound activity", "validateEntry", activity("v3", T0));
+add("core", "validateEntry: an activity with no duration", "validateEntry", activity("v4", T0, { durationMin: undefined }));
 for (const [n, e] of [["no id", { ...goodEntry, id: "" }], ["no time", { ...goodEntry, ts: undefined }], ["text dose", { ...goodEntry, mealDose: "2" }], ["no items list", { ...goodEntry, items: null }], ["unknown meal type", { ...goodEntry, mealType: "brunch" }], ["negative basal", { ...basal("v3", T0, 16, "am"), basalDose: -1 }], ["odd slot", { ...basal("v3", T0, 16, "am"), basalSlot: "noon" }], ["not an object", 5]])
   add("core", `validateEntry: ${n}`, "validateEntry", e);
 add("core", "validateFood: sound", "validateFood", { name: "Rice", carbs: 28, kcal: 130, gi: 70 });

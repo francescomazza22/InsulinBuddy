@@ -9,7 +9,7 @@ export const SANITY_WINDOW_DAYS = 90;
 export function sanityPool(history, now) {
   const since = now - SANITY_WINDOW_DAYS * DAY, out = [];
   for (const e of history || []) {
-    if (!e || e.entryType === "basal" || e.noInsulin || typeof e.ts !== "number" || e.ts < since || e.ts > now) continue;
+    if (!e || e.entryType === "basal" || e.entryType === "activity" || e.noInsulin || typeof e.ts !== "number" || e.ts < since || e.ts > now) continue;
     const meal = Number(e.mealDose) || 0, corr = Number(e.correctionDose) || 0, total = meal + corr;
     if (!(total > 0)) continue;
     out.push({ carbs: e.carbsUnknown ? 0 : Number(e.totalCarbs) || 0, meal, total });

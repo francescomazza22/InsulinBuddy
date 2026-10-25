@@ -14,7 +14,7 @@ One JSON object, kept on the device (key `insulinBuddy.v2`), in the cloud (Supab
 | `settingsUpdatedAt` | number (ms) | When settings last changed. The newer side wins when devices merge. |
 | `library` | list of foods | The food library. |
 | `recipes` | list of recipes | Saved recipes. |
-| `history` | list of entries | Logged meals, corrections and basal doses, newest first. |
+| `history` | list of entries | Logged meals, corrections, basal doses and activities, newest first. |
 | `deleted` | `{history, library, recipes}` | Id → time of deletion, so deletions reach other devices. Pruned after 90 days. |
 
 Every food, recipe and entry has a text `id`, unique within its list, and gets `updatedAt` (ms) whenever it changes.
@@ -42,6 +42,12 @@ only changes how glucose is shown and typed.
 ## History entry: basal
 `entryType: "basal"` and `mealType: "basal"`, plus `basalDose` (units ≥ 0) and `basalSlot` (`am` before 14:00, else `pm`).
 The meal fields are present but zero. Basal never feeds the meal-dose calculation.
+
+## History entry: activity (2.65.0)
+`entryType: "activity"` and `mealType: "activity"`, plus `activityType` (`walk`, `run`, `cycle`, `gym`, `hiit`, `swim`, `sport`,
+`yoga`, `other`), `activityName` (text, only for `other`), `durationMin` (minutes ≥ 0, required), `intensity` (`light`,
+`moderate`, `hard`) and `note` (text, may be empty). `ts` is when it started. The meal fields are present but zero; an activity
+never feeds a dose, active insulin, carbs on board, trends or meal stats. Nightscout gets it as a plain Note.
 
 ## Food
 `name` (required), `carbs` per 100 g (required, ≥ 0), optional `kcal`, `protein`, `fat`, `salt`, `gi`, `category`, `notes`,

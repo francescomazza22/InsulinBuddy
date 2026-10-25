@@ -2,11 +2,14 @@
 // No DOM, no network, no clock: everything a test (or the Trends cards) needs is passed in. These describe what
 // HAPPENED after meals and doses. They are patterns to talk through with a care team, never dosing instructions.
 import { MGDL_PER_MMOL, ratioWasApplied } from "./calc.js";
+import { activityLabel } from "./activity.js";
 
 const MIN = 60000, HOUR = 3600000;
 export const LOW_MGDL = 70, HIGH_MGDL = 180;
 
 const isBasal = e => !e || e.entryType === "basal" || e.mealType === "basal";
+// Logged physical activity (2.65.0) is not a meal or a dose either: no carbs, no insulin, kept out of every meal figure.
+const notMeal = e => isBasal(e) || e.entryType === "activity";
 const insulinOf = e => (Number(e.mealDose) || 0) + (Number(e.correctionDose) || 0);
 const carbsOf = e => Number(e.totalCarbs) || 0;
 const mid = (a, b) => (a + b) / 2;
@@ -53,7 +56,7 @@ const classify = g => (g < LOW_MGDL ? "low" : g > HIGH_MGDL ? "high" : "in");
 
 /** Meals that carried insulin and a usable baseline reading. Each gets its baseline glucose. */
 function dosedMeals(entries, sorted, { needCarbs = true } = {}) {
-  return (entries || []).filter(e => e && !isBasal(e) && Number.isFinite(e.ts) && insulinOf(e) > 0 && !e.noInsulin && (!needCarbs || carbsOf(e) > 0))
+  return (entries || []).filter(e => e && !notMeal(e) && Number.isFinite(e.ts) && insulinOf(e) > 0 && !e.noInsulin && (!needCarbs || carbsOf(e) > 0))
     .map(e => ({ e, base: glucoseAt(sorted, e.ts, 10) })).filter(x => x.base != null);
 }
 const groupLabel = e => e.ratioLabel || "Other";
@@ -156,7 +159,7 @@ export function foodImpact(entries, readings, { minMeals = 2 } = {}) {
  */
 export function correctionEffectiveness(entries, readings, { isfMgdl = null } = {}) {
   const sorted = sortReadings(readings);
-  const all = (entries || []).filter(e => e && !isBasal(e) && Number.isFinite(e.ts));
+  const all = (entries || []).filter(e => e && !notMeal(e) && Number.isFinite(e.ts));
   const events = [];
   for (const e of all) {
     const units = insulinOf(e);
@@ -177,7 +180,7 @@ export function correctionEffectiveness(entries, readings, { isfMgdl = null } = 
 /** Meals taken while insulin from an earlier dose (within 4 h) was still active, versus meals taken clean. */
 export function iobStacking(entries, readings, { windowHours = 4 } = {}) {
   const sorted = sortReadings(readings);
-  const doses = (entries || []).filter(e => e && !isBasal(e) && !e.noInsulin && insulinOf(e) > 0 && Number.isFinite(e.ts));
+  const doses = (entries || []).filter(e => e && !notMeal(e) && !e.noInsulin && insulinOf(e) > 0 && Number.isFinite(e.ts));
   const stacked = [], clean = [];
   for (const { e, base } of dosedMeals(entries, sorted)) {
     const g = glucoseAt(sorted, e.ts + 3 * HOUR, 15);
@@ -205,7 +208,7 @@ export function overnightStats(entries, readings, { startHour = 0, endHour = 6, 
   const sorted = sortReadings(readings);
   if (!sorted.length) return { nights: [], n: 0 };
   const basals = (entries || []).filter(e => e && isBasal(e) && Number.isFinite(e.ts) && Number(e.basalDose) > 0).sort((a, b) => a.ts - b.ts);
-  const events = (entries || []).filter(e => e && !isBasal(e) && Number.isFinite(e.ts) && (carbsOf(e) > 0 || insulinOf(e) > 0));
+  const events = (entries || []).filter(e => e && !notMeal(e) && Number.isFinite(e.ts) && (carbsOf(e) > 0 || insulinOf(e) > 0));
   const first = new Date(sorted[0].at), last = new Date(sorted[sorted.length - 1].at);
   const nights = [];
   for (let d = new Date(first.getFullYear(), first.getMonth(), first.getDate()); d <= last; d.setDate(d.getDate() + 1)) {
@@ -236,7 +239,7 @@ const isWeekend = ts => { const d = new Date(ts).getDay(); return d === 0 || d =
 /** Daily totals and 3-hour outcomes for weekdays vs weekends, plus how activity ratios compare with everyday ones. */
 export function weekdayWeekend(entries, readings, settings = {}) {
   const sorted = sortReadings(readings);
-  const meals = (entries || []).filter(e => e && !isBasal(e) && Number.isFinite(e.ts));
+  const meals = (entries || []).filter(e => e && !notMeal(e) && Number.isFinite(e.ts));
   const build = list => {
     const days = new Set(list.map(e => new Date(e.ts).toDateString()));
     const dosed = list.filter(e => !e.noInsulin && insulinOf(e) > 0);
@@ -271,7 +274,7 @@ export function weekdayWeekend(entries, readings, settings = {}) {
 // ------------------------------------------------------------------ features that reuse the same history
 /** What you usually eat to treat a low: the carbs from your own low-treatment entries (food with no insulin). */
 export function lowTreatmentUsual(entries, { recent = 12 } = {}) {
-  const list = (entries || []).filter(e => e && !isBasal(e) && e.noInsulin && carbsOf(e) > 0 && Number.isFinite(e.ts)).sort((a, b) => b.ts - a.ts).slice(0, recent);
+  const list = (entries || []).filter(e => e && !notMeal(e) && e.noInsulin && carbsOf(e) > 0 && Number.isFinite(e.ts)).sort((a, b) => b.ts - a.ts).slice(0, recent);
   return { n: list.length, medianCarbs: median(list.map(carbsOf)), minCarbs: list.length ? Math.min(...list.map(carbsOf)) : null, maxCarbs: list.length ? Math.max(...list.map(carbsOf)) : null };
 }
 
@@ -280,7 +283,7 @@ export function lastTimesFor(entries, readings, { refId = null, name = "" } = {}
   const sorted = sortReadings(readings);
   const nm = String(name || "").trim().toLowerCase();
   const hit = it => (refId && it.refId === refId) || (nm && String(it.name || "").trim().toLowerCase() === nm);
-  return (entries || []).filter(e => e && !isBasal(e) && Number.isFinite(e.ts) && (e.items || []).some(hit))
+  return (entries || []).filter(e => e && !notMeal(e) && Number.isFinite(e.ts) && (e.items || []).some(hit))
     .sort((a, b) => b.ts - a.ts).slice(0, count).map(e => {
       const it = e.items.find(hit);
       return {
@@ -289,6 +292,55 @@ export function lastTimesFor(entries, readings, { refId = null, name = "" } = {}
         start: glucoseAt(sorted, e.ts, 10), after3h: glucoseAt(sorted, e.ts + 3 * HOUR, 15)
       };
     });
+}
+
+// ------------------------------------------------------------------ 8. logged physical activity (2.65.0)
+export const ACTIVITY_AFTER_HOURS = 6;
+/**
+ * Glucose around one logged activity: the reading when it started and when it ended, the change in between, and the lowest
+ * reading from the start to `afterHours` after the end (with whether that dipped below 70). Fields are null where there were
+ * no readings close enough; `covered` is false when there isn't a start and an end reading to compare.
+ */
+export function activityGlucose(entry, readings, { afterHours = ACTIVITY_AFTER_HOURS, presorted = false } = {}) {
+  const sorted = presorted ? readings : sortReadings(readings);
+  const t0 = entry.ts, t1 = entry.ts + (Number(entry.durationMin) || 0) * MIN;
+  const start = glucoseAt(sorted, t0, 15), end = glucoseAt(sorted, t1, 15);
+  const window = readingsBetween(sorted, t0, t1 + afterHours * HOUR);
+  const lowest = window.length ? window.reduce((m, r) => (r.mgdl < m.mgdl ? r : m)) : null;
+  return {
+    start, end, change: start != null && end != null ? end - start : null, covered: start != null && end != null,
+    lowest: lowest ? lowest.mgdl : null, lowestAt: lowest ? lowest.at : null, low: !!lowest && lowest.mgdl < LOW_MGDL
+  };
+}
+
+/**
+ * What logged activities did to glucose, per activity (Run, Walk, a named Other...): how many have readings around them, the
+ * average reading at the start, the average change from start to end, the average lowest reading from the start to 6 hours after,
+ * and how many dipped below 70 in that time. Each also gets the same figures split by intensity. Busiest activity first.
+ * Only activities with a start and an end reading count. Describes what happened; never dosing advice.
+ */
+export function activityImpact(entries, readings, { afterHours = ACTIVITY_AFTER_HOURS } = {}) {
+  const sorted = sortReadings(readings);
+  const groups = new Map();
+  for (const e of entries || []) {
+    if (!e || e.entryType !== "activity" || !Number.isFinite(e.ts)) continue;
+    const g = activityGlucose(e, sorted, { afterHours, presorted: true });
+    if (!g.covered) continue;
+    const label = activityLabel(e);
+    const key = label.toLowerCase();
+    if (!groups.has(key)) groups.set(key, { label, rows: [] });
+    groups.get(key).rows.push({ e, g });
+  }
+  const summarise = rows => ({
+    n: rows.length,
+    avgStart: mean(rows.map(r => r.g.start)), avgChange: mean(rows.map(r => r.g.change)),
+    avgLowest: mean(rows.map(r => r.g.lowest).filter(Number.isFinite)), lows: rows.filter(r => r.g.low).length,
+    avgMinutes: mean(rows.map(r => Number(r.e.durationMin) || 0))
+  });
+  return [...groups.values()].map(({ label, rows }) => ({
+    label, ...summarise(rows),
+    byIntensity: ["light", "moderate", "hard"].map(i => ({ intensity: i, rows: rows.filter(r => r.e.intensity === i) })).filter(x => x.rows.length).map(x => ({ intensity: x.intensity, ...summarise(x.rows) }))
+  })).sort((a, b) => b.n - a.n || a.label.localeCompare(b.label));
 }
 
 /** mmol/L-per-unit settings -> mg/dL per unit. */

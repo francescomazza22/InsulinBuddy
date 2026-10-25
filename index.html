@@ -263,10 +263,14 @@
 
       <div id="history-log-panel">
         <div class="history-search history-search--row">
-          <input type="search" id="history-search" placeholder="Search meals, foods, dates…" aria-label="Search meals" autocomplete="off" autocorrect="off">
+          <input type="search" id="history-search" placeholder="Search…" aria-label="Search meals and activity" autocomplete="off" autocorrect="off">
           <button type="button" class="basal-add-btn" id="btn-log-basal" aria-haspopup="dialog" aria-label="Log a basal insulin dose">
             <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
             Basal
+          </button>
+          <button type="button" class="basal-add-btn" id="btn-log-activity" aria-haspopup="dialog" aria-label="Log physical activity">
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+            Activity
           </button>
         </div>
         <div id="history-groups"></div>

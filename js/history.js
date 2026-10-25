@@ -1,6 +1,7 @@
 // Pure helpers for the History list and the Calculator's "recent meals" row.
 
 import { dayKeyFromTs } from "./util.js";
+import { isActivityEntry, activitySearchText } from "./activity.js";
 
 export const PAGE_SIZE = 60;
 
@@ -14,6 +15,8 @@ export const PAGE_SIZE = 60;
 export const BASAL_MAX_UNITS = 200;
 
 export const isBasalEntry = e => !!e && e.entryType === "basal";
+/** Not a meal or a bolus: a basal dose or a logged activity (2.65.0). Everything that counts meals, carbs or bolus insulin skips these. */
+export const isNonMealEntry = e => isBasalEntry(e) || isActivityEntry(e);
 
 /** "am" before 14:00 local, "pm" from 14:00 (the midpoint of a typical morning/evening pair). It is
  * only a label and a prefill hint; the person can always flip it. */
@@ -97,7 +100,8 @@ export function matchesQuery(entry, query, dateText = () => "") {
     entry.noInsulin ? "low treating hypo no insulin" : "",
     (entry.correctionDose || 0) > 0 ? "correction" : "",
     (entry.correctionDose || 0) < 0 ? "reduced lowered low" : "",
-    isBasalEntry(entry) ? `basal long-acting long acting ${entry.basalDose}u` : ""
+    isBasalEntry(entry) ? `basal long-acting long acting ${entry.basalDose}u` : "",
+    isActivityEntry(entry) ? activitySearchText(entry) : ""
   ].join(" ").toLowerCase();
   return tokens.every(t => hay.includes(t));
 }
@@ -109,7 +113,7 @@ export function recentDistinctMeals(history, n = 6) {
   const seen = new Set();
   const out = [];
   for (const e of history) {
-    if (isBasalEntry(e) || !e.items || e.items.length === 0 || e.noInsulin || !(e.totalCarbs > 0)) continue;
+    if (isNonMealEntry(e) || !e.items || e.items.length === 0 || e.noInsulin || !(e.totalCarbs > 0)) continue;
     const sig = signature(e);
     if (seen.has(sig)) continue;
     seen.add(sig);
@@ -134,7 +138,7 @@ export function dosingSummary(history, sinceMs) {
   const all = (history || []).filter(e => e && typeof e.ts === "number" && e.ts >= sinceMs);
   // Every existing figure below describes meals and boluses, so basal entries are kept out of them:
   // a day with only a basal dose must not become an "averaging day" with zero carbs and zero insulin.
-  const inRange = all.filter(e => !isBasalEntry(e));
+  const inRange = all.filter(e => !isNonMealEntry(e));
   const basal = all.filter(e => isBasalEntry(e) && e.basalDose > 0);
   const dayKeyOf = ts => { const d = new Date(ts); return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`; };
   const dayKeys = new Set(inRange.map(e => dayKeyOf(e.ts)));
@@ -175,7 +179,7 @@ export function dosingSummary(history, sinceMs) {
 export function insulinStats(history, sinceMs) {
   const all = (history || []).filter(e => e && typeof e.ts === "number" && e.ts >= sinceMs);
   const dayKeyOf = ts => { const d = new Date(ts); return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`; };
-  const bolusEntries = all.filter(e => !isBasalEntry(e) && !e.noInsulin && ((Number(e.mealDose) || 0) + (Number(e.correctionDose) || 0)) > 0);
+  const bolusEntries = all.filter(e => !isNonMealEntry(e) && !e.noInsulin && ((Number(e.mealDose) || 0) + (Number(e.correctionDose) || 0)) > 0);
   const basal = all.filter(e => isBasalEntry(e) && e.basalDose > 0);
   const bolusDays = new Set(bolusEntries.map(e => dayKeyOf(e.ts))).size || 1;
   const basalDays = new Set(basal.map(e => dayKeyOf(e.ts))).size;
@@ -188,7 +192,7 @@ export function insulinStats(history, sinceMs) {
   const countedMeals = mealEntries.filter(e => !e.carbsUnknown && (Number(e.totalCarbs) || 0) > 0);
   const mealCarbs = countedMeals.reduce((s, e) => s + e.totalCarbs, 0), mealInsulin = countedMeals.reduce((s, e) => s + (Number(e.mealDose) || 0), 0);
   const pos = bolusEntries.reduce((s, e) => s + Math.max(0, Number(e.correctionDose) || 0), 0);
-  const lows = all.filter(e => !isBasalEntry(e) && e.noInsulin);
+  const lows = all.filter(e => !isNonMealEntry(e) && e.noInsulin);
   return {
     days: bolusDays, avgDailyBolus, avgDailyBasal, tdd,
     basalPct: tdd > 0 && basalDays ? (avgDailyBasal / tdd) * 100 : null, bolusPct: tdd > 0 && basalDays ? (avgDailyBolus / tdd) * 100 : null,

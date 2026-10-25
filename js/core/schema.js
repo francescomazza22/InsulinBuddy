@@ -4,7 +4,7 @@
 //   severity "warn"   -> unusual but the app copes (an unknown meal type, a missing optional field).
 // A native app should run the same checks on anything it reads, from a backup, the cloud or another device.
 export const CONTRACT_VERSION = 1;
-export const MEAL_TYPES = ["breakfast", "lunch", "dinner", "snack", "correction", "basal"];
+export const MEAL_TYPES = ["breakfast", "lunch", "dinner", "snack", "correction", "basal", "activity"];
 export const BASAL_SLOTS = ["am", "pm"];
 export const UNITS = ["mgdl", "mmol"];
 
@@ -27,6 +27,8 @@ const idProblem = (v, path) => !isStr(v) || !v ? problem(`${path}.id`, "error", 
   : !SAFE_ID.test(v) ? problem(`${path}.id`, "error", "has characters an id can't contain") : null;
 
 export function isBasal(entry) { return !!entry && (entry.entryType === "basal" || entry.mealType === "basal"); }
+export function isActivity(entry) { return !!entry && entry.entryType === "activity"; }
+export const ACTIVITY_INTENSITIES = ["light", "moderate", "hard"];
 
 // One history record: a meal/correction, or a basal dose.
 export function validateEntry(e, path = "entry") {
@@ -37,6 +39,14 @@ export function validateEntry(e, path = "entry") {
   if (isBasal(e)) {
     numberField(out, e, path, "basalDose", { required: true, min: 0 });
     if (e.basalSlot != null && !BASAL_SLOTS.includes(e.basalSlot)) out.push(problem(`${path}.basalSlot`, "warn", `unknown slot "${e.basalSlot}"`));
+    return out;
+  }
+  // A logged activity (2.65.0): no food or insulin, just what, how long and how hard.
+  if (isActivity(e)) {
+    numberField(out, e, path, "durationMin", { required: true, min: 0 });
+    if (!isStr(e.activityType) || !e.activityType) out.push(problem(`${path}.activityType`, "warn", "is missing"));
+    if (e.intensity != null && !ACTIVITY_INTENSITIES.includes(e.intensity)) out.push(problem(`${path}.intensity`, "warn", `unknown intensity "${e.intensity}"`));
+    for (const k of ["activityName", "note"]) if (e[k] != null && !isStr(e[k])) out.push(problem(`${path}.${k}`, "warn", "should be text"));
     return out;
   }
   if (!isStr(e.mealType)) out.push(problem(`${path}.mealType`, "warn", "is missing"));

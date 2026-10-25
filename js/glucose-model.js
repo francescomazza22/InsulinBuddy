@@ -11,8 +11,10 @@ const MIN = 60000, STEP = 5 * MIN, HOUR = 3600000;
 export const MODEL_STEP_MS = STEP;
 
 const isBasal = e => !e || e.entryType === "basal" || e.mealType === "basal";
-const carbsOf = e => (isBasal(e) ? 0 : Number(e.totalCarbs) || 0);
-const insulinOf = e => (isBasal(e) ? 0 : (Number(e.mealDose) || 0) + (Number(e.correctionDose) || 0));
+// Logged physical activity (2.65.0) is not a meal or a dose either: no carbs, no insulin, kept out of every meal figure.
+const notMeal = e => isBasal(e) || e.entryType === "activity";
+const carbsOf = e => (notMeal(e) ? 0 : Number(e.totalCarbs) || 0);
+const insulinOf = e => (notMeal(e) ? 0 : (Number(e.mealDose) || 0) + (Number(e.correctionDose) || 0));
 const median = v => { const a = v.filter(Number.isFinite).sort((x, y) => x - y); if (!a.length) return null; const m = a.length >> 1; return a.length % 2 ? a[m] : (a[m - 1] + a[m]) / 2; };
 
 function lowerBound(sorted, t) { let lo = 0, hi = sorted.length; while (lo < hi) { const m = (lo + hi) >> 1; if (sorted[m].at < t) lo = m + 1; else hi = m; } return lo; }
@@ -91,7 +93,7 @@ export function expectedFromInsulin(entries, readings, { isfMgdl, peak, dia, now
   const bctx = basalContext(basalEntries);
   const sorted = prepareReadings(readings);
   if (!sorted.length || !(isfMgdl > 0)) return null;
-  const cands = (entries || []).filter(e => !isBasal(e) && Number.isFinite(e.ts) && e.ts <= now && now - e.ts <= maxHours * HOUR && (carbsOf(e) > 0 || insulinOf(e) > 0)).sort((a, b) => b.ts - a.ts);
+  const cands = (entries || []).filter(e => !notMeal(e) && Number.isFinite(e.ts) && e.ts <= now && now - e.ts <= maxHours * HOUR && (carbsOf(e) > 0 || insulinOf(e) > 0)).sort((a, b) => b.ts - a.ts);
   for (const e of cands) {
     const g0 = glucoseNear(sorted, e.ts, 10);
     if (g0 == null) continue;
@@ -219,7 +221,7 @@ export function learnAbsorption(entries, readings, { isfMgdl, peak, dia, now }) 
   const sorted = prepareReadings(readings);
   const out = { high: [], medium: [], low: [], unknown: [] };
   if (!sorted.length || !(isfMgdl > 0)) return { high: null, medium: null, low: null, unknown: null };
-  const list = (entries || []).filter(e => !isBasal(e) && Number.isFinite(e.ts)).sort((a, b) => a.ts - b.ts);
+  const list = (entries || []).filter(e => !notMeal(e) && Number.isFinite(e.ts)).sort((a, b) => a.ts - b.ts);
   for (const e of list) {
     const c = carbsOf(e);
     if (c < 15 || e.noInsulin || e.ts + 4 * HOUR > now) continue;

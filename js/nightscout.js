@@ -9,6 +9,7 @@
 import { round1, redact } from "./util.js";
 import { convertGlucose } from "./calc.js";
 import { Outbox } from "./core/outbox.js";
+import { activityNsNote } from "./activity.js";
 
 // ------------------------------------------------------------- pure helpers
 export function nsToken(url) {
@@ -52,6 +53,11 @@ export function treatmentsForEntry(entry, { units = "mgdl", format = "combined" 
   // every treatment that has one, whatever its eventType, so sending basal as insulin would make
   // Nightscout (and anything built on its IOB: bolus wizard preview, alarms) believe rapid-acting
   // insulin is on board. A Note still shows on its chart and in its reports.
+  // A logged activity goes the same way: a plain Note with no insulin and no carbs, so it shows on the timeline and
+  // cannot change anything's insulin or carbs on board.
+  if (entry.entryType === "activity") {
+    return [{ key: "main", treatment: { eventType: "Note", notes: activityNsNote(entry), ...base } }];
+  }
   if (entry.entryType === "basal") {
     const units = Math.round((entry.basalDose || 0) * 100) / 100;
     const slot = entry.basalSlot === "am" ? " (morning)" : entry.basalSlot === "pm" ? " (evening)" : "";

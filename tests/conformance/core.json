@@ -65,6 +65,67 @@
   "expect": []
  },
  {
+  "name": "validateEntry: a sound activity",
+  "fn": "validateEntry",
+  "args": [
+   {
+    "id": "v3",
+    "ts": 1790856000000,
+    "entryType": "activity",
+    "mealType": "activity",
+    "activityType": "run",
+    "activityName": "",
+    "durationMin": 45,
+    "intensity": "moderate",
+    "note": "",
+    "items": [],
+    "totalCarbs": 0,
+    "totalKcal": 0,
+    "glycemicLoad": null,
+    "mealDose": 0,
+    "correctionDose": 0,
+    "noInsulin": false,
+    "glucose": null,
+    "ratioLabel": "",
+    "ratioValue": null
+   }
+  ],
+  "expect": []
+ },
+ {
+  "name": "validateEntry: an activity with no duration",
+  "fn": "validateEntry",
+  "args": [
+   {
+    "id": "v4",
+    "ts": 1790856000000,
+    "entryType": "activity",
+    "mealType": "activity",
+    "activityType": "run",
+    "activityName": "",
+    "intensity": "moderate",
+    "note": "",
+    "items": [],
+    "totalCarbs": 0,
+    "totalKcal": 0,
+    "glycemicLoad": null,
+    "mealDose": 0,
+    "correctionDose": 0,
+    "noInsulin": false,
+    "glucose": null,
+    "ratioLabel": "",
+    "ratioValue": null
+   }
+  ],
+  "expect": [
+   {
+    "path": "entry.durationMin",
+    "severity": "error",
+    "message": "is missing"
+   }
+  ]
+ },
+ {
   "name": "validateEntry: no id",
   "fn": "validateEntry",
   "args": [

@@ -1174,11 +1174,33 @@ html[data-theme="dark"] .undo-toast { background: var(--surface); border: 1px so
 }
 .basal-add-btn svg { width: 14px; height: 14px; color: var(--acc-1); }
 .basal-add-btn:active { background: var(--paper); }
+/* 2.65.0: two buttons (Basal, Activity). When the row is too narrow for both beside a usable search box (a small phone, large
+   text), the buttons wrap onto their own line and share it, rather than squeezing the search to nothing. */
+.history-search--row { flex-wrap: wrap; row-gap: var(--space-xs); }
+.history-search--row input { flex: 1 1 110px; }
+.history-search--row .basal-add-btn { min-height: 44px; }
 
 /* ================= Basal insulin =================
    #356E9C rather than a lighter blue: white text on it clears the 4.5:1 contrast minimum (about 5.4:1). */
 .history-entry--basal { border-left-color: #356E9C; }
 .dose-pill--basal { background: #356E9C; }
+
+/* ================= Physical activity (2.65.0) =================
+   #0E7C86: white text on it clears the 4.5:1 contrast minimum (about 5:1), like the basal blue. */
+.history-entry--activity { border-left-color: #0E7C86; }
+.dose-pill--activity { background: #0E7C86; }
+.activity-detail { margin: 0 0 var(--space-2xs); font-size: var(--fs-s); color: var(--ink-soft); }
+.activity-detail--glu { color: var(--ink); }
+.activity-choices { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-xs); }
+.activity-sheet .activity-choices .btn { padding: var(--space-s) var(--space-2xs); background: var(--surface); color: var(--ink); border: 2px solid var(--line); font-size: var(--fs-m); line-height: 1.2; }
+.activity-sheet .activity-choices .btn.is-active { border-color: var(--acc-1); color: var(--acc-1); }
+.activity-sheet .activity-input {
+  width: 100%; margin-top: var(--space-xs); padding: var(--space-s) var(--space-m); border: 1.5px solid var(--line); border-radius: var(--radius-s);
+  font-size: max(16px, var(--rem)); background: var(--surface); color: var(--ink); font-family: var(--font-ui); box-sizing: border-box;
+}
+.activity-sheet .field > label + .activity-input { margin-top: 0; }
+.activity-sheet input[type="datetime-local"].activity-input { appearance: none; -webkit-appearance: none; min-height: 48px; }
+.activity-chips { margin-top: var(--space-xs); }
 /* Tighter than the generic sheet, so more of it fits above the keyboard. */
 .basal-sheet .sheet-head { margin-bottom: var(--space-m); }
 .basal-sheet .field { margin-bottom: var(--space-m); }

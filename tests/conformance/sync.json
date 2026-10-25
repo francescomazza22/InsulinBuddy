@@ -626,6 +626,47 @@
   ]
  },
  {
+  "name": "treatmentsForEntry: an activity goes as a Note, no insulin or carbs",
+  "fn": "treatmentsForEntry",
+  "args": [
+   {
+    "id": "aa",
+    "ts": 1790856000000,
+    "entryType": "activity",
+    "mealType": "activity",
+    "activityType": "other",
+    "activityName": "Climbing",
+    "durationMin": 90,
+    "intensity": "hard",
+    "note": "indoor wall",
+    "items": [],
+    "totalCarbs": 0,
+    "totalKcal": 0,
+    "glycemicLoad": null,
+    "mealDose": 0,
+    "correctionDose": 0,
+    "noInsulin": false,
+    "glucose": null,
+    "ratioLabel": "",
+    "ratioValue": null
+   },
+   {
+    "format": "split"
+   }
+  ],
+  "expect": [
+   {
+    "key": "main",
+    "treatment": {
+     "eventType": "Note",
+     "notes": "Activity: Climbing · 1 h 30 min · Hard (indoor wall)",
+     "created_at": "2026-10-01T12:00:00.000Z",
+     "enteredBy": "Insulin Buddy"
+    }
+   }
+  ]
+ },
+ {
   "name": "treatmentsForEntry: basal morning",
   "fn": "treatmentsForEntry",
   "args": [

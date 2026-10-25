@@ -2,6 +2,18 @@
 // summary can never drift. Bump CHANGELOG[0].version here (and CACHE_VERSION in sw.js) on every release.
 export const CHANGELOG = [
   {
+    version: "2.65.0",
+    summary: "You can now log physical activity: what you did, how long and how hard.",
+    changes: [
+      "Insights > Meals has a new \u201c+ Activity\u201d button next to \u201c+ Basal\u201d: pick the activity (walk, run, cycling, gym, HIIT, swimming, team sport, yoga or your own), the minutes, how hard it was and when it started, with an optional note (e.g. \u201cbefore breakfast, cut the lunch dose\u201d)",
+      "Picking an activity starts from how long and how hard it was last time; the start time follows the duration (now minus the minutes) until you change it",
+      "Activities appear in the log with the meals and can be edited, deleted (with Undo), swiped and searched; opening one shows your glucose at the start and end and the lowest reading up to 6 hours after",
+      "Insights > Trends has a new \u201cActivity and glucose\u201d card: for each activity, how much glucose changed on average from start to end, the lowest reading afterwards and how many went low, split by intensity",
+      "Activities sync to the cloud and go to Nightscout/Gluroo as a plain note. They are never counted as a meal and never change a dose, active insulin or any figure",
+      "Doses are calculated exactly as before"
+    ]
+  },
+  {
     version: "2.64.1",
     summary: "The \u201cInsulin dose\u201d label on the calculator is bigger.",
     changes: [

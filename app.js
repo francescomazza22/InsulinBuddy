@@ -5,7 +5,7 @@ import { convertGlucose, convertDosingSetting, roundDose as roundDoseWith, round
 import { SCHEMA_VERSION, normalizeState as normalizeStateWith, makeFingerprint, stampChanges, mergeStates, statesEquivalent, prepareRestoredState } from "./js/state.js";
 import { NightscoutClient, NsOutbox, nsToken, nsBaseUrl, nsConfigured, treatmentsForEntry, entriesToGlucoseRows } from "./js/nightscout.js";
 import { createDiag, hookGlobalErrors } from "./js/diag.js";
-import { postMealCurves, outcomeByBracket, foodImpact, correctionEffectiveness, iobStacking, overnightStats, weekdayWeekend, lowTreatmentUsual, lastTimesFor, isfToMgdl } from "./js/insights.js";
+import { postMealCurves, outcomeByBracket, foodImpact, correctionEffectiveness, iobStacking, overnightStats, weekdayWeekend, lowTreatmentUsual, lastTimesFor, isfToMgdl, activityGlucose, activityImpact, ACTIVITY_AFTER_HOURS } from "./js/insights.js";
 import { expectedFromInsulin, EXPECTED_FLOOR, observedCarbs, cobAt, projectGlucose, learnAbsorption, gapSummary } from "./js/glucose-model.js";
 import { summarizeSync } from "./js/sync-status.js";
 import { SEED_RECIPES } from "./js/seed-recipes.js";
@@ -16,7 +16,8 @@ import { abstractSvg } from "./js/abstract-field.js";
 import { glucoseAxisTicks, percentile, dailyPatternBuckets, daysSpanned, estimatedA1c, extendedGlucoseStats, dailyStats, glucoseSummaryStats, timeInRangeBreakdown, glucoseGuideRows, TIME_IN_RANGE_BANDS } from "./js/glucose-stats.js";
 import { randomBytes, toB64, fromB64, deriveKey, encryptString, decryptString, isEncryptedPayload, exportKeyRaw, importKeyRaw } from "./js/crypto.js";
 import { LocalBackups, shouldAutoSnapshot } from "./js/backup.js";
-import { doseBadge, groupByDay, takeEntries, matchesQuery, recentDistinctMeals, mealLabel, dosingSummary, insulinStats, isBasalEntry, basalSlotForTime, basalSlotLabel, lastBasalDose, basalDoseCheck, makeBasalEntry, PAGE_SIZE } from "./js/history.js";
+import { doseBadge, groupByDay, takeEntries, matchesQuery, recentDistinctMeals, mealLabel, dosingSummary, insulinStats, isBasalEntry, basalSlotForTime, basalSlotLabel, lastBasalDose, basalDoseCheck, makeBasalEntry, isNonMealEntry, PAGE_SIZE } from "./js/history.js";
+import { ACTIVITY_TYPES, INTENSITIES, DURATION_CHIPS, ACTIVITY_MAX_MINUTES, ACTIVITY_NAME_MAX, ACTIVITY_NOTE_MAX, isActivityEntry, isIntensity, activityLabel, intensityLabel, formatDuration as formatMinutes, activityCheck, makeActivityEntry, applyActivityEdit, lastActivity } from "./js/activity.js";
 import { createDialogs } from "./js/dialogs.js";
 import { installClearButtons } from "./js/clear-field.js";
 import { swipeAxis, swipePos, swipeSettle, swipeVelocity } from "./js/swipe.js";
@@ -1873,6 +1874,222 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
     try { const n = unitsInput.value.length; unitsInput.setSelectionRange(n, n); } catch { /* number inputs have no selection API */ }
   }
 
+  // ---- Physical activity (Insights > Meals log), 2.65.0 ----
+  // A record of what was done, for how long and how hard, kept for the "Activity and glucose" insight. Like basal it lives in
+  // the normal history (so sync, undo, backup and the Nightscout outbox work) but it is never a meal or a dose: every meal,
+  // trend and insulin figure skips it (isNonMealEntry), and nothing here suggests changing a dose.
+  const ACTIVITY_COLOR = "#0E7C86";   // white text on it clears 4.5:1 (about 5:1), like BASAL_COLOR
+  function iconActivity() { return '<svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="13.5" r="7" stroke="currentColor" stroke-width="1.8"/><path d="M12 13.5V10M10 3h4M12 3v3.5M18 7l1.5-1.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>'; }
+  // Glucose around an activity, from the readings given or else the ones already loaded. "" when there aren't any close enough.
+  function activityGlucoseLine(entry, given = null) {
+    if (!nightscoutConfigured()) return "";
+    let readings = given || [];
+    if (!given) try { for (const v of glucoseReadingsCache.values()) if (v.readings.length > readings.length) readings = v.readings; } catch { return ""; }   // not set up yet at start-up
+    const g = activityGlucose(entry, readings);
+    if (!g.covered) return "";
+    const mmol = state.settings.units === "mmol", u = mmol ? "mmol/L" : "mg/dL";
+    const f = v => mmol ? String(round1(convertGlucose(v, "mgdl", "mmol"))) : String(Math.round(v));
+    const ch = g.change === 0 ? "no change" : `${g.change > 0 ? "+" : "−"}${f(Math.abs(g.change))}`;
+    return `Glucose ${f(g.start)} → ${f(g.end)} ${u} during (${ch})${g.lowest != null ? ` · lowest ${f(g.lowest)} ${u} up to ${ACTIVITY_AFTER_HOURS} h after${g.low ? " (low)" : ""}` : ""}`;
+  }
+  function buildActivityRow(entry) {
+    const row = document.createElement("div");
+    row.className = "history-entry history-entry--activity";
+    row.dataset.id = entry.id;
+    const ends = entry.ts + (Number(entry.durationMin) || 0) * 60000;
+    row.innerHTML = `
+      <div class="history-entry__icon" style="background:${ACTIVITY_COLOR}">${iconActivity()}</div>
+      <div class="history-entry__main">
+        <p class="history-entry__title"><span class="history-entry__name">${escapeHtml(activityLabel(entry))}</span> <span class="muted">${formatTime(entry.ts)}${entry.intensity ? ` · ${escapeHtml(intensityLabel(entry.intensity))}` : ""}</span>${nsBadgeHtml(entry)}</p>
+        <p class="history-entry__foods"><span class="history-entry__food-names">${entry.note ? escapeHtml(entry.note) : "Activity"}</span></p>
+        <div class="history-entry__detail" hidden>
+          <p class="activity-detail">${formatTime(entry.ts)}–${formatTime(ends)} · ${escapeHtml(formatMinutes(entry.durationMin))}${entry.intensity ? ` · ${escapeHtml(intensityLabel(entry.intensity))}` : ""}</p>
+          ${entry.note ? `<p class="activity-detail">${escapeHtml(entry.note)}</p>` : ""}
+          <p class="activity-detail activity-detail--glu" hidden></p>
+          <div class="history-entry__row-actions">
+            <button data-edit="${escapeAttr(entry.id)}" type="button">Edit</button>
+            <button class="danger" data-del="${escapeAttr(entry.id)}" type="button">Delete</button>
+          </div>
+        </div>
+      </div>
+      <div class="history-entry__stats">
+        <span class="dose-pill dose-pill--activity">${escapeHtml(formatMinutes(entry.durationMin))}</span>
+      </div>
+    `;
+    return row;
+  }
+
+  // Filled in when the row is opened: from the readings already loaded, or by loading the stored ones that cover that day.
+  async function fillActivityGlucose(row, entry) {
+    const p = row.querySelector(".activity-detail--glu");
+    if (!p || p.dataset.done) return;
+    p.dataset.done = "1";
+    let line = activityGlucoseLine(entry);
+    if (!line && nightscoutConfigured()) {
+      const age = (Date.now() - entry.ts) / 86400000;
+      const days = [1, 3, 7, 14, 30, 90].find(d => d >= age + 0.05);
+      if (days) { const res = await fetchStoredGlucoseReadings(days); if (res.ok) line = activityGlucoseLine(entry, res.readings); }
+    }
+    if (line && p.isConnected) { p.textContent = line; p.hidden = false; }
+  }
+
+  function openActivitySheet(existing = null) {
+    const editing = !!existing;
+    const trigger = el("btn-log-activity");
+    let type = editing ? existing.activityType : null;
+    let intensity = editing ? existing.intensity : "moderate";
+    let timeByHand = editing;          // a new entry's start follows "now minus the duration" until the time is changed by hand
+    let prefilled = null;              // minutes we filled in ourselves (from the last time), so typing is never overwritten
+    let busy = false;
+    const others = () => state.history.filter(e => e !== existing);
+    const startTs = editing ? existing.ts : Date.now();
+
+    const backdrop = document.createElement("div");
+    backdrop.className = "sheet-backdrop";
+    backdrop.innerHTML = `
+      <div class="sheet basal-sheet activity-sheet" role="dialog" aria-modal="true" aria-labelledby="activity-title">
+        <div class="sheet-head">
+          <h2 id="activity-title">${editing ? "Edit activity" : "Log activity"}</h2>
+          <button class="sheet-close" id="activity-close" type="button" aria-label="Close">
+            <svg viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+          </button>
+        </div>
+        <div class="field">
+          <label id="activity-type-label">What</label>
+          <div class="activity-choices activity-choices--types" role="group" aria-labelledby="activity-type-label">
+            ${ACTIVITY_TYPES.map(t => `<button class="btn btn--secondary" data-atype="${t.id}" type="button">${escapeHtml(t.label)}</button>`).join("")}
+          </div>
+          <input type="text" id="activity-name" class="activity-input" maxlength="${ACTIVITY_NAME_MAX}" placeholder="Activity name, e.g. Climbing" aria-label="Activity name" autocomplete="off" value="${editing ? escapeAttr(existing.activityName || "") : ""}" hidden>
+        </div>
+        <div class="field">
+          <label for="activity-minutes">How long</label>
+          <div class="basal-dose-row">
+            <div class="field__row"><input type="number" id="activity-minutes" inputmode="numeric" step="1" min="1" max="${ACTIVITY_MAX_MINUTES}" placeholder="0" value="${editing ? existing.durationMin : ""}"><span>min</span></div>
+          </div>
+          <div class="portion__chips activity-chips" role="group" aria-label="Common durations">
+            ${DURATION_CHIPS.map(m => `<button type="button" class="portion__chip" data-mins="${m}">${escapeHtml(formatMinutes(m))}</button>`).join("")}
+          </div>
+        </div>
+        <div class="field">
+          <label id="activity-int-label">How hard</label>
+          <div class="activity-choices activity-choices--intensity" role="group" aria-labelledby="activity-int-label">
+            ${INTENSITIES.map(i => `<button class="btn btn--secondary" data-int="${i.id}" type="button">${escapeHtml(i.label)}</button>`).join("")}
+          </div>
+          <p class="basal-hint" id="activity-int-hint"></p>
+        </div>
+        <div class="field">
+          <label for="activity-time">Started at</label>
+          <input type="datetime-local" id="activity-time" class="activity-input" value="${toDatetimeLocalValue(startTs)}">
+        </div>
+        <div class="field">
+          <label for="activity-note">Note <span class="muted">(optional)</span></label>
+          <input type="text" id="activity-note" class="activity-input" maxlength="${ACTIVITY_NOTE_MAX}" placeholder="e.g. before breakfast, cut the lunch dose" autocomplete="off" value="${editing ? escapeAttr(existing.note || "") : ""}">
+        </div>
+        <p class="basal-error" id="activity-error" role="alert" hidden></p>
+        <p class="basal-note">Logged only, to see how activity affects your glucose (Insights). It never changes a dose.</p>
+        <div class="sheet-actions">
+          <button class="btn btn--secondary" id="activity-cancel" type="button">Cancel</button>
+          <button class="btn btn--primary" id="activity-save" type="button">${editing ? "Save Changes" : "Log activity"}</button>
+        </div>
+      </div>
+    `;
+    const $ = sel => backdrop.querySelector(sel);
+    const nameInput = $("#activity-name"), minInput = $("#activity-minutes"), timeInput = $("#activity-time"), noteInput = $("#activity-note");
+    const errEl = $("#activity-error"), saveBtn = $("#activity-save"), hintEl = $("#activity-int-hint");
+
+    const fitMinutes = () => {
+      const len = minInput.value ? minInput.value.length : (minInput.validity && minInput.validity.badInput ? 4 : 1);
+      minInput.style.width = Math.max(2, len + 0.5) + "ch";
+    };
+    const minutesNow = () => parseFloat(String(minInput.value).replace(",", "."));
+    const followTime = () => {
+      if (timeByHand) return;
+      const m = minutesNow();
+      const t = Date.now() - (m > 0 && m <= ACTIVITY_MAX_MINUTES ? Math.round(m) * 60000 : 0);
+      timeInput.value = toDatetimeLocalValue(t);
+    };
+    const refresh = () => {
+      backdrop.querySelectorAll("[data-atype]").forEach(b => { const on = b.dataset.atype === type; b.classList.toggle("is-active", on); b.setAttribute("aria-pressed", String(on)); });
+      backdrop.querySelectorAll("[data-int]").forEach(b => { const on = b.dataset.int === intensity; b.classList.toggle("is-active", on); b.setAttribute("aria-pressed", String(on)); });
+      backdrop.querySelectorAll("[data-mins]").forEach(b => { const on = Number(b.dataset.mins) === minutesNow(); b.classList.toggle("is-active", on); b.setAttribute("aria-pressed", String(on)); });
+      const i = INTENSITIES.find(x => x.id === intensity);
+      hintEl.textContent = i ? `${i.label}: ${i.hint}.` : "";
+      nameInput.hidden = type !== "other";
+      fitMinutes();
+    };
+    // Picking an activity starts from how long and how hard it was last time, without overwriting anything typed.
+    const prefillFromLast = () => {
+      if (editing || !type) return;
+      const last = lastActivity(others(), type, type === "other" ? nameInput.value : "");
+      const untouched = minInput.value === "" || minInput.value === String(prefilled);
+      if (last && untouched) { minInput.value = last.minutes; prefilled = last.minutes; if (isIntensity(last.intensity)) intensity = last.intensity; followTime(); }
+    };
+
+    const close = () => {
+      document.removeEventListener("keydown", onKey);
+      closeSheet(backdrop);
+      if (!editing && trigger && trigger.isConnected) trigger.focus({ preventScroll: true });
+    };
+    const onKey = e => { if (e.key === "Escape" && !document.querySelector(".dialog-backdrop")) close(); };
+
+    const save = () => {
+      if (busy) return;
+      busy = true; saveBtn.disabled = true;
+      try {
+        errEl.hidden = true;
+        const input = { type, name: nameInput.value, minutes: minutesNow(), intensity, ts: new Date(timeInput.value).getTime(), note: noteInput.value };
+        const problem = activityCheck(input);
+        if (problem) { errEl.textContent = problem; errEl.hidden = false; return; }
+        if (editing) {
+          applyActivityEdit(existing, input);
+          state.history.sort((a, b) => b.ts - a.ts);
+          saveState(); queueNsUpdate(existing); renderHistory();
+          close();
+        } else {
+          const entry = makeActivityEntry(input);
+          state.history.unshift(entry);
+          state.history.sort((a, b) => b.ts - a.ts);
+          saveState(); syncEntryToNightscout(entry); renderHistory();
+          close();
+          showUndoToast(`${activityLabel(entry)} logged`, () => {
+            const i = state.history.findIndex(h => h.id === entry.id);
+            if (i >= 0) state.history.splice(i, 1);
+            saveState(); queueNsDelete(entry); renderHistory();
+          });
+        }
+      } finally { busy = false; saveBtn.disabled = false; }
+    };
+
+    backdrop.addEventListener("click", e => {
+      if (e.target === backdrop || e.target.closest("#activity-close") || e.target.closest("#activity-cancel")) return close();
+      const tb = e.target.closest("[data-atype]");
+      if (tb) {
+        type = tb.dataset.atype; errEl.hidden = true;
+        prefillFromLast(); refresh();
+        if (type === "other") nameInput.focus({ preventScroll: true });
+        return;
+      }
+      const ib = e.target.closest("[data-int]");
+      if (ib) { intensity = ib.dataset.int; errEl.hidden = true; return refresh(); }
+      const mb = e.target.closest("[data-mins]");
+      if (mb) { minInput.value = mb.dataset.mins; prefilled = null; errEl.hidden = true; followTime(); refresh(); }
+    });
+    minInput.addEventListener("input", () => { errEl.hidden = true; prefilled = null; followTime(); refresh(); });
+    $(".basal-dose-row .field__row").addEventListener("click", e => { if (e.target !== minInput) minInput.focus(); });
+    nameInput.addEventListener("change", () => { prefillFromLast(); refresh(); });
+    timeInput.addEventListener("input", () => { timeByHand = true; });
+    timeInput.addEventListener("change", () => { timeByHand = true; });
+    saveBtn.addEventListener("click", save);
+    document.addEventListener("keydown", onKey);
+
+    refresh();
+    openSheet(backdrop);
+    const first = editing ? minInput : backdrop.querySelector("[data-atype]");
+    first.focus({ preventScroll: true });
+    if (editing) { try { const n = minInput.value.length; minInput.setSelectionRange(n, n); } catch { /* number inputs have no selection API */ } }
+  }
+  bind("btn-log-activity", "click", () => openActivitySheet());
+
   // Quick-reference panel: mg/dL and mmol/L side by side, 40-400 in steps of 10. Split into two halves
   // shown next to each other (rather than one long list) so the whole range fits on a phone screen at a
   // glance with no scrolling. Rows are tinted by the same bands the Time in Range chart uses.
@@ -1925,7 +2142,7 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
   function nsToReadings(entries) {
     return (entries || []).filter(e => typeof e.sgv === "number" && Number.isFinite(e.date)).map(e => ({ at: e.date, mgdl: e.sgv })).sort((a, b) => a.at - b.at);
   }
-  function modelEntries() { return state.history.filter(e => !isBasalEntry(e)); }
+  function modelEntries() { return state.history.filter(e => !isNonMealEntry(e)); }
   function modelParams() {
     return { isfMgdl: isfToMgdl(state.settings.isf, state.settings.units), peak: state.settings.insulinModel.peakMinutes, dia: state.settings.insulinModel.diaMinutes };
   }
@@ -4157,7 +4374,7 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
   }, true);
 
   function renderHistory(opts = {}) {
-    const mealCount = state.history.filter(e => !isBasalEntry(e)).length;   // a basal dose isn't a meal
+    const mealCount = state.history.filter(e => !isNonMealEntry(e)).length;   // a basal dose or an activity isn't a meal
     histCountPill.textContent = `${mealCount} meal${mealCount === 1 ? "" : "s"}`;
     historyEmpty.hidden = state.history.length > 0;
     historyGroups.innerHTML = "";
@@ -4171,7 +4388,7 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
     // so the list stays fast however long the history gets.
     const query = historySearch.value.trim();
     const filtered = query ? state.history.filter(e => matchesQuery(e, query, ts => formatDateHeader(ts))) : state.history;
-    if (query) histCountPill.textContent = `${filtered.filter(e => !isBasalEntry(e)).length} of ${mealCount}`;
+    if (query) histCountPill.textContent = `${filtered.filter(e => !isNonMealEntry(e)).length} of ${mealCount}`;
     historyNoMatch.hidden = filtered.length > 0;
     const { visible, hidden } = takeEntries(filtered, historyLimit);
     const groups = groupByDay(visible);
@@ -4188,6 +4405,7 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
 
       group.entries.forEach(entry => {
         if (isBasalEntry(entry)) { groupEl.appendChild(wrapSwipe(buildBasalRow(entry), entry.id)); return; }
+        if (isActivityEntry(entry)) { groupEl.appendChild(wrapSwipe(buildActivityRow(entry), entry.id)); return; }
         const meal = MEAL_TYPES[entry.mealType] || MEAL_TYPES.snack;
         const row = document.createElement("div");
         row.className = "history-entry";
@@ -4586,7 +4804,7 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
     const byKey = new Map(buckets.map(b => [b.key, b]));
     const inRange = [];
     state.history.forEach(entry => {
-      if (isBasalEntry(entry)) return;   // not a meal or a bolus (same rule as buildTrendBuckets)
+      if (isNonMealEntry(entry)) return;   // not a meal or a bolus (same rule as buildTrendBuckets)
       const b = byKey.get(dayKeyFromTs(entry.ts));
       if (!b) return;
       inRange.push(entry);
@@ -4896,6 +5114,19 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
         `<ul class="ins-list ins-list--plain"><li><span class="ins-li__name">Everyday</span><span class="ins-li__val">${ratioText(round1(wk.everyday.avgRatio))}</span><span class="rtrend__n">${wk.everyday.n} meals${wk.everyday.n3h ? ` · 3 h after avg ${fmtGluU(wk.everyday.avg3h)}, ${pctTxt(wk.everyday.lowPct)} low` : ""}</span></li>${wk.activity.map(ar).join("")}</ul>`));
     }
 
+    // 8. Logged physical activity (2.65.0): what glucose did during and after each kind of activity
+    const since = Date.now() - (lastInsights.days || 14) * 86400000;
+    const acts = activityImpact(state.history.filter(e => isActivityEntry(e) && e.ts >= since), readings);
+    if (acts.length) {
+      const sign = v => v == null ? "—" : (v > 0 ? "+" : v < 0 ? "−" : "") + fmtGlu(Math.abs(v));
+      const row = a => {
+        const ints = a.byIntensity.length > 1 ? `<span class="rtrend__n">${a.byIntensity.map(b => `${escapeHtml(intensityLabel(b.intensity))} ${sign(b.avgChange)} (${b.n})`).join(" · ")}</span>` : "";
+        return `<li><span class="ins-li__name">${escapeHtml(a.label)}</span><span class="ins-li__val">${sign(a.avgChange)} ${gluUnit()}</span><span class="rtrend__n">${a.n} time${a.n === 1 ? "" : "s"} · about ${escapeHtml(formatMinutes(a.avgMinutes))} · started at ${fmtGluU(a.avgStart)}</span><span class="rtrend__n">lowest in the ${ACTIVITY_AFTER_HOURS} h after: ${fmtGluU(a.avgLowest)} on average${a.lows ? ` · ${a.lows} went below ${fmtGluU(70)}` : ""}</span>${ints}</li>`;
+      };
+      cards.push(insCard("Activity and glucose", `The change from the start to the end of each logged activity, and the lowest reading up to ${ACTIVITY_AFTER_HOURS} hours after.`,
+        `<ul class="ins-list ins-list--plain">${acts.map(row).join("")}</ul>`));
+    }
+
     box.innerHTML = `<h3 class="ins-heading">Glucose insights</h3>` + (cards.length ? cards.join("") + `<p class="trend-caption">These describe what happened after past meals and doses. They are patterns to talk through with your care team, not dosing instructions.</p>` : `<p class="trend-caption">Not enough overlap between logged meals and glucose readings in this period yet. Insights need readings around each meal (the Nightscout history that Insulin Buddy stores).</p>`);
   }
   document.addEventListener("click", e => {
@@ -4927,7 +5158,7 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
       renderHistory();
       renderActivePanel();
       renderRecentMeals();
-      showUndoToast(isBasalEntry(removed) ? "Basal dose deleted" : "Meal deleted", () => {
+      showUndoToast(isBasalEntry(removed) ? "Basal dose deleted" : isActivityEntry(removed) ? "Activity deleted" : "Meal deleted", () => {
         state.history.splice(idx, 0, removed);
         saveState();
         undoNsDelete(removed);
@@ -4946,7 +5177,7 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
     const editBtn = e.target.closest("[data-edit]");
     if (editBtn) {
       const entry = state.history.find(h => h.id === editBtn.dataset.edit);
-      if (entry) (isBasalEntry(entry) ? openBasalSheet : openEditMealSheet)(entry);
+      if (entry) (isBasalEntry(entry) ? openBasalSheet : isActivityEntry(entry) ? openActivitySheet : openEditMealSheet)(entry);
       return;
     }
     const row = e.target.closest(".history-entry");
@@ -4955,6 +5186,10 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
     const summary = row.querySelector(".history-entry__foods");
     detail.hidden = !detail.hidden;
     summary.hidden = !detail.hidden;
+    if (!detail.hidden && row.classList.contains("history-entry--activity")) {
+      const entry = state.history.find(h => h.id === row.dataset.id);
+      if (entry) fillActivityGlucose(row, entry);
+    }
   });
 
   // Recently logged meals: one-tap re-add for the repeats that make up most real usage
@@ -4979,7 +5214,7 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
   });
 
   function useMealAgain(entry) {
-    if (isBasalEntry(entry)) return;   // a basal dose isn't a meal; nothing to put back in the calculator
+    if (isNonMealEntry(entry)) return;   // a basal dose or an activity isn't a meal; nothing to put back in the calculator
     // Not a question: do it, and offer Undo (the previous calculator contents come straight back).
     const hadWork = !draftIsEmpty();
     const previous = hadWork ? snapshotDraft() : null;
