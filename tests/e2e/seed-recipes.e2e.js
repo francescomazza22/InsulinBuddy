@@ -28,4 +28,21 @@ if (r) {
   t.check("the input has the width", r.inputW > 150, String(r.inputW));
 }
 t.check("no JS errors", dev.errors.length === 0, JSON.stringify(dev.errors));
-dev.close(); await app.close(); process.exit(0);
+dev.close();
+
+// Older versions put raw copies of the ready-made recipes into a new library ([name, grams, carbs, kcal] arrays, no
+// final weight), already marked as done, so they were never fixed. Start-up must repair them in place.
+t.section("RAW COPIES ARE REPAIRED");
+const { SEED_RECIPES } = await import("../../js/seed-recipes.js");
+const broken = stateBlob(); broken.library = []; broken.recipes = structuredClone(SEED_RECIPES);
+broken.settings = { ...(broken.settings || {}), seededRecipes: SEED_RECIPES.map(r => r.key) };
+const dev2 = await openDevice(app, { width: 390, height: 900, inject: `if (!localStorage.getItem("insulinBuddy.v2")) { ${seedLocal(broken)} }`, wait: 1800 });
+const st2 = await localState(dev2);
+const pan2 = (st2.recipes || []).find(r => /Where Pancakes/.test(r.name));
+t.check("still three recipes, none duplicated", (st2.recipes || []).length === 3, String((st2.recipes || []).length));
+t.check("pancakes repaired: object ingredients, 340 g, ~81 g carbs", pan2 && !Array.isArray(pan2.items[0]) && pan2.finalWeight === 340 && carbs(pan2) === 81, JSON.stringify(pan2 && { i: pan2.items[0], w: pan2.finalWeight }));
+await dev2.tab("library"); await dev2.click('#lib-segmented [data-seg="recipes"]'); await sleep(300);
+const rowText = await dev2.eval(`(() => { const r = [...document.querySelectorAll("#lib-recipes-list .lib-item")].find(x => /Where Pancakes/.test(x.textContent)); return r ? r.textContent.replace(/\\s+/g, " ") : ""; })()`);
+t.check("Library row shows the whole dish first, then per 100 g", /81\.4g carbs · ~670 kcal whole dish · 23\.9g carbs per 100g/.test(rowText), rowText);
+t.check("no JS errors after repair", dev2.errors.length === 0, JSON.stringify(dev2.errors));
+dev2.close(); await app.close(); t.summary(); process.exit(0);

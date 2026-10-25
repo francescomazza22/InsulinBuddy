@@ -23,7 +23,7 @@ import { swipeAxis, swipePos, swipeSettle, swipeVelocity } from "./js/swipe.js";
 import { parsePortion, FRACTION_CHIPS, fractionLabel, slicesLabel } from "./js/portion.js";
 import { PALETTES, DEFAULT_PALETTE, paletteId, RATIO_COLOURS, refreshRatioColours } from "./js/palettes.js";
 import { toMinutes, inRange, ratioAt, ratioMatch, bracketDays, daysLabel, DAY_NAMES, autoMealType, formatDuration, clampNum } from "./js/core/time.js";
-import { toCsv, parseCsv, recipeTotals as recipeTotalsWith, parseLibraryFile, mergeLibrary } from "./js/core/library.js";
+import { toCsv, parseCsv, recipeTotals as recipeTotalsWith, parseLibraryFile, mergeLibrary, repairRecipe } from "./js/core/library.js";
 import { buildMealEntry, adjustUsage } from "./js/core/meal-entry.js";
 import { validateState, validateEntry, validateFood, validateRecipe, hasErrors, summarizeProblems } from "./js/core/schema.js";
 import { createCloudSync, supabaseCloudTarget } from "./js/core/cloud-sync.js";
@@ -129,7 +129,7 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
         customBackground: null
       },
       library: structuredClone(typeof SEED_FOODS !== "undefined" ? SEED_FOODS : []),
-      recipes: structuredClone(typeof SEED_RECIPES !== "undefined" ? SEED_RECIPES : []),
+      recipes: [],   // the ready-made recipes are added by seedMealRecipes in the proper format
       history: []
     };
   }
@@ -3732,7 +3732,7 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
       const row = document.createElement("div");
       row.className = "lib-item";
       const perG = t.carbsPer100g != null
-        ? `<span class="c-carbs">${t.carbsPer100g}g carbs</span>${t.kcalPer100g ? ` · <span class="c-kcal">~${t.kcalPer100g} kcal</span>` : ""}`
+        ? `<span class="c-carbs">${t.totalCarbs}g carbs</span>${t.totalKcal ? ` · <span class="c-kcal">~${t.totalKcal} kcal</span>` : ""} whole dish · ${t.carbsPer100g}g carbs per 100g`
         : `<span style="color:var(--brick);">Set a final weight to use this in the Calculator</span>`;
       row.innerHTML = `
         <button class="lib-item__star${r.favorite ? " is-fav" : ""}" data-id="${escapeAttr(r.id)}" aria-label="Toggle favorite">
@@ -6308,6 +6308,9 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
   function seedMealRecipes() {
     const done = Array.isArray(state.settings.seededRecipes) ? state.settings.seededRecipes : [];
     const added = [];
+    // Older versions put raw copies of these recipes into a new library (unreadable: blank totals). Fix them in place.
+    const repaired = state.recipes.filter(r => repairRecipe(r, state.library)).length;
+    if (repaired) diag.log("info", "library", `Repaired ${repaired} ready-made recipe(s) saved in an unreadable format`);
     SEED_RECIPES.forEach(sr => {
       if (done.includes(sr.key)) return;
       if (!state.recipes.some(r => r.name.toLowerCase() === sr.name.toLowerCase())) {
@@ -6321,7 +6324,7 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
       }
       done.push(sr.key);
     });
-    if (added.length || done.length !== (state.settings.seededRecipes || []).length) {
+    if (repaired || added.length || done.length !== (state.settings.seededRecipes || []).length) {
       state.settings.seededRecipes = done;
       saveState();
       if (added.length) diag.log("info", "library", `Added ${added.length} ready-made recipe(s): ${added.join(", ")}`);

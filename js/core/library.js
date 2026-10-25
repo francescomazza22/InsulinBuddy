@@ -63,6 +63,28 @@ export function recipeTotals(recipe, library) {
   };
 }
 
+// Fixes a recipe left in the ready-made (seed) format: ingredients as [name, grams, carbs/100g, kcal/100g] arrays and
+// no final weight. Older versions copied the ready-made recipes into a new library like that, which the app can't read
+// (blank totals, unusable in the Calculator). Ingredients are linked to library foods by name; their own rates are kept.
+// Returns true if anything changed. Recipes already in the normal format are left exactly as they are.
+export function repairRecipe(recipe, library) {
+  if (!recipe || !Array.isArray(recipe.items) || !recipe.items.some(Array.isArray)) return false;
+  const num = v => { const n = Number(v); return Number.isFinite(n) ? n : null; };
+  recipe.items = recipe.items.map(it => {
+    if (!Array.isArray(it)) return it;
+    const [name, grams, carbs, kcal] = it;
+    const f = (library || []).find(x => String(x.name || "").toLowerCase() === String(name || "").toLowerCase());
+    return { foodId: f ? f.id : null, name: String(name || ""), grams: num(grams) || 0, carbsPer100g: num(carbs) ?? 0, kcalPer100g: num(kcal) };
+  });
+  if (!(recipe.finalWeight > 0)) recipe.finalWeight = recipe.items.reduce((s, i) => s + (i.grams || 0), 0);
+  if (typeof recipe.id !== "string" || !recipe.id) recipe.id = "recipe-seed-" + (recipe.key || Date.now());
+  delete recipe.key;
+  if (recipe.usageCount == null) recipe.usageCount = 0;
+  if (recipe.favorite == null) recipe.favorite = false;
+  if (recipe.rawWeight === undefined) recipe.rawWeight = null;
+  return true;
+}
+
 // Reads a library file (.json or .csv, foods or recipes) into plain {foods, recipes} lists. Throws on unreadable JSON.
 export function parseLibraryFile(name, text) {
   let foods = [], recipes = [];

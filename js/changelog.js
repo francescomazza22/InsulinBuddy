@@ -2,6 +2,15 @@
 // summary can never drift. Bump CHANGELOG[0].version here (and CACHE_VERSION in sw.js) on every release.
 export const CHANGELOG = [
   {
+    version: "2.60.1",
+    summary: "The ready-made recipes work again, and the Library shows each recipe's whole-dish carbs.",
+    changes: [
+      "On a new device or after a reset, the three ready-made recipes (cheeseburger, pad thai, Where Pancakes Are) were saved in a format the app couldn't read: no totals, and they couldn't be used in the Calculator. They're now repaired automatically, keeping the same amounts",
+      "Recipes in the Library now show the carbs for the whole dish first, then per 100 g. Before, only the per-100 g figure showed, without saying so, which made a plate of pancakes look almost carb-free",
+      "Doses are calculated exactly as before"
+    ]
+  },
+  {
     version: "2.60.0",
     summary: "The bin button on the dose card is gone; Clear All now shows whenever there's anything to clear.",
     changes: [
