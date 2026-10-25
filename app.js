@@ -20,7 +20,7 @@ import { doseBadge, groupByDay, takeEntries, matchesQuery, recentDistinctMeals, 
 import { createDialogs } from "./js/dialogs.js";
 import { installClearButtons } from "./js/clear-field.js";
 import { swipeAxis, swipePos, swipeSettle, swipeVelocity } from "./js/swipe.js";
-import { parsePortion, FRACTION_CHIPS, WHOLE_CHIP, fractionLabel, slicesLabel } from "./js/portion.js";
+import { parsePortion, parseQuantity, QUANTITY_CHIPS, QUANTITY_WHOLE, FRACTION_CHIPS, WHOLE_CHIP, fractionLabel, slicesLabel } from "./js/portion.js";
 import { PALETTES, DEFAULT_PALETTE, paletteId, RATIO_COLOURS, refreshRatioColours } from "./js/palettes.js";
 import { toMinutes, inRange, ratioAt, ratioMatch, bracketDays, daysLabel, DAY_NAMES, autoMealType, formatDuration, clampNum, normalizeTime } from "./js/core/time.js";
 import { toCsv, parseCsv, recipeTotals as recipeTotalsWith, parseLibraryFile, mergeLibrary, repairRecipe } from "./js/core/library.js";
@@ -687,8 +687,10 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
       const row = document.createElement("div");
       row.className = "food-pick-item" + (selectedPickId === item.id ? " is-selected" : "");
       row.dataset.id = item.id;
+      // A quantity food shows what one unit holds (it used to put the per-100 g figure next to "/slice").
+      const per = perUnitFigures(item);
       const unitSuffix = item.unitBased ? `/${escapeHtml(item.unitLabel)}` : "/100g";
-      const meta = `<span class="c-carbs">${item.carbsPer100g ?? "?"}g carbs</span>${item.kcalPer100g ? ` · <span class="c-kcal">~${item.kcalPer100g}kcal</span>` : ""} ${unitSuffix}`;
+      const meta = `<span class="c-carbs">${per.carbs ?? "?"}g carbs</span>${per.kcal ? ` · <span class="c-kcal">~${per.kcal}kcal</span>` : ""} ${unitSuffix}`;
       row.innerHTML = `
         <div class="food-pick-item__main">
           <p class="food-pick-item__row">
@@ -718,7 +720,7 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
     el("cc-search-clear").hidden = false;
     renderFoodPickList();
     gramsInput.disabled = false;
-    gramsInput.placeholder = item.unitBased ? "Qty" : item.refType === "recipe" ? "g or 1/8" : "Grams";
+    gramsInput.placeholder = item.unitBased ? "Qty or 1/2" : item.refType === "recipe" ? "g or 1/8" : "Grams";
     batchWeightG = null;
     renderPickExtra();
     renderPortion();
@@ -795,7 +797,7 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
         const tag = i.refType === "recipe" ? "Recipe" : escapeHtml(catLabel((food(i.refId) || {}).category));
         return `<button type="button" class="browse-item" data-id="${escapeHtml(i.id)}">
           <span class="browse-item__main"><span class="browse-item__name">${i.favorite ? '<span class="browse-item__star" aria-label="Favourite">\u2605</span> ' : ""}${escapeHtml(i.name)}</span>
-          <span class="browse-item__meta"><span class="c-carbs">${i.carbsPer100g ?? "?"}g</span> carbs ${unit} \u00B7 ${tag}</span></span>
+          <span class="browse-item__meta"><span class="c-carbs">${perUnitFigures(i).carbs ?? "?"}g</span> carbs ${unit} \u00B7 ${tag}</span></span>
           ${i.usageCount ? `<span class="browse-item__uses">${i.usageCount}\u00D7</span>` : ""}
         </button>`;
       }).join("") + (r.length > MAX ? `<p class="browse-empty">Showing ${MAX} of ${r.length}. Search to narrow it down.</p>` : "");
@@ -822,11 +824,13 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
 
     let grams, quantity = null, unitLabel = null, portion = null;
     if (item.unitBased) {
-      const qty = parseDecimalInput(gramsInput.value);
-      if (!(qty > 0)) { portionMessage(gramsInput.value.trim() ? "Enter how many, for example 1 or 1,5." : ""); gramsInput.focus(); return; }
-      quantity = qty;
+      // How many units: "2", "1,5", or a part of one unit ("1/2", "1 1/2"), kept as its label for the log.
+      const q = parseQuantity(gramsInput.value);
+      if (!q.ok) { portionMessage(q.empty ? "" : q.error); gramsInput.focus(); return; }
+      quantity = q.quantity;
       unitLabel = item.unitLabel;
-      grams = quantity * item.gramsPerUnit;
+      grams = quantity * item.gramsPerUnit;   // exact, as before; only the messages round
+      portion = q.label;
     } else {
       // Grams, or for a recipe a portion of the dish ("1/8", "2 slices"), always turned into grams here.
       const p = parsePortion(gramsInput.value, portionContext(item));
@@ -2755,9 +2759,10 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
   function renderPortion() {
     const box = el("cc-portion"), chips = el("cc-portion-chips");
     const item = selectedPickId ? pickableItems().find(i => i.id === selectedPickId) : null;
+    const typed = gramsInput.value.trim();
+    if (item && item.unitBased) { renderQuantityChips(item, typed); return; }
     if (!item || item.refType !== "recipe") { chips.innerHTML = ""; portionMessage(""); box.hidden = true; return; }
     const ctx = portionContext(item);
-    const typed = gramsInput.value.trim();
     const slice = item.slices ? [1, 2].filter(n => n <= item.slices).map(n => ({ text: slicesLabel(n), title: `${slicesLabel(n)} of ${item.slices}` })) : [];
     const options = [{ text: WHOLE_CHIP, title: "The whole dish" }, ...FRACTION_CHIPS.map(([n, d]) => ({ text: fractionLabel(n, d), title: `${fractionLabel(n, d)} of the dish` })), ...slice];
     chips.innerHTML = options.map(o => `<button type="button" class="portion__chip${o.text === typed ? " is-active" : ""}" data-portion="${escapeAttr(o.text)}" title="${escapeAttr(o.title)}" aria-pressed="${o.text === typed}">${escapeHtml(o.text)}</button>`).join("");
@@ -2767,6 +2772,24 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
     if (!p.ok) { portionMessage(p.error); return; }
     const carbs = Math.round(item.carbsPer100g * (ctx.dishWeight === item.dishWeight ? 1 : item.dishWeight / ctx.dishWeight) * p.grams) / 100;
     portionMessage(p.kind === "grams" ? `${p.grams} g · ${round1(carbs)} g carbs` : `${p.share === 1 ? "The whole dish" : p.label + " of the dish"} (${Math.round(ctx.dishWeight)} g) = ${p.grams} g · ${round1(carbs)} g carbs`, false);
+  }
+  // Carbs and kcal for the amount a list row is labelled with: one unit for a quantity food, else 100 g.
+  function perUnitFigures(item) {
+    if (!item.unitBased || !(item.gramsPerUnit > 0)) return { carbs: item.carbsPer100g, kcal: item.kcalPer100g };
+    return { carbs: item.carbsPer100g == null ? null : round1(item.carbsPer100g * item.gramsPerUnit / 100), kcal: item.kcalPer100g ? Math.round(item.kcalPer100g * item.gramsPerUnit / 100) : null };
+  }
+  // A food logged by quantity: "1" and parts of one unit (1/2, 1/3…), the same chips as a recipe's portions.
+  const unitName = (unit, qty) => `${unit}${qty > 1 ? "s" : ""}`;
+  function renderQuantityChips(item, typed) {
+    const box = el("cc-portion"), chips = el("cc-portion-chips");
+    const unit = item.unitLabel || "unit";
+    chips.innerHTML = QUANTITY_CHIPS.map(c => `<button type="button" class="portion__chip${c === typed ? " is-active" : ""}" data-portion="${escapeAttr(c)}" title="${escapeAttr(c === QUANTITY_WHOLE ? `One whole ${unit}` : `${c} of a ${unit}`)}" aria-pressed="${c === typed}">${escapeHtml(c)}</button>`).join("");
+    box.hidden = false;
+    const q = parseQuantity(typed);
+    if (q.empty) { portionMessage(`How many ${unitName(unit, 2)} (1 ${unit} = ${item.gramsPerUnit} g), or part of one.`, false); return; }
+    if (!q.ok) { portionMessage(q.error); return; }
+    const grams = Math.round(q.quantity * item.gramsPerUnit * 10) / 10;
+    portionMessage(`${q.label || formatQty(q.quantity)} ${unitName(unit, q.quantity)} = ${grams} g · ${round1(item.carbsPer100g * grams / 100)} g carbs`, false);
   }
   el("cc-portion-chips").addEventListener("click", e => {
     const b = e.target.closest("[data-portion]");
@@ -2795,7 +2818,7 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
     const last = lastTimesFor(state.history, cachedReadings(), { refId: item.refId, name: item.name }, 3);
     if (last.length) {
       const when = ts => new Date(ts).toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" });
-      const amount = l => (l.quantity != null && l.unitLabel ? `${formatQty(l.quantity)} ${l.unitLabel}${l.quantity > 1 ? "s" : ""}` : l.grams != null ? `${l.portion ? escapeHtml(l.portion) + " · " : ""}${Math.round(l.grams)} g` : "");
+      const amount = l => (l.quantity != null && l.unitLabel ? `${l.portion ? escapeHtml(l.portion) : formatQty(l.quantity)} ${escapeHtml(l.unitLabel)}${l.quantity > 1 ? "s" : ""}` : l.grams != null ? `${l.portion ? escapeHtml(l.portion) + " · " : ""}${Math.round(l.grams)} g` : "");
       html += `<div class="pick-extra__last"><div class="pick-extra__title">Last time you had this</div>` + last.map(l => `<div class="pick-extra__row"><span>${when(l.ts)} · ${amount(l)}${l.alone ? "" : " (with other foods)"}</span><span>${l.noInsulin ? "no insulin" : round1(l.dose) + " u"}${l.after3h != null ? ` · 3 h later ${fmtGluShort(l.after3h)} ${gluUnitShort()}` : ""}</span></div>`).join("") + `</div>`;
     }
     box.innerHTML = html;
@@ -4165,7 +4188,7 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
             <div class="history-entry__detail" hidden>
               ${entry.items.map(i => {
                 const isUnit = i.quantity != null && i.unitLabel;
-                const qtyLabel = isUnit ? `${formatQty(i.quantity)} ${escapeHtml(i.unitLabel)}${i.quantity > 1 ? "s" : ""}` : (i.grams ? escapeHtml(i.grams) + "g" : "");
+                const qtyLabel = isUnit ? `${i.portion ? escapeHtml(i.portion) : formatQty(i.quantity)} ${escapeHtml(i.unitLabel)}${i.quantity > 1 ? "s" : ""}` : (i.grams ? escapeHtml(i.grams) + "g" : "");
                 return `<div class="history-entry__item"><span class="history-entry__item-name">${escapeHtml(i.name)}</span><span class="history-entry__item-amt"><span class="history-entry__item-qty">${qtyLabel}</span><span class="history-entry__item-carbs">${round1(i.carbs)}g<span class="history-entry__item-unit"> carbs</span></span></span></div>`;
               }).join("")}
               ${ratioWasApplied(entry) ? `<p class="history-entry__ratio">Ratio used: ${escapeHtml(entry.ratioLabel || "")} ${ratioText(round1(entry.ratioValue))}</p>` : ""}
@@ -5161,6 +5184,7 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
       const idx = parseInt(e.target.dataset.idx, 10);
       const entered = parseFloat(e.target.value) || 0;
       const it = items[idx];
+      if (it) delete it.portion;   // changed by hand: no longer "1/2" or "1/8"
       let grams;
       if (it.quantity != null && it.gramsPerUnit) {
         it.quantity = entered;

@@ -70,3 +70,31 @@ export function parsePortion(text, { dishWeight = null, slices = null } = {}) {
 
   return { ok: false, error: isRecipe ? "Enter grams, a fraction like 1/8, or slices like 2 slices." : "That isn't a number I can read. Try something like 80 or 80,5." };
 }
+
+// ----- Quantities of a food logged by quantity ("1 slice", "1/2 slice", "1 1/2 crackers") -----
+// The quick buttons: one whole unit first, then the same fractions as recipes.
+export const QUANTITY_WHOLE = "1";
+export const QUANTITY_CHIPS = [QUANTITY_WHOLE, ...FRACTION_CHIPS.map(([n, d]) => fractionLabel(n, d))];
+
+/**
+ * How many units were typed: "2", "1,5", "1/2", "½", "3/2", "1 1/2" or "1½". A fraction keeps its label ("1/2") so the
+ * log can say "1/2 slice" rather than "0.5 slice"; a plain number has no label. Zero, a 0 denominator or anything
+ * unreadable is refused with a reason.
+ * @returns {{ok:true, quantity:number, label:string|null}|{ok:false, empty?:true, error?:string}}
+ */
+export function parseQuantity(text) {
+  const s = String(text ?? "").trim().replace(/\s+/g, " ");
+  if (!s) return { ok: false, empty: true };
+  const plain = parseDecimalInput(s);
+  if (!isNaN(plain)) return plain > 0 ? { ok: true, quantity: plain, label: null } : { ok: false, error: "Enter a quantity greater than 0." };
+  // Optional whole number, then a fraction written n/d or as one character.
+  const m = /^(?:(\d+) ?)?(?:(\d+) ?\/ ?(\d+)|([½⅓⅔¼¾⅕⅙⅛]))$/.exec(s);
+  if (!m) return { ok: false, error: "Enter how many, for example 1, 1,5 or 1/2." };
+  const whole = m[1] ? Number(m[1]) : 0;
+  const [n, d] = m[4] ? UNICODE[m[4]] : [Number(m[2]), Number(m[3])];
+  if (d === 0) return { ok: false, error: "A fraction can't divide by 0." };
+  const quantity = whole + n / d;
+  if (!(quantity > 0)) return { ok: false, error: "Enter a quantity greater than 0." };
+  const frac = fractionLabel(n, d);
+  return { ok: true, quantity, label: whole ? `${whole} ${frac}` : frac };
+}

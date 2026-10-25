@@ -61,3 +61,22 @@ test("'Whole' (or all, intero, 1/1) is the whole dish", () => {
   assert.equal(parsePortion("whole", { dishWeight: null }).ok, false, "only for recipes");
   assert.equal(WHOLE_CHIP, "Whole");
 });
+
+import { parseQuantity, QUANTITY_CHIPS } from "../../js/portion.js";
+test("quantity foods: whole numbers, decimals and fractions of a unit", () => {
+  assert.deepEqual(QUANTITY_CHIPS, ["1", "1/2", "1/3", "1/4", "1/6", "1/8"]);
+  assert.deepEqual(parseQuantity("2"), { ok: true, quantity: 2, label: null });
+  assert.equal(parseQuantity("1,5").quantity, 1.5, "a comma is a decimal");
+  assert.deepEqual(parseQuantity("1/2"), { ok: true, quantity: 0.5, label: "1/2" });
+  assert.equal(parseQuantity("1/3").quantity, 1 / 3, "kept exact, not rounded to 0.3");
+  assert.deepEqual(parseQuantity("½"), { ok: true, quantity: 0.5, label: "1/2" });
+  assert.deepEqual(parseQuantity("1 1/2"), { ok: true, quantity: 1.5, label: "1 1/2" });
+  assert.deepEqual(parseQuantity("1½"), { ok: true, quantity: 1.5, label: "1 1/2" });
+  assert.equal(parseQuantity("3/2").quantity, 1.5, "more than one unit is fine for a quantity");
+  assert.equal(parseQuantity("").empty, true);
+  assert.match(parseQuantity("0").error, /greater than 0/);
+  assert.match(parseQuantity("0/4").error, /greater than 0/);
+  assert.match(parseQuantity("1/0").error, /divide by 0/);
+  assert.match(parseQuantity("two").error, /how many/);
+  assert.match(parseQuantity("-1").error, /how many|greater than 0/);
+});

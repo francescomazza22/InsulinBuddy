@@ -2,6 +2,18 @@
 // summary can never drift. Bump CHANGELOG[0].version here (and CACHE_VERSION in sw.js) on every release.
 export const CHANGELOG = [
   {
+    version: "2.63.0",
+    summary: "Foods logged by quantity get one-tap portions: 1, 1/2, 1/3, 1/4, 1/6, 1/8.",
+    changes: [
+      "Pick a food logged by quantity and the same portion buttons as recipes appear under the box: 1 whole unit, then 1/2, 1/3, 1/4, 1/6 and 1/8",
+      "You can also type 1/2, ½, 1 1/2 or 1,5. The line under the box shows what it works out to (\u201c1/2 slice = 60 g · 15 g carbs\u201d) before you add it",
+      "The log keeps the fraction: an opened meal and \u201cLast time you had this\u201d say 1/3 slice, not 0.3 slice",
+      "The food list and Browse now show a quantity food's carbs per unit. They showed the per-100 g figure next to \u201c/slice\u201d, which could read as per slice",
+      "Changing an amount by hand in Edit Meal now drops the old portion label",
+      "Doses are calculated exactly as before: the quantity becomes grams (quantity \u00d7 weight per unit) and goes through the same calculation"
+    ]
+  },
+  {
     version: "2.62.2",
     summary: "Every field checked: activity ratios and the insulin and carb timing boxes fixed.",
     changes: [
