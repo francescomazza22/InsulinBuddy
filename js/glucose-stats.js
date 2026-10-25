@@ -205,3 +205,24 @@ export function dailyStats(readings, { maxPoints = 96 } = {}) {
     return { day, count: n, avgMgdl: avg, minMgdl: Math.min(...v), maxMgdl: Math.max(...v), targetPct: (v.filter(x => x >= 70 && x <= 180).length / n) * 100, lowPct: (v.filter(x => x < 70).length / n) * 100, highPct: (v.filter(x => x > 180).length / n) * 100, points };
   });
 }
+
+/**
+ * Round numbers for a glucose chart's value scale, in the person's own unit: every 20/25/50/100 mg/dL or every
+ * 1/2/3/5 mmol/L, whichever gives at most `maxTicks` labels (7, so mmol/L can count in 2s) between the axis ends (given in mg/dL). Each tick carries
+ * its mg/dL position (for plotting) and its label in the display unit.
+ * @returns {{mgdl:number, label:string}[]}
+ */
+export function glucoseAxisTicks(minMgdl, maxMgdl, units = "mgdl", maxTicks = 7) {
+  if (!(maxMgdl > minMgdl)) return [];
+  const mmol = units === "mmol";
+  const lo = mmol ? minMgdl / MGDL_PER_MMOL : minMgdl, hi = mmol ? maxMgdl / MGDL_PER_MMOL : maxMgdl;
+  const steps = mmol ? [1, 2, 3, 5] : [20, 25, 50, 100];
+  const count = s => Math.floor(hi / s + 1e-9) - Math.ceil(lo / s - 1e-9) + 1;
+  const step = steps.find(s => count(s) <= maxTicks) || steps[steps.length - 1];
+  const out = [];
+  for (let v = Math.ceil(lo / step - 1e-9) * step; v <= hi + 1e-9; v += step) {
+    if (v <= 0) continue;
+    out.push({ mgdl: mmol ? v * MGDL_PER_MMOL : v, label: String(v) });
+  }
+  return out;
+}

@@ -197,3 +197,16 @@ test("glucoseGuideRows: honours a custom range and step, and rejects nonsense", 
   assert.deepEqual(glucoseGuideRows(40, 400, -10), []);
   assert.deepEqual(glucoseGuideRows(400, 40, 10), []);
 });
+
+import { glucoseAxisTicks } from "../../js/glucose-stats.js";
+test("glucose axis ticks: round values in the display unit, at most seven", () => {
+  assert.deepEqual(glucoseAxisTicks(40, 300).map(t => t.label), ["50", "100", "150", "200", "250", "300"]);
+  assert.deepEqual(glucoseAxisTicks(60, 200).map(t => t.label), ["75", "100", "125", "150", "175", "200"]);
+  assert.deepEqual(glucoseAxisTicks(30, 420).map(t => t.label), ["100", "200", "300", "400"]);
+  const mm = glucoseAxisTicks(40, 300, "mmol");
+  assert.deepEqual(mm.map(t => t.label), ["4", "6", "8", "10", "12", "14", "16"], "mmol/L counts in 2s");
+  assert.ok(Math.abs(mm.find(t => t.label === "10").mgdl - 180.16) < 0.5, "plotted at the mg/dL equivalent");
+  assert.deepEqual(glucoseAxisTicks(0, 100).map(t => t.label), ["20", "40", "60", "80", "100"], "never a 0 tick");
+  assert.deepEqual(glucoseAxisTicks(40, 400).map(t => t.label), ["50", "100", "150", "200", "250", "300", "350", "400"].length <= 7 ? [] : ["100", "200", "300", "400"]);
+  assert.deepEqual(glucoseAxisTicks(100, 100), []);
+});

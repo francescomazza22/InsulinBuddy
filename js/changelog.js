@@ -2,6 +2,16 @@
 // summary can never drift. Bump CHANGELOG[0].version here (and CACHE_VERSION in sw.js) on every release.
 export const CHANGELOG = [
   {
+    version: "2.64.0",
+    summary: "Glucose charts now have numbers up the side.",
+    changes: [
+      "The daily pattern, the glucose graph and Observed vs expected show a value scale up the left (50, 100, 150… mg/dL, or 6, 8, 12… mmol/L) with faint lines across, so you can read a point without guessing between 70 and 180",
+      "The 70 and 180 lines and labels stay as they were; a number that would sit on top of them is left out",
+      "The daily pattern's hours are labelled every 6 hours, so they no longer run into each other on a phone (\u201c12 AM3 AM\u201d)",
+      "Doses are calculated exactly as before"
+    ]
+  },
+  {
     version: "2.63.1",
     summary: "The clear X works again on iPhone and iPad, in every field.",
     changes: [

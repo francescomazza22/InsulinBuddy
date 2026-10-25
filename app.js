@@ -13,7 +13,7 @@ import { CHANGELOG } from "./js/changelog.js";
 import { fillMissingFoodDetails, stillBlank, applyPublishedGi } from "./js/food-reference.js";
 import { fieldSvg } from "./js/doodle-field.js";
 import { abstractSvg } from "./js/abstract-field.js";
-import { percentile, dailyPatternBuckets, daysSpanned, estimatedA1c, extendedGlucoseStats, dailyStats, glucoseSummaryStats, timeInRangeBreakdown, glucoseGuideRows, TIME_IN_RANGE_BANDS } from "./js/glucose-stats.js";
+import { glucoseAxisTicks, percentile, dailyPatternBuckets, daysSpanned, estimatedA1c, extendedGlucoseStats, dailyStats, glucoseSummaryStats, timeInRangeBreakdown, glucoseGuideRows, TIME_IN_RANGE_BANDS } from "./js/glucose-stats.js";
 import { randomBytes, toB64, fromB64, deriveKey, encryptString, decryptString, isEncryptedPayload, exportKeyRaw, importKeyRaw } from "./js/crypto.js";
 import { LocalBackups, shouldAutoSnapshot } from "./js/backup.js";
 import { doseBadge, groupByDay, takeEntries, matchesQuery, recentDistinctMeals, mealLabel, dosingSummary, insulinStats, isBasalEntry, basalSlotForTime, basalSlotLabel, lastBasalDose, basalDoseCheck, makeBasalEntry, PAGE_SIZE } from "./js/history.js";
@@ -1529,6 +1529,19 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
     return { min: Math.max(0, Math.floor((dataMin - pad) / 10) * 10), max: Math.ceil((dataMax + pad) / 10) * 10 };
   }
 
+  // Round numbers up the left side of a glucose chart, each with a faint gridline, so a point can be read off without
+  // guessing between 70 and 180. A number that would sit on top of the 70 or 180 label is left out; near the top edge
+  // the gridline stops short of the unit label printed there.
+  function glucoseYAxisSvg(axisMin, axisMax, yFor, padL, plotW, padT) {
+    const avoid = [yFor(70), yFor(180)];
+    return glucoseAxisTicks(axisMin, axisMax, state.settings.units)
+      .filter(t => avoid.every(a => Math.abs(yFor(t.mgdl) - a) >= 9))
+      .map(t => {
+        const y = yFor(t.mgdl), x1 = y < padT + 12 ? padL + 34 : padL;
+        return `<line class="glu-grid" x1="${x1}" y1="${y.toFixed(1)}" x2="${padL + plotW}" y2="${y.toFixed(1)}" stroke="var(--line)" stroke-width="0.75"/><text class="glu-tick" x="${padL - 4}" y="${(y + 3).toFixed(1)}" font-size="8" fill="var(--ink-soft)" text-anchor="end">${t.label}</text>`;
+      }).join("");
+  }
+
   function renderDailyPatternSVG(buckets, preset) {
     if (buckets.length === 0) return null;
     const sorted = buckets.slice().sort((a, b) => a.minute - b.minute);
@@ -1557,12 +1570,15 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
     for (let h = 0; h <= 24; h += 3) {
       const x = xFor(h * 60).toFixed(1);
       xTicks += `<line x1="${x}" y1="${padT + plotH}" x2="${x}" y2="${padT + plotH + 3}" stroke="var(--ink-soft)" stroke-width="1"/>`;
+      // Ticks every 3 hours, labels every 6: nine labels ran into each other on a phone ("12 AM3 AM").
+      if (h % 6) continue;
       const anchor = h === 0 ? "start" : h === 24 ? "end" : "middle";
-      xLabels += `<text x="${x}" y="${H - 6}" font-size="9" fill="var(--ink-soft)" text-anchor="${anchor}">${fmtHour(h)}</text>`;
+      xLabels += `<text class="glu-hour" x="${x}" y="${H - 6}" font-size="9" fill="var(--ink-soft)" text-anchor="${anchor}">${fmtHour(h)}</text>`;
     }
 
     return `
       <svg viewBox="0 0 ${W} ${H}" style="width:100%; height:auto; display:block;">
+        ${glucoseYAxisSvg(axisMin, axisMax, yFor, padL, plotW, padT)}
         <rect x="${padL}" y="${highY}" width="${plotW}" height="${(parseFloat(lowY) - parseFloat(highY)).toFixed(1)}" fill="#22C55E" opacity="0.07"/>
         <line x1="${padL}" y1="${lowY}" x2="${padL + plotW}" y2="${lowY}" stroke="#EF4444" stroke-width="1" stroke-dasharray="2,3" opacity="0.6"/>
         <line x1="${padL}" y1="${highY}" x2="${padL + plotW}" y2="${highY}" stroke="#F59E0B" stroke-width="1" stroke-dasharray="2,3" opacity="0.6"/>
@@ -1623,6 +1639,7 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
 
     return `
       <svg viewBox="0 0 ${W} ${H}" style="width:100%; height:auto; display:block;">
+        ${glucoseYAxisSvg(axisMin, axisMax, yFor, padL, plotW, padT)}
         <rect x="${padL}" y="${highY}" width="${plotW}" height="${(parseFloat(lowY) - parseFloat(highY)).toFixed(1)}" fill="#22C55E" opacity="0.08"/>
         <line x1="${padL}" y1="${lowY}" x2="${padL + plotW}" y2="${lowY}" stroke="#EF4444" stroke-width="1" stroke-dasharray="2,3" opacity="0.6"/>
         <line x1="${padL}" y1="${highY}" x2="${padL + plotW}" y2="${highY}" stroke="#F59E0B" stroke-width="1" stroke-dasharray="2,3" opacity="0.6"/>
@@ -1943,6 +1960,7 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
     const nowLine = nowT && nowT > t0 && nowT < t1 ? `<line x1="${xFor(nowT).toFixed(1)}" y1="${padT}" x2="${xFor(nowT).toFixed(1)}" y2="${padT + plotH}" stroke="var(--ink-soft)" stroke-width="1" stroke-dasharray="1,3"/>` : "";
     return `
       <svg viewBox="0 0 ${W} ${H}" style="width:100%; height:auto; display:block;" role="img">
+        ${glucoseYAxisSvg(axisMin, axisMax, yFor, padL, plotW, padT)}
         <rect x="${padL}" y="${highY}" width="${plotW}" height="${(parseFloat(lowY) - parseFloat(highY)).toFixed(1)}" fill="#22C55E" opacity="0.08"/>
         <line x1="${padL}" y1="${lowY}" x2="${padL + plotW}" y2="${lowY}" stroke="#EF4444" stroke-width="1" stroke-dasharray="2,3" opacity="0.6"/>
         <line x1="${padL}" y1="${highY}" x2="${padL + plotW}" y2="${highY}" stroke="#F59E0B" stroke-width="1" stroke-dasharray="2,3" opacity="0.6"/>
