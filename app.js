@@ -20,7 +20,7 @@ import { doseBadge, groupByDay, takeEntries, matchesQuery, recentDistinctMeals, 
 import { createDialogs } from "./js/dialogs.js";
 import { installClearButtons } from "./js/clear-field.js";
 import { swipeAxis, swipePos, swipeSettle, swipeVelocity } from "./js/swipe.js";
-import { parsePortion, FRACTION_CHIPS, fractionLabel, slicesLabel } from "./js/portion.js";
+import { parsePortion, FRACTION_CHIPS, WHOLE_CHIP, fractionLabel, slicesLabel } from "./js/portion.js";
 import { PALETTES, DEFAULT_PALETTE, paletteId, RATIO_COLOURS, refreshRatioColours } from "./js/palettes.js";
 import { toMinutes, inRange, ratioAt, ratioMatch, bracketDays, daysLabel, DAY_NAMES, autoMealType, formatDuration, clampNum } from "./js/core/time.js";
 import { toCsv, parseCsv, recipeTotals as recipeTotalsWith, parseLibraryFile, mergeLibrary, repairRecipe } from "./js/core/library.js";
@@ -608,6 +608,10 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
   // ================= Time helpers =================
   function currentTimeRatio(atDate) { return ratioAt(state.settings.timeRatios, atDate); }
   function unitLabel(unit) { return (unit || state.settings.units) === "mmol" ? "mmol/L" : "mg/dL"; }
+  // A carb ratio with its units, so it's never a bare "1:10": 1 unit of insulin per 10 g of carbs.
+  function ratioText(v) { return `1u:${v}g`; }
+  // The target range (70–180 mg/dL, or 3.9–10 mmol/L) with its unit.
+  function rangeText() { return state.settings.units === "mmol" ? "3.9–10 mmol/L" : "70–180 mg/dL"; }
 
   function activeRatioEntry() {
     if (draft.manualRatioId) {
@@ -684,7 +688,7 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
       row.className = "food-pick-item" + (selectedPickId === item.id ? " is-selected" : "");
       row.dataset.id = item.id;
       const unitSuffix = item.unitBased ? `/${escapeHtml(item.unitLabel)}` : "/100g";
-      const meta = `<span class="c-carbs">${item.carbsPer100g ?? "?"}g</span>${item.kcalPer100g ? ` · <span class="c-kcal">~${item.kcalPer100g}kcal</span>` : ""} ${unitSuffix}`;
+      const meta = `<span class="c-carbs">${item.carbsPer100g ?? "?"}g carbs</span>${item.kcalPer100g ? ` · <span class="c-kcal">~${item.kcalPer100g}kcal</span>` : ""} ${unitSuffix}`;
       row.innerHTML = `
         <div class="food-pick-item__main">
           <p class="food-pick-item__row">
@@ -901,7 +905,7 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
               ${item.portion ? `<span class="meal-item__portion">${escapeHtml(item.portion)}</span> · ` : ""}<input type="number" class="meal-item__grams-input" min="0" step="${isUnit ? "0.5" : "1"}" value="${qtyDisplay}" data-idx="${idx}" style="--qch:${String(qtyDisplay).length}" aria-label="${isUnit ? "Quantity" : "Grams"}">${suffix}${item.kcal ? " · ~<span class=\"meal-item__kcal\">" + Math.round(item.kcal) + "</span> kcal" : ""}
             </p>
           </div>
-          <div class="meal-item__carbs">${round1(item.carbs)}g</div>
+          <div class="meal-item__carbs">${round1(item.carbs)}g<span class="meal-item__carbs-unit"> carbs</span></div>
           <button class="meal-item__remove" data-idx="${idx}" aria-label="Remove">
             <svg viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
           </button>
@@ -956,7 +960,7 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
     item.carbs = item.carbsPer100g != null ? Math.round(item.carbsPer100g * grams) / 100 : item.carbs;
     item.kcal = item.kcalPer100g ? Math.round(item.kcalPer100g * grams) / 100 : item.kcal;
     const row = e.target.closest(".meal-item");
-    row.querySelector(".meal-item__carbs").textContent = round1(item.carbs) + "g";
+    row.querySelector(".meal-item__carbs").innerHTML = `${round1(item.carbs)}g<span class="meal-item__carbs-unit"> carbs</span>`;
     const kcalEl = row.querySelector(".meal-item__kcal");
     if (kcalEl && item.kcal) kcalEl.textContent = Math.round(item.kcal);
     recompute();
@@ -1179,8 +1183,8 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
             <tr><td>Standard deviation</td><td>${unit === "mmol" ? round1(convertGlucose(x.sdMgdl, "mgdl", "mmol")) : Math.round(x.sdMgdl)} ${unitLabel}</td></tr>
             <tr><td>Variability (CV, steady is 36% or lower)</td><td>${round1(x.cvPct)}%</td></tr>
             <tr><td>Time in tight range (70\u2013140 mg/dL)</td><td>${round1(x.pct.tight)}%</td></tr>
-            <tr><td>Low glucose events (under 70, 15 min or more)</td><td>${x.lowEvents.count}${x.lowEvents.count ? `, average ${Math.round(x.lowEvents.avgMinutes)} min` : ""}</td></tr>
-            <tr><td>Very low events (under 54)</td><td>${x.veryLowEvents.count}</td></tr>
+            <tr><td>Low glucose events (under 70 mg/dL, 15 min or more)</td><td>${x.lowEvents.count}${x.lowEvents.count ? `, average ${Math.round(x.lowEvents.avgMinutes)} min` : ""}</td></tr>
+            <tr><td>Very low events (under 54 mg/dL)</td><td>${x.veryLowEvents.count}</td></tr>
             <tr><td>Sensor active</td><td>${Math.round(x.sensorActivePct)}%</td></tr>
           </tbody></table>`; })()}
           <table class="report-table" style="margin-top:14px;">
@@ -1220,15 +1224,15 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
       const gl = v => (v == null || !Number.isFinite(v) ? "\u2014" : unit === "mmol" ? String(round1(convertGlucose(v, "mgdl", "mmol"))) : String(Math.round(v)));
       const ratios = ratioByBracket(inRange, state.settings), ideal = idealRatioByBracket(inRange, state.settings, 3);
       const idealBy = new Map(ideal.rows.map(r => [r.label, r]));
-      const ratioRows = ratios.rows.filter(r => r.count > 0).map(r => { const i = idealBy.get(r.label); return `<tr><td>${escapeHtml(r.label)}</td><td>${r.count}</td><td>1:${round1(r.avg)}</td><td>${i && i.count ? "1:" + round1(i.ideal) : "\u2014"}</td><td>${r.current ? "1:" + round1(r.current) : "\u2014"}</td></tr>`; }).join("");
+      const ratioRows = ratios.rows.filter(r => r.count > 0).map(r => { const i = idealBy.get(r.label); return `<tr><td>${escapeHtml(r.label)}</td><td>${r.count}</td><td>${ratioText(round1(r.avg))}</td><td>${i && i.count ? ratioText(round1(i.ideal)) : "\u2014"}</td><td>${r.current ? ratioText(round1(r.current)) : "\u2014"}</td></tr>`; }).join("");
       if (ratioRows) patternsHtml += `<h3>Insulin-to-carb ratios</h3><table class="report-table"><thead><tr><th>Bracket</th><th>Meals</th><th>Used (avg)</th><th>Ideal*</th><th>Set now</th></tr></thead><tbody>${ratioRows}</tbody></table><p class="panel-card__hint">*Ideal counts carbs eaten to treat a low within 3 h after an injection.</p>`;
       if (reportReadings && reportReadings.length) {
         const out = outcomeByBracket(inRange, reportReadings, { afterHours: 3 });
-        if (out.total) patternsHtml += `<h3>Glucose 3 hours after meals</h3><table class="report-table"><thead><tr><th>Bracket</th><th>Meals</th><th>Low</th><th>In range</th><th>High</th><th>Avg start \u2192 3 h</th></tr></thead><tbody>${[...out.rows, ...(out.rows.length > 1 ? [out.all] : [])].map(r => `<tr><td>${escapeHtml(r.label)}</td><td>${r.n}</td><td>${Math.round((r.low / r.n) * 100)}%</td><td>${Math.round((r.inRange / r.n) * 100)}%</td><td>${Math.round((r.high / r.n) * 100)}%</td><td>${gl(r.avgStart)} \u2192 ${gl(r.avgEnd)}</td></tr>`).join("")}</tbody></table>`;
+        if (out.total) patternsHtml += `<h3>Glucose 3 hours after meals</h3><table class="report-table"><thead><tr><th>Bracket</th><th>Meals</th><th>Low</th><th>In range</th><th>High</th><th>Avg start \u2192 3 h (${unitLabel})</th></tr></thead><tbody>${[...out.rows, ...(out.rows.length > 1 ? [out.all] : [])].map(r => `<tr><td>${escapeHtml(r.label)}</td><td>${r.n}</td><td>${Math.round((r.low / r.n) * 100)}%</td><td>${Math.round((r.inRange / r.n) * 100)}%</td><td>${Math.round((r.high / r.n) * 100)}%</td><td>${gl(r.avgStart)} \u2192 ${gl(r.avgEnd)}</td></tr>`).join("")}</tbody></table>`;
         const ov = overnightStats(inRange, reportReadings);
         if (ov.n) patternsHtml += `<h3>Overnight (00:00\u201306:00, quiet nights)</h3><p>${ov.n} nights \u00b7 average drift ${ov.avgDrift >= 0 ? "+" : "\u2212"}${gl(Math.abs(ov.avgDrift))} ${unitLabel} \u00b7 ${ov.lowNights} with a low.</p>`;
         const cor = correctionEffectiveness(inRange, reportReadings, {});
-        if (cor.n) patternsHtml += `<h3>Corrections</h3><p>${cor.n} isolated correction${cor.n === 1 ? "" : "s"}: glucose fell a median of ${gl(cor.medianPerUnit)} ${unitLabel} per unit by 3 hours (correction factor set to ${gl(isfToMgdl(state.settings.isf, state.settings.units))}).</p>`;
+        if (cor.n) patternsHtml += `<h3>Corrections</h3><p>${cor.n} isolated correction${cor.n === 1 ? "" : "s"}: glucose fell a median of ${gl(cor.medianPerUnit)} ${unitLabel} per unit by 3 hours (correction factor set to ${gl(isfToMgdl(state.settings.isf, state.settings.units))} ${unitLabel} per unit).</p>`;
         const fd = foodImpact(inRange, reportReadings, { minMeals: 2 });
         if (fd.biggestRise.length) patternsHtml += `<h3>Foods with the biggest rise</h3><p>${fd.biggestRise.slice(0, 3).map(r => `${escapeHtml(r.name)} (+${gl(r.avgRise)} ${unitLabel}, ${r.n} meals)`).join("; ")}.</p>`;
       }
@@ -1286,11 +1290,11 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
       </div>
       <div class="panel-card">${renderTimeInRangeHtml(readings, unit)}</div>
       <div class="panel-card"><h2 class="panel-card__title">Low and high events</h2>
-        ${statRow("Low glucose events", `${s.lowEvents.count}`, `under ${unit === "mmol" ? "3.9" : "70"}, 15 minutes or more`)}
+        ${statRow("Low glucose events", `${s.lowEvents.count}`, `under ${unit === "mmol" ? "3.9" : "70"} ${u}, 15 minutes or more`)}
         ${s.lowEvents.count ? statRow("Average low lasted", fmtDur(s.lowEvents.avgMinutes), `longest ${fmtDur(s.lowEvents.longestMinutes)}`) : ""}
-        ${statRow("Very low events", `${s.veryLowEvents.count}`, `under ${unit === "mmol" ? "3.0" : "54"}`)}
+        ${statRow("Very low events", `${s.veryLowEvents.count}`, `under ${unit === "mmol" ? "3.0" : "54"} ${u}`)}
         ${statRow("Time below range", pc(s.pct.belowRange))}
-        ${statRow("Very high events", `${s.veryHighEvents.count}`, `over ${unit === "mmol" ? "13.9" : "250"}`)}
+        ${statRow("Very high events", `${s.veryHighEvents.count}`, `over ${unit === "mmol" ? "13.9" : "250"} ${u}`)}
         ${statRow("Time above range", pc(s.pct.aboveRange))}
       </div>`;
     }
@@ -1355,7 +1359,7 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
       <div class="trend-stats glucose-stats">
         ${statCard(fmtG(stats.avgMgdl), unit === "mmol" ? "mmol/L" : "mg/dL", "Average glucose")}
         ${statCard(stats.gmi.toFixed(1), "%", "Est. A1c (GMI)")}
-        ${statCard(Math.round(stats.timeInRangePct), "%", "Time in range (70–180)")}
+        ${statCard(Math.round(stats.timeInRangePct), "%", `Time in range (${rangeText()})`)}
         ${statCard(Math.round(stats.timeLowPct + stats.timeHighPct), "%", "Time low or high", stats.timeLowPct + stats.timeHighPct > 30)}
       </div>
     `;
@@ -1477,7 +1481,7 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
     const items = [`<span class="glucose-legend__item"><span class="glucose-legend__swatch glucose-legend__swatch--line"></span>Median</span>`];
     if (preset.inner) items.push(`<span class="glucose-legend__item"><span class="glucose-legend__swatch glucose-legend__swatch--inner"></span>${preset.inner[0].slice(1)}–${preset.inner[1].slice(1)}th percentile</span>`);
     if (preset.outer) items.push(`<span class="glucose-legend__item"><span class="glucose-legend__swatch glucose-legend__swatch--outer"></span>${preset.outer[0].slice(1)}–${preset.outer[1].slice(1)}th percentile</span>`);
-    items.push(`<span class="glucose-legend__item"><span class="glucose-legend__swatch glucose-legend__swatch--threshold"></span>70–180 range</span>`);
+    items.push(`<span class="glucose-legend__item"><span class="glucose-legend__swatch glucose-legend__swatch--threshold"></span>${rangeText()} range</span>`);
     return `<div class="glucose-legend">${items.join("")}</div>`;
   }
 
@@ -1560,6 +1564,7 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
         <line x1="${padL}" y1="${highY}" x2="${padL + plotW}" y2="${highY}" stroke="#F59E0B" stroke-width="1" stroke-dasharray="2,3" opacity="0.6"/>
         <text x="${padL - 4}" y="${(parseFloat(lowY) + 3).toFixed(1)}" font-size="8" fill="#EF4444" text-anchor="end">${fmtVal(70)}</text>
         <text x="${padL - 4}" y="${(parseFloat(highY) + 3).toFixed(1)}" font-size="8" fill="#F59E0B" text-anchor="end">${fmtVal(180)}</text>
+        <text x="${padL + 4}" y="${(padT + 9).toFixed(1)}" font-size="8" fill="var(--ink-soft)">${unitLabel()}</text>
         ${preset.outer ? `<path d="${band(preset.outer[1], preset.outer[0])}" fill="#3B82F6" opacity="0.14"/>` : ""}
         ${preset.inner ? `<path d="${band(preset.inner[1], preset.inner[0])}" fill="#3B82F6" opacity="0.28"/>` : ""}
         <path d="${line("p50")}" fill="none" stroke="#2563EB" stroke-width="2.25" stroke-linejoin="round" stroke-linecap="round"/>
@@ -1619,6 +1624,7 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
         <line x1="${padL}" y1="${highY}" x2="${padL + plotW}" y2="${highY}" stroke="#F59E0B" stroke-width="1" stroke-dasharray="2,3" opacity="0.6"/>
         <text x="${padL - 4}" y="${(parseFloat(lowY) + 3).toFixed(1)}" font-size="8" fill="#EF4444" text-anchor="end">${fmtVal(70)}</text>
         <text x="${padL - 4}" y="${(parseFloat(highY) + 3).toFixed(1)}" font-size="8" fill="#F59E0B" text-anchor="end">${fmtVal(180)}</text>
+        <text x="${padL + 4}" y="${(padT + 9).toFixed(1)}" font-size="8" fill="var(--ink-soft)">${unitLabel()}</text>
         <path d="${path}" fill="none" stroke="#3B82F6" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
         <line x1="${padL}" y1="${padT + plotH}" x2="${padL + plotW}" y2="${padT + plotH}" stroke="var(--line)" stroke-width="1"/>
         ${xTicks}
@@ -2204,7 +2210,7 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
     carbsPill.textContent = draft.eatingOutOn ? "Carbs not logged" : `${round1(carbs)}g Carbs`;
 
     const ratioEntry = activeRatioEntry();
-    ratioValueLabel.textContent = ratioEntry ? `1:${ratioEntry.ratio}` : "—";
+    ratioValueLabel.textContent = ratioEntry ? `${ratioText(ratioEntry.ratio)}` : "—";
 
     // All the dose maths lives in planDose (js/calc.js); this screen only gathers what was typed and shows the result.
     const typedMeal = draft.eatingOutOn ? parseDecimalInput(el("cc-eating-out-dose").value) : NaN;
@@ -2229,12 +2235,12 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
         const inUnit = convertGlucose(bgNow, draft.glucoseUnit, state.settings.units);
         const uLabel = unitLabel(state.settings.units);
         workingEl.textContent = rawCorrectionPart > 0
-          ? `(${round1(inUnit)} \u2212 ${state.settings.target} target) \u00f7 ${state.settings.isf} ${uLabel} per unit = ${round1(rawCorrectionPart)}u, rounded to ${roundDose(correctionPart)}u`
+          ? `(${round1(inUnit)} \u2212 ${state.settings.target} ${uLabel} target) \u00f7 ${state.settings.isf} ${uLabel} per unit = ${round1(rawCorrectionPart)}u, rounded to ${roundDose(correctionPart)}u`
           : rawCorrectionPart < 0
-            ? `Low: (${round1(inUnit)} \u2212 ${state.settings.target} target) \u00f7 ${state.settings.isf} ${uLabel} per unit = ${round1(rawCorrectionPart)}u, so ${Math.abs(plan.correctionDose)}u is taken off the meal dose${plan.reductionLimited ? " (all of it: a dose can't go below zero)" : ""}`
+            ? `Low: (${round1(inUnit)} \u2212 ${state.settings.target} ${uLabel} target) \u00f7 ${state.settings.isf} ${uLabel} per unit = ${round1(rawCorrectionPart)}u, so ${Math.abs(plan.correctionDose)}u is taken off the meal dose${plan.reductionLimited ? " (all of it: a dose can't go below zero)" : ""}`
             : inUnit < state.settings.target
-              ? `${round1(inUnit)} is below your ${state.settings.target} ${uLabel} target, so no correction. Turn on "Lower the dose when glucose is below target" in Settings > Dosing to take insulin off the meal instead`
-              : `${round1(inUnit)} is at or below your ${state.settings.target} ${uLabel} target, so no correction`;
+              ? `${round1(inUnit)} ${uLabel} is below your ${state.settings.target} ${uLabel} target, so no correction. Turn on "Lower the dose when glucose is below target" in Settings > Dosing to take insulin off the meal instead`
+              : `${round1(inUnit)} ${uLabel} is at or below your ${state.settings.target} ${uLabel} target, so no correction`;
         workingEl.hidden = false;
       } else workingEl.hidden = true;
     }
@@ -2435,7 +2441,7 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
     ratioPicker.innerHTML = rows.map(r => `
       <button class="ratio-picker__item" data-id="${escapeAttr(r.id)}" type="button">
         <span class="ratio-picker__name"><span class="ratio-picker__dot" style="background:${escapeAttr(r.color)}"></span><span class="ratio-picker__label">${escapeHtml(r.name)}</span>${r.kind === "time" ? (() => { const meta = daysLabel(r) ? `${daysLabel(r)} · ${r.start}–${r.end}` : `${r.start}–${r.end}`; return `<span class="ratio-picker__meta" title="${escapeAttr(meta)}">${escapeHtml(meta)}</span>`; })() : ""}</span>
-        <span class="ratio-picker__value">1:${r.ratio}</span>
+        <span class="ratio-picker__value">${ratioText(r.ratio)}</span>
       </button>
     `).join("") + `
       <button class="ratio-picker__item" data-id="__auto__" type="button">
@@ -2753,14 +2759,14 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
     const ctx = portionContext(item);
     const typed = gramsInput.value.trim();
     const slice = item.slices ? [1, 2].filter(n => n <= item.slices).map(n => ({ text: slicesLabel(n), title: `${slicesLabel(n)} of ${item.slices}` })) : [];
-    const options = [...FRACTION_CHIPS.map(([n, d]) => ({ text: fractionLabel(n, d), title: `${fractionLabel(n, d)} of the dish` })), ...slice];
+    const options = [{ text: WHOLE_CHIP, title: "The whole dish" }, ...FRACTION_CHIPS.map(([n, d]) => ({ text: fractionLabel(n, d), title: `${fractionLabel(n, d)} of the dish` })), ...slice];
     chips.innerHTML = options.map(o => `<button type="button" class="portion__chip${o.text === typed ? " is-active" : ""}" data-portion="${escapeAttr(o.text)}" title="${escapeAttr(o.title)}" aria-pressed="${o.text === typed}">${escapeHtml(o.text)}</button>`).join("");
     box.hidden = false;
     const p = parsePortion(typed, ctx);
     if (p.empty) { portionMessage(`Grams, or a portion of the whole dish (${Math.round(ctx.dishWeight)} g)${item.slices ? `, ${item.slices} slices` : ""}.`, false); return; }
     if (!p.ok) { portionMessage(p.error); return; }
     const carbs = Math.round(item.carbsPer100g * (ctx.dishWeight === item.dishWeight ? 1 : item.dishWeight / ctx.dishWeight) * p.grams) / 100;
-    portionMessage(p.kind === "grams" ? `${p.grams} g · ${round1(carbs)} g carbs` : `${p.label} of the dish (${Math.round(ctx.dishWeight)} g) = ${p.grams} g · ${round1(carbs)} g carbs`, false);
+    portionMessage(p.kind === "grams" ? `${p.grams} g · ${round1(carbs)} g carbs` : `${p.share === 1 ? "The whole dish" : p.label + " of the dish"} (${Math.round(ctx.dishWeight)} g) = ${p.grams} g · ${round1(carbs)} g carbs`, false);
   }
   el("cc-portion-chips").addEventListener("click", e => {
     const b = e.target.closest("[data-portion]");
@@ -2783,14 +2789,14 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
         const per = batchWeightG > 0 ? Math.round((t.totalCarbs / batchWeightG) * 1000) / 10 : t.carbsPer100g;
         html += `<div class="pick-extra__batch"><label for="cc-batch-weight">This batch's cooked weight</label>
           <div class="field__row"><input type="text" id="cc-batch-weight" inputmode="decimal" autocomplete="off" placeholder="${r.finalWeight}" value="${batchWeightG || ""}"><span class="field__unit">g</span></div>
-          <p class="pick-extra__note">${t.totalCarbs} g carbs in the whole batch → <b>${per} g per 100 g</b>${batchWeightG > 0 ? ` (recipe default ${t.carbsPer100g})` : ""}. Leave empty to use the saved weight of ${r.finalWeight} g.</p></div>`;
+          <p class="pick-extra__note">${t.totalCarbs} g carbs in the whole batch → <b>${per} g per 100 g</b>${batchWeightG > 0 ? ` (recipe default ${t.carbsPer100g} g per 100 g)` : ""}. Leave empty to use the saved weight of ${r.finalWeight} g.</p></div>`;
       }
     }
     const last = lastTimesFor(state.history, cachedReadings(), { refId: item.refId, name: item.name }, 3);
     if (last.length) {
       const when = ts => new Date(ts).toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" });
       const amount = l => (l.quantity != null && l.unitLabel ? `${formatQty(l.quantity)} ${l.unitLabel}${l.quantity === 1 ? "" : "s"}` : l.grams != null ? `${l.portion ? escapeHtml(l.portion) + " · " : ""}${Math.round(l.grams)} g` : "");
-      html += `<div class="pick-extra__last"><div class="pick-extra__title">Last time you had this</div>` + last.map(l => `<div class="pick-extra__row"><span>${when(l.ts)} · ${amount(l)}${l.alone ? "" : " (with other foods)"}</span><span>${l.noInsulin ? "no insulin" : round1(l.dose) + " u"}${l.after3h != null ? ` · 3 h later ${fmtGluShort(l.after3h)}` : ""}</span></div>`).join("") + `</div>`;
+      html += `<div class="pick-extra__last"><div class="pick-extra__title">Last time you had this</div>` + last.map(l => `<div class="pick-extra__row"><span>${when(l.ts)} · ${amount(l)}${l.alone ? "" : " (with other foods)"}</span><span>${l.noInsulin ? "no insulin" : round1(l.dose) + " u"}${l.after3h != null ? ` · 3 h later ${fmtGluShort(l.after3h)} ${gluUnitShort()}` : ""}</span></div>`).join("") + `</div>`;
     }
     box.innerHTML = html;
     box.hidden = !html;
@@ -2802,7 +2808,7 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
     renderPortion();
     const note = el("cc-pick-extra").querySelector(".pick-extra__note");
     const item = pickableItems().find(i => i.id === selectedPickId), r = item && state.recipes.find(x => x.id === item.refId);
-    if (note && r) { const t = recipeTotals(r); const per = batchWeightG ? Math.round((t.totalCarbs / batchWeightG) * 1000) / 10 : t.carbsPer100g; note.innerHTML = `${t.totalCarbs} g carbs in the whole batch → <b>${per} g per 100 g</b>${batchWeightG ? ` (recipe default ${t.carbsPer100g})` : ""}. Leave empty to use the saved weight of ${r.finalWeight} g.`; }
+    if (note && r) { const t = recipeTotals(r); const per = batchWeightG ? Math.round((t.totalCarbs / batchWeightG) * 1000) / 10 : t.carbsPer100g; note.innerHTML = `${t.totalCarbs} g carbs in the whole batch → <b>${per} g per 100 g</b>${batchWeightG ? ` (recipe default ${t.carbsPer100g} g per 100 g)` : ""}. Leave empty to use the saved weight of ${r.finalWeight} g.`; }
   });
 
   // Treating a low: your own usual amount, from your own past low treatments.
@@ -3517,7 +3523,7 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
             ${categoryBadge(f.category)}
             ${f.gi != null ? `<span class="lib-item__badge cat-other"${(f.estimated || []).includes("gi") ? ` title="Filled from a typical value"` : ""}>GI ${(f.estimated || []).includes("gi") ? "~" : ""}${f.gi}</span>` : ""}
           </div>
-          <p class="lib-item__meta"><span class="c-carbs">${f.carbs}g carbs</span>${f.kcal ? ` · <span class="c-kcal">~${f.kcal} kcal</span>` : ""}</p>
+          <p class="lib-item__meta"><span class="c-carbs">${f.carbs}g carbs</span>${f.kcal ? ` · <span class="c-kcal">~${f.kcal} kcal</span>` : ""} /100g</p>
           ${f.unitBased ? `<p class="lib-item__note">1 ${escapeHtml(f.unitLabel)} = ${f.gramsPerUnit}g → ${round1(f.carbs * f.gramsPerUnit / 100)}g carbs</p>` : ""}
           ${f.notes ? `<p class="lib-item__note">${escapeHtml(f.notes)}</p>` : ""}
         </div>
@@ -4151,15 +4157,15 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
         row.innerHTML = `
           <div class="history-entry__icon" style="background:${meal.color}">${meal.icon}</div>
           <div class="history-entry__main">
-            <p class="history-entry__title"><span class="history-entry__name">${meal.label}</span> <span class="muted">${formatTime(entry.ts)}${ratioWasApplied(entry) ? `${entry.periodName ? ` · ${escapeHtml(entry.periodName)}` : ""} · 1:${round1(entry.ratioValue)}` : ""}</span>${nsBadgeHtml(entry)}</p>
+            <p class="history-entry__title"><span class="history-entry__name">${meal.label}</span> <span class="muted">${formatTime(entry.ts)}${ratioWasApplied(entry) ? `${entry.periodName ? ` · ${escapeHtml(entry.periodName)}` : ""} · ${ratioText(round1(entry.ratioValue))}` : ""}</span>${nsBadgeHtml(entry)}</p>
             <p class="history-entry__foods"><span class="history-entry__food-names">${entry.items.length ? entry.items.map(i => escapeHtml(i.name)).join(", ") : (entry.carbsUnknown ? "Eating out — carbs not logged" : "No food — correction only")}</span>${entry.glycemicLoad ? `<span class="gl-indicator gl-indicator--${entry.glycemicLoad.value >= 70 ? "high" : entry.glycemicLoad.value >= 56 ? "medium" : "low"} gl-indicator--compact">GI ${entry.glycemicLoad.value}${entry.glycemicLoad.partial ? "*" : ""}</span>` : ""}</p>
             <div class="history-entry__detail" hidden>
               ${entry.items.map(i => {
                 const isUnit = i.quantity != null && i.unitLabel;
                 const qtyLabel = isUnit ? `${formatQty(i.quantity)} ${escapeHtml(i.unitLabel)}${i.quantity === 1 ? "" : "s"}` : (i.grams ? escapeHtml(i.grams) + "g" : "");
-                return `<div class="history-entry__item"><span class="history-entry__item-name">${escapeHtml(i.name)}</span><span class="history-entry__item-qty">${qtyLabel}</span><span class="history-entry__item-carbs">${round1(i.carbs)}g</span></div>`;
+                return `<div class="history-entry__item"><span class="history-entry__item-name">${escapeHtml(i.name)}</span><span class="history-entry__item-qty">${qtyLabel}</span><span class="history-entry__item-carbs">${round1(i.carbs)}g<span class="history-entry__item-unit"> carbs</span></span></div>`;
               }).join("")}
-              ${ratioWasApplied(entry) ? `<p class="history-entry__ratio">Ratio used: ${escapeHtml(entry.ratioLabel || "")} 1:${round1(entry.ratioValue)}</p>` : ""}
+              ${ratioWasApplied(entry) ? `<p class="history-entry__ratio">Ratio used: ${escapeHtml(entry.ratioLabel || "")} ${ratioText(round1(entry.ratioValue))}</p>` : ""}
               ${entry.cappedFrom ? `<p class="history-entry__cap">Capped at your maximum dose (calculated ${entry.cappedFrom}u)</p>` : ""}
               <div class="history-entry__row-actions">
                 <button data-use="${escapeAttr(entry.id)}" type="button">Use Again</button>
@@ -4170,7 +4176,7 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
           </div>
           <div class="history-entry__stats">
             ${dosePillHtml}
-            ${entry.carbsUnknown ? `<span class="stat-line"><span class="stat-grams">Carbs not logged</span></span>` : `<span class="stat-line"><span class="stat-grams">${entry.totalCarbs}g</span><span class="stat-kcal">${entry.totalKcal || 0} kcal</span></span>`}
+            ${entry.carbsUnknown ? `<span class="stat-line"><span class="stat-grams">Carbs not logged</span></span>` : `<span class="stat-line"><span class="stat-grams">${entry.totalCarbs}g carbs</span><span class="stat-kcal">${entry.totalKcal || 0} kcal</span></span>`}
           </div>
         `;
         groupEl.appendChild(wrapSwipe(row, entry.id));
@@ -4265,7 +4271,7 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
 
   // Everything that isn't a bar: weekend shading, gridlines + value labels,
   // the dashed average line, and the date / weekday labels.
-  function trendFrameSvg(g, buckets, avgValue, avgText) {
+  function trendFrameSvg(g, buckets, avgValue, avgText, unit = "") {
     const fmtAxis = v => Number.isInteger(v) ? String(v) : v.toFixed(1);
     let weekend = "", grid = "", labels = "";
     const labelStep = g.n <= 14 ? 1 : 5; // anchored on today so it's always labeled
@@ -4289,7 +4295,7 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
     for (let k = 0; k <= ticks; k++) {
       const v = k * g.step, y = g.yFor(v);
       grid += `<line class="trend-chart__grid${k === 0 ? " is-base" : ""}" x1="${g.padL}" y1="${y.toFixed(1)}" x2="${g.W - g.padR}" y2="${y.toFixed(1)}"></line>`;
-      grid += `<text class="trend-chart__axis-label" x="${g.padL - 5}" y="${(y + 3).toFixed(1)}" text-anchor="end">${fmtAxis(v)}</text>`;
+      grid += `<text class="trend-chart__axis-label" x="${g.padL - 5}" y="${(y + 3).toFixed(1)}" text-anchor="end">${fmtAxis(v)}${k === ticks && k > 0 ? unit : ""}</text>`;
     }
     let avg = "";
     if (avgValue > 0) {
@@ -4313,7 +4319,7 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
   // Stacked: carbs eaten as meals on the bottom, carbs eaten to treat a low (no insulin) on top.
   function buildCarbsChartSvg(buckets, avg, width) {
     const g = trendGeometry(buckets.length, Math.max(...buckets.map(b => b.carbs)), width);
-    const frame = trendFrameSvg(g, buckets, avg, `avg ${Math.round(avg)}g`);
+    const frame = trendFrameSvg(g, buckets, avg, `avg ${Math.round(avg)}g`, "g");
     const base = g.padT + g.plotH;
     const bars = buckets.map((b, i) => {
       const todayCls = i === g.n - 1 ? " trend-chart__bar--today" : "";
@@ -4333,7 +4339,7 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
   // Stacked: meal insulin on the bottom, correction insulin on top.
   function buildDoseChartSvg(buckets, avg, width) {
     const g = trendGeometry(buckets.length, Math.max(...buckets.map(b => b.dose)), width);
-    const frame = trendFrameSvg(g, buckets, avg, `avg ${round1(avg)}u`);
+    const frame = trendFrameSvg(g, buckets, avg, `avg ${round1(avg)}u`, "u");
     const base = g.padT + g.plotH;
     const bars = buckets.map((b, i) => {
       const todayCls = i === g.n - 1 ? " trend-chart__bar--today" : "";
@@ -4358,7 +4364,7 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
   // on top (dark blue), so with variable doses you can see which of the two is moving, not just the daily total.
   function buildBasalChartSvg(buckets, avg, width) {
     const g = trendGeometry(buckets.length, Math.max(1, ...buckets.map(b => b.basal)), width);
-    const frame = trendFrameSvg(g, buckets, avg, `avg ${round1(avg)}u`);
+    const frame = trendFrameSvg(g, buckets, avg, `avg ${round1(avg)}u`, "u");
     const base = g.padT + g.plotH;
     const bars = buckets.map((b, i) => {
       const todayCls = i === g.n - 1 ? " trend-chart__bar--today" : "";
@@ -4434,10 +4440,10 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
             <span class="meal-break-row__dot" style="background:${m.color};"></span>
             <span class="meal-break-row__name">${m.label}</span>
             <span class="meal-break-row__count">${r.count} meal${r.count === 1 ? "" : "s"}</span>
-            <span class="meal-break-row__vals">${Math.round(r.avgCarbs)} g</span>
+            <span class="meal-break-row__vals">${Math.round(r.avgCarbs)} g carbs</span>
           </div>
           <div class="meal-break-row__track"><span class="meal-break-row__fill" style="width:${pct}%;background:${m.color};"></span></div>
-          <div class="meal-break-row__sub">${round1(r.avgDose)} u avg dose${r.gPerU ? ` &middot; ${round1(r.gPerU)} g per unit` : ""}</div>
+          <div class="meal-break-row__sub">${round1(r.avgDose)} u avg dose${r.gPerU ? ` &middot; ${round1(r.gPerU)} g carbs per unit` : ""}</div>
         </div>`;
     }).join("");
   }
@@ -4497,8 +4503,8 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
         const b = buckets[i];
         if (b.basal <= 0) return `${fmtDay(b.key)} \u00b7 no basal logged`;
         const parts = [];
-        if (b.bAm > 0) parts.push(`morning ${round1(b.bAm)}`);
-        if (b.bPm > 0) parts.push(`evening ${round1(b.bPm)}`);
+        if (b.bAm > 0) parts.push(`morning ${round1(b.bAm)} u`);
+        if (b.bPm > 0) parts.push(`evening ${round1(b.bPm)} u`);
         return `${fmtDay(b.key)} \u00b7 ${round1(b.basal)} u basal (${parts.join(" + ")})`;
       }
     };
@@ -4665,13 +4671,13 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
       const hours = r.start ? `${escapeHtml(r.start)}\u2013${escapeHtml(r.end)}${daysLabel(r) ? " \u00b7 " + escapeHtml(daysLabel(r)) : ""}` : (r.kind === "activity" ? "activity" : "");
       const colour = r.color && /^#[0-9a-fA-F]{3,8}$/.test(r.color) ? r.color : "var(--acc-1)";
       const used = r.count > 0
-        ? `<span class="rtrend__value">1:${fmt(r.avg)}</span><span class="rtrend__n">${r.count} meal${r.count === 1 ? "" : "s"}${r.min !== r.max ? ` \u00b7 range 1:${fmt(r.min)}\u20131:${fmt(r.max)}` : ""}</span>`
+        ? `<span class="rtrend__value">${ratioText(fmt(r.avg))}</span><span class="rtrend__n">${r.count} meal${r.count === 1 ? "" : "s"}${r.min !== r.max ? ` \u00b7 range ${ratioText(fmt(r.min))}\u2013${ratioText(fmt(r.max))}` : ""}</span>`
         : `<span class="rtrend__value rtrend__value--none">\u2014</span><span class="rtrend__n">no meals</span>`;
       return `<div class="rtrend">
         <div class="rtrend__head"><span class="rtrend__name">${escapeHtml(r.label)}</span><span class="rtrend__hours">${hours}</span></div>
-        <div class="rtrend__track" role="img" aria-label="${escapeAttr(r.label)}: ${r.count > 0 ? "average 1:" + fmt(r.avg) : "no meals"}${r.current ? ", currently set to 1:" + fmt(r.current) : ""}">
+        <div class="rtrend__track" role="img" aria-label="${escapeAttr(r.label)}: ${r.count > 0 ? "average " + ratioText(fmt(r.avg)) : "no meals"}${r.current ? ", currently set to " + ratioText(fmt(r.current)) : ""}">
           ${r.count > 0 ? `<div class="rtrend__bar" style="width:${pct(r.avg)}%;background:${colour};"></div>` : ""}
-          ${r.current ? `<div class="rtrend__mark" style="left:${pct(r.current)}%;" title="Currently set to 1:${fmt(r.current)}"></div>` : ""}
+          ${r.current ? `<div class="rtrend__mark" style="left:${pct(r.current)}%;" title="Currently set to ${ratioText(fmt(r.current))}"></div>` : ""}
         </div>
         <div class="rtrend__figures">${used}</div>
       </div>`;
@@ -4711,12 +4717,12 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
       const colour = r.color && /^#[0-9a-fA-F]{3,8}$/.test(r.color) ? r.color : "var(--acc-1)";
       const figures = r.count === 0
         ? `<span class="rtrend__value rtrend__value--none">\u2014</span><span class="rtrend__n">no meals</span>`
-        : `<span class="rtrend__value">1:${fmt(r.ideal)}</span><span class="rtrend__n">${r.affected > 0 ? `was 1:${fmt(r.used)} \u00b7 ${r.affected} of ${r.count} meal${r.count === 1 ? "" : "s"} followed by a low` : `same as used \u00b7 no lows after ${r.count === 1 ? "this meal" : "these " + r.count + " meals"}`}</span>`;
+        : `<span class="rtrend__value">${ratioText(fmt(r.ideal))}</span><span class="rtrend__n">${r.affected > 0 ? `was ${ratioText(fmt(r.used))} \u00b7 ${r.affected} of ${r.count} meal${r.count === 1 ? "" : "s"} followed by a low` : `same as used \u00b7 no lows after ${r.count === 1 ? "this meal" : "these " + r.count + " meals"}`}</span>`;
       return `<div class="rtrend">
         <div class="rtrend__head"><span class="rtrend__name">${escapeHtml(r.label)}</span><span class="rtrend__hours">${hours}</span></div>
-        <div class="rtrend__track rtrend__track--double" role="img" aria-label="${escapeAttr(r.label)}: ${r.count > 0 ? "ideal 1:" + fmt(r.ideal) + ", used 1:" + fmt(r.used) : "no meals"}">
+        <div class="rtrend__track rtrend__track--double" role="img" aria-label="${escapeAttr(r.label)}: ${r.count > 0 ? "ideal " + ratioText(fmt(r.ideal)) + ", used " + ratioText(fmt(r.used)) : "no meals"}">
           ${r.count > 0 ? `<div class="rtrend__bar rtrend__bar--used" style="width:${pct(r.used)}%;background:${colour};"></div><div class="rtrend__bar rtrend__bar--ideal" style="width:${pct(r.ideal)}%;background:${colour};"></div>` : ""}
-          ${r.current ? `<div class="rtrend__mark" style="left:${pct(r.current)}%;" title="Currently set to 1:${fmt(r.current)}"></div>` : ""}
+          ${r.current ? `<div class="rtrend__mark" style="left:${pct(r.current)}%;" title="Currently set to ${ratioText(fmt(r.current))}"></div>` : ""}
         </div>
         <div class="rtrend__figures">${figures}</div>
       </div>`;
@@ -4734,6 +4740,7 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
   let insightsCurveGroup = "All meals";
   let lastInsights = null; // { entries, readings, days } so a bracket button can redraw without refetching
   const fmtGlu = v => v == null || !Number.isFinite(v) ? "—" : (state.settings.units === "mmol" ? String(round1(convertGlucose(v, "mgdl", "mmol"))) : String(Math.round(v)));
+  const fmtGluU = v => { const t = fmtGlu(v); return t === "—" ? t : `${t} ${gluUnit()}`; };   // with its unit
   const gluUnit = () => (state.settings.units === "mmol" ? "mmol/L" : "mg/dL");
   const pctTxt = v => (v == null ? "—" : Math.round(v) + "%");
   const insCard = (title, hint, body) => `<div class="panel-card ins-card"><h2 class="panel-card__title">${title}</h2>${hint ? `<p class="trend-caption trend-caption--tight" style="margin-top:-4px;">${hint}</p>` : ""}${body}</div>`;
@@ -4767,7 +4774,8 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
     const target = `<rect x="${L}" y="${y(180).toFixed(1)}" width="${W - L - R}" height="${(y(70) - y(180)).toFixed(1)}" fill="#34C759" opacity="0.10"/>`;
     const xt = []; for (let h = 0; h <= hours; h++) xt.push(`<text x="${x(h * 60).toFixed(1)}" y="${H - 6}" text-anchor="middle" font-size="10" fill="var(--ink-soft)">${h}h</text>`);
     const yt = [lo, Math.round((lo + hi) / 2 / 10) * 10, hi].map(v => `<text x="${L - 4}" y="${(y(v) + 3).toFixed(1)}" text-anchor="end" font-size="10" fill="var(--ink-soft)">${fmtGlu(v)}</text><line x1="${L}" x2="${W - R}" y1="${y(v).toFixed(1)}" y2="${y(v).toFixed(1)}" stroke="var(--line, rgba(128,128,128,.25))" stroke-width="0.6"/>`);
-    return `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Typical glucose after a meal, ${escapeAttr(group.label)}">${target}${yt.join("")}${area}${line}${xt.join("")}</svg>`;
+    const yUnit = `<text x="${L + 4}" y="${(y(hi) + 11).toFixed(1)}" font-size="10" fill="var(--ink-soft)">${gluUnit()}</text>`;
+    return `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Typical glucose after a meal, ${escapeAttr(group.label)}">${target}${yt.join("")}${area}${line}${xt.join("")}${yUnit}</svg>`;
   }
 
   function drawInsights() {
@@ -4789,17 +4797,17 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
     // 2. Outcome by bracket
     const out = outcomeByBracket(entries, readings, { afterHours: 3 });
     if (out.total) {
-      const row = r => `<div class="ins-row"><div class="ins-row__head"><span class="rtrend__name">${escapeHtml(r.label)}</span><span class="rtrend__n">${r.n} meal${r.n === 1 ? "" : "s"} · avg ${fmtGlu(r.avgStart)} → ${fmtGlu(r.avgEnd)}</span></div>
+      const row = r => `<div class="ins-row"><div class="ins-row__head"><span class="rtrend__name">${escapeHtml(r.label)}</span><span class="rtrend__n">${r.n} meal${r.n === 1 ? "" : "s"} · avg ${fmtGlu(r.avgStart)} → ${fmtGluU(r.avgEnd)}</span></div>
         <div class="ins-bar" role="img" aria-label="${escapeAttr(r.label)}: ${r.low} low, ${r.inRange} in range, ${r.high} high"><span class="ins-bar__low" style="width:${(r.low / r.n) * 100}%"></span><span class="ins-bar__in" style="width:${(r.inRange / r.n) * 100}%"></span><span class="ins-bar__high" style="width:${(r.high / r.n) * 100}%"></span></div>
         <div class="rtrend__n">${pctTxt((r.low / r.n) * 100)} low · ${pctTxt((r.inRange / r.n) * 100)} in range · ${pctTxt((r.high / r.n) * 100)} high${r.anyLow ? ` · ${r.anyLow} dipped below 70 at some point` : ""}</div></div>`;
-      cards.push(insCard("Where glucose is 3 hours after a meal", "Per ratio bracket: how many meals ended low (under 70 mg/dL), in range, or high (over 180).",
+      cards.push(insCard("Where glucose is 3 hours after a meal", "Per ratio bracket: how many meals ended low (under 70 mg/dL), in range, or high (over 180 mg/dL).",
         out.rows.map(row).join("") + (out.rows.length > 1 ? row(out.all) : "") + `<div class="trend-legend"><span><span class="trend-legend__dot" style="background:#FF383C;"></span>Low</span><span><span class="trend-legend__dot" style="background:#34C759;"></span>In range</span><span><span class="trend-legend__dot" style="background:#FF8D28;"></span>High</span></div>`));
     }
 
     // 3. Foods to watch
     const foods = foodImpact(entries, readings, { minMeals: 2 });
     if (foods.rows.length) {
-      const li = r => `<li><span class="ins-li__name">${escapeHtml(r.name)}</span><span class="ins-li__val">+${fmtGlu(r.avgRise)} ${gluUnit()}</span><span class="rtrend__n">${r.n} meals · peak ${fmtGlu(r.avgPeak)}${r.lowPct ? ` · low after ${pctTxt(r.lowPct)}` : ""}</span></li>`;
+      const li = r => `<li><span class="ins-li__name">${escapeHtml(r.name)}</span><span class="ins-li__val">+${fmtGlu(r.avgRise)} ${gluUnit()}</span><span class="rtrend__n">${r.n} meals · peak ${fmtGluU(r.avgPeak)}${r.lowPct ? ` · low after ${pctTxt(r.lowPct)}` : ""}</span></li>`;
       cards.push(insCard("Foods to watch", "Average rise (highest reading in the 3 hours minus the starting reading) for foods that made up most of a meal's carbs. Needs at least 2 such meals.",
         `<ol class="ins-list">${foods.biggestRise.map(li).join("")}</ol>` + (foods.mostLows.length ? `<p class="trend-caption trend-caption--tight"><b>Lows afterwards:</b> ${foods.mostLows.map(r => `${escapeHtml(r.name)} (${pctTxt(r.lowPct)} of ${r.n})`).join(", ")}.</p>` : "")));
     }
@@ -4812,13 +4820,13 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
       cards.push(insCard("How well corrections work", "Corrections given on their own, with no food or other insulin within the following 4 hours: how far glucose fell per unit by 3 hours later.",
         `<div class="ins-big"><span class="ins-big__num">${fmtGlu(eff)}</span><span class="ins-big__unit">${gluUnit()} per unit (median of ${cor.n})</span></div>
          <p class="trend-caption trend-caption--tight">Your correction factor is set to ${fmtGlu(isf)} ${gluUnit()} per unit${isf && eff != null ? `, so corrections have been ${eff > isf * 1.15 ? "stronger" : eff < isf * 0.85 ? "weaker" : "close to"} than set${eff > isf * 1.15 || eff < isf * 0.85 ? ` (${Math.round((eff / isf) * 100)}% of it)` : ""}` : ""}.</p>
-         <ul class="ins-list ins-list--plain">${cor.events.slice(0, 5).map(ev => `<li><span class="ins-li__name">${new Date(ev.ts).toLocaleDateString(undefined, { day: "numeric", month: "short" })} · ${round1(ev.units)} u</span><span class="ins-li__val">${fmtGlu(ev.start)} → ${fmtGlu(ev.end)}</span></li>`).join("")}</ul>`));
+         <ul class="ins-list ins-list--plain">${cor.events.slice(0, 5).map(ev => `<li><span class="ins-li__name">${new Date(ev.ts).toLocaleDateString(undefined, { day: "numeric", month: "short" })} · ${round1(ev.units)} u</span><span class="ins-li__val">${fmtGlu(ev.start)} → ${fmtGluU(ev.end)}</span></li>`).join("")}</ul>`));
     }
 
     // 5. Stacking
     const stk = iobStacking(entries, readings);
     if (stk.stacked.n && stk.clean.n) {
-      const col = (t, s) => `<div class="ins-col"><div class="ins-col__title">${t}</div><div class="ins-col__num">${fmtGlu(s.avgEnd)}</div><div class="rtrend__n">avg at 3 h · ${s.n} meals</div><div class="rtrend__n">${pctTxt(s.lowPct)} dipped low · ${pctTxt(s.highPct)} high</div></div>`;
+      const col = (t, s) => `<div class="ins-col"><div class="ins-col__title">${t}</div><div class="ins-col__num">${fmtGlu(s.avgEnd)}<span class="ins-col__unit"> ${gluUnit()}</span></div><div class="rtrend__n">avg at 3 h · ${s.n} meals</div><div class="rtrend__n">${pctTxt(s.lowPct)} dipped low · ${pctTxt(s.highPct)} high</div></div>`;
       cards.push(insCard("Meals taken with insulin still active", `Meals eaten within ${stk.windowHours} hours of an earlier dose, compared with meals taken with no recent insulin.`,
         `<div class="ins-cols">${col("Insulin still active", stk.stacked)}${col("No recent insulin", stk.clean)}</div><p class="trend-caption trend-caption--tight">Stacked meals had on average ${round1(stk.stacked.avgPriorUnits)} u from earlier doses still working.</p>`));
     }
@@ -4835,13 +4843,13 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
     // 7. Weekday vs weekend, and activity
     const wk = weekdayWeekend(entries, readings, state.settings);
     if (wk.weekday.days && wk.weekend.days) {
-      const col = (t, s) => `<div class="ins-col"><div class="ins-col__title">${t}</div><div class="ins-col__num">${s.carbsPerDay == null ? "—" : Math.round(s.carbsPerDay)} g</div><div class="rtrend__n">carbs a day · ${s.days} day${s.days === 1 ? "" : "s"}</div><div class="rtrend__n">${s.insulinPerDay == null ? "—" : round1(s.insulinPerDay)} u a day · ${s.mealsPerDay == null ? "—" : round1(s.mealsPerDay)} meals</div><div class="rtrend__n">${s.avgRatio ? "avg ratio 1:" + round1(s.avgRatio) : ""}</div><div class="rtrend__n">${s.n3h ? "3 h after: avg " + fmtGlu(s.avg3h) + ", " + pctTxt(s.lowPct) + " low, " + pctTxt(s.highPct) + " high" : "no glucose data"}</div></div>`;
+      const col = (t, s) => `<div class="ins-col"><div class="ins-col__title">${t}</div><div class="ins-col__num">${s.carbsPerDay == null ? "—" : Math.round(s.carbsPerDay)} g</div><div class="rtrend__n">carbs a day · ${s.days} day${s.days === 1 ? "" : "s"}</div><div class="rtrend__n">${s.insulinPerDay == null ? "—" : round1(s.insulinPerDay)} u a day · ${s.mealsPerDay == null ? "—" : round1(s.mealsPerDay)} meals</div><div class="rtrend__n">${s.avgRatio ? "avg ratio " + ratioText(round1(s.avgRatio)) : ""}</div><div class="rtrend__n">${s.n3h ? "3 h after: avg " + fmtGluU(s.avg3h) + ", " + pctTxt(s.lowPct) + " low, " + pctTxt(s.highPct) + " high" : "no glucose data"}</div></div>`;
       cards.push(insCard("Weekdays vs weekends", "", `<div class="ins-cols">${col("Weekdays", wk.weekday)}${col("Weekends", wk.weekend)}</div>`));
     }
     if (wk.activity.length && wk.everyday.n) {
-      const ar = r => `<li><span class="ins-li__name">${escapeHtml(r.label)}</span><span class="ins-li__val">1:${round1(r.avgRatio)}</span><span class="rtrend__n">${r.n} meals${r.n3h ? ` · 3 h after avg ${fmtGlu(r.avg3h)}, ${pctTxt(r.lowPct)} low` : ""}</span></li>`;
+      const ar = r => `<li><span class="ins-li__name">${escapeHtml(r.label)}</span><span class="ins-li__val">${ratioText(round1(r.avgRatio))}</span><span class="rtrend__n">${r.n} meals${r.n3h ? ` · 3 h after avg ${fmtGluU(r.avg3h)}, ${pctTxt(r.lowPct)} low` : ""}</span></li>`;
       cards.push(insCard("Activity ratios vs everyday", "How meals logged with an activity ratio compare with ones at your everyday time-of-day ratios.",
-        `<ul class="ins-list ins-list--plain"><li><span class="ins-li__name">Everyday</span><span class="ins-li__val">1:${round1(wk.everyday.avgRatio)}</span><span class="rtrend__n">${wk.everyday.n} meals${wk.everyday.n3h ? ` · 3 h after avg ${fmtGlu(wk.everyday.avg3h)}, ${pctTxt(wk.everyday.lowPct)} low` : ""}</span></li>${wk.activity.map(ar).join("")}</ul>`));
+        `<ul class="ins-list ins-list--plain"><li><span class="ins-li__name">Everyday</span><span class="ins-li__val">${ratioText(round1(wk.everyday.avgRatio))}</span><span class="rtrend__n">${wk.everyday.n} meals${wk.everyday.n3h ? ` · 3 h after avg ${fmtGluU(wk.everyday.avg3h)}, ${pctTxt(wk.everyday.lowPct)} low` : ""}</span></li>${wk.activity.map(ar).join("")}</ul>`));
     }
 
     box.innerHTML = `<h3 class="ins-heading">Glucose insights</h3>` + (cards.length ? cards.join("") + `<p class="trend-caption">These describe what happened after past meals and doses. They are patterns to talk through with your care team, not dosing instructions.</p>` : `<p class="trend-caption">Not enough overlap between logged meals and glucose readings in this period yet. Insights need readings around each meal (the Nightscout history that Insulin Buddy stores).</p>`);
@@ -5021,8 +5029,8 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
         </div>
         <label class="block-label" id="em-ratio-label">Insulin ratio</label>
         <select id="em-ratio" style="width:100%; padding:12px 14px; border:1.5px solid var(--line); border-radius:var(--radius-s); font-size:calc(0.96 * var(--rem)); margin-bottom:18px; background:var(--surface); color:var(--ink);">
-          ${!matchedRatio ? `<option value="__original__" selected>Original: ${escapeHtml(entry.ratioLabel || "—")} (1:${entry.ratioValue})</option>` : ""}
-          ${allRatios.map(r => `<option value="${escapeAttr(r.id)}" ${matchedRatio && matchedRatio.id === r.id ? "selected" : ""}>${escapeHtml(r.name)} (1:${r.ratio})</option>`).join("")}
+          ${!matchedRatio ? `<option value="__original__" selected>Original: ${escapeHtml(entry.ratioLabel || "—")} (${ratioText(entry.ratioValue)})</option>` : ""}
+          ${allRatios.map(r => `<option value="${escapeAttr(r.id)}" ${matchedRatio && matchedRatio.id === r.id ? "selected" : ""}>${escapeHtml(r.name)} (${ratioText(r.ratio)})</option>`).join("")}
         </select>
         <div id="em-items-part">
         <label class="block-label">Items</label>
@@ -5127,7 +5135,7 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
         : parts.overMax ? ` — above your ${state.settings.maxDose} u maximum` : "";
       backdrop.querySelector("#em-preview").textContent =
         `New total: ${round1(totalCarbs)}g carbs → ${parts.total.toFixed(1)} units` +
-        (selectedRatioValue ? ` (using ${selectedRatioLabel ? escapeHtml(selectedRatioLabel) + " " : ""}1:${selectedRatioValue})` : "") + capText;
+        (selectedRatioValue ? ` (using ${selectedRatioLabel ? escapeHtml(selectedRatioLabel) + " " : ""}${ratioText(selectedRatioValue)})` : "") + capText;
     }
 
     backdrop.querySelector("#em-meal-types").addEventListener("click", e => {
@@ -5853,7 +5861,7 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
       div.className = "timeline__seg";
       div.style.width = width + "%";
       div.style.background = seg.r.color;
-      const px = width / 100 * barPx, full = `${seg.r.name} · 1:${seg.r.ratio}`, short = `1:${seg.r.ratio}`;
+      const px = width / 100 * barPx, full = `${seg.r.name} · ${ratioText(seg.r.ratio)}`, short = `${ratioText(seg.r.ratio)}`;
       div.textContent = fits(full, px) ? full : fits(short, px) ? short : "";
       div.title = full;
       bar.appendChild(div);
@@ -5895,7 +5903,7 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
             <span class="ratio-row__name">${escapeHtml(r.name)}</span>
             <span class="ratio-row__time">${r.start} – ${r.end}${daysLabel(r) ? ` · ${daysLabel(r)}` : ""}</span>
           </span>
-          <span class="ratio-row__value">1:${r.ratio}</span>
+          <span class="ratio-row__value">${ratioText(r.ratio)}</span>
           <button class="ratio-row__del" data-del="${escapeAttr(r.id)}" aria-label="Delete" style="margin-left:4px;">
             <svg viewBox="0 0 24 24" fill="none"><path d="M5 7h14M9 7V5a1 1 0 011-1h4a1 1 0 011 1v2m-9 0l1 12a2 2 0 002 2h6a2 2 0 002-2l1-12" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
           </button>

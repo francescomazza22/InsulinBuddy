@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { parsePortion, FRACTION_CHIPS } from "../../js/portion.js";
+import { parsePortion, FRACTION_CHIPS, WHOLE_CHIP } from "../../js/portion.js";
 
 const BREAD = { dishWeight: 614, slices: 12 };
 
@@ -50,4 +50,14 @@ test("fractions and slices are only for recipes", () => {
 
 test("the quick buttons are the five common fractions", () => {
   assert.deepEqual(FRACTION_CHIPS.map(([n, d]) => `${n}/${d}`), ["1/2", "1/3", "1/4", "1/6", "1/8"]);
+});
+
+test("'Whole' (or all, intero, 1/1) is the whole dish", () => {
+  for (const w of ["Whole", "whole", "all", "intero", "intera", "tutto", "1/1"]) {
+    const p = parsePortion(w, { dishWeight: 800 });
+    assert.equal(p.ok, true, w); assert.equal(p.grams, 800, w); assert.equal(p.share, 1, w);
+  }
+  assert.equal(parsePortion("Whole", { dishWeight: 800 }).label, "Whole");
+  assert.equal(parsePortion("whole", { dishWeight: null }).ok, false, "only for recipes");
+  assert.equal(WHOLE_CHIP, "Whole");
 });

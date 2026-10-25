@@ -1094,17 +1094,17 @@ const count = (dev, sel) => dev.eval(`document.querySelectorAll(${JSON.stringify
   const dev = await device(stateBlob({ history: [...dailyMeals(), ...basalDays()] }), "Basal trend: tapping a day shows its doses and highlights that day in every chart");
   await openTrends(dev);
   await tapDay(dev, "trend-chart-basal", 11);                                        // two days ago: 15 + 17
-  t.check("the readout gives that day's morning and evening doses", /32 u basal \(morning 15 \+ evening 17\)/.test(await dev.text("#trend-chart-basal .trend-readout")), await dev.text("#trend-chart-basal .trend-readout"));
+  t.check("the readout gives that day's morning and evening doses", /32 u basal \(morning 15 u \+ evening 17 u\)/.test(await dev.text("#trend-chart-basal .trend-readout")), await dev.text("#trend-chart-basal .trend-readout"));
   t.check("both segments of that day's bar are highlighted", (await count(dev, "#trend-chart-basal .trend-chart__bar.is-selected")) === 2);
   t.check("the same day is highlighted in the carbs chart and the insulin dose chart too", (await count(dev, "#trend-chart-carbs .trend-chart__bar.is-selected")) === 1 && (await count(dev, "#trend-chart-dose .trend-chart__bar.is-selected")) >= 1);
   await tapDay(dev, "trend-chart-carbs", 12);
-  t.check("and tapping a day in ANOTHER chart updates the basal readout (one day ago: 16 + 18)", /34 u basal \(morning 16 \+ evening 18\)/.test(await dev.text("#trend-chart-basal .trend-readout")), await dev.text("#trend-chart-basal .trend-readout"));
+  t.check("and tapping a day in ANOTHER chart updates the basal readout (one day ago: 16 + 18)", /34 u basal \(morning 16 u \+ evening 18 u\)/.test(await dev.text("#trend-chart-basal .trend-readout")), await dev.text("#trend-chart-basal .trend-readout"));
   await tapDay(dev, "trend-chart-basal", 0);
   t.check("a day with no basal says so", /no basal logged/.test(await dev.text("#trend-chart-basal .trend-readout")), await dev.text("#trend-chart-basal .trend-readout"));
   await tapDay(dev, "trend-chart-basal", 0);
   t.check("tapping it again clears the selection everywhere", (await dev.text("#trend-chart-basal .trend-readout")) === "Avg 32 u / day · tap a day for details" && (await count(dev, ".trend-chart__bar.is-selected")) === 0);
   await tapDay(dev, "trend-chart-basal", 13);                                        // today: morning only
-  t.check("today shows just the morning dose so far", /14 u basal \(morning 14\)/.test(await dev.text("#trend-chart-basal .trend-readout")), await dev.text("#trend-chart-basal .trend-readout"));
+  t.check("today shows just the morning dose so far", /14 u basal \(morning 14 u\)/.test(await dev.text("#trend-chart-basal .trend-readout")), await dev.text("#trend-chart-basal .trend-readout"));
   await noErrors(dev, "device");
   dev.close();
 }

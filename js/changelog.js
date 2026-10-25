@@ -2,6 +2,20 @@
 // summary can never drift. Bump CHANGELOG[0].version here (and CACHE_VERSION in sw.js) on every release.
 export const CHANGELOG = [
   {
+    version: "2.61.0",
+    summary: "A Whole button for recipes, and every number now says what it is.",
+    changes: [
+      "Recipes: a Whole button joins 1/2, 1/3, 1/4, 1/6 and 1/8 under the Grams box (you can also type \"whole\"). It adds the whole dish",
+      "Carb ratios read 1u:10g (1 unit per 10 g of carbs) everywhere, instead of a bare 1:10",
+      "Carb amounts say \"carbs\": the current meal, your logged meals and their foods, the food lists and By meal",
+      "Foods in the Library show their figures as per 100 g",
+      "Charts label their units: g and u on the daily carbs and insulin charts, and mg/dL (or mmol/L) on the glucose charts",
+      "Glucose figures in Insights, Statistics and the target-range labels show mg/dL (or mmol/L), as does the correction working on the Calculator",
+      "On iPad and PC, a meal card's carbs and kcal sit on two lines, so the time and ratio stay on one",
+      "Doses are calculated exactly as before"
+    ]
+  },
+  {
     version: "2.60.1",
     summary: "The ready-made recipes work again, and the Library shows each recipe's whole-dish carbs.",
     changes: [

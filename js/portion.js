@@ -11,6 +11,8 @@
 import { parseDecimalInput } from "./util.js";
 
 export const FRACTION_CHIPS = [[1, 2], [1, 3], [1, 4], [1, 6], [1, 8]];
+export const WHOLE_CHIP = "Whole";   // the quick button for the whole dish (shown first)
+const WHOLE_WORDS = /^(whole|all|intero|intera|tutto|tutta)$/i;
 const UNICODE = { "½": [1, 2], "⅓": [1, 3], "⅔": [2, 3], "¼": [1, 4], "¾": [3, 4], "⅕": [1, 5], "⅙": [1, 6], "⅛": [1, 8] };
 const SLICE_WORDS = "slices?|sl|fette|fetta|pieces?|pcs?|pz";
 
@@ -34,6 +36,12 @@ export function parsePortion(text, { dishWeight = null, slices = null } = {}) {
   // Plain grams, with a decimal point or comma.
   const g = parseDecimalInput(s);
   if (!isNaN(g)) return g > 0 ? { ok: true, grams: round1(g), kind: "grams", label: null, share: null } : { ok: false, error: "Enter an amount greater than 0." };
+
+  // The whole dish: "Whole", "all", "intero".
+  if (WHOLE_WORDS.test(s)) {
+    if (!isRecipe) return { ok: false, error: "\"Whole\" works for recipes. For this food, enter grams." };
+    return { ok: true, grams: round1(dishWeight), kind: "fraction", label: WHOLE_CHIP, share: 1 };
+  }
 
   // A fraction: 1/8, 2 / 3, or a single character like ⅓.
   let frac = null;

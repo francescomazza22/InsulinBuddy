@@ -328,6 +328,7 @@ input.meal-item__grams-input.is-editing {
 .app input.meal-item__grams-input.is-editing { font-size: max(16px, var(--rem)); }
 input.meal-item__grams-input:focus { outline: none; }
 .meal-item__carbs { font-family: var(--font-display); font-size: var(--fs-body); font-weight: 700; color: var(--amber); flex-shrink: 0; }
+.meal-item__carbs-unit { font-size: var(--fs-s); font-weight: 600; }
 .meal-item__remove { background: none; border: none; color: var(--ink-soft); cursor: pointer; padding: var(--space-3xs); flex-shrink: 0; }
 .meal-item__remove svg { width: 15px; height: 15px; display: block; }
 
@@ -493,6 +494,8 @@ html[data-theme="dark"] .cat-snacks, html[data-theme="dark"] .cat-other { filter
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: var(--space-s); align-items: start;
 }
+/* Two or more cards per row (iPad and PC): carbs above kcal, so "52g carbs" doesn't push the time and ratio onto two lines. */
+@media (min-width: 700px) { .history-group .stat-line { flex-direction: column; align-items: flex-end; gap: 0; } }
 .history-group__date { grid-column: 1 / -1; font-size: var(--fs-xs); font-weight: 700; color: var(--ink-soft); margin: var(--space-2xs) 2px 0; }
 .history-entry {
   background: var(--surface); border: 1.5px solid var(--line); border-left-width: 4px;
@@ -521,7 +524,8 @@ html[data-theme="dark"] .dose-pill--warn { color: #FBBF24; border-color: #FBBF24
 .dose-pill svg { width: 11px; height: 11px; }
 .history-entry__detail { margin-top: 9px; padding-top: 9px; border-top: 1px dashed var(--line); font-size: var(--fs-s); color: var(--ink-soft); }
 .history-entry__item { display: flex; align-items: baseline; gap: var(--space-xs); margin-bottom: var(--space-3xs); }
-.history-entry__item-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.history-entry__item-name { flex: 1; min-width: 0; overflow-wrap: anywhere; }   /* wraps rather than cutting the name now the carbs say "carbs" */
+.history-entry__item-unit { font-size: var(--fs-xs); font-weight: 500; }
 .history-entry__item-qty { color: var(--ink-soft); opacity: 0.75; font-size: var(--fs-xs); flex-shrink: 0; }
 .history-entry__item-carbs { font-weight: 600; color: var(--green); flex-shrink: 0; min-width: 38px; text-align: right; }
 .history-entry__row-actions { display: flex; gap: var(--space-s); margin-top: var(--space-s); }
@@ -1242,6 +1246,7 @@ html[data-theme="dark"] .undo-toast { background: var(--surface); border: 1px so
 .ins-big { display: flex; align-items: baseline; gap: var(--space-xs); flex-wrap: wrap; margin: var(--space-3xs) 0 2px; }
 .ins-big__num { font-family: var(--font-display); font-weight: 800; font-size: calc(2 * var(--rem)); color: var(--ink); font-variant-numeric: tabular-nums; }
 .ins-big__unit { color: var(--ink-soft); font-size: var(--fs-m); }
+.ins-col__unit { color: var(--ink-soft); font-size: var(--fs-s); font-weight: 600; }
 .ins-cols { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-s); margin-top: var(--space-2xs); }
 .ins-col { background: var(--surface-2, rgba(128,128,128,0.10)); border-radius: var(--radius-s); padding: var(--space-s) var(--space-m); }
 .ins-col__title { font-size: var(--fs-xs); font-weight: 700; color: var(--ink-soft); }

@@ -27,13 +27,21 @@ const clearMeal = () => dev.eval(`(() => { while (document.querySelector(".meal-
 
 t.section("PORTIONS: the recipe offers one-tap fractions");
 await pick("Banana Bread");
-t.check("picking a recipe shows 1/2, 1/3, 1/4, 1/6 and 1/8 under the Grams box", (await dev.eval(`[...document.querySelectorAll(".portion__chip")].map(b => b.textContent).join(" ")`)) === "1/2 1/3 1/4 1/6 1/8");
+t.check("picking a recipe shows Whole, 1/2, 1/3, 1/4, 1/6 and 1/8 under the Grams box", (await dev.eval(`[...document.querySelectorAll(".portion__chip")].map(b => b.textContent).join(" ")`)) === "Whole 1/2 1/3 1/4 1/6 1/8");
 t.check("and says what a portion is measured against (the 800 g dish)", /800 g/.test(await note()), await note());
 await dev.eval(`[...document.querySelectorAll(".portion__chip")].find(b => b.textContent === "1/8").click()`); await sleep(120);
 t.check("tapping 1/8 fills it in and shows what it works out to before adding", (await dev.eval(`document.getElementById("cc-grams").value`)) === "1/8" && /1\/8 of the dish \(800 g\) = 100 g · 20 g carbs/.test(await note()), await note());
 await dev.click("#cc-add-btn"); await sleep(300);
-t.check("added: the row shows 1/8 and 100 g, with 20 g carbs", /^1\/8 · 100\s*g/.test((await rows())[0]) && /20g$/.test((await rows())[0]), JSON.stringify(await rows()));
+t.check("added: the row shows 1/8 and 100 g, with 20 g carbs", /^1\/8 · 100\s*g/.test((await rows())[0]) && /20g carbs$/.test((await rows())[0]), JSON.stringify(await rows()));
 t.check("the dose follows from those carbs exactly as with grams (20 g at 1:10 = 2 units)", (await dev.text("#cc-dose-number")) === "2.0", await dev.text("#cc-dose-number"));
+
+t.section("PORTIONS: the whole dish");
+await clearMeal(); await sleep(150);
+await pick("Banana Bread");
+await dev.eval(`[...document.querySelectorAll(".portion__chip")].find(b => b.textContent === "Whole").click()`); await sleep(120);
+t.check("tapping Whole fills it in and shows the whole dish's carbs", (await dev.eval(`document.getElementById("cc-grams").value`)) === "Whole" && /The whole dish \(800 g\) = 800 g · 160 g carbs/.test(await note()), await note());
+await dev.click("#cc-add-btn"); await sleep(300);
+t.check("added: Whole, 800 g, 160 g carbs", /^Whole · 800\s*g/.test((await rows())[0]) && /160g carbs$/.test((await rows())[0]), JSON.stringify(await rows()));
 
 t.section("PORTIONS: typing a fraction, and a different batch weight");
 await clearMeal(); await sleep(150);
@@ -43,7 +51,7 @@ t.check("typing 1/3 works too (266.7 g, 53.3 g carbs)", /1\/3 of the dish \(800 
 await dev.eval(`(() => { const b = document.getElementById("cc-batch-weight"); b.value = "1000"; b.dispatchEvent(new Event("input", { bubbles: true })); })()`); await sleep(150);
 t.check("if this batch weighed 1000 g, 1/3 is 333.3 g, but still a third of the carbs (53.3 g)", /1\/3 of the dish \(1000 g\) = 333.3 g · 53.3 g carbs/.test(await note()), await note());
 await dev.click("#cc-add-btn"); await sleep(300);
-t.check("added with a third of the dish's carbs", /53.3g$/.test((await rows())[0]), JSON.stringify(await rows()));
+t.check("added with a third of the dish's carbs", /53.3g carbs$/.test((await rows())[0]), JSON.stringify(await rows()));
 
 t.section("PORTIONS: things that can't be a portion");
 await clearMeal(); await sleep(150);
