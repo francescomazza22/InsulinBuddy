@@ -2,6 +2,18 @@
 // summary can never drift. Bump CHANGELOG[0].version here (and CACHE_VERSION in sw.js) on every release.
 export const CHANGELOG = [
   {
+    version: "2.55.0",
+    summary: "New look: Apple's iOS colours throughout, with five new themes and a true-black dark mode.",
+    changes: [
+      "Backgrounds, cards and text now use Apple's iOS greys: a light grey page with white cards, and in dark mode a pure black page with dark grey cards",
+      "Five new themes made from Apple's system colours: Blue & Indigo (the default), Indigo & Purple, Purple & Pink, Blue & Teal and Indigo & Cyan. Each one switches to Apple's brighter dark-mode shades at night",
+      "Your old theme moves to the closest new one automatically. There are no green or orange themes any more, because those colours mean in range and high",
+      "Low, in range and high use Apple's red, green and orange; carbs and warnings use Apple's higher-contrast shades in light mode so small text stays easy to read",
+      "Meal icons and the ratio colours use Apple's colours too; ratios you set up with the old preset colours switch over by themselves (custom colours are left alone)",
+      "Doses are calculated exactly as before: only colours changed"
+    ]
+  },
+  {
     version: "2.54.0",
     summary: "Add a recipe as a portion of the dish: tap 1/8 or type 1/3, or use slices, instead of weighing it.",
     changes: [

@@ -79,7 +79,7 @@ test("the linework is softened so that, after the fade, it matches the faint ink
 });
 
 test("READABILITY: grey text stays at 3:1 (4.5:1 in dark mode) and main text at 9:1, even on the strongest artwork colour behind it, over every background you can pick", () => {
-  const rootBlock = tokenCss.slice(0, tokenCss.indexOf('[data-theme="dark"]')), darkBlock = tokenCss.slice(tokenCss.indexOf('[data-theme="dark"]'), tokenCss.indexOf('[data-theme="dark"]') + 900);
+  const rootBlock = tokenCss.slice(0, tokenCss.indexOf('[data-theme="dark"]')), darkAt = tokenCss.indexOf('html[data-theme="dark"] {'), darkBlock = tokenCss.slice(darkAt, darkAt + 900);
   const v = (block, name) => hex(new RegExp(`${name}:\\s*(#[0-9A-Fa-f]{6})`).exec(block)[1]);
   const presets = [...app.slice(app.indexOf("const BG_PRESETS"), app.indexOf("const BG_PRESETS") + 400).matchAll(/#[0-9A-Fa-f]{6}/g)].map(m => hex(m[0]));
   const cases = [

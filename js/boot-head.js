@@ -13,6 +13,6 @@
     root.setAttribute("data-theme", dark ? "dark" : "light");
     root.setAttribute("data-tod", tod);
     root.setAttribute("data-greeting", h < 5 ? "Good night" : h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening");
-    var m = document.querySelector('meta[name="theme-color"]'); if (m) m.setAttribute("content", dark ? "#0F1318" : "#F4F5F7");
+    var m = document.querySelector('meta[name="theme-color"]'); if (m) m.setAttribute("content", dark ? "#000000" : "#F2F2F7");
   } catch (e) {}
 })();

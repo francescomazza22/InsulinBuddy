@@ -9,6 +9,10 @@ export function buildTokens(t) {
   const hexToRgb = h => { const n = parseInt(h.slice(1), 16); return `${(n >> 16) & 255},${(n >> 8) & 255},${n & 255}`; };
   const decl = (obj, prefix = "") => Object.entries(obj).map(([k, v]) => `  --${prefix}${k}: ${v};`).join("\n");
   const def = t.palette.set[t.palette.default];
+  // Each palette carries light accents (acc-1..3) and dark-mode twins (acc-1-dark, acc-2-dark): Apple's system colours
+  // shift brighter on black, so a theme swaps to its own dark pair when dark mode is on.
+  const light = p => ({ "acc-1": p["acc-1"], "acc-2": p["acc-2"], "acc-3": p["acc-3"] });
+  const accents = (a1, a2, a3) => `--acc-1:${a1}; --acc-2:${a2}; --acc-3:${a3}; --acc-1-rgb: ${hexToRgb(a1)};`;
   const px = o => Object.fromEntries(Object.entries(o).map(([k, v]) => [k, v + "px"]));
   const rem = o => Object.fromEntries(Object.entries(o).map(([k, v]) => [k, v + "rem"]));
 
@@ -27,7 +31,7 @@ ${decl(rem(t.type.size), "fs-")}
 ${decl(t.motion, "motion-")}
 
   /* palette accents: overridden per data-palette */
-${decl(def)}
+${decl(light(def))}
   --acc-1-rgb: ${hexToRgb(def["acc-1"])};
 
   /* Liquid Glass */
@@ -36,13 +40,15 @@ ${decl(t.glass.light, "glass-")}
 }
 
 /* ---------- Palettes ---------- */
-${Object.entries(t.palette.set).map(([n, p]) => `html[data-palette="${n}"], [data-swatch="${n}"] { --acc-1:${p["acc-1"]}; --acc-2:${p["acc-2"]}; --acc-3:${p["acc-3"]}; --acc-1-rgb: ${hexToRgb(p["acc-1"])}; }`).join("\n")}
+${Object.entries(t.palette.set).map(([n, p]) => `html[data-palette="${n}"], [data-swatch="${n}"] { ${accents(p["acc-1"], p["acc-2"], p["acc-3"])} }`).join("\n")}
+${Object.entries(t.palette.set).map(([n, p]) => `html[data-theme="dark"][data-palette="${n}"], html[data-theme="dark"] [data-swatch="${n}"] { ${accents(p["acc-1-dark"], p["acc-2-dark"], p["acc-1-dark"])} }`).join("\n")}
 
 /* ---------- Dark mode ---------- */
 html[data-theme="dark"] {
 ${decl(t.color.dark)}
   --app-bg: var(--paper);
 ${decl(t.glass.dark, "glass-")}
+  ${accents(def["acc-1-dark"], def["acc-2-dark"], def["acc-1-dark"])}
 }
 `;
 
@@ -65,7 +71,7 @@ ${colors(t.color.light, "        ")}
 ${colors(t.color.dark, "        ")}
     }
     enum Palette {
-${Object.entries(t.palette.set).map(([n, p]) => `        static let ${lower(n)} = (acc1: ${hex(p["acc-1"])}, acc2: ${hex(p["acc-2"])}, acc3: ${hex(p["acc-3"])})`).join("\n")}
+${Object.entries(t.palette.set).map(([n, p]) => `        static let ${lower(n)} = (acc1: ${hex(p["acc-1"])}, acc2: ${hex(p["acc-2"])}, acc3: ${hex(p["acc-3"])}, acc1Dark: ${hex(p["acc-1-dark"])}, acc2Dark: ${hex(p["acc-2-dark"])})`).join("\n")}
         static let \`default\` = ${lower(t.palette.default)}
     }
     enum Radius {

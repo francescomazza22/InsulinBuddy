@@ -21,6 +21,7 @@ import { createDialogs } from "./js/dialogs.js";
 import { installClearButtons } from "./js/clear-field.js";
 import { swipeAxis, swipePos, swipeSettle, swipeVelocity } from "./js/swipe.js";
 import { parsePortion, FRACTION_CHIPS, fractionLabel, slicesLabel } from "./js/portion.js";
+import { PALETTES, DEFAULT_PALETTE, paletteId, RATIO_COLOURS, refreshRatioColours } from "./js/palettes.js";
 import { toMinutes, inRange, ratioAt, ratioMatch, bracketDays, daysLabel, DAY_NAMES, autoMealType, formatDuration, clampNum } from "./js/core/time.js";
 import { toCsv, parseCsv, recipeTotals as recipeTotalsWith, parseLibraryFile, mergeLibrary } from "./js/core/library.js";
 import { buildMealEntry, adjustUsage } from "./js/core/meal-entry.js";
@@ -72,23 +73,12 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
     { id: "other", label: "Other" }
   ];
 
-  // Each card shows the theme's two working colours -- colour 1 (buttons, switches, charts) and colour 2 (where the dose
-  // card fades to) -- read straight from the design tokens via data-swatch, so the card can never drift from the real theme.
-  const PALETTES = [
-    { id: "tealViolet", name: "Teal & Violet" },
-    { id: "blueViolet", name: "Blue & Purple" },
-    { id: "emeraldRose", name: "Emerald & Rose" },
-    { id: "orangePink", name: "Orange & Pink" },
-    { id: "cyanIndigo", name: "Cyan & Indigo" },
-    { id: "greenAmber", name: "Green & Amber" }
-  ];
-
   const MEAL_TYPES = {
-    breakfast: { label: "Breakfast", color: "#E8935D", icon: iconCoffee() },
-    lunch:     { label: "Lunch",     color: "#D6A419", icon: iconSun() },
-    dinner:    { label: "Dinner",    color: "#6B5FD0", icon: iconMoon() },
-    snack:     { label: "Snack",     color: "#4C9A6A", icon: iconApple() },
-    correction: { label: "Correction", color: "#C0392B", icon: iconPulse() }
+    breakfast: { label: "Breakfast", color: "#FF8D28", icon: iconCoffee() },
+    lunch:     { label: "Lunch",     color: "#F5A900", icon: iconSun() },
+    dinner:    { label: "Dinner",    color: "#6155F5", icon: iconMoon() },
+    snack:     { label: "Snack",     color: "#34C759", icon: iconApple() },
+    correction: { label: "Correction", color: "#FF383C", icon: iconPulse() }
   };
   const BASAL_COLOR = "#356E9C";
 
@@ -101,10 +91,10 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
   function iconApple() { return '<svg viewBox="0 0 24 24" fill="none"><path d="M12 8.5c-3.5-2.5-8 0-8 5S7.5 21 10 20c1-.4 1-.4 2 0 2.5 1 6-2.5 6-6.5s-4.5-7.5-6-5z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M12 8.5c0-1.5.5-3 2-4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>'; }
 
   const DEFAULT_TIME_RATIOS = [
-    { id: "tr-morning", name: "Morning", start: "05:30", end: "11:00", ratio: 10, color: "#1F9E93" },
-    { id: "tr-lunch",   name: "Lunch",   start: "11:00", end: "15:00", ratio: 8,  color: "#D6A419" },
-    { id: "tr-evening", name: "Evening", start: "15:00", end: "23:30", ratio: 15, color: "#6366F1" },
-    { id: "tr-night",   name: "Night",   start: "23:30", end: "05:30", ratio: 12, color: "#D9534F" }
+    { id: "tr-morning", name: "Morning", start: "05:30", end: "11:00", ratio: 10, color: "#0C817B" },
+    { id: "tr-lunch",   name: "Lunch",   start: "11:00", end: "15:00", ratio: 8,  color: "#B25000" },
+    { id: "tr-evening", name: "Evening", start: "15:00", end: "23:30", ratio: 15, color: "#6155F5" },
+    { id: "tr-night",   name: "Night",   start: "23:30", end: "05:30", ratio: 12, color: "#D70015" }
   ];
   const DEFAULT_ACTIVITY_RATIOS = [
     { id: "ar-sport", name: "Sport", ratio: 18, color: "#8B5CF6" }
@@ -120,7 +110,7 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
         maxDose: 15,
         timeRatios: structuredClone(DEFAULT_TIME_RATIOS),
         activityRatios: structuredClone(DEFAULT_ACTIVITY_RATIOS),
-        palette: "blueViolet",
+        palette: DEFAULT_PALETTE,
         darkMode: false,
         darkModeAuto: false,
         showRecentMeals: true,
@@ -456,7 +446,7 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
   // Refresh what's on screen after a background merge WITHOUT resetting the
   // meal being built in the Calculator (renderEverything() would).
   function renderAfterSync() {
-    document.documentElement.setAttribute("data-palette", state.settings.palette);
+    state.settings.palette = paletteId(state.settings.palette); refreshRatioColours(state.settings); document.documentElement.setAttribute("data-palette", state.settings.palette);
     applyTheme();
     renderFoodPickList(); renderMealItems(); recompute(); renderActivePanel();
     renderRecentMeals();
@@ -4645,12 +4635,12 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
     chartCarbsBox.innerHTML =
       `<p class="trend-readout">${trendChartCtx["trend-chart-carbs"].defaultText}</p>` +
       buildCarbsChartSvg(buckets, avgCarbs, width) +
-      `<div class="trend-legend"><span><span class="trend-legend__dot" style="background:var(--acc-1);"></span>Meals</span><span><span class="trend-legend__dot" style="background:#E0A100;"></span>Low treatment</span></div>` +
+      `<div class="trend-legend"><span><span class="trend-legend__dot" style="background:var(--acc-1);"></span>Meals</span><span><span class="trend-legend__dot" style="background:#FF8D28;"></span>Low treatment</span></div>` +
       (totalCarbsAll > 0 ? `<p class="trend-caption trend-caption--tight">${totalLowCarbs > 0 ? `${Math.round(totalLowCarbs)} g of the ${Math.round(totalCarbsAll)} g logged (${Math.round(totalLowCarbs / totalCarbsAll * 100)}%) was eaten to treat lows.` : "No carbs were eaten to treat lows in this period."}</p>` : "");
     chartDoseBox.innerHTML =
       `<p class="trend-readout">${trendChartCtx["trend-chart-dose"].defaultText}</p>` +
       buildDoseChartSvg(buckets, avgDose, width) +
-      `<div class="trend-legend"><span><span class="trend-legend__dot" style="background:var(--acc-1);"></span>Meal insulin</span><span><span class="trend-legend__dot" style="background:#C0392B;"></span>Correction</span></div>` +
+      `<div class="trend-legend"><span><span class="trend-legend__dot" style="background:var(--acc-1);"></span>Meal insulin</span><span><span class="trend-legend__dot" style="background:#FF383C;"></span>Correction</span></div>` +
       (totalIns > 0 ? `<p class="trend-caption trend-caption--tight">Corrections were ${corrPct}% of logged insulin (${round1(totalCorrIns)} of ${round1(totalIns)} u).</p>` : "");
 
     renderBasalTrend(buckets, basalSummary, width);
@@ -4773,7 +4763,7 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
     const band = pts.filter(p => p.p25 != null && p.p75 != null);
     const area = band.length > 1 ? `<path d="M${band.map(p => `${x(p.minute).toFixed(1)},${y(p.p75).toFixed(1)}`).join(" L")} L${band.slice().reverse().map(p => `${x(p.minute).toFixed(1)},${y(p.p25).toFixed(1)}`).join(" L")} Z" fill="var(--acc-1)" opacity="0.18"/>` : "";
     const line = `<path d="M${pts.map(p => `${x(p.minute).toFixed(1)},${y(p.p50).toFixed(1)}`).join(" L")}" fill="none" stroke="var(--acc-1)" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"/>`;
-    const target = `<rect x="${L}" y="${y(180).toFixed(1)}" width="${W - L - R}" height="${(y(70) - y(180)).toFixed(1)}" fill="#2E9E6B" opacity="0.10"/>`;
+    const target = `<rect x="${L}" y="${y(180).toFixed(1)}" width="${W - L - R}" height="${(y(70) - y(180)).toFixed(1)}" fill="#34C759" opacity="0.10"/>`;
     const xt = []; for (let h = 0; h <= hours; h++) xt.push(`<text x="${x(h * 60).toFixed(1)}" y="${H - 6}" text-anchor="middle" font-size="10" fill="var(--ink-soft)">${h}h</text>`);
     const yt = [lo, Math.round((lo + hi) / 2 / 10) * 10, hi].map(v => `<text x="${L - 4}" y="${(y(v) + 3).toFixed(1)}" text-anchor="end" font-size="10" fill="var(--ink-soft)">${fmtGlu(v)}</text><line x1="${L}" x2="${W - R}" y1="${y(v).toFixed(1)}" y2="${y(v).toFixed(1)}" stroke="var(--line, rgba(128,128,128,.25))" stroke-width="0.6"/>`);
     return `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Typical glucose after a meal, ${escapeAttr(group.label)}">${target}${yt.join("")}${area}${line}${xt.join("")}</svg>`;
@@ -4802,7 +4792,7 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
         <div class="ins-bar" role="img" aria-label="${escapeAttr(r.label)}: ${r.low} low, ${r.inRange} in range, ${r.high} high"><span class="ins-bar__low" style="width:${(r.low / r.n) * 100}%"></span><span class="ins-bar__in" style="width:${(r.inRange / r.n) * 100}%"></span><span class="ins-bar__high" style="width:${(r.high / r.n) * 100}%"></span></div>
         <div class="rtrend__n">${pctTxt((r.low / r.n) * 100)} low · ${pctTxt((r.inRange / r.n) * 100)} in range · ${pctTxt((r.high / r.n) * 100)} high${r.anyLow ? ` · ${r.anyLow} dipped below 70 at some point` : ""}</div></div>`;
       cards.push(insCard("Where glucose is 3 hours after a meal", "Per ratio bracket: how many meals ended low (under 70 mg/dL), in range, or high (over 180).",
-        out.rows.map(row).join("") + (out.rows.length > 1 ? row(out.all) : "") + `<div class="trend-legend"><span><span class="trend-legend__dot" style="background:#D9534F;"></span>Low</span><span><span class="trend-legend__dot" style="background:#2E9E6B;"></span>In range</span><span><span class="trend-legend__dot" style="background:#E0A100;"></span>High</span></div>`));
+        out.rows.map(row).join("") + (out.rows.length > 1 ? row(out.all) : "") + `<div class="trend-legend"><span><span class="trend-legend__dot" style="background:#FF383C;"></span>Low</span><span><span class="trend-legend__dot" style="background:#34C759;"></span>In range</span><span><span class="trend-legend__dot" style="background:#FF8D28;"></span>High</span></div>`));
     }
 
     // 3. Foods to watch
@@ -5968,7 +5958,7 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
     const ed = el("edit-" + r.id); if (ed) ed.hidden = false;
   });
 
-  const RANGE_COLORS = ["#1F9E93", "#D6A419", "#6366F1", "#D9534F", "#EC4899", "#22B8CE"];
+  const RANGE_COLORS = RATIO_COLOURS;
   bind("add-time-range-btn", "click", () => {
     const id = "tr-" + Date.now();
     let nm = "New range", k = 2;
@@ -6352,7 +6342,7 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
     document.documentElement.setAttribute("data-theme", isDarkModeActive() ? "dark" : "light");
     // A small hint the next start reads before anything is painted (see the first script in index.html), so the opening screen is dark at night.
     try { localStorage.setItem("insulinBuddy.theme", state.settings.darkModeAuto ? "auto" : state.settings.darkMode ? "dark" : "light"); } catch (e) { /* private mode: the phone's own setting decides */ }
-    const tc = document.querySelector('meta[name="theme-color"]'); if (tc) tc.setAttribute("content", isDarkModeActive() ? "#0F1318" : "#F4F5F7");
+    const tc = document.querySelector('meta[name="theme-color"]'); if (tc) tc.setAttribute("content", isDarkModeActive() ? "#000000" : "#F2F2F7");
     applyCustomBackground();
     applyBackgroundPattern();
   }
@@ -6404,7 +6394,7 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
 
   async function finishInit() {
     el("loading-screen").hidden = true; // the cover shown since first paint (index.html); real content is about to render
-    document.documentElement.setAttribute("data-palette", state.settings.palette);
+    state.settings.palette = paletteId(state.settings.palette); refreshRatioColours(state.settings); document.documentElement.setAttribute("data-palette", state.settings.palette);
     applyTheme();
     if (!stateFp) stateFp = makeFingerprint(state);
     applyGiSeedPatch();
@@ -6458,7 +6448,7 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
   }
 
   function renderEverything() {
-    document.documentElement.setAttribute("data-palette", state.settings.palette);
+    state.settings.palette = paletteId(state.settings.palette); refreshRatioColours(state.settings); document.documentElement.setAttribute("data-palette", state.settings.palette);
     applyTheme();
     applyGiSeedPatch();
     seedMealRecipes();

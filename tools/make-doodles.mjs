@@ -6,8 +6,8 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 export const VARIANTS = {
-  light: { stroke: "#17212F", opacity: "0.075" },   // the app's dark ink, drawn very faintly on the light paper
-  dark:  { stroke: "#E8ECF1", opacity: "0.07" }     // the app's light ink, drawn very faintly on the dark background
+  light: { stroke: "#000000", opacity: "0.075" },   // the app's dark ink, drawn very faintly on the light paper
+  dark:  { stroke: "#FFFFFF", opacity: "0.07" }     // the app's light ink, drawn very faintly on the dark background
 };
 export const START = "/* DOODLE-PATTERN:START";
 export const END = "/* DOODLE-PATTERN:END */";
