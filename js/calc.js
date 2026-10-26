@@ -464,7 +464,7 @@ export function ratioByBracket(entries, settings) {
  * matched C + r g, so the ratio that would have fitted is R x (C + r) / C. (Scaling R, rather than dividing carbs by the
  * dose, keeps dose rounding out of it.) The bracket's figure is the mean of those, directly comparable with the mean of
  * the ratios used. A bracket with no lows after its meals comes out equal to what was used. */
-export function idealRatioByBracket(entries, settings, windowHours = 3) {
+export function idealRatioByBracket(entries, settings, windowHours = 3, { skip = () => false } = {}) {
   const windowMs = Math.max(0, Number(windowHours) || 0) * 3600000;
   const list = (entries || []).filter(e => e && e.entryType !== "basal" && e.mealType !== "basal" && e.entryType !== "activity" && Number.isFinite(e.ts)).slice().sort((a, b) => a.ts - b.ts);
   const hasInsulin = e => !e.noInsulin && ((Number(e.mealDose) || 0) + (Number(e.correctionDose) || 0)) > 0;
@@ -482,7 +482,9 @@ export function idealRatioByBracket(entries, settings, windowHours = 3) {
   }
   const groups = new Map();
   for (const e of list) {
-    if (!ratioWasApplied(e)) continue;
+    // `skip` (2.67.0) leaves a meal out of the figures (e.g. one eaten near a logged activity). Low treatments are still
+    // credited to the meal before them above, so leaving a meal out never moves its lows onto another one.
+    if (!ratioWasApplied(e) || skip(e)) continue;
     const key = e.ratioLabel || "";
     const r = rescue.get(e) || 0;
     if (!groups.has(key)) groups.set(key, []);

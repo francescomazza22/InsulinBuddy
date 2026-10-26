@@ -32,6 +32,7 @@ import { groupEvents, logHealth, isSyncStuck } from "./js/core/problems.js";
 import { createWebPlatform, assertPlatform } from "./js/core/platform.js";
 import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS } from "./js/core/storage.js";
 import { workoutsToActivities, awaitingIntensity, intensityUpdates, INBOX_KEEP_MS } from "./js/health-import.js";
+import { nearActivity, activitySkip, countNearActivity, breakfastByActivity, activitySummary, ACTIVITY_FILTERS, NEAR_BEFORE_HOURS, NEAR_AFTER_HOURS } from "./js/activity-stats.js";
 
 
   const STORAGE_KEY = "insulinBuddy.v2";
@@ -5019,6 +5020,7 @@ import { workoutsToActivities, awaitingIntensity, intensityUpdates, INBOX_KEEP_M
     renderBasalTrend(buckets, basalSummary, width);
     renderTrendMealBreakdown(inRange);
     renderRatioTrend(inRange);
+    renderActivityFilter(inRange);
     renderIdealRatioTrend(inRange);
     renderInsights(inRange, days);
   }
@@ -5055,6 +5057,50 @@ import { workoutsToActivities, awaitingIntensity, intensityUpdates, INBOX_KEEP_M
 
   // "Ideal ratio by time of day": the ratio that would have matched each meal if the carbs eaten to treat a low shortly
   // afterwards had been counted into it. The look-back window is the person's choice (2, 3 or 4 hours; 3 by default).
+  // "Meals near activity" (2.67.0): exercise lowers glucose for hours, so a meal eaten from 2 h before to 4 h after a logged
+  // activity ends lower and makes its ratio look stronger than it is. This switch decides which meals the ideal ratio and the
+  // meal-based glucose insights use: without activity (the default), only those near activity, or all. It is shown only when
+  // the period has meals near an activity. js/activity-stats.js has the rule; the statistics take it as a `skip` option.
+  const ACTIVITY_FILTER_KEY = "insulinBuddy.activityFilter";
+  let activityFilter = "without";
+  try { const v = store.getItem(ACTIVITY_FILTER_KEY); if (ACTIVITY_FILTERS.includes(v)) activityFilter = v; } catch (e) { /* storage unavailable: keep the default */ }
+  let activityFilterCounts = { near: 0, other: 0 };
+  // The filter in force: with no meals near activity in the period, every choice gives the same figures, so it is "all".
+  const effectiveActivityFilter = () => (activityFilterCounts.near > 0 ? activityFilter : "all");
+  const mealSkip = () => activitySkip(effectiveActivityFilter(), nearActivity(state.history));
+  function activityFilterNote() {
+    const f = effectiveActivityFilter(), c = activityFilterCounts;
+    if (f === "without") return `${c.near} meal${c.near === 1 ? "" : "s"} near a logged activity left out.`;
+    if (f === "only") return `Only the ${c.near} meal${c.near === 1 ? "" : "s"} near a logged activity.`;
+    return "";
+  }
+  function renderActivityFilter(inRange) {
+    const card = el("trend-card-activity-filter"), hint = el("trend-activity-filter-hint"), box = el("trend-activity-filter");
+    activityFilterCounts = countNearActivity(inRange, nearActivity(state.history));
+    if (!card) return;
+    const c = activityFilterCounts;
+    card.hidden = c.near === 0;
+    if (c.near === 0) return;
+    hint.textContent = `Exercise lowers glucose for hours, so meals eaten from ${NEAR_BEFORE_HOURS}\u00a0h before to ${NEAR_AFTER_HOURS}\u00a0h after a logged activity end lower and make a ratio look stronger than it is. ${c.near} of ${c.near + c.other} meals in this period were. The ideal ratio and the glucose insights below use:`;
+    const counts = { without: c.other, only: c.near, all: c.near + c.other };
+    box.querySelectorAll("[data-actfilter]").forEach(b => {
+      const on = b.dataset.actfilter === activityFilter;
+      b.classList.toggle("is-active", on); b.setAttribute("aria-pressed", String(on));
+      let small = b.querySelector("small");
+      if (!small) { small = document.createElement("small"); b.append(" ", small); }
+      small.textContent = String(counts[b.dataset.actfilter]);
+    });
+  }
+  const activityFilterBox = el("trend-activity-filter");
+  if (activityFilterBox) activityFilterBox.addEventListener("click", ev => {
+    const b = ev.target.closest("[data-actfilter]"); if (!b || !ACTIVITY_FILTERS.includes(b.dataset.actfilter)) return;
+    activityFilter = b.dataset.actfilter;
+    try { store.setItem(ACTIVITY_FILTER_KEY, activityFilter); } catch (e) { /* not essential */ }
+    renderActivityFilter(lastIdealEntries);
+    renderIdealRatioTrend(lastIdealEntries);
+    drawInsights();
+  });
+
   const IDEAL_WINDOWS = [2, 3, 4], IDEAL_WINDOW_KEY = "insulinBuddy.idealWindowHours";
   let idealWindowHours = 3;
   try { const v = Number(store.getItem(IDEAL_WINDOW_KEY)); if (IDEAL_WINDOWS.includes(v)) idealWindowHours = v; } catch (e) { /* storage unavailable: keep the default */ }
@@ -5071,10 +5117,10 @@ import { workoutsToActivities, awaitingIntensity, intensityUpdates, INBOX_KEEP_M
     lastIdealEntries = inRange;
     const card = el("trend-card-ideal"), box = el("trend-ideal");
     if (!card || !box) return;
-    const res = idealRatioByBracket(inRange, state.settings, idealWindowHours);
-    card.hidden = res.total === 0;
+    const res = idealRatioByBracket(inRange, state.settings, idealWindowHours, { skip: mealSkip() });
+    card.hidden = res.total === 0 && effectiveActivityFilter() === "all";
     if (idealPicker) idealPicker.querySelectorAll("[data-hours]").forEach(b => { const on = Number(b.dataset.hours) === idealWindowHours; b.classList.toggle("is-active", on); b.setAttribute("aria-pressed", String(on)); });
-    if (res.total === 0) { box.innerHTML = ""; return; }
+    if (res.total === 0) { box.innerHTML = card.hidden ? "" : `<p class="trend-caption trend-caption--tight">No ratio-dosed meals with this choice. ${escapeHtml(activityFilterNote())}</p>`; return; }
     const fmt = n => String(round1(n));
     const scale = Math.max(1, ...res.rows.map(r => Math.max(r.used || 0, r.ideal || 0, r.current || 0))) * 1.08;
     const pct = v => Math.max(0, Math.min(100, (v / scale) * 100));
@@ -5096,6 +5142,7 @@ import { workoutsToActivities, awaitingIntensity, intensityUpdates, INBOX_KEEP_M
       `<div class="trend-legend"><span><span class="trend-legend__dot" style="background:var(--ink-soft);opacity:.45;"></span>Used</span><span><span class="trend-legend__dot" style="background:var(--ink-soft);"></span>Ideal</span><span><span class="trend-legend__tick"></span>Set now</span></div>` +
       `<p class="trend-caption trend-caption--tight">${res.lowsCounted > 0 ? `${res.lowsCounted} low${res.lowsCounted === 1 ? "" : "s"} treated within ${res.windowHours} h of an injection (${round1(res.rescueCarbs)} g) counted into the meal before ${res.lowsCounted === 1 ? "it" : "them"}.` : `No lows were treated within ${res.windowHours} h of an injection in this period, so the ideal ratio equals the ratio used.`}` +
       (res.lowsUnattached > 0 ? ` ${res.lowsUnattached} other low${res.lowsUnattached === 1 ? "" : "s"} had no ratio-dosed meal in the window, so ${res.lowsUnattached === 1 ? "isn't" : "aren't"} counted.` : "") +
+      (activityFilterNote() ? ` ${activityFilterNote()}` : "") +
       ` A longer ratio number means less insulin per gram of carbs. This is a pattern to talk through with your care team, not a dosing instruction.</p>`;
   }
 
@@ -5149,9 +5196,10 @@ import { workoutsToActivities, awaitingIntensity, intensityUpdates, INBOX_KEEP_M
     if (!box || !lastInsights) return;
     const { entries, readings } = lastInsights;
     const cards = [];
+    const skip = mealSkip();   // meals near a logged activity, per the "Meals near activity" switch (2.67.0)
 
     // 1. Glucose after meals
-    const cur = postMealCurves(entries, readings, { hours: 4, stepMin: 15 });
+    const cur = postMealCurves(entries, readings, { hours: 4, stepMin: 15, skip });
     if (cur.groups.length) {
       if (!cur.groups.some(g => g.label === insightsCurveGroup)) insightsCurveGroup = "All meals";
       const g = cur.groups.find(x => x.label === insightsCurveGroup);
@@ -5161,7 +5209,7 @@ import { workoutsToActivities, awaitingIntensity, intensityUpdates, INBOX_KEEP_M
     }
 
     // 2. Outcome by bracket
-    const out = outcomeByBracket(entries, readings, { afterHours: 3 });
+    const out = outcomeByBracket(entries, readings, { afterHours: 3, skip });
     if (out.total) {
       const row = r => `<div class="ins-row"><div class="ins-row__head"><span class="rtrend__name">${escapeHtml(r.label)}</span><span class="rtrend__n">${r.n} meal${r.n === 1 ? "" : "s"} · avg ${fmtGlu(r.avgStart)} → ${fmtGluU(r.avgEnd)}</span></div>
         <div class="ins-bar" role="img" aria-label="${escapeAttr(r.label)}: ${r.low} low, ${r.inRange} in range, ${r.high} high"><span class="ins-bar__low" style="width:${(r.low / r.n) * 100}%"></span><span class="ins-bar__in" style="width:${(r.inRange / r.n) * 100}%"></span><span class="ins-bar__high" style="width:${(r.high / r.n) * 100}%"></span></div>
@@ -5171,7 +5219,7 @@ import { workoutsToActivities, awaitingIntensity, intensityUpdates, INBOX_KEEP_M
     }
 
     // 3. Foods to watch
-    const foods = foodImpact(entries, readings, { minMeals: 2 });
+    const foods = foodImpact(entries, readings, { minMeals: 2, skip });
     if (foods.rows.length) {
       const li = r => `<li><span class="ins-li__name">${escapeHtml(r.name)}</span><span class="ins-li__val">+${fmtGlu(r.avgRise)} ${gluUnit()}</span><span class="rtrend__n">${r.n} meals · peak ${fmtGluU(r.avgPeak)}${r.lowPct ? ` · low after ${pctTxt(r.lowPct)}` : ""}</span></li>`;
       cards.push(insCard("Foods to watch", "Average rise (highest reading in the 3 hours minus the starting reading) for foods that made up most of a meal's carbs. Needs at least 2 such meals.",
@@ -5180,7 +5228,7 @@ import { workoutsToActivities, awaitingIntensity, intensityUpdates, INBOX_KEEP_M
 
     // 4. Correction effectiveness
     const isf = isfToMgdl(state.settings.isf, state.settings.units);
-    const cor = correctionEffectiveness(entries, readings, { isfMgdl: isf });
+    const cor = correctionEffectiveness(entries, readings, { isfMgdl: isf, skip });
     if (cor.n) {
       const eff = cor.medianPerUnit;
       cards.push(insCard("How well corrections work", "Corrections given on their own, with no food or other insulin within the following 4 hours: how far glucose fell per unit by 3 hours later.",
@@ -5190,7 +5238,7 @@ import { workoutsToActivities, awaitingIntensity, intensityUpdates, INBOX_KEEP_M
     }
 
     // 5. Stacking
-    const stk = iobStacking(entries, readings);
+    const stk = iobStacking(entries, readings, { skip });
     if (stk.stacked.n && stk.clean.n) {
       const col = (t, s) => `<div class="ins-col"><div class="ins-col__title">${t}</div><div class="ins-col__num">${fmtGlu(s.avgEnd)}<span class="ins-col__unit"> ${gluUnit()}</span></div><div class="rtrend__n">avg at 3 h · ${s.n} meals</div><div class="rtrend__n">${pctTxt(s.lowPct)} dipped low · ${pctTxt(s.highPct)} high</div></div>`;
       cards.push(insCard("Meals taken with insulin still active", `Meals eaten within ${stk.windowHours} hours of an earlier dose, compared with meals taken with no recent insulin.`,
@@ -5231,6 +5279,32 @@ import { workoutsToActivities, awaitingIntensity, intensityUpdates, INBOX_KEEP_M
         `<ul class="ins-list ins-list--plain">${acts.map(row).join("")}</ul>`));
     }
 
+    // 9. Activity summary and breakfast comparison (2.67.0)
+    const days = lastInsights.days || 14;
+    const summ = activitySummary(state.history, readings, { days });
+    if (summ.sessions) {
+      const dayCol = (t, s) => `<div class="ins-col"><div class="ins-col__title">${t}</div><div class="ins-col__num">${pctTxt(s.tir)}</div><div class="rtrend__n">in range · ${s.days} day${s.days === 1 ? "" : "s"}</div><div class="rtrend__n">${s.readings ? `${pctTxt(s.lowPct)} low · avg ${fmtGluU(s.avg)}` : "not enough readings"}</div><div class="rtrend__n">${s.nights ? `night after: ${s.lowNights} of ${s.nights} went low · lowest avg ${fmtGluU(s.avgNightLowest)}` : "no nights with readings yet"}</div></div>`;
+      const types = summ.byType.map(t => `<li><span class="ins-li__name">${escapeHtml(t.label)}</span><span class="ins-li__val">${escapeHtml(formatMinutes(t.minutes))}</span><span class="rtrend__n">${t.n} time${t.n === 1 ? "" : "s"}</span></li>`).join("");
+      cards.push(insCard("Activity summary", `Logged activity in the last ${days} days, and glucose on days with activity compared with days without.`,
+        `<div class="ins-cols"><div class="ins-col"><div class="ins-col__title">A week</div><div class="ins-col__num">${Math.round(summ.minutesPerWeek)}<span class="ins-col__unit"> min</span></div><div class="rtrend__n">${summ.sessions} session${summ.sessions === 1 ? "" : "s"} · ${escapeHtml(formatMinutes(summ.totalMinutes))} in all</div></div><div class="ins-col"><div class="ins-col__title">Active days</div><div class="ins-col__num">${summ.activeDays}<span class="ins-col__unit"> of ${summ.days}</span></div><div class="rtrend__n">typical session ${escapeHtml(formatMinutes(summ.medianMinutes || 0))}</div></div></div>` +
+        `<ul class="ins-list ins-list--plain">${types}</ul>` +
+        (summ.restDayStats.days ? `<div class="ins-cols">${dayCol("Active days", summ.activeDayStats)}${dayCol("Rest days", summ.restDayStats)}</div>` : "") +
+        `<p class="trend-caption trend-caption--tight">Exercise can lower glucose into the night, so the night after each day is shown too (00:00–06:00).</p>`));
+    }
+    const actsInPeriod = state.history.filter(e => isActivityEntry(e) && e.ts >= since);
+    if (actsInPeriod.length) {
+      const bf = breakfastByActivity(entries.concat(actsInPeriod), readings);
+      if (bf.active.n || bf.quiet.n) {
+        const col = (t, s) => s.n ? `<div class="ins-col"><div class="ins-col__title">${t}</div><div class="ins-col__num">${fmtGlu(s.avg3h)}<span class="ins-col__unit"> ${gluUnit()}</span></div><div class="rtrend__n">avg 3 h after · ${s.n} breakfast${s.n === 1 ? "" : "s"}</div><div class="rtrend__n">rise ${s.avgRise == null ? "—" : (s.avgRise >= 0 ? "+" : "−") + fmtGluU(Math.abs(s.avgRise))} · lowest ${fmtGluU(s.avgLowest)}</div><div class="rtrend__n">${s.lows} went below ${fmtGluU(70)}</div><div class="rtrend__n">${s.avgRatio ? `ratio ${ratioText(round1(s.avgRatio))}${s.ratioLabels.length ? " (" + s.ratioLabels.map(escapeHtml).join(", ") + ")" : ""} · ` : ""}${Math.round(s.avgCarbs || 0)} g carbs · ${round1(s.avgDose || 0)} u</div></div>`
+          : `<div class="ins-col"><div class="ins-col__title">${t}</div><div class="ins-col__num">—</div><div class="rtrend__n">none in this period yet</div></div>`;
+        cards.push(insCard("Breakfast: active vs quiet mornings", `Breakfast is the first meal with insulin from ${String(bf.fromHour).padStart(2, "0")}:00 to ${bf.toHour}:00. Active means a logged activity from ${NEAR_BEFORE_HOURS}\u00a0h before to ${NEAR_AFTER_HOURS}\u00a0h after it.`,
+          `<div class="ins-cols">${col("Active mornings", bf.active)}${col("Quiet mornings", bf.quiet)}</div>` +
+          `<p class="trend-caption trend-caption--tight">${bf.active.n && bf.quiet.n ? (bf.active.n < 3 || bf.quiet.n < 3 ? "Too few breakfasts on one side to read much into yet. " : "") + "If quiet mornings run clearly higher than active ones at the same ratio, that is worth talking through with your care team." : "Needs breakfasts on both kinds of morning to compare."}</p>`));
+      }
+    }
+
+    const filterNote = activityFilterNote();
+    if (filterNote && cards.length) cards.unshift(`<p class="trend-caption">Meal cards: ${escapeHtml(filterNote)} Change this under “Meals near activity” above.</p>`);
     box.innerHTML = `<h3 class="ins-heading">Glucose insights</h3>` + (cards.length ? cards.join("") + `<p class="trend-caption">These describe what happened after past meals and doses. They are patterns to talk through with your care team, not dosing instructions.</p>` : `<p class="trend-caption">Not enough overlap between logged meals and glucose readings in this period yet. Insights need readings around each meal (the Nightscout history that Insulin Buddy stores).</p>`);
   }
   document.addEventListener("click", e => {

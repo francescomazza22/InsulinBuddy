@@ -2,6 +2,16 @@
 // summary can never drift. Bump CHANGELOG[0].version here (and CACHE_VERSION in sw.js) on every release.
 export const CHANGELOG = [
   {
+    version: "2.67.0",
+    summary: "Insights now take your activity into account.",
+    changes: [
+      "Exercise lowers glucose for hours, so a meal eaten from 2 h before to 4 h after a logged activity ends lower and makes its ratio look stronger than it is. Insights > Trends has a new \u201cMeals near activity\u201d switch: Without activity (the default), Near activity or All meals. It decides which meals the ideal ratio and the glucose insights use, and each says how many meals it left out",
+      "New \u201cActivity summary\u201d card: minutes a week, active days, time per activity, and glucose on active days vs rest days (time in range, lows, average) including the night after",
+      "New \u201cBreakfast: active vs quiet mornings\u201d card: your breakfasts with a ride or other activity nearby compared with those without (glucose 3 h after, the rise, the lowest, lows, and the ratio used), to see how different your quiet-morning ratio may need to be",
+      "These describe what happened; they never change a ratio or a dose. Doses are calculated exactly as before"
+    ]
+  },
+  {
     version: "2.66.1",
     summary: "Workouts from Apple Health now get their intensity even when the calories arrive separately.",
     changes: [

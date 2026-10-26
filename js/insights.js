@@ -55,8 +55,11 @@ export function readingsBetween(sorted, t0, t1) {
 const classify = g => (g < LOW_MGDL ? "low" : g > HIGH_MGDL ? "high" : "in");
 
 /** Meals that carried insulin and a usable baseline reading. Each gets its baseline glucose. */
-function dosedMeals(entries, sorted, { needCarbs = true } = {}) {
-  return (entries || []).filter(e => e && !notMeal(e) && Number.isFinite(e.ts) && insulinOf(e) > 0 && !e.noInsulin && (!needCarbs || carbsOf(e) > 0))
+// `skip` (2.67.0): an optional (entry) => boolean for meals to leave out, e.g. ones eaten near a logged activity
+// (js/activity-stats.js). Only the meals being described are skipped; neighbouring entries still count as context.
+const NO_SKIP = () => false;
+function dosedMeals(entries, sorted, { needCarbs = true, skip = NO_SKIP } = {}) {
+  return (entries || []).filter(e => e && !notMeal(e) && Number.isFinite(e.ts) && insulinOf(e) > 0 && !e.noInsulin && (!needCarbs || carbsOf(e) > 0) && !skip(e))
     .map(e => ({ e, base: glucoseAt(sorted, e.ts, 10) })).filter(x => x.base != null);
 }
 const groupLabel = e => e.ratioLabel || "Other";
@@ -67,13 +70,13 @@ const enoughCoverage = (sorted, t0, t1, minFrac = 0.5, expectedGapMin = 5) => re
  * The typical glucose curve after a dosed meal, per ratio bracket (and for all meals together): at every
  * `stepMin` minutes after the injection, the median and the 25th-75th percentile band across meals.
  */
-export function postMealCurves(entries, readings, { hours = 4, stepMin = 15, minMeals = 3 } = {}) {
+export function postMealCurves(entries, readings, { hours = 4, stepMin = 15, minMeals = 3, skip = NO_SKIP } = {}) {
   const sorted = sortReadings(readings);
   const steps = Math.floor((hours * 60) / stepMin);
   const groups = new Map();
   const add = (label, series) => { if (!groups.has(label)) groups.set(label, []); groups.get(label).push(series); };
   let meals = 0;
-  for (const { e, base } of dosedMeals(entries, sorted)) {
+  for (const { e, base } of dosedMeals(entries, sorted, { skip })) {
     if (!enoughCoverage(sorted, e.ts, e.ts + hours * HOUR)) continue;
     const series = [];
     for (let k = 0; k <= steps; k++) series.push(glucoseAt(sorted, e.ts + k * stepMin * MIN, Math.max(5, stepMin / 2)));
@@ -97,10 +100,10 @@ export function postMealCurves(entries, readings, { hours = 4, stepMin = 15, min
 
 // ------------------------------------------------------------------ 2. outcome after meals, by bracket
 /** Where glucose was `afterHours` after each dosed meal: below, in or above range, per bracket. */
-export function outcomeByBracket(entries, readings, { afterHours = 3 } = {}) {
+export function outcomeByBracket(entries, readings, { afterHours = 3, skip = NO_SKIP } = {}) {
   const sorted = sortReadings(readings);
   const groups = new Map();
-  for (const { e, base } of dosedMeals(entries, sorted)) {
+  for (const { e, base } of dosedMeals(entries, sorted, { skip })) {
     const g = glucoseAt(sorted, e.ts + afterHours * HOUR, 15);
     if (g == null) continue;
     const lowWin = readingsBetween(sorted, e.ts + HOUR, e.ts + (afterHours + 1) * HOUR).some(r => r.mgdl < LOW_MGDL);
@@ -123,10 +126,10 @@ export function outcomeByBracket(entries, readings, { afterHours = 3 } = {}) {
  * Per food: the average rise (peak within 3 h minus the starting reading) and how often a low followed within
  * 4 h, counting only meals where that food made up most (60%+) of the carbs, so one food isn't blamed for another's.
  */
-export function foodImpact(entries, readings, { minMeals = 2 } = {}) {
+export function foodImpact(entries, readings, { minMeals = 2, skip = NO_SKIP } = {}) {
   const sorted = sortReadings(readings);
   const per = new Map();
-  for (const { e, base } of dosedMeals(entries, sorted)) {
+  for (const { e, base } of dosedMeals(entries, sorted, { skip })) {
     const total = carbsOf(e);
     if (!total) continue;
     const win = readingsBetween(sorted, e.ts, e.ts + 3 * HOUR);
@@ -157,13 +160,13 @@ export function foodImpact(entries, readings, { minMeals = 2 } = {}) {
  * Corrections given on their own (no carbs, no other food or insulin in the 4 h around them): how far glucose
  * fell per unit. The median is "your effective correction factor", to compare with the one set in Settings.
  */
-export function correctionEffectiveness(entries, readings, { isfMgdl = null } = {}) {
+export function correctionEffectiveness(entries, readings, { isfMgdl = null, skip = NO_SKIP } = {}) {
   const sorted = sortReadings(readings);
   const all = (entries || []).filter(e => e && !notMeal(e) && Number.isFinite(e.ts));
   const events = [];
   for (const e of all) {
     const units = insulinOf(e);
-    if (e.noInsulin || units <= 0 || carbsOf(e) > 0) continue;
+    if (e.noInsulin || units <= 0 || carbsOf(e) > 0 || skip(e)) continue;
     const base = glucoseAt(sorted, e.ts, 10);
     if (base == null || base <= LOW_MGDL + 30) continue;
     const clash = all.some(o => o !== e && ((o.ts > e.ts - 3 * HOUR && o.ts < e.ts && insulinOf(o) > 0) || (o.ts > e.ts && o.ts <= e.ts + 4 * HOUR && (insulinOf(o) > 0 || carbsOf(o) > 0))));
@@ -178,11 +181,11 @@ export function correctionEffectiveness(entries, readings, { isfMgdl = null } = 
 
 // ------------------------------------------------------------------ 5. insulin-on-board stacking
 /** Meals taken while insulin from an earlier dose (within 4 h) was still active, versus meals taken clean. */
-export function iobStacking(entries, readings, { windowHours = 4 } = {}) {
+export function iobStacking(entries, readings, { windowHours = 4, skip = NO_SKIP } = {}) {
   const sorted = sortReadings(readings);
   const doses = (entries || []).filter(e => e && !notMeal(e) && !e.noInsulin && insulinOf(e) > 0 && Number.isFinite(e.ts));
   const stacked = [], clean = [];
-  for (const { e, base } of dosedMeals(entries, sorted)) {
+  for (const { e, base } of dosedMeals(entries, sorted, { skip })) {
     const g = glucoseAt(sorted, e.ts + 3 * HOUR, 15);
     if (g == null) continue;
     const min = Math.min(...readingsBetween(sorted, e.ts, e.ts + 4 * HOUR).map(r => r.mgdl));

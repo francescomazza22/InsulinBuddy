@@ -314,6 +314,15 @@
           <h2 class="panel-card__title">Average ratio by time of day</h2>
           <div id="trend-ratios"></div>
         </div>
+        <div class="panel-card" id="trend-card-activity-filter" hidden>
+          <h2 class="panel-card__title">Meals near activity</h2>
+          <p class="trend-caption trend-caption--tight" style="margin-top:-4px;" id="trend-activity-filter-hint"></p>
+          <div class="ideal-window" id="trend-activity-filter" role="group" aria-label="Which meals the ideal ratio and glucose insights use">
+            <button type="button" class="glucose-range-btn" data-actfilter="without">Without activity</button>
+            <button type="button" class="glucose-range-btn" data-actfilter="only">Near activity</button>
+            <button type="button" class="glucose-range-btn" data-actfilter="all">All meals</button>
+          </div>
+        </div>
         <div class="panel-card" id="trend-card-ideal" hidden>
           <h2 class="panel-card__title">Ideal ratio by time of day</h2>
           <p class="trend-caption trend-caption--tight" style="margin-top:-4px;">The ratio that would have matched each meal if the carbs you ate to treat a low afterwards had been counted in. Count lows treated within:</p>
