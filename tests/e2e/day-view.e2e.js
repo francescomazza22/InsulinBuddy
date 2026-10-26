@@ -73,6 +73,49 @@ t.check("tapping an icon picks out its row", await dev.eval(`document.querySelec
 if (SHOTS) { await dev.eval(`window.scrollTo(0, 0)`); await dev.eval(`document.querySelector(".day-nav").scrollIntoView({ block: "start" })`); await sleep(300); await dev.shot(`${SHOTS}/day-${units}-${W}${dark ? "-dark" : ""}.png`); }
 await dev.click('[data-dayshift="today"]');
 await dev.waitFor(`document.querySelector(".day-nav__label").textContent === "Today"`, 8000).then(() => t.check("Today jumps back", true), () => t.check("Today jumps back", false));
+t.section("SWIPE between days (real touch events)");
+await dev.cdp.send("Emulation.setTouchEmulationEnabled", { enabled: true, maxTouchPoints: 5 });
+const label = () => dev.text(".day-nav__label");
+const centre = await dev.eval(`(() => { const r = document.querySelector(".day-chart").getBoundingClientRect(); return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2), w: Math.round(r.width) }; })()`);
+const chartCentre = () => dev.eval(`(() => { const r = document.querySelector(".day-chart").getBoundingClientRect(); return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + Math.min(r.height / 2, 120)), w: Math.round(r.width) }; })()`);
+async function swipe(dx, dy = 0, steps = 8, stepMs = 16) {
+  const p = (x, y) => [{ x: Math.round(x), y: Math.round(y) }];
+  Object.assign(centre, await chartCentre());   // a day with fewer icons has a shorter chart: aim at where it is now
+  await dev.cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: p(centre.x, centre.y) });
+  for (let i = 1; i <= steps; i++) { await dev.cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: p(centre.x + dx * i / steps, centre.y + dy * i / steps) }); await sleep(stepMs); }
+  await dev.cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+  await sleep(700);
+}
+t.check("starts on Today", (await label()) === "Today");
+await swipe(-Math.round(centre.w * 0.6));
+t.check("swiping left on today stays on today (no future days)", (await label()) === "Today");
+t.check("and springs back into place", (await dev.eval(`document.querySelector(".day-swipe").style.transform`)) === "");
+await swipe(Math.round(centre.w * 0.5), 0, 12, 40);
+t.check("a slow drag right past a quarter goes to the day before", (await label()) === "Yesterday", await label());
+await swipe(Math.round(centre.w * 0.2), 0, 3, 0);   // shorter than the 25% drag distance: only counts as a flick
+const twoBack = await label();
+t.check("a short quick flick right goes back another day", twoBack !== "Yesterday" && twoBack !== "Today", twoBack);
+await swipe(-Math.round(centre.w * 0.2), 0, 3, 0);
+t.check("a flick left comes forward a day", (await label()) === "Yesterday", await label());
+await swipe(25, 0, 10, 40);
+t.check("a small slow drag changes nothing", (await label()) === "Yesterday");
+await swipe(30, 200, 8, 20);
+t.check("a mostly up-and-down move is a scroll, not a swipe", (await label()) === "Yesterday");
+t.check("yesterday's 6 icons are there after swiping", (await dev.eval(`document.querySelectorAll(".day-mark").length`)) === 6);
+t.check("the swipe hint shows on a touch screen", await dev.eval(`getComputedStyle(document.querySelector(".day-swipe-hint")).display !== "none"`) || W >= 1000);
+await dev.cdp.send("Emulation.setTouchEmulationEnabled", { enabled: false });
+
+t.section("ARROW KEYS between days");
+await dev.eval(`document.body.focus()`);
+await dev.cdp.send("Input.dispatchKeyEvent", { type: "keyDown", key: "ArrowRight", code: "ArrowRight", windowsVirtualKeyCode: 39 });
+await dev.cdp.send("Input.dispatchKeyEvent", { type: "keyUp", key: "ArrowRight", code: "ArrowRight", windowsVirtualKeyCode: 39 });
+await sleep(600);
+t.check("right arrow: the next day", (await label()) === "Today", await label());
+await dev.cdp.send("Input.dispatchKeyEvent", { type: "keyDown", key: "ArrowLeft", code: "ArrowLeft", windowsVirtualKeyCode: 37 });
+await dev.cdp.send("Input.dispatchKeyEvent", { type: "keyUp", key: "ArrowLeft", code: "ArrowLeft", windowsVirtualKeyCode: 37 });
+await sleep(600);
+t.check("left arrow: the day before", (await label()) === "Yesterday", await label());
+
 await dev.click('[data-glview="pattern"]'); await sleep(500);
 t.check("leaving the Day view shows the range switch again", !(await dev.eval(`document.getElementById("glucose-range-segmented").hidden`)));
 t.check("no page-wide horizontal scroll", await dev.eval(`document.documentElement.scrollWidth <= window.innerWidth + 1`));

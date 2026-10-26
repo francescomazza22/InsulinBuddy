@@ -1085,6 +1085,9 @@ html[data-theme="dark"] .undo-toast { background: var(--surface); border: 1px so
 .day-nav__label { flex: 1; text-align: center; font-weight: 700; font-size: var(--fs-l); }
 .day-nav__btn { min-width: 44px; font-size: var(--fs-l); line-height: 1; }
 .day-nav__btn:disabled { opacity: 0.35; }
+.day-swipe { touch-action: pan-y; will-change: transform; }   /* the page still scrolls up and down; sideways moves come to the swipe */
+.day-swipe-hint { display: none; text-align: center; margin-top: var(--space-xs); }
+@media (hover: none) and (pointer: coarse) { .day-swipe-hint { display: block; } }
 .day-mark { cursor: pointer; outline: none; }
 .day-mark:focus-visible circle:nth-of-type(2) { stroke: var(--acc-1); stroke-width: 2.5; }
 .day-legend__dot { width: 10px; height: 10px; border-radius: 50%; }

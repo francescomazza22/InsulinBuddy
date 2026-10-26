@@ -20,7 +20,7 @@ import { doseBadge, groupByDay, takeEntries, matchesQuery, recentDistinctMeals, 
 import { ACTIVITY_TYPES, INTENSITIES, DURATION_CHIPS, ACTIVITY_MAX_MINUTES, ACTIVITY_NAME_MAX, ACTIVITY_NOTE_MAX, isActivityEntry, isIntensity, activityLabel, intensityLabel, formatDuration as formatMinutes, activityCheck, makeActivityEntry, applyActivityEdit, lastActivity } from "./js/activity.js";
 import { createDialogs } from "./js/dialogs.js";
 import { installClearButtons } from "./js/clear-field.js";
-import { swipeAxis, swipePos, swipeSettle, swipeVelocity } from "./js/swipe.js";
+import { swipeAxis, swipePos, swipeSettle, swipeVelocity, daySwipeResult, daySwipeOffset, flickVelocity } from "./js/swipe.js";
 import { parsePortion, parseQuantity, QUANTITY_CHIPS, QUANTITY_WHOLE, FRACTION_CHIPS, WHOLE_CHIP, fractionLabel, slicesLabel } from "./js/portion.js";
 import { PALETTES, DEFAULT_PALETTE, paletteId, RATIO_COLOURS, refreshRatioColours } from "./js/palettes.js";
 import { toMinutes, inRange, ratioAt, ratioMatch, bracketDays, daysLabel, DAY_NAMES, autoMealType, formatDuration, clampNum, normalizeTime } from "./js/core/time.js";
@@ -1684,7 +1684,78 @@ import { nearActivity, activitySkip, countNearActivity, breakfastByActivity, act
       </svg>`;
   }
 
-  async function renderDayView(box) {
+  // Swiping the Day view (2.68.1): the stats and chart follow the finger; a flick or a long enough drag moves a day
+  // (right = the day before, left = the day after, never past today). Arrow keys do the same on a keyboard.
+  const reduceMotion = () => window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  function dayLimits() {
+    const today = dayBounds(Date.now()).start;
+    return { canNext: glucoseDay < today, canPrev: Math.round((today - glucoseDay) / 86400000) < DAY_VIEW_MAX_BACK };
+  }
+  let dayLastSwipeAt = 0;
+  function changeDay(dir) {
+    const today = dayBounds(Date.now()).start;
+    const lim = dayLimits();
+    if ((dir === 1 && !lim.canNext) || (dir === -1 && !lim.canPrev)) return false;
+    const before = glucoseDay;
+    glucoseDay = dir === "today" ? today : Math.min(today, shiftDay(glucoseDay, dir));
+    if (glucoseDay === before) return false;
+    renderDayView(el("glucose-tab-content"), { enterFrom: dir === "today" ? 1 : dir });
+    return true;
+  }
+  (() => {
+    const box = el("glucose-tab-content");
+    if (!box) return;
+    let ds = null;
+    box.addEventListener("touchstart", e => {
+      if (glucoseView !== "day" || e.touches.length !== 1) { ds = null; return; }
+      const sw = e.target.closest(".day-swipe");
+      if (!sw) return;
+      const t = e.touches[0];
+      ds = { x0: t.clientX, y0: t.clientY, dx: 0, axis: null, sw, samples: [{ x: t.clientX, t: e.timeStamp }] };
+    }, { passive: true });
+    box.addEventListener("touchmove", e => {
+      if (!ds || e.touches.length !== 1) return;
+      const t = e.touches[0], dx = t.clientX - ds.x0, dy = t.clientY - ds.y0;
+      if (!ds.axis) {
+        ds.axis = swipeAxis(dx, dy);
+        if (ds.axis === "v") { ds = null; return; }   // a scroll: leave it to the page
+        if (!ds.axis) return;
+        ds.sw.style.transition = "none";
+      }
+      ds.dx = dx;
+      ds.samples.push({ x: t.clientX, t: e.timeStamp });
+      if (ds.samples.length > 30) ds.samples.shift();
+      ds.sw.style.transform = `translateX(${daySwipeOffset(dx, dayLimits()).toFixed(1)}px)`;
+    }, { passive: true });
+    const end = (e, cancelled) => {
+      const d = ds; ds = null;
+      if (!d || d.axis !== "h") return;
+      dayLastSwipeAt = Date.now();   // the tap that ends a swipe must not also pick an icon
+      const width = d.sw.clientWidth || 360;
+      const res = cancelled ? 0 : daySwipeResult({ dx: d.dx, velocity: flickVelocity(d.samples, e.timeStamp), width, ...dayLimits() });
+      const quick = reduceMotion();
+      if (!res) {
+        d.sw.style.transition = quick ? "none" : "transform 0.22s cubic-bezier(.2,.8,.2,1)";
+        d.sw.style.transform = "";
+        return;
+      }
+      if (quick) { changeDay(res); return; }
+      d.sw.style.transition = "transform 0.16s ease-in, opacity 0.16s ease-in";
+      d.sw.style.transform = `translateX(${res < 0 ? width : -width}px)`;
+      d.sw.style.opacity = "0.2";
+      setTimeout(() => changeDay(res), 160);
+    };
+    box.addEventListener("touchend", e => end(e, false));
+    box.addEventListener("touchcancel", e => end(e, true));
+    document.addEventListener("keydown", e => {
+      if (glucoseView !== "day" || historySeg !== "glucose" || el("history-glucose-panel").hidden || el("view-history").hidden) return;
+      if (e.altKey || e.ctrlKey || e.metaKey || (e.target.closest && e.target.closest("input, textarea, select, [contenteditable]")) || document.querySelector(".sheet-backdrop, .dialog-backdrop")) return;
+      if (e.key === "ArrowLeft" && changeDay(-1)) e.preventDefault();
+      else if (e.key === "ArrowRight" && changeDay(1)) e.preventDefault();
+    });
+  })();
+
+  async function renderDayView(box, { enterFrom = 0 } = {}) {
     const today = dayBounds(Date.now()).start;
     const back = Math.round((today - glucoseDay) / 86400000);
     if (back < 0 || back > DAY_VIEW_MAX_BACK) glucoseDay = today;
@@ -1697,7 +1768,9 @@ import { nearActivity, activitySkip, countNearActivity, breakfastByActivity, act
         <button type="button" class="glucose-range-btn day-nav__btn" data-dayshift="1" aria-label="Next day"${daysBack === 0 ? " disabled" : ""}>›</button>
         ${daysBack > 0 ? `<button type="button" class="glucose-range-btn" data-dayshift="today">Today</button>` : ""}
       </div>`;
-    box.innerHTML = `${nav}<p class="panel-card__hint">Loading…</p>`;
+    // Keep showing the previous day while the next one loads (usually instant: readings are cached), so a swipe doesn't
+    // flash a "Loading" page; only the first time is there nothing to show.
+    if (!box.querySelector(".day-swipe")) box.innerHTML = `${nav}<p class="panel-card__hint">Loading…</p>`;
     const wanted = glucoseDay;
     const result = await fetchStoredGlucoseReadings(windowDays);
     if (!box.isConnected || glucoseView !== "day" || wanted !== glucoseDay) return;   // moved on while loading
@@ -1718,24 +1791,32 @@ import { nearActivity, activitySkip, countNearActivity, breakfastByActivity, act
       return `<li class="day-ev" data-dayrow="${i}"><span class="day-ev__time">${escapeHtml(clockTime(ev.t))}</span><span class="history-entry__icon day-ev__icon" style="background:${look.color}">${look.icon}</span><span class="day-ev__text"><span class="day-ev__title">${escapeHtml(look.title)}</span><span class="day-ev__detail">${escapeHtml(dayEventDetail(ev))}${g != null ? ` · glucose ${escapeHtml(String(glucoseDisp(g)))} ${escapeHtml(u)}` : ""}</span></span></li>`;
     }).join("")}</ul>` : `<p class="panel-card__hint">Nothing logged on this day.</p>`;
     const legend = `<div class="glucose-legend">${[["Meal", MEAL_TYPES.breakfast.color], ["Correction", MEAL_TYPES.correction.color], ["Treated low", LOW_TREAT.color], ["Basal", BASAL_COLOR], ["Activity", ACTIVITY_COLOR]].map(([t, c]) => `<span class="glucose-legend__item"><span class="glucose-legend__swatch day-legend__dot" style="background:${c}"></span>${t}</span>`).join("")}</div>`;
-    box.innerHTML = `${nav}${stats}
+    box.innerHTML = `${nav}<div class="day-swipe">${stats}
       <div class="panel-card">
         ${renderDaySVG(d, now, Math.max(300, Math.min(960, (box.clientWidth || 360) - 34)))}
         ${legend}
+        <p class="panel-card__hint day-swipe-hint">Swipe sideways to move between days.</p>
         ${result.ok ? "" : `<p class="panel-card__hint">${escapeHtml(result.reason || "Couldn't load glucose readings.")}</p>`}
       </div>
-      <div class="panel-card"><h2 class="panel-card__title">Logged this day</h2>${list}</div>`;
+      <div class="panel-card"><h2 class="panel-card__title">Logged this day</h2>${list}</div></div>`;
+    // Slide the new day in from the side the finger was heading (skipped when the phone asks for less motion).
+    const sw = box.querySelector(".day-swipe");
+    if (enterFrom && sw && !reduceMotion()) {
+      sw.style.transition = "none";
+      sw.style.transform = `translateX(${enterFrom < 0 ? -48 : 48}px)`;
+      sw.style.opacity = "0.2";
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        sw.style.transition = "transform 0.22s cubic-bezier(.2,.8,.2,1), opacity 0.22s ease-out";
+        sw.style.transform = "";
+        sw.style.opacity = "";
+      }));
+    }
   }
   document.addEventListener("click", e => {
     const nb = e.target.closest && e.target.closest("[data-dayshift]");
-    if (nb) {
-      const today = dayBounds(Date.now()).start;
-      glucoseDay = nb.dataset.dayshift === "today" ? today : Math.min(today, shiftDay(glucoseDay, Number(nb.dataset.dayshift)));
-      renderDayView(el("glucose-tab-content"));
-      return;
-    }
+    if (nb) { changeDay(nb.dataset.dayshift === "today" ? "today" : Number(nb.dataset.dayshift)); return; }
     const mk = e.target.closest && e.target.closest(".day-mark");
-    if (mk) highlightDayRow(mk.dataset.dayev);
+    if (mk && Date.now() - dayLastSwipeAt > 400) highlightDayRow(mk.dataset.dayev);
   });
   document.addEventListener("keydown", e => {
     const mk = e.target.closest && e.target.closest(".day-mark");

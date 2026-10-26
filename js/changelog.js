@@ -2,6 +2,16 @@
 // summary can never drift. Bump CHANGELOG[0].version here (and CACHE_VERSION in sw.js) on every release.
 export const CHANGELOG = [
   {
+    version: "2.68.1",
+    summary: "Swipe sideways in the Day view to move between days.",
+    changes: [
+      "In Insights > Glucose > Day, swipe right for the day before and left for the day after; the chart follows your finger and the new day slides in",
+      "A quick flick or a drag past a quarter of the screen changes day; a small or mostly up-and-down move just scrolls. You can't swipe past today",
+      "On a PC, the left and right arrow keys do the same. The arrows at the top still work",
+      "Doses are calculated exactly as before"
+    ]
+  },
+  {
     version: "2.68.0",
     summary: "New Day view: one day's glucose with your meals, insulin, basal and activity on top.",
     changes: [
