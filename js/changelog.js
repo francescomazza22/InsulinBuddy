@@ -2,6 +2,18 @@
 // summary can never drift. Bump CHANGELOG[0].version here (and CACHE_VERSION in sw.js) on every release.
 export const CHANGELOG = [
   {
+    version: "2.66.0",
+    summary: "Workouts from Apple Health now appear in your log as activities, automatically.",
+    changes: [
+      "Workouts your iPhone or Watch records (rides, walks, runs, gym\u2026) arrive through the Health Webhook app and are added to Insights > Meals as activities, with their type, start time and minutes",
+      "How hard it was is estimated from the calories burned (it says \u201cintensity estimated\u201d in the note); you can change it like any activity",
+      "Each workout is added once: one already in the log, or one you deleted, is never added again, on any of your devices",
+      "A message with Undo appears when workouts are added; Settings > Sync > System Status shows when Apple Health was last checked, and Refresh checks now",
+      "Imported workouts are not sent to Nightscout/Gluroo, which already reads them from Apple Health",
+      "Doses are calculated exactly as before"
+    ]
+  },
+  {
     version: "2.65.0",
     summary: "You can now log physical activity: what you did, how long and how hard.",
     changes: [

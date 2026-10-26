@@ -28,12 +28,13 @@ export function createBackend() {
   const be = {
     row: null,                       // { user_id, data, updated_at } -- the app_state table (one row per user)
     glucose: [],                     // the glucose_readings table -- many rows: { user_id, at, mgdl, direction }
+    healthInbox: [],                 // the health_inbox table (2.66.0) -- { id, user_id, received_at, payload }
     ns: { treatments: [], entries: [], nextId: 1 },
     mode: { db: "ok", ns: "ok", nsNoUpdate: false, nsNoDelete: false },
     log: [],                         // every call, for assertions
     stamp
   };
-  be.reset = () => { be.row = null; be.glucose = []; be.ns = { treatments: [], entries: [], nextId: 1 }; be.mode = { db: "ok", ns: "ok", nsNoUpdate: false, nsNoDelete: false }; be.log = []; };
+  be.reset = () => { be.row = null; be.glucose = []; be.healthInbox = []; be.ns = { treatments: [], entries: [], nextId: 1 }; be.mode = { db: "ok", ns: "ok", nsNoUpdate: false, nsNoDelete: false }; be.log = []; };
 
   function db(q) {
     be.log.push({ kind: "db", table: q.table, op: q.op, cols: q.returning || q.cols });
@@ -44,6 +45,30 @@ export function createBackend() {
       if (c.includes("*")) return { ...row };
       const out = {}; c.forEach(k => { out[k] = row[k]; }); return out;
     };
+
+    if (q.table === "health_inbox") {
+      // Columns may be PostgREST JSON paths with an alias: "sessions:payload->data->exercise_sessions".
+      const pick = (row, spec) => {
+        const out = {};
+        for (const part of String(spec || "*").split(",").map(x => x.trim()).filter(Boolean)) {
+          if (part === "*") { Object.assign(out, row); continue; }
+          const [alias, expr] = part.includes(":") ? part.split(":") : [null, part];
+          const pathParts = expr.split("->").map(x => x.trim());
+          let v = row; for (const k of pathParts) v = v == null ? undefined : v[k];
+          out[alias || pathParts[pathParts.length - 1]] = v === undefined ? null : v;
+        }
+        return out;
+      };
+      let rows = be.healthInbox.filter(r => Object.entries(q.filters || {}).every(([k, v]) => r[k] === v));
+      if (q.inList) rows = rows.filter(r => q.inList.vals.includes(r[q.inList.col]));
+      if (q.lte) rows = rows.filter(r => r[q.lte.col] <= q.lte.val);
+      if (q.op === "delete") { const gone = new Set(rows); be.healthInbox = be.healthInbox.filter(r => !gone.has(r)); return { data: null }; }
+      if (q.op === "select") {
+        rows = rows.slice().sort((a, b) => a.id - b.id).slice(0, q.limitN ?? 1000);
+        return { data: rows.map(r => pick(r, q.cols)) };
+      }
+      return { error: "unsupported" };
+    }
 
     if (q.table === "glucose_readings") {
       if (q.op === "select") {
@@ -169,6 +194,9 @@ export function fakeSupabaseSource({ userId = "user-1", email = "test@example.co
             select(cols, opts) { if (q.op === "upsert") q.returning = cols || "*"; else { q.cols = cols || "*"; if (opts && opts.count === "exact") q.countExact = true; if (opts && opts.head) q.headOnly = true; } return b; },
             eq(k, v) { q.filters[k] = v; return b; },
             gte(k, v) { q.gte = { col: k, val: v }; return b; },
+            lte(k, v) { q.lte = { col: k, val: v }; return b; },
+            in(k, vals) { q.inList = { col: k, vals }; return b; },
+            delete() { q.op = "delete"; return b; },
             order(col, opts) { q.orderBy = { col, ascending: !(opts && opts.ascending === false) }; return b; },
             limit(n) { q.limitN = n; return b; },
             range(from, to) { q.rangeFrom = from; q.rangeTo = to; return b; },

@@ -31,6 +31,7 @@ import { createCloudSync, supabaseCloudTarget } from "./js/core/cloud-sync.js";
 import { groupEvents, logHealth, isSyncStuck } from "./js/core/problems.js";
 import { createWebPlatform, assertPlatform } from "./js/core/platform.js";
 import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS } from "./js/core/storage.js";
+import { workoutsToActivities } from "./js/health-import.js";
 
 
   const STORAGE_KEY = "insulinBuddy.v2";
@@ -3330,6 +3331,91 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
     } catch (e) { return { ok: false, reason: "Couldn't load your glucose history." }; }
   }
 
+  // ---- Apple Health workouts (2.66.0) ----
+  // The Health Webhook iPhone app posts Apple Health data to the health-webhook function, which keeps each delivery in
+  // the health_inbox table. Here we read only the workout part of new deliveries, add each workout as an activity
+  // (js/health-import.js: ids come from Apple Health, so nothing is ever added twice or brought back after a delete),
+  // save, and only then clear the deliveries we have read. Runs at start-up, when the app comes back, every 10 minutes
+  // while it is open, and from System Status > Refresh. Never sends anything to Nightscout (Gluroo has the workouts already).
+  const HEALTH_IMPORT_MIN_GAP_MS = 5 * 60 * 1000;
+  const HEALTH_INBOX_PAGE = 100;
+  let healthImportStatus = { at: null, ok: true, setUp: null, message: "", lastImported: 0, lastAt: null };
+  let healthImportBusy = null, healthImportLastTry = 0;
+
+  function importHealthWorkouts({ force = false } = {}) {
+    if (!supabaseClient || !currentUser || !cloudLoadStatus.ok || cloud.blocked) return Promise.resolve({ ok: false, skipped: true });
+    if (healthImportBusy) return healthImportBusy;
+    if (!force && (document.hidden || Date.now() - healthImportLastTry < HEALTH_IMPORT_MIN_GAP_MS)) return Promise.resolve({ ok: true, skipped: true });
+    healthImportLastTry = Date.now();
+    healthImportBusy = runHealthImport().finally(() => { healthImportBusy = null; });
+    return healthImportBusy;
+  }
+
+  async function runHealthImport() {
+    const fail = (message, setUp = true) => {
+      healthImportStatus = { ...healthImportStatus, at: Date.now(), ok: false, setUp, message };
+      diag.log("warn", "health", "Apple Health import: " + message);
+      return { ok: false, message };
+    };
+    try {
+      const uid = currentUser.id;
+      const { data: rows, error } = await supabaseClient.from("health_inbox")
+        .select("id, sessions:payload->data->exercise_sessions")
+        .eq("user_id", uid).order("id").limit(HEALTH_INBOX_PAGE);
+      if (error) {
+        // No table yet: the import simply isn't set up (normal for anyone not using Health Webhook).
+        if (error.code === "42P01" || error.code === "PGRST205" || /does not exist|could not find the table/i.test(error.message || "")) {
+          healthImportStatus = { ...healthImportStatus, at: Date.now(), ok: true, setUp: false, message: "" };
+          return { ok: true, imported: 0 };
+        }
+        return fail("Couldn't read new Apple Health deliveries" + (error.message ? ` (${error.message})` : "") + ".");
+      }
+      const list = Array.isArray(rows) ? rows : [];
+      if (!list.length) { healthImportStatus = { ...healthImportStatus, at: Date.now(), ok: true, setUp: true, message: "" }; return { ok: true, imported: 0 }; }
+      const maxId = list.reduce((m, r) => Math.max(m, Number(r.id) || 0), 0);
+      const withWorkouts = list.filter(r => Array.isArray(r.sessions) && r.sessions.length);
+      // Calories (for the intensity estimate) only for deliveries that actually hold a workout: they're large.
+      let calById = new Map();
+      if (withWorkouts.length) {
+        const { data: calRows, error: calErr } = await supabaseClient.from("health_inbox")
+          .select("id, calories:payload->data->active_calories").eq("user_id", uid).in("id", withWorkouts.map(r => r.id));
+        if (calErr) return fail("Couldn't read the workout details.");
+        calById = new Map((calRows || []).map(r => [r.id, Array.isArray(r.calories) ? r.calories : null]));
+      }
+      const added = workoutsToActivities(withWorkouts.map(r => ({ sessions: r.sessions, calories: calById.get(r.id) || null })),
+        { history: state.history, deleted: state.deleted && state.deleted.history });
+      if (added.length) {
+        for (const e of added) state.history.push(e);
+        state.history.sort((a, b) => b.ts - a.ts);
+        try { await saveState(); }
+        catch (e) {
+          // Not saved: take them back out and keep the deliveries, so the next try can import them.
+          const ids = new Set(added.map(a => a.id));
+          state.history = state.history.filter(h => !ids.has(h.id));
+          return fail("Couldn't save the imported workouts on this device.");
+        }
+        renderHistory();
+        const names = added.map(a => `${activityLabel(a)} ${formatMinutes(a.durationMin)}`);
+        showUndoToast(added.length === 1 ? `Added from Apple Health: ${names[0]}` : `Added ${added.length} workouts from Apple Health`, () => {
+          const ids = new Set(added.map(a => a.id));
+          state.history = state.history.filter(h => !ids.has(h.id));
+          saveState(); renderHistory();
+        });
+      }
+      // Everything read is now in the log (or was a duplicate / not a workout): clear those deliveries.
+      const { error: delErr } = await supabaseClient.from("health_inbox").delete().eq("user_id", uid).lte("id", maxId);
+      if (delErr) diag.log("warn", "health", "Couldn't clear read Apple Health deliveries: " + (delErr.message || delErr.code || "unknown"));
+      healthImportStatus = { at: Date.now(), ok: true, setUp: true, message: "",
+        lastImported: added.length || healthImportStatus.lastImported, lastAt: added.length ? Date.now() : healthImportStatus.lastAt };
+      if (added.length) diag.log("info", "health", `Imported ${added.length} workout(s) from Apple Health`);
+      // A full page means more may be waiting: carry on straight away.
+      if (list.length === HEALTH_INBOX_PAGE && !delErr) { const more = await runHealthImport(); return { ok: more.ok, imported: added.length + (more.imported || 0) }; }
+      return { ok: true, imported: added.length };
+    } catch (e) {
+      return fail("Couldn't check Apple Health deliveries" + (navigator.onLine === false ? " (offline)" : "") + ".");
+    }
+  }
+
   // ---- live glucose pill on the dose card ----
   const LIVE_GLUCOSE_CACHE_KEY = "insulinBuddy.liveGlucose";
   const LIVE_GLUCOSE_STALE_MS = 15 * 60 * 1000;
@@ -5782,6 +5868,13 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
       }
     }
 
+    // Apple Health workouts (Health Webhook)
+    if (currentUser && healthImportStatus.setUp !== false && healthImportStatus.at) {
+      const last = healthImportStatus.lastAt ? ` · last added ${timeAgo(healthImportStatus.lastAt)}` : "";
+      if (healthImportStatus.ok) rows.push(statusRow("Apple Health Workouts", "ok", `Checked ${timeAgo(healthImportStatus.at)}${last}`));
+      else rows.push(statusRow("Apple Health Workouts", "error", `${escapeHtml(healthImportStatus.message)} · checked ${timeAgo(healthImportStatus.at)}`));
+    }
+
     // Offline app cache (service worker)
     if (!("serviceWorker" in navigator)) {
       rows.push(statusRow("Offline Access", "off", "Not supported in this browser."));
@@ -5795,7 +5888,7 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
     const forceBtn = document.getElementById("btn-force-sync");
     if (forceBtn) forceBtn.addEventListener("click", forceSyncNow);
   }
-  bind("btn-status-refresh", "click", () => renderStatusPanel());
+  bind("btn-status-refresh", "click", async () => { renderStatusPanel(); await importHealthWorkouts({ force: true }); renderStatusPanel(); });
 
   const INSULIN_PRESETS = {
     rapid: { peakMinutes: 75, diaMinutes: 360 },
@@ -6764,6 +6857,7 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
     renderSyncChip();
     renderLiveGlucosePill();   // show the cached reading immediately, don't wait on the network
     refreshLiveGlucose();
+    importHealthWorkouts({ force: true });
     diag.log("info", "boot", `App started (v${CHANGELOG[0].version}); ${state.history.length} meals; cloud ${currentUser ? "signed in" : "off"}`);
     let tick = 0;
     const everyThirtySeconds = () => {
@@ -6774,6 +6868,7 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
       if (currentUser && !cloudSyncPending && !document.hidden && ++tick % 4 === 0) pullAndMerge("periodic").catch(() => {});
       flushNightscoutQueue();
       refreshLiveGlucose();
+      if (tick % 20 === 0) importHealthWorkouts();   // about every 10 minutes while open
       renderSyncChip();   // keeps "oldest waiting 5 min" and "checked 2 min ago" honest
     };
     setInterval(everyThirtySeconds, 30000);
@@ -6782,6 +6877,7 @@ import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS }
       if (!draft.manualRatioId) recompute();   // the time of day may have moved into another ratio while the app was away
       if (!el("view-calculator").hidden) renderActivePanel();
       renderSyncChip();
+      importHealthWorkouts();
     });
   }
 
