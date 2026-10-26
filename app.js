@@ -31,7 +31,7 @@ import { createCloudSync, supabaseCloudTarget } from "./js/core/cloud-sync.js";
 import { groupEvents, logHealth, isSyncStuck } from "./js/core/problems.js";
 import { createWebPlatform, assertPlatform } from "./js/core/platform.js";
 import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS } from "./js/core/storage.js";
-import { workoutsToActivities } from "./js/health-import.js";
+import { workoutsToActivities, awaitingIntensity, intensityUpdates, INBOX_KEEP_MS } from "./js/health-import.js";
 
 
   const STORAGE_KEY = "insulinBuddy.v2";
@@ -3331,14 +3331,18 @@ import { workoutsToActivities } from "./js/health-import.js";
     } catch (e) { return { ok: false, reason: "Couldn't load your glucose history." }; }
   }
 
-  // ---- Apple Health workouts (2.66.0) ----
+  // ---- Apple Health workouts (2.66.0, 2.66.1) ----
   // The Health Webhook iPhone app posts Apple Health data to the health-webhook function, which keeps each delivery in
-  // the health_inbox table. Here we read only the workout part of new deliveries, add each workout as an activity
-  // (js/health-import.js: ids come from Apple Health, so nothing is ever added twice or brought back after a delete),
-  // save, and only then clear the deliveries we have read. Runs at start-up, when the app comes back, every 10 minutes
-  // while it is open, and from System Status > Refresh. Never sends anything to Nightscout (Gluroo has the workouts already).
+  // the health_inbox table. Here we read only the workout part of deliveries we haven't seen, add each workout as an
+  // activity (js/health-import.js: ids come from Apple Health, so nothing is ever added twice or brought back after a
+  // delete) and estimate how hard it was from the calories burned during it. Health Webhook sends new data in pieces, so
+  // those calories can arrive in a different delivery, before or after the workout: deliveries are kept for
+  // INBOX_KEEP_MS, calories are looked for across them, and an import still waiting for its calories is filled in when
+  // they turn up. Runs at start-up, when the app comes back, every 10 minutes while open, and from System Status >
+  // Refresh. Never sends anything to Nightscout (Gluroo has the workouts already).
   const HEALTH_IMPORT_MIN_GAP_MS = 5 * 60 * 1000;
   const HEALTH_INBOX_PAGE = 100;
+  const HEALTH_SEEN_KEY = "insulinBuddy.healthInboxSeen";   // last delivery id this device has read
   let healthImportStatus = { at: null, ok: true, setUp: null, message: "", lastImported: 0, lastAt: null };
   let healthImportBusy = null, healthImportLastTry = 0;
 
@@ -3359,9 +3363,10 @@ import { workoutsToActivities } from "./js/health-import.js";
     };
     try {
       const uid = currentUser.id;
+      const seen = Number(store.getItem(HEALTH_SEEN_KEY)) || 0;
       const { data: rows, error } = await supabaseClient.from("health_inbox")
         .select("id, sessions:payload->data->exercise_sessions")
-        .eq("user_id", uid).order("id").limit(HEALTH_INBOX_PAGE);
+        .eq("user_id", uid).gt("id", seen).order("id").limit(HEALTH_INBOX_PAGE);
       if (error) {
         // No table yet: the import simply isn't set up (normal for anyone not using Health Webhook).
         if (error.code === "42P01" || error.code === "PGRST205" || /does not exist|could not find the table/i.test(error.message || "")) {
@@ -3371,46 +3376,59 @@ import { workoutsToActivities } from "./js/health-import.js";
         return fail("Couldn't read new Apple Health deliveries" + (error.message ? ` (${error.message})` : "") + ".");
       }
       const list = Array.isArray(rows) ? rows : [];
-      if (!list.length) { healthImportStatus = { ...healthImportStatus, at: Date.now(), ok: true, setUp: true, message: "" }; return { ok: true, imported: 0 }; }
-      const maxId = list.reduce((m, r) => Math.max(m, Number(r.id) || 0), 0);
-      const withWorkouts = list.filter(r => Array.isArray(r.sessions) && r.sessions.length);
-      // Calories (for the intensity estimate) only for deliveries that actually hold a workout: they're large.
-      let calById = new Map();
-      if (withWorkouts.length) {
+      const now = Date.now();
+      // Old deliveries are no longer needed for matching calories (the function also drops anything past 30 days).
+      supabaseClient.from("health_inbox").delete().eq("user_id", uid).lt("received_at", new Date(now - INBOX_KEEP_MS).toISOString())
+        .then(r => { if (r && r.error) diag.log("warn", "health", "Couldn't tidy old Apple Health deliveries: " + (r.error.message || "unknown")); }, () => {});
+      if (!list.length) { healthImportStatus = { ...healthImportStatus, at: now, ok: true, setUp: true, message: "" }; return { ok: true, imported: 0 }; }
+      const maxId = list.reduce((m, r) => Math.max(m, Number(r.id) || 0), seen);
+      const sessionRows = list.filter(r => Array.isArray(r.sessions) && r.sessions.length).map(r => ({ sessions: r.sessions }));
+      const known = { history: state.history, deleted: state.deleted && state.deleted.history, now };
+      const fresh = workoutsToActivities(sessionRows, known);                 // new workouts, before calories
+      const waiting = state.history.filter(e => awaitingIntensity(e, now));  // earlier imports still without calories
+      let calories = [];
+      if (fresh.length || waiting.length) {
+        // Calories burned during a workout arrive in deliveries received after it started, whichever delivery the workout
+        // itself came in. Only those deliveries' calorie samples are downloaded (the rest of each delivery is large).
+        const earliest = Math.min(...fresh.map(e => e.ts), ...waiting.map(e => e.ts));
         const { data: calRows, error: calErr } = await supabaseClient.from("health_inbox")
-          .select("id, calories:payload->data->active_calories").eq("user_id", uid).in("id", withWorkouts.map(r => r.id));
+          .select("id, calories:payload->data->active_calories").eq("user_id", uid)
+          .gte("received_at", new Date(earliest - 10 * 60000).toISOString()).order("id").limit(50);
         if (calErr) return fail("Couldn't read the workout details.");
-        calById = new Map((calRows || []).map(r => [r.id, Array.isArray(r.calories) ? r.calories : null]));
+        calories = (calRows || []).flatMap(r => (Array.isArray(r.calories) ? r.calories : []));
       }
-      const added = workoutsToActivities(withWorkouts.map(r => ({ sessions: r.sessions, calories: calById.get(r.id) || null })),
-        { history: state.history, deleted: state.deleted && state.deleted.history });
-      if (added.length) {
+      const added = fresh.length ? workoutsToActivities([...sessionRows, { sessions: [], calories }], known) : [];
+      const updates = intensityUpdates(waiting, calories);
+      if (added.length || updates.length) {
+        const before = updates.map(u => { const e = state.history.find(h => h.id === u.id); return e && { e, intensity: e.intensity, note: e.note }; }).filter(Boolean);
+        for (const u of updates) { const e = state.history.find(h => h.id === u.id); if (e) { e.intensity = u.intensity; e.note = u.note; } }
         for (const e of added) state.history.push(e);
         state.history.sort((a, b) => b.ts - a.ts);
         try { await saveState(); }
         catch (e) {
-          // Not saved: take them back out and keep the deliveries, so the next try can import them.
+          // Not saved: put everything back and leave the deliveries unread, so the next try does it again.
           const ids = new Set(added.map(a => a.id));
           state.history = state.history.filter(h => !ids.has(h.id));
+          for (const b of before) { b.e.intensity = b.intensity; b.e.note = b.note; }
           return fail("Couldn't save the imported workouts on this device.");
         }
         renderHistory();
-        const names = added.map(a => `${activityLabel(a)} ${formatMinutes(a.durationMin)}`);
-        showUndoToast(added.length === 1 ? `Added from Apple Health: ${names[0]}` : `Added ${added.length} workouts from Apple Health`, () => {
-          const ids = new Set(added.map(a => a.id));
-          state.history = state.history.filter(h => !ids.has(h.id));
-          saveState(); renderHistory();
-        });
+        if (added.length) {
+          const names = added.map(a => `${activityLabel(a)} ${formatMinutes(a.durationMin)}`);
+          showUndoToast(added.length === 1 ? `Added from Apple Health: ${names[0]}` : `Added ${added.length} workouts from Apple Health`, () => {
+            const ids = new Set(added.map(a => a.id));
+            state.history = state.history.filter(h => !ids.has(h.id));
+            saveState(); renderHistory();
+          });
+        }
       }
-      // Everything read is now in the log (or was a duplicate / not a workout): clear those deliveries.
-      const { error: delErr } = await supabaseClient.from("health_inbox").delete().eq("user_id", uid).lte("id", maxId);
-      if (delErr) diag.log("warn", "health", "Couldn't clear read Apple Health deliveries: " + (delErr.message || delErr.code || "unknown"));
+      store.setItem(HEALTH_SEEN_KEY, String(maxId));
       healthImportStatus = { at: Date.now(), ok: true, setUp: true, message: "",
         lastImported: added.length || healthImportStatus.lastImported, lastAt: added.length ? Date.now() : healthImportStatus.lastAt };
-      if (added.length) diag.log("info", "health", `Imported ${added.length} workout(s) from Apple Health`);
+      if (added.length || updates.length) diag.log("info", "health", `Apple Health: ${added.length} workout(s) added, ${updates.length} intensity estimate(s) filled in`);
       // A full page means more may be waiting: carry on straight away.
-      if (list.length === HEALTH_INBOX_PAGE && !delErr) { const more = await runHealthImport(); return { ok: more.ok, imported: added.length + (more.imported || 0) }; }
-      return { ok: true, imported: added.length };
+      if (list.length === HEALTH_INBOX_PAGE) { const more = await runHealthImport(); return { ok: more.ok, imported: added.length + (more.imported || 0) }; }
+      return { ok: true, imported: added.length, updated: updates.length };
     } catch (e) {
       return fail("Couldn't check Apple Health deliveries" + (navigator.onLine === false ? " (offline)" : "") + ".");
     }

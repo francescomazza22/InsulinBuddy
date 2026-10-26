@@ -62,6 +62,9 @@ export function createBackend() {
       let rows = be.healthInbox.filter(r => Object.entries(q.filters || {}).every(([k, v]) => r[k] === v));
       if (q.inList) rows = rows.filter(r => q.inList.vals.includes(r[q.inList.col]));
       if (q.lte) rows = rows.filter(r => r[q.lte.col] <= q.lte.val);
+      if (q.lt) rows = rows.filter(r => r[q.lt.col] < q.lt.val);
+      if (q.gt) rows = rows.filter(r => r[q.gt.col] > q.gt.val);
+      if (q.gte) rows = rows.filter(r => r[q.gte.col] >= q.gte.val);
       if (q.op === "delete") { const gone = new Set(rows); be.healthInbox = be.healthInbox.filter(r => !gone.has(r)); return { data: null }; }
       if (q.op === "select") {
         rows = rows.slice().sort((a, b) => a.id - b.id).slice(0, q.limitN ?? 1000);
@@ -195,6 +198,8 @@ export function fakeSupabaseSource({ userId = "user-1", email = "test@example.co
             eq(k, v) { q.filters[k] = v; return b; },
             gte(k, v) { q.gte = { col: k, val: v }; return b; },
             lte(k, v) { q.lte = { col: k, val: v }; return b; },
+            lt(k, v) { q.lt = { col: k, val: v }; return b; },
+            gt(k, v) { q.gt = { col: k, val: v }; return b; },
             in(k, vals) { q.inList = { col: k, vals }; return b; },
             delete() { q.op = "delete"; return b; },
             order(col, opts) { q.orderBy = { col, ascending: !(opts && opts.ascending === false) }; return b; },

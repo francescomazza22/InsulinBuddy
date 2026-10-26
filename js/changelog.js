@@ -2,6 +2,16 @@
 // summary can never drift. Bump CHANGELOG[0].version here (and CACHE_VERSION in sw.js) on every release.
 export const CHANGELOG = [
   {
+    version: "2.66.1",
+    summary: "Workouts from Apple Health now get their intensity even when the calories arrive separately.",
+    changes: [
+      "Health Webhook sends new data in pieces, so the calories burned during a workout can arrive before or after the workout itself. Insulin Buddy now looks for them across the last 2 days of deliveries, instead of only the one the workout came in",
+      "A workout added as \u201cintensity not known\u201d is filled in automatically when its calories turn up, unless you've already edited it",
+      "Deliveries are kept for 2 days (they were deleted as soon as they were read) and then tidied away",
+      "Doses are calculated exactly as before"
+    ]
+  },
+  {
     version: "2.66.0",
     summary: "Workouts from Apple Health now appear in your log as activities, automatically.",
     changes: [

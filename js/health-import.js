@@ -18,6 +18,11 @@ export const HEALTH_ID_PREFIX = "hk-";
 export const HEALTH_SOURCE = "appleHealth";
 export const MIN_WORKOUT_MINUTES = 5;      // shorter "workouts" are almost always accidental starts
 export const HEALTH_NOTE = "From Apple Health";
+export const UNKNOWN_INTENSITY_NOTE = `${HEALTH_NOTE} (intensity not known)`;
+// Health Webhook sends new data in pieces, so a workout and the calories burned during it can arrive in different
+// deliveries, in either order. Deliveries are therefore kept this long, calories are looked for across all of them, and
+// an import still waiting for its calories is filled in when they turn up (2.66.1).
+export const INBOX_KEEP_MS = 2 * 24 * 3600_000;
 // Active calories per minute that separate light / moderate / hard. A rough guide (about 3 and 6 METs for an adult);
 // the result is marked as estimated and can be changed on the entry.
 export const KCAL_PER_MIN_MODERATE = 4;
@@ -100,7 +105,7 @@ export function workoutsToActivities(rows, { history = [], deleted = {}, now = D
       if (minutes < MIN_WORKOUT_MINUTES || minutes > ACTIVITY_MAX_MINUTES) continue;
       const { type, name } = mapWorkoutLabel(s.label);
       const { intensity, kcal } = estimateIntensity(minutes, caloriesDuring(start, end, calories));
-      const note = kcal == null ? `${HEALTH_NOTE} (intensity not known)` : `${HEALTH_NOTE} · ${kcal} kcal (intensity estimated)`;
+      const note = kcal == null ? UNKNOWN_INTENSITY_NOTE : estimatedNote(kcal);
       const entry = makeActivityEntry({ type, name, minutes, intensity, ts: start, note, now });
       entry.id = id;
       entry.source = HEALTH_SOURCE;
@@ -111,3 +116,23 @@ export function workoutsToActivities(rows, { history = [], deleted = {}, now = D
 }
 
 export const isImportedActivity = e => !!e && e.source === HEALTH_SOURCE;
+const estimatedNote = kcal => `${HEALTH_NOTE} · ${kcal} kcal (intensity estimated)`;
+
+/** An import still waiting for its calories: untouched since it was added (same note), and recent enough that its
+ * calories could still be in the inbox. Anything you have edited is left alone. */
+export function awaitingIntensity(e, now = Date.now()) {
+  return isImportedActivity(e) && e.note === UNKNOWN_INTENSITY_NOTE && Number.isFinite(e.ts) && now - e.ts <= INBOX_KEEP_MS;
+}
+
+/** For imports waiting for calories: [{ id, intensity, note }] for each one the calorie samples now cover. */
+export function intensityUpdates(entries, calories) {
+  const out = [];
+  for (const e of entries || []) {
+    if (!isImportedActivity(e) || !(e.durationMin > 0)) continue;
+    const kcal = caloriesDuring(e.ts, e.ts + e.durationMin * 60000, calories);
+    if (kcal == null) continue;
+    const est = estimateIntensity(e.durationMin, kcal);
+    out.push({ id: e.id, intensity: est.intensity, note: estimatedNote(est.kcal) });
+  }
+  return out;
+}

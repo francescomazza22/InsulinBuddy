@@ -81,3 +81,29 @@ test("short, broken, future or unsafe-id sessions are skipped; several come back
   assert.deepEqual(out.map(e => e.id), ["hk-B1", "hk-922E7762-E693-4D41-AF74-395F7EAB9333"]);
   assert.equal(out[0].note, "From Apple Health (intensity not known)");
 });
+
+// ---- 2.66.1: a workout and its calories can arrive in different deliveries ----
+import { awaitingIntensity, intensityUpdates, UNKNOWN_INTENSITY_NOTE, INBOX_KEEP_MS } from "../../js/health-import.js";
+
+test("an import without calories waits for them; an edited or old one doesn't", () => {
+  const [a] = workoutsToActivities([{ sessions: [RIDE] }], { now: NOW });
+  assert.equal(a.note, UNKNOWN_INTENSITY_NOTE);
+  assert.equal(awaitingIntensity(a, NOW), true);
+  assert.equal(awaitingIntensity({ ...a, note: "my own note" }, NOW), false);       // edited by hand: left alone
+  assert.equal(awaitingIntensity({ ...a, source: undefined }, NOW), false);        // logged by hand
+  assert.equal(awaitingIntensity(a, a.ts + INBOX_KEEP_MS + 1), false);             // too old for its calories to still be there
+});
+
+test("calories that arrive later fill in the intensity and the note", () => {
+  const [a] = workoutsToActivities([{ sessions: [RIDE] }], { now: NOW });
+  const later = [cal("2026-10-26T08:18:00Z", "2026-10-26T08:39:00Z", 210)];   // ~10 kcal/min
+  assert.deepEqual(intensityUpdates([a], later), [{ id: a.id, intensity: "hard", note: "From Apple Health · 190 kcal (intensity estimated)" }]);
+  assert.deepEqual(intensityUpdates([a], [cal("2026-10-26T10:00:00Z", "2026-10-26T10:05:00Z", 5)]), []);   // not during the ride
+});
+
+test("calories from another delivery are used when the workout is first added", () => {
+  const calories = [cal("2026-10-26T08:18:00Z", "2026-10-26T08:39:00Z", 60)];
+  const [a] = workoutsToActivities([{ sessions: [RIDE] }, { sessions: [], calories }], { now: NOW });
+  assert.equal(a.intensity, "light");
+  assert.match(a.note, /55 kcal \(intensity estimated\)/);
+});
