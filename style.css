@@ -1080,6 +1080,25 @@ html[data-theme="dark"] .undo-toast { background: var(--surface); border: 1px so
 .glucose-legend__swatch--outer { background: #3B82F6; opacity: 0.22; }
 .glucose-legend__swatch--threshold { background: none; border-top: 1.5px dashed #F59E0B; height: 0; }
 
+/* ================= Glucose > Day (2.68.0) ================= */
+.day-nav { display: flex; align-items: center; gap: var(--space-xs); margin-bottom: var(--space-s); }
+.day-nav__label { flex: 1; text-align: center; font-weight: 700; font-size: var(--fs-l); }
+.day-nav__btn { min-width: 44px; font-size: var(--fs-l); line-height: 1; }
+.day-nav__btn:disabled { opacity: 0.35; }
+.day-mark { cursor: pointer; outline: none; }
+.day-mark:focus-visible circle:nth-of-type(2) { stroke: var(--acc-1); stroke-width: 2.5; }
+.day-legend__dot { width: 10px; height: 10px; border-radius: 50%; }
+.day-events { list-style: none; margin: 0; padding: 0; }
+.day-ev { display: flex; align-items: flex-start; gap: var(--space-xs); padding: var(--space-xs) var(--space-2xs); border-top: 1px solid var(--line); border-radius: var(--radius-s); transition: background-color 0.2s; }
+.day-ev:first-child { border-top: none; }
+.day-ev.is-hl { background: color-mix(in srgb, var(--acc-1) 12%, transparent); }
+.day-ev__time { flex-shrink: 0; width: 5.2em; white-space: nowrap; font-size: var(--fs-s); color: var(--ink-soft); padding-top: 3px; font-variant-numeric: tabular-nums; }
+.history-entry__icon.day-ev__icon { width: 24px; height: 24px; }
+.history-entry__icon.day-ev__icon svg { width: 14px; height: 14px; }
+.day-ev__text { display: flex; flex-direction: column; min-width: 0; }
+.day-ev__title { font-weight: 600; font-size: var(--fs-m); }
+.day-ev__detail { font-size: var(--fs-s); color: var(--ink-soft); overflow-wrap: anywhere; }
+
 /* ================= Time in Range bars ================= */
 .tir-bars { display: flex; flex-direction: column; gap: var(--space-s); margin-top: var(--space-s); }
 .tir-row { display: grid; grid-template-columns: 62px 1fr 38px; align-items: center; gap: var(--space-xs); }

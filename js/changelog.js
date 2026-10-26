@@ -2,6 +2,17 @@
 // summary can never drift. Bump CHANGELOG[0].version here (and CACHE_VERSION in sw.js) on every release.
 export const CHANGELOG = [
   {
+    version: "2.68.0",
+    summary: "New Day view: one day's glucose with your meals, insulin, basal and activity on top.",
+    changes: [
+      "Insights > Glucose has a new \u201cDay\u201d view: the day's glucose line with an icon above it for every meal, correction, treated low, basal dose and activity, each with a faint line down to the glucose at that moment; an activity is also shaded for as long as it lasted",
+      "Arrows move a day at a time (back up to 90 days), and \u201cToday\u201d jumps back",
+      "Above the chart: time in range, average (with the day's lowest and highest), carbs and bolus insulin, activity minutes and basal",
+      "Below it, \u201cLogged this day\u201d lists everything in order with its details and the glucose at the time; tapping an icon on the chart picks out its row",
+      "The chart fits the screen width, so it stays readable on iPhone, iPad and PC. Doses are calculated exactly as before"
+    ]
+  },
+  {
     version: "2.67.0",
     summary: "Insights now take your activity into account.",
     changes: [

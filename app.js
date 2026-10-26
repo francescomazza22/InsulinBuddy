@@ -32,6 +32,7 @@ import { groupEvents, logHealth, isSyncStuck } from "./js/core/problems.js";
 import { createWebPlatform, assertPlatform } from "./js/core/platform.js";
 import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS } from "./js/core/storage.js";
 import { workoutsToActivities, awaitingIntensity, intensityUpdates, INBOX_KEEP_MS } from "./js/health-import.js";
+import { dayBounds, shiftDay, dayTimeline, readingNear, stackRows } from "./js/day-timeline.js";
 import { nearActivity, activitySkip, countNearActivity, breakfastByActivity, activitySummary, ACTIVITY_FILTERS, NEAR_BEFORE_HOURS, NEAR_AFTER_HOURS } from "./js/activity-stats.js";
 
 
@@ -1332,6 +1333,9 @@ import { nearActivity, activitySkip, countNearActivity, breakfastByActivity, act
 
   async function renderGlucoseTab(days) {
     const box = el("glucose-tab-content");
+    const rangeSeg = el("glucose-range-segmented");
+    if (rangeSeg) rangeSeg.hidden = glucoseView === "day";   // the Day view moves day by day instead
+    if (glucoseView === "day") return renderDayView(box);
     box.innerHTML = `<p class="panel-card__hint">Loading…</p>`;
     const result = await fetchStoredGlucoseReadings(days);
     if (!box.isConnected) return; // left the tab while this was loading
@@ -1596,6 +1600,159 @@ import { nearActivity, activitySkip, countNearActivity, breakfastByActivity, act
         ${xLabels}
       </svg>
     `;
+  }
+
+  // ---- Glucose > Day (2.68.0): one day's glucose with everything logged that day on top ----
+  // Meals, corrections, low treatments and basal are icons above the chart (with a faint guide down to the line); an
+  // activity is an icon plus a shaded band for as long as it lasted. Tapping an icon picks out its row in the list below.
+  // js/day-timeline.js does the sums; this only draws.
+  const DAY_VIEW_MAX_BACK = 89;   // the longest stored window is 90 days
+  let glucoseDay = dayBounds(Date.now()).start;
+  const LOW_TREAT = { label: "Treated low", color: "#D70015" };
+  function dayEventLook(ev) {
+    if (ev.kind === "basal") return { color: BASAL_COLOR, icon: iconBasal(), title: ev.slot === "am" ? "Basal (morning)" : ev.slot === "pm" ? "Basal (evening)" : "Basal" };
+    if (ev.kind === "activity") return { color: ACTIVITY_COLOR, icon: iconActivity(), title: ev.label };
+    if (ev.kind === "correction") return { color: MEAL_TYPES.correction.color, icon: MEAL_TYPES.correction.icon, title: "Correction" };
+    const mt = MEAL_TYPES[ev.mealType] || MEAL_TYPES.snack;
+    if (ev.kind === "low") return { color: LOW_TREAT.color, icon: mt.icon, title: LOW_TREAT.label };
+    return { color: mt.color, icon: mt.icon, title: mt.label };
+  }
+  function dayEventDetail(ev) {
+    if (ev.kind === "basal") return `${round1(ev.units)} u long-acting`;
+    if (ev.kind === "activity") return [formatMinutes(ev.minutes), ev.intensity, ev.note].filter(Boolean).join(" · ");
+    const parts = [];
+    if (ev.foods.length) parts.push(ev.foods.join(", "));
+    if (ev.carbsUnknown) parts.push("carbs not counted (eating out)");
+    else if (ev.carbs > 0) parts.push(`${round1(ev.carbs)} g carbs`);
+    if (ev.insulin !== 0) parts.push(`${round1(ev.insulin)} u`);
+    else if (ev.kind === "low") parts.push("no insulin");
+    return parts.join(" · ");
+  }
+  // An icon's own SVG, placed inside the chart at (cx, cy), white on a coloured disc.
+  const chartIcon = (svg, cx, cy, r) => svg.replace("<svg ", `<svg x="${(cx - r * 0.62).toFixed(1)}" y="${(cy - r * 0.62).toFixed(1)}" width="${(r * 1.24).toFixed(1)}" height="${(r * 1.24).toFixed(1)}" color="#fff" `);
+
+  // W follows the card's width (like the Insights curve), so text and icons stay the same size on a phone and a PC.
+  function renderDaySVG(d, now, W = 340) {
+    const padL = 32, padR = 10, laneH = 26, lanesTop = 4, padB = 22, plotH = Math.round(170 + Math.max(0, W - 340) * 0.15);
+    const plotW = W - padL - padR;
+    const xFor = t => padL + ((Math.min(Math.max(t, d.start), d.end) - d.start) / (d.end - d.start)) * plotW;
+    const marks = d.events.map((ev, i) => ({ ev, i, x: xFor(ev.t) }));
+    const rows = stackRows(marks, 23, 3);
+    const lanes = Math.max(1, ...rows.map(r => r + 1));
+    const padT = lanesTop + lanes * laneH + 4, H = padT + plotH + padB;
+    const vals = d.readings.map(r => r.mgdl);
+    const { min: axisMin, max: axisMax } = glucoseAxisRange(vals);
+    const yFor = v => padT + plotH - ((v - axisMin) / (axisMax - axisMin)) * plotH;
+    const lowY = yFor(70), highY = yFor(180);
+    // The line breaks where readings stop for more than 15 minutes (a sensor gap shouldn't look like a straight ramp).
+    let path = "", prev = null;
+    for (const r of d.readings) { path += `${!prev || r.at - prev.at > 15 * 60000 ? "M" : "L"}${xFor(r.at).toFixed(1)},${yFor(r.mgdl).toFixed(1)}`; prev = r; }
+    const bands = d.events.filter(ev => ev.kind === "activity").map(ev => {
+      const x0 = xFor(ev.t), x1 = xFor(ev.t1);
+      return `<rect class="day-act-band" x="${x0.toFixed(1)}" y="${padT}" width="${Math.max(2, x1 - x0).toFixed(1)}" height="${plotH}" fill="${ACTIVITY_COLOR}" opacity="0.13"/>`;
+    }).join("");
+    const r = 10;
+    const icons = marks.map(({ ev, i, x }) => {
+      const look = dayEventLook(ev), cy = lanesTop + rows[i] * laneH + laneH / 2;
+      const guide = `<line x1="${x.toFixed(1)}" y1="${(cy + r).toFixed(1)}" x2="${x.toFixed(1)}" y2="${padT + plotH}" stroke="${look.color}" stroke-width="1" stroke-dasharray="2,3" opacity="0.45"/>`;
+      return `${guide}<g class="day-mark" data-dayev="${i}" tabindex="0" role="button" aria-label="${escapeAttr(`${clockTime(ev.t)} ${look.title}: ${dayEventDetail(ev)}`)}"><circle cx="${x.toFixed(1)}" cy="${cy.toFixed(1)}" r="${r + 5}" fill="transparent"/><circle cx="${x.toFixed(1)}" cy="${cy.toFixed(1)}" r="${r}" fill="${look.color}" stroke="var(--surface)" stroke-width="1.5"/>${chartIcon(look.icon, x, cy, r)}<title>${escapeHtml(`${clockTime(ev.t)} ${look.title}: ${dayEventDetail(ev)}`)}</title></g>`;
+    }).join("");
+    const fmtHour = h => h === 0 || h === 24 ? "12 AM" : h === 12 ? "12 PM" : h < 12 ? `${h} AM` : `${h - 12} PM`;
+    let xTicks = "";
+    for (let h = 0; h <= 24; h += 3) {
+      const t = new Date(new Date(d.start).setHours(h, 0, 0, 0)).getTime(), x = h === 24 ? padL + plotW : xFor(t);
+      xTicks += `<line x1="${x.toFixed(1)}" y1="${padT + plotH}" x2="${x.toFixed(1)}" y2="${padT + plotH + 3}" stroke="var(--ink-soft)" stroke-width="1"/>`;
+      if (h % 6 === 0) xTicks += `<text class="glu-hour" x="${x.toFixed(1)}" y="${H - 6}" font-size="9" fill="var(--ink-soft)" text-anchor="${h === 0 ? "start" : h === 24 ? "end" : "middle"}">${fmtHour(h)}</text>`;
+    }
+    const nowLine = now > d.start && now < d.end ? `<line x1="${xFor(now).toFixed(1)}" y1="${padT}" x2="${xFor(now).toFixed(1)}" y2="${padT + plotH}" stroke="var(--ink-soft)" stroke-width="1" stroke-dasharray="1,3"/>` : "";
+    const noData = d.readings.length ? "" : `<text x="${padL + plotW / 2}" y="${padT + plotH / 2}" font-size="10" fill="var(--ink-soft)" text-anchor="middle">No glucose readings for this day</text>`;
+    return `<svg class="day-chart" viewBox="0 0 ${W} ${H}" style="width:100%; height:auto; display:block;" role="img" aria-label="Glucose and everything logged on this day">
+        ${glucoseYAxisSvg(axisMin, axisMax, yFor, padL, plotW, padT)}
+        <rect x="${padL}" y="${highY.toFixed(1)}" width="${plotW}" height="${(lowY - highY).toFixed(1)}" fill="#22C55E" opacity="0.08"/>
+        ${bands}
+        <line x1="${padL}" y1="${lowY.toFixed(1)}" x2="${padL + plotW}" y2="${lowY.toFixed(1)}" stroke="#EF4444" stroke-width="1" stroke-dasharray="2,3" opacity="0.6"/>
+        <line x1="${padL}" y1="${highY.toFixed(1)}" x2="${padL + plotW}" y2="${highY.toFixed(1)}" stroke="#F59E0B" stroke-width="1" stroke-dasharray="2,3" opacity="0.6"/>
+        <text x="${padL - 4}" y="${(lowY + 3).toFixed(1)}" font-size="8" fill="#EF4444" text-anchor="end">${glucoseDisp(70)}</text>
+        <text x="${padL - 4}" y="${(highY + 3).toFixed(1)}" font-size="8" fill="#F59E0B" text-anchor="end">${glucoseDisp(180)}</text>
+        <text x="${padL + 4}" y="${(padT + 9).toFixed(1)}" font-size="8" fill="var(--ink-soft)">${unitLabel()}</text>
+        ${nowLine}
+        <path d="${path}" fill="none" stroke="#3B82F6" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+        ${noData}
+        <line x1="${padL}" y1="${padT + plotH}" x2="${padL + plotW}" y2="${padT + plotH}" stroke="var(--line)" stroke-width="1"/>
+        ${xTicks}
+        ${icons}
+      </svg>`;
+  }
+
+  async function renderDayView(box) {
+    const today = dayBounds(Date.now()).start;
+    const back = Math.round((today - glucoseDay) / 86400000);
+    if (back < 0 || back > DAY_VIEW_MAX_BACK) glucoseDay = today;
+    const daysBack = Math.max(0, Math.round((today - glucoseDay) / 86400000));
+    const windowDays = [7, 14, 30, 90].find(n => n >= daysBack + 2) || 90;
+    const label = glucoseDay === today ? "Today" : glucoseDay === shiftDay(today, -1) ? "Yesterday" : new Date(glucoseDay).toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" });
+    const nav = `<div class="day-nav">
+        <button type="button" class="glucose-range-btn day-nav__btn" data-dayshift="-1" aria-label="Previous day"${daysBack >= DAY_VIEW_MAX_BACK ? " disabled" : ""}>‹</button>
+        <span class="day-nav__label">${escapeHtml(label)}</span>
+        <button type="button" class="glucose-range-btn day-nav__btn" data-dayshift="1" aria-label="Next day"${daysBack === 0 ? " disabled" : ""}>›</button>
+        ${daysBack > 0 ? `<button type="button" class="glucose-range-btn" data-dayshift="today">Today</button>` : ""}
+      </div>`;
+    box.innerHTML = `${nav}<p class="panel-card__hint">Loading…</p>`;
+    const wanted = glucoseDay;
+    const result = await fetchStoredGlucoseReadings(windowDays);
+    if (!box.isConnected || glucoseView !== "day" || wanted !== glucoseDay) return;   // moved on while loading
+    const readings = result.ok ? result.readings : [];
+    const now = Date.now();
+    const d = dayTimeline(state.history, readings, glucoseDay);
+    const st = d.stats, u = unitLabel();
+    const statCard = (value, unit, lbl, warn) => `<div class="trend-stat-card${warn ? " trend-stat-card--warn" : ""}"><div class="trend-stat-card__value">${value}<span class="trend-stat-card__unit">${unit}</span></div><div class="trend-stat-card__label">${lbl}</div></div>`;
+    const stats = `<div class="trend-stats glucose-stats">
+        ${statCard(st.tir == null ? "—" : Math.round(st.tir), st.tir == null ? "" : "%", `In range (${rangeText()})`, st.tir != null && st.tir < 70)}
+        ${statCard(st.avg == null ? "—" : glucoseDisp(st.avg), st.avg == null ? "" : u, st.min == null ? "Average glucose" : `Average · ${glucoseDisp(st.min)}–${glucoseDisp(st.max)} ${escapeHtml(u)}`)}
+        ${statCard(Math.round(st.carbs), "g", `Carbs · ${round1(st.bolus)} u bolus`)}
+        ${statCard(Math.round(st.activityMinutes), "min", `Activity · ${round1(st.basal)} u basal`)}
+      </div>`;
+    const sorted = d.readings;
+    const list = d.events.length ? `<ul class="day-events">${d.events.map((ev, i) => {
+      const look = dayEventLook(ev), g = ev.kind === "activity" ? null : readingNear(sorted, ev.t, 10);
+      return `<li class="day-ev" data-dayrow="${i}"><span class="day-ev__time">${escapeHtml(clockTime(ev.t))}</span><span class="history-entry__icon day-ev__icon" style="background:${look.color}">${look.icon}</span><span class="day-ev__text"><span class="day-ev__title">${escapeHtml(look.title)}</span><span class="day-ev__detail">${escapeHtml(dayEventDetail(ev))}${g != null ? ` · glucose ${escapeHtml(String(glucoseDisp(g)))} ${escapeHtml(u)}` : ""}</span></span></li>`;
+    }).join("")}</ul>` : `<p class="panel-card__hint">Nothing logged on this day.</p>`;
+    const legend = `<div class="glucose-legend">${[["Meal", MEAL_TYPES.breakfast.color], ["Correction", MEAL_TYPES.correction.color], ["Treated low", LOW_TREAT.color], ["Basal", BASAL_COLOR], ["Activity", ACTIVITY_COLOR]].map(([t, c]) => `<span class="glucose-legend__item"><span class="glucose-legend__swatch day-legend__dot" style="background:${c}"></span>${t}</span>`).join("")}</div>`;
+    box.innerHTML = `${nav}${stats}
+      <div class="panel-card">
+        ${renderDaySVG(d, now, Math.max(300, Math.min(960, (box.clientWidth || 360) - 34)))}
+        ${legend}
+        ${result.ok ? "" : `<p class="panel-card__hint">${escapeHtml(result.reason || "Couldn't load glucose readings.")}</p>`}
+      </div>
+      <div class="panel-card"><h2 class="panel-card__title">Logged this day</h2>${list}</div>`;
+  }
+  document.addEventListener("click", e => {
+    const nb = e.target.closest && e.target.closest("[data-dayshift]");
+    if (nb) {
+      const today = dayBounds(Date.now()).start;
+      glucoseDay = nb.dataset.dayshift === "today" ? today : Math.min(today, shiftDay(glucoseDay, Number(nb.dataset.dayshift)));
+      renderDayView(el("glucose-tab-content"));
+      return;
+    }
+    const mk = e.target.closest && e.target.closest(".day-mark");
+    if (mk) highlightDayRow(mk.dataset.dayev);
+  });
+  document.addEventListener("keydown", e => {
+    const mk = e.target.closest && e.target.closest(".day-mark");
+    if (mk && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); highlightDayRow(mk.dataset.dayev); }
+  });
+  let dayResizeTimer = null;
+  window.addEventListener("resize", () => {
+    if (glucoseView !== "day" || historySeg !== "glucose") return;
+    clearTimeout(dayResizeTimer);
+    dayResizeTimer = setTimeout(() => { const b = el("glucose-tab-content"); if (b && b.isConnected && !b.closest("[hidden]")) renderDayView(b); }, 200);
+  });
+  function highlightDayRow(i) {
+    document.querySelectorAll(".day-ev.is-hl").forEach(r => r.classList.remove("is-hl"));
+    const row = document.querySelector(`.day-ev[data-dayrow="${CSS.escape(String(i))}"]`);
+    if (!row) return;
+    row.classList.add("is-hl");
+    row.scrollIntoView({ block: "nearest", behavior: "smooth" });
   }
 
   function renderGlucoseGraphSVG(entries) {
