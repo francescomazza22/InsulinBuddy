@@ -2,6 +2,17 @@
 // summary can never drift. Bump CHANGELOG[0].version here (and CACHE_VERSION in sw.js) on every release.
 export const CHANGELOG = [
   {
+    version: "2.68.3",
+    summary: "Reopening the app brings you back to the same tab and place, not half way down Meals.",
+    changes: [
+      "The app remembered which screen you were on and how far down, but not the tab inside it. Leaving from Insights > Trends (or Glucose) reopened on Meals scrolled to where Trends had been, and Settings reopened on Dosing in the same way",
+      "Now it reopens on the same tab (Meals, Trends or Glucose, with the same period and view; or Dosing, Library, Sync, Data or General) at the same place",
+      "Each tab keeps its own position, so going back to Meals from Trends doesn't move you",
+      "On Trends and Glucose it waits for the graphs to load before scrolling, and stops at once if you start scrolling yourself",
+      "Doses are calculated exactly as before"
+    ]
+  },
+  {
     version: "2.68.2",
     summary: "The ideal ratio now counts corrections as well as lows.",
     changes: [

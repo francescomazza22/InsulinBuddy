@@ -578,34 +578,83 @@ import { nearActivity, activitySkip, countNearActivity, breakfastByActivity, act
   tabs.forEach(t => t.addEventListener("click", () => showView(t.dataset.target)));
 
   // ----- Reopen where you left off -----
-  // The screen you were on and how far down it you were are kept on this device; the app reopens there if it was left less than
-  // PLACE_TTL ago (after a longer break the first screen is the useful one). A meal in progress is kept separately (DRAFT_KEY).
+  // The screen you were on, its sub-tab (Insights: Meals / Trends / Glucose and their period and view; Settings: Dosing /
+  // Library / Sync / Data / General) and how far down each one was scrolled are kept on this device; the app reopens there if
+  // it was left less than PLACE_TTL ago (after a longer break the first screen is the useful one). A meal in progress is kept
+  // separately (DRAFT_KEY). Each sub-tab keeps its own scroll position (2.68.3): before, only the screen was remembered, so
+  // leaving from Trends reopened on Meals scrolled to where Trends had been.
   const PLACE_KEY = "insulinBuddy.place";
   const PLACE_TTL = 6 * 3600 * 1000;
+  const PLACE_VERSION = 2;
   let restoringPlace = false, placeTimer = null;
   function readPlace() { try { return JSON.parse(store.getItem(PLACE_KEY)) || null; } catch { return null; } }
   function currentViewName() { const v = Array.from(views).find(x => !x.hidden); return v ? v.id.replace(/^view-/, "") : "calculator"; }
+  // The sub-tab state. Read inside try: these are declared further down, and the first showView can run before they exist.
+  function subState() {
+    try { return { history: historySeg, settings: settingsSeg, trendsRange, glucoseRange, glucoseView }; } catch { return null; }
+  }
+  const spotKey = (view, sub) => (view === "history" || view === "settings") && sub ? `${view}:${sub[view]}` : view;
   function rememberPlace(viewName) {
     try {
-      const old = readPlace(), scroll = (old && old.scroll) || {};
+      const old = readPlace();
+      const scroll = (old && old.v === PLACE_VERSION && old.scroll) || {};
       const name = viewName || currentViewName();
-      scroll[name] = Math.round(window.scrollY || document.documentElement.scrollTop || 0);
-      store.setItem(PLACE_KEY, JSON.stringify({ view: name, scroll, at: Date.now() }));
+      const sub = subState();
+      scroll[spotKey(name, sub)] = Math.round(window.scrollY || document.documentElement.scrollTop || 0);
+      store.setItem(PLACE_KEY, JSON.stringify({ v: PLACE_VERSION, view: name, sub, scroll, at: Date.now() }));
     } catch {}
   }
   window.addEventListener("scroll", () => { clearTimeout(placeTimer); placeTimer = setTimeout(() => { if (!restoringPlace) rememberPlace(); }, 250); }, { passive: true });
   document.addEventListener("visibilitychange", () => { if (document.hidden) rememberPlace(); });
   window.addEventListener("pagehide", () => rememberPlace());
+  // Changing sub-tab, period or view is a new place too.
+  document.addEventListener("click", e => {
+    if (!restoringPlace && e.target.closest && e.target.closest("#history-segmented, #settings-segmented, #trends-range-segmented, #glucose-range-segmented, #glucose-view-segmented")) setTimeout(() => rememberPlace(), 0);
+  });
+  // Selects a button in a segmented switch the way a tap would (so the screen renders as usual), if it isn't already on.
+  function pressSeg(containerId, attr, value) {
+    const c = document.getElementById(containerId);
+    const b = c && value != null ? c.querySelector(`[${attr}="${CSS.escape(String(value))}"]`) : null;
+    if (b && !b.classList.contains("is-active")) b.click();
+  }
   function restorePlace() {
     const p = readPlace();
     if (!p || !p.view || !Array.from(views).some(v => v.id === "view-" + p.view) || Date.now() - (p.at || 0) > PLACE_TTL) return false;
     restoringPlace = true;
+    const sub = p.v === PLACE_VERSION && p.sub && typeof p.sub === "object" ? p.sub : null;
     showView(p.view);
-    const y = (p.scroll && p.scroll[p.view]) || 0;
-    if (y > 0) {
-      const go = () => window.scrollTo(0, y);
-      go(); requestAnimationFrame(() => { go(); setTimeout(() => { go(); restoringPlace = false; }, 150); });
-    } else setTimeout(() => { restoringPlace = false; }, 150);
+    if (sub && p.view === "history") {
+      // Period and view first (quietly: only their buttons and values), then the sub-tab, which draws once with them.
+      const preset = (id, attr, value) => { const c = el(id); if (c && value != null) c.querySelectorAll(".segmented__btn").forEach(b => b.classList.toggle("is-active", b.getAttribute(attr) === String(value))); };
+      if ([7, 14, 30].includes(Number(sub.trendsRange))) { trendsRange = Number(sub.trendsRange); preset("trends-range-segmented", "data-range", trendsRange); }
+      if ([7, 14, 30, 90].includes(Number(sub.glucoseRange))) { glucoseRange = Number(sub.glucoseRange); preset("glucose-range-segmented", "data-range", glucoseRange); }
+      if (["pattern", "tir", "stats", "day"].includes(sub.glucoseView)) { glucoseView = sub.glucoseView; preset("glucose-view-segmented", "data-glview", glucoseView); }
+      pressSeg("history-segmented", "data-seg", sub.history);
+    }
+    if (sub && p.view === "settings") pressSeg("settings-segmented", "data-seg", sub.settings);
+    // Only a position saved for this exact sub-tab is used; an older saved place (no sub-tab) opens at the top.
+    const y = sub ? ((p.scroll && p.scroll[spotKey(p.view, sub)]) || 0) : 0;
+    if (!(y > 0)) { setTimeout(() => { restoringPlace = false; }, 150); return true; }
+    // Trends and Glucose draw their cards a moment later (glucose readings load), so the page may not be long enough yet:
+    // keep trying for a few seconds until the position is reached, and stop at once if the person starts scrolling.
+    const started = Date.now();
+    let stop = false;
+    const cancel = () => { stop = true; };
+    const opts = { passive: true, once: true };
+    window.addEventListener("touchstart", cancel, opts); window.addEventListener("wheel", cancel, opts); window.addEventListener("keydown", cancel, opts);
+    const finish = () => {
+      window.removeEventListener("touchstart", cancel); window.removeEventListener("wheel", cancel); window.removeEventListener("keydown", cancel);
+      restoringPlace = false;
+    };
+    const step = () => {
+      if (stop) return finish();
+      window.scrollTo(0, y);
+      const reached = Math.abs((window.scrollY || 0) - y) < 2;
+      if (reached && Date.now() - started > 300) return finish();   // held for a moment: late layout can't knock it off
+      if (Date.now() - started > 4000) return finish();
+      setTimeout(step, 100);
+    };
+    step();
     return true;
   }
 
