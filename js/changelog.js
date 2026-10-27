@@ -2,6 +2,17 @@
 // summary can never drift. Bump CHANGELOG[0].version here (and CACHE_VERSION in sw.js) on every release.
 export const CHANGELOG = [
   {
+    version: "2.68.2",
+    summary: "The ideal ratio now counts corrections as well as lows.",
+    changes: [
+      "Insights > Trends \u201cIdeal ratio by time of day\u201d used to count only the carbs eaten to treat a low after a meal. It now also counts correction insulin given after a meal (on its own, or added to the next meal because you were high): the meal needed that much more insulin",
+      "A low treated after a follow-up correction now still counts for the meal (before, it was left out)",
+      "Worked out as the meal's carbs plus the low-treatment carbs, divided by the meal's insulin from the ratio plus the correction insulin, within the 2, 3 or 4 hours you choose. A meal's own mealtime correction is left out: that was for the glucose before eating",
+      "Each bracket says how many of its meals were followed by a low or a correction, and the caption gives the totals. The doctor's report uses the same figure",
+      "This describes what happened and never changes a ratio. Doses are calculated exactly as before"
+    ]
+  },
+  {
     version: "2.68.1",
     summary: "Swipe sideways in the Day view to move between days.",
     changes: [

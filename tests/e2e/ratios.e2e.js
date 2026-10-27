@@ -51,9 +51,9 @@ t.section("IDEAL RATIO: low-treatment carbs after an injection are counted into 
   let d2 = await open(2);
   let rows2 = await rd(d2);
   t.check("the card shows, with 3 h selected by default", await d2.eval(`!document.getElementById("trend-card-ideal").hidden && document.querySelector("#trend-ideal-window .is-active").dataset.hours === "3"`));
-  t.check("Morning: 50 g + 15 g of low treatment at the same 5 u makes 1u:13g (it was 1u:10g)", rows2[0].v === "1u:13g" && /was 1u:10g \u00b7 1 of 1 meal followed by a low/.test(rows2[0].n), JSON.stringify(rows2[0]));
+  t.check("Morning: 50 g + 15 g of low treatment at the same 5 u makes 1u:13g (it was 1u:10g)", rows2[0].v === "1u:13g" && /was 1u:10g \u00b7 1 of 1 meal followed by a low$/.test(rows2[0].n), JSON.stringify(rows2[0]));
   t.check("Lunch, with no low after it, is unchanged at 1u:8g", rows2[1].v === "1u:8g" && /same as used/.test(rows2[1].n), JSON.stringify(rows2[1]));
-  t.check("the caption says how many lows were counted", /1 low treated within 3 h of an injection \(15 g\)/.test(await d2.text("#trend-card-ideal")));
+  t.check("the caption says how many lows were counted", /Within 3 h after a ratio-dosed meal: 1 low treated \(15 g of carbs, added to the meal's carbs\)/.test(await d2.text("#trend-card-ideal")), (await d2.text("#trend-card-ideal")).slice(-400));
   await pick(d2, 2);
   t.check("a 2 h window still catches a low 2 h after", (await rd(d2))[0].v === "1u:13g");
   t.check("the 2 h choice is saved for next time", (await d2.eval(`localStorage.getItem("insulinBuddy.idealWindowHours")`)) === "2");
@@ -70,6 +70,30 @@ t.section("IDEAL RATIO: low-treatment carbs after an injection are counted into 
   await d2.eval(`document.getElementById("trend-card-ideal").scrollIntoView({block:"center"})`); await sleep(300);
   await d2.shot("/tmp/shots/ideal-ratio.png");
   d2.close();
+}
+
+t.section("IDEAL RATIO (2.68.2): corrections after a meal are counted too");
+{
+  // Morning 50 g @1:10 (5 u), a 1.5 u correction 2 h later, then a 15 g low at 2.5 h: 6.5 u matched 65 g -> 1u:10g
+  // Lunch 40 g @1:8, then 1 u of correction 1 h later: 6 u matched 40 g -> 1u:6.7g -> shown 1u:6.7g
+  const H = 3600000, base = now - 3 * DAY;
+  const corr = (id, ts, u) => e(id, ts, "Morning", null, { mealType: "correction", items: [], totalCarbs: 0, mealDose: 0, correctionDose: u, ratioLabel: "", ratioValue: null });
+  const lowE = (id, ts, g) => e(id, ts, "Morning", 10, { noInsulin: true, mealDose: 0, totalCarbs: g, mealType: "snack", items: [] });
+  const hist = [e(31, base, "Morning", 10, { totalCarbs: 50, mealDose: 5 }), corr(32, base + 2 * H, 1.5), lowE(33, base + 2.5 * H, 15),
+    e(34, base + 26 * H, "Lunch", 8, { totalCarbs: 40, mealDose: 5 }), corr(35, base + 27 * H, 1), corr(36, base + 50 * H, 2)];
+  const d3 = await openDevice(app, { width: 1100, height: 900, mobile: false, inject: `if (!localStorage.getItem("insulinBuddy.v2")) { ${seedLocal(stateBlob({ history: hist, settings }))} }`, wait: 1800 });
+  await d3.tab("history"); await d3.click('[data-seg="trends"]'); await sleep(500);
+  const r3 = await d3.eval(`[...document.querySelectorAll("#trend-ideal .rtrend")].map(r => ({ name: r.querySelector(".rtrend__name").textContent, v: r.querySelector(".rtrend__value").textContent, n: r.querySelector(".rtrend__n").textContent }))`);
+  console.log("  ", JSON.stringify(r3.slice(0, 2)));
+  t.check("Morning: the correction and the low after it both count (6.5 u for 65 g = 1u:10g)", r3[0].v === "1u:10g" && /1 of 1 meal followed by a low or a correction$/.test(r3[0].n), JSON.stringify(r3[0]));
+  t.check("Lunch: 1 u of correction afterwards makes 6 u for 40 g = 1u:6.7g (was 1u:8g)", r3[1].v === "1u:6.7g" && /was 1u:8g \u00b7 1 of 1 meal followed by a correction$/.test(r3[1].n), JSON.stringify(r3[1]));
+  const cap = await d3.text("#trend-card-ideal");
+  t.check("the caption counts lows and corrections", /1 low treated \(15 g of carbs, added to the meal's carbs\) and 2 corrections \(2\.5 u, added to the meal's insulin\)/.test(cap), cap.slice(-500));
+  t.check("a correction with no meal in the 3 h before is set aside, and says so", /1 correction had no ratio-dosed meal in the 3 h before, so isn't counted/.test(cap), cap.slice(-300));
+  await d3.eval(`document.getElementById("trend-card-ideal").scrollIntoView({block:"center"})`); await sleep(300);
+  await d3.shot("/tmp/shots/ideal-ratio-corrections.png");
+  t.check("no JS errors", (await d3.eval("window.__errs.length")) === 0 && d3.errors.length === 0, JSON.stringify(await d3.eval("window.__errs")));
+  d3.close();
 }
 
 t.section("DAILY CARBS: meals and low treatment are shown separately");

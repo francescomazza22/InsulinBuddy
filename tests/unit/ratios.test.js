@@ -97,3 +97,37 @@ test("daily carbs are split into meal carbs and low-treatment carbs", () => {
   assert.equal(today.carbs, 125); assert.equal(today.mealCarbs, 110); assert.equal(today.lowCarbs, 15);
   assert.equal(buckets[0].mealCarbs, 0); assert.equal(buckets[0].lowCarbs, 0);
 });
+
+// ---- 2.68.2: follow-up corrections count too (Francesco: "it should include all the treating lows and the correction") ----
+const corrAt = (ts, units) => ({ ts, mealType: "correction", noInsulin: false, totalCarbs: 0, items: [], mealDose: 0, correctionDose: units });
+test("ideal ratio: a correction after a meal means the meal needed more insulin", () => {
+  // 50 g at 1:10 (5 u), then 1.5 u to correct a high 2 h later: 6.5 u matched 50 g -> 1:7.7
+  const r = idealRatioByBracket([dosed(T0, "Morning", 10, 50, 5), corrAt(T0 + 2 * H, 1.5)], settings, 3);
+  const m = r.rows[0];
+  assert.ok(Math.abs(m.ideal - 10 * 50 / (50 + 15)) < 1e-9, String(m.ideal));
+  assert.equal(m.affected, 1); assert.equal(m.extraUnits, 1.5);
+  assert.equal(r.correctionsCounted, 1); assert.equal(r.correctionUnits, 1.5);
+});
+test("ideal ratio: a low treated after a follow-up correction still belongs to the meal", () => {
+  // meal 50 g / 5 u, correction 1 u at +1.5 h, then 15 g for a low at +2.5 h: 6 u matched 65 g -> 1:10.8
+  const r = idealRatioByBracket([dosed(T0, "Morning", 10, 50, 5), corrAt(T0 + 1.5 * H, 1), low(T0 + 2.5 * H, 15)], settings, 3);
+  assert.ok(Math.abs(r.rows[0].ideal - 10 * 65 / (50 + 10)) < 1e-9, String(r.rows[0].ideal));
+  assert.equal(r.lowsCounted, 1); assert.equal(r.correctionsCounted, 1); assert.equal(r.lowsUnattached, 0);
+});
+test("ideal ratio: the correction part of the NEXT meal, within the window, counts for the meal before", () => {
+  // high again at the next meal 2.5 h later, so 1 u of correction was added to it: that is the first meal's shortfall
+  const r = idealRatioByBracket([dosed(T0, "Morning", 10, 50, 5), dosed(T0 + 2.5 * H, "Lunch", 8, 40, 5, { correctionDose: 1 })], settings, 3);
+  assert.ok(Math.abs(r.rows[0].ideal - 10 * 50 / (50 + 10)) < 1e-9, String(r.rows[0].ideal));
+  assert.equal(r.rows[1].ideal, 8, "a meal's own mealtime correction is for the starting glucose, not its carbs");
+});
+test("ideal ratio: corrections outside the window, with no meal before, or after an Eating Out entry are set aside", () => {
+  const settings2 = settings;
+  const late = idealRatioByBracket([dosed(T0, "Morning", 10, 50, 5), corrAt(T0 + 3.5 * H, 1)], settings2, 3);
+  assert.equal(late.rows[0].ideal, 10); assert.equal(late.correctionsCounted, 0); assert.equal(late.correctionsUnattached, 1);
+  const alone = idealRatioByBracket([corrAt(T0, 2)], settings2, 3);
+  assert.equal(alone.correctionsUnattached, 1);
+  const eatingOut = { ts: T0 + H, mealType: "dinner", carbsUnknown: true, noInsulin: false, totalCarbs: 0, mealDose: 3, correctionDose: 0 };
+  const eo = idealRatioByBracket([dosed(T0, "Morning", 10, 50, 5), eatingOut, corrAt(T0 + 2 * H, 1), low(T0 + 2.5 * H, 10)], settings2, 3);
+  assert.equal(eo.rows[0].ideal, 10, "the correction and low follow the Eating Out meal, which has no ratio");
+  assert.equal(eo.correctionsUnattached, 1); assert.equal(eo.lowsUnattached, 1);
+});

@@ -1233,7 +1233,7 @@ import { nearActivity, activitySkip, countNearActivity, breakfastByActivity, act
       const ratios = ratioByBracket(inRange, state.settings), ideal = idealRatioByBracket(inRange, state.settings, 3);
       const idealBy = new Map(ideal.rows.map(r => [r.label, r]));
       const ratioRows = ratios.rows.filter(r => r.count > 0).map(r => { const i = idealBy.get(r.label); return `<tr><td>${escapeHtml(r.label)}</td><td>${r.count}</td><td>${ratioText(round1(r.avg))}</td><td>${i && i.count ? ratioText(round1(i.ideal)) : "\u2014"}</td><td>${r.current ? ratioText(round1(r.current)) : "\u2014"}</td></tr>`; }).join("");
-      if (ratioRows) patternsHtml += `<h3>Insulin-to-carb ratios</h3><table class="report-table"><thead><tr><th>Bracket</th><th>Meals</th><th>Used (avg)</th><th>Ideal*</th><th>Set now</th></tr></thead><tbody>${ratioRows}</tbody></table><p class="panel-card__hint">*Ideal counts carbs eaten to treat a low within 3 h after an injection.</p>`;
+      if (ratioRows) patternsHtml += `<h3>Insulin-to-carb ratios</h3><table class="report-table"><thead><tr><th>Bracket</th><th>Meals</th><th>Used (avg)</th><th>Ideal*</th><th>Set now</th></tr></thead><tbody>${ratioRows}</tbody></table><p class="panel-card__hint">*Ideal counts what followed each meal within 3 h: carbs eaten to treat a low are added to its carbs, correction insulin to its insulin.</p>`;
       if (reportReadings && reportReadings.length) {
         const out = outcomeByBracket(inRange, reportReadings, { afterHours: 3 });
         if (out.total) patternsHtml += `<h3>Glucose 3 hours after meals</h3><table class="report-table"><thead><tr><th>Bracket</th><th>Meals</th><th>Low</th><th>In range</th><th>High</th><th>Avg start \u2192 3 h (${unitLabel})</th></tr></thead><tbody>${[...out.rows, ...(out.rows.length > 1 ? [out.all] : [])].map(r => `<tr><td>${escapeHtml(r.label)}</td><td>${r.n}</td><td>${Math.round((r.low / r.n) * 100)}%</td><td>${Math.round((r.inRange / r.n) * 100)}%</td><td>${Math.round((r.high / r.n) * 100)}%</td><td>${gl(r.avgStart)} \u2192 ${gl(r.avgEnd)}</td></tr>`).join("")}</tbody></table>`;
@@ -5351,6 +5351,27 @@ import { nearActivity, activitySkip, countNearActivity, breakfastByActivity, act
     renderIdealRatioTrend(lastIdealEntries);
   });
 
+  // How a bracket's ideal ratio came about (2.68.2): lows treated and corrections given after its meals.
+  const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+  function idealAffectedText(r) {
+    const what = r.withLows && r.withCorrections ? "a low or a correction" : r.withLows ? "a low" : "a correction";
+    return `${r.affected} of ${plural(r.count, "meal", "meals")} followed by ${what}`;
+  }
+  function idealCaption(res) {
+    const w = res.windowHours, out = [];
+    if (res.lowsCounted || res.correctionsCounted) {
+      const bits = [];
+      if (res.lowsCounted) bits.push(`${plural(res.lowsCounted, "low", "lows")} treated (${round1(res.rescueCarbs)} g of carbs, added to the meal's carbs)`);
+      if (res.correctionsCounted) bits.push(`${plural(res.correctionsCounted, "correction", "corrections")} (${round1(res.correctionUnits)} u, added to the meal's insulin)`);
+      out.push(`Within ${w} h after a ratio-dosed meal: ${bits.join(" and ")}. Each is counted into the meal before it.`);
+    } else out.push(`No lows were treated and no corrections given within ${w} h after a meal in this period, so the ideal ratio equals the ratio used.`);
+    const left = [];
+    if (res.lowsUnattached) left.push(plural(res.lowsUnattached, "low", "lows"));
+    if (res.correctionsUnattached) left.push(plural(res.correctionsUnattached, "correction", "corrections"));
+    if (left.length) out.push(`${left.join(" and ")} had no ratio-dosed meal in the ${w} h before, so ${left.length > 1 || res.lowsUnattached + res.correctionsUnattached > 1 ? "aren't" : "isn't"} counted.`);
+    return out.join(" ");
+  }
+
   function renderIdealRatioTrend(inRange) {
     lastIdealEntries = inRange;
     const card = el("trend-card-ideal"), box = el("trend-ideal");
@@ -5367,7 +5388,7 @@ import { nearActivity, activitySkip, countNearActivity, breakfastByActivity, act
       const colour = r.color && /^#[0-9a-fA-F]{3,8}$/.test(r.color) ? r.color : "var(--acc-1)";
       const figures = r.count === 0
         ? `<span class="rtrend__value rtrend__value--none">\u2014</span><span class="rtrend__n">no meals</span>`
-        : `<span class="rtrend__value">${ratioText(fmt(r.ideal))}</span><span class="rtrend__n">${r.affected > 0 ? `was ${ratioText(fmt(r.used))} \u00b7 ${r.affected} of ${r.count} meal${r.count === 1 ? "" : "s"} followed by a low` : `same as used \u00b7 no lows after ${r.count === 1 ? "this meal" : "these " + r.count + " meals"}`}</span>`;
+        : `<span class="rtrend__value">${ratioText(fmt(r.ideal))}</span><span class="rtrend__n">${r.affected > 0 ? `was ${ratioText(fmt(r.used))} \u00b7 ${idealAffectedText(r)}` : `same as used \u00b7 no lows or corrections after ${r.count === 1 ? "this meal" : "these " + r.count + " meals"}`}</span>`;
       return `<div class="rtrend">
         <div class="rtrend__head"><span class="rtrend__name">${escapeHtml(r.label)}</span><span class="rtrend__hours">${hours}</span></div>
         <div class="rtrend__track rtrend__track--double" role="img" aria-label="${escapeAttr(r.label)}: ${r.count > 0 ? "ideal " + ratioText(fmt(r.ideal)) + ", used " + ratioText(fmt(r.used)) : "no meals"}">
@@ -5378,8 +5399,7 @@ import { nearActivity, activitySkip, countNearActivity, breakfastByActivity, act
       </div>`;
     }).join("") +
       `<div class="trend-legend"><span><span class="trend-legend__dot" style="background:var(--ink-soft);opacity:.45;"></span>Used</span><span><span class="trend-legend__dot" style="background:var(--ink-soft);"></span>Ideal</span><span><span class="trend-legend__tick"></span>Set now</span></div>` +
-      `<p class="trend-caption trend-caption--tight">${res.lowsCounted > 0 ? `${res.lowsCounted} low${res.lowsCounted === 1 ? "" : "s"} treated within ${res.windowHours} h of an injection (${round1(res.rescueCarbs)} g) counted into the meal before ${res.lowsCounted === 1 ? "it" : "them"}.` : `No lows were treated within ${res.windowHours} h of an injection in this period, so the ideal ratio equals the ratio used.`}` +
-      (res.lowsUnattached > 0 ? ` ${res.lowsUnattached} other low${res.lowsUnattached === 1 ? "" : "s"} had no ratio-dosed meal in the window, so ${res.lowsUnattached === 1 ? "isn't" : "aren't"} counted.` : "") +
+      `<p class="trend-caption trend-caption--tight">${idealCaption(res)}` +
       (activityFilterNote() ? ` ${activityFilterNote()}` : "") +
       ` A longer ratio number means less insulin per gram of carbs. This is a pattern to talk through with your care team, not a dosing instruction.</p>`;
   }

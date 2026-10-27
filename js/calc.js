@@ -454,31 +454,50 @@ export function ratioByBracket(entries, settings) {
   return { rows, unrecorded, total: rows.reduce((s, r) => s + r.count, 0) };
 }
 
-/** The "ideal" ratio for each bracket if the carbs eaten to treat lows shortly AFTER an injection had been counted into
- * that meal. Only carbs taken with no insulin of their own (Treating a Low) are counted: a later meal that was injected
- * for already has its own dose, so counting it again would be double-counting. Each such low is credited to the nearest
- * insulin entry before it, and only when that entry is a meal dosed by the ratio and the low came within
- * `windowHours` of it.
+/** The "ideal" ratio for each bracket: the ratio that would have matched each meal once what happened in the
+ * `windowHours` after it is counted in.
+ *  - Lows treated afterwards (carbs with no insulin of their own) mean the meal's insulin covered MORE carbs: they are
+ *    added to the meal's carbs.
+ *  - Corrections afterwards (2.68.2) mean the meal needed MORE insulin: standalone correction doses, and the correction
+ *    part of the next meal if it comes within the window, are added to the meal's insulin.
+ * Each is credited to the most recent meal before it that was dosed by the ratio, if that meal was within the window. A
+ * standalone correction in between does not break the link (meal, correction, then a low: both belong to the meal); a
+ * later meal or an Eating Out entry does (what follows is credited to it, or set aside if it had no ratio).
+ * A meal's OWN mealtime correction (or reduction) is left out: it was for the glucose before eating, not for the carbs.
  *
- * For a meal that used ratio R, ate C g, and was followed by r g of low-treatment carbs, the same insulin would have
- * matched C + r g, so the ratio that would have fitted is R x (C + r) / C. (Scaling R, rather than dividing carbs by the
- * dose, keeps dose rounding out of it.) The bracket's figure is the mean of those, directly comparable with the mean of
- * the ratios used. A bracket with no lows after its meals comes out equal to what was used. */
+ * For a meal that used ratio R for C g, followed by r g of low treatment and U units of correction, the insulin from the
+ * ratio was C/R, so (C + r) g were matched by C/R + U units: ideal = (C + r) / (C/R + U) = R x (C + r) / (C + R x U).
+ * (Using C/R rather than the saved dose keeps dose rounding out of it.) With nothing afterwards it equals R. The
+ * bracket's figure is the mean over its meals, directly comparable with the mean of the ratios used. */
 export function idealRatioByBracket(entries, settings, windowHours = 3, { skip = () => false } = {}) {
   const windowMs = Math.max(0, Number(windowHours) || 0) * 3600000;
   const list = (entries || []).filter(e => e && e.entryType !== "basal" && e.mealType !== "basal" && e.entryType !== "activity" && Number.isFinite(e.ts)).slice().sort((a, b) => a.ts - b.ts);
-  const hasInsulin = e => !e.noInsulin && ((Number(e.mealDose) || 0) + (Number(e.correctionDose) || 0)) > 0;
-  const rescue = new Map(); // dosing entry -> grams of low-treatment carbs credited to it
-  let lowsCounted = 0, lowsUnattached = 0, rescueCarbs = 0;
-  let lastDosed = null;
+  const insulinOf = e => (Number(e.mealDose) || 0) + (Number(e.correctionDose) || 0);
+  const isMeal = e => !e.noInsulin && insulinOf(e) > 0 && (Number(e.totalCarbs) > 0 || !!e.carbsUnknown);
+  const rescue = new Map(); // ratio-dosed meal -> grams of low-treatment carbs credited to it
+  const extra = new Map();  // ratio-dosed meal -> units of later correction credited to it
+  let lowsCounted = 0, lowsUnattached = 0, rescueCarbs = 0, correctionsCounted = 0, correctionsUnattached = 0, correctionUnits = 0;
+  let lastMeal = null;
+  const target = e => (lastMeal && ratioWasApplied(lastMeal) && e.ts - lastMeal.ts <= windowMs ? lastMeal : null);
   for (const e of list) {
     if (e.noInsulin) {
       const g = Number(e.totalCarbs) || 0;
       if (g <= 0) continue;
-      if (lastDosed && ratioWasApplied(lastDosed) && e.ts - lastDosed.ts <= windowMs) {
-        rescue.set(lastDosed, (rescue.get(lastDosed) || 0) + g); lowsCounted++; rescueCarbs += g;
-      } else lowsUnattached++;
-    } else if (hasInsulin(e)) lastDosed = e;
+      const m = target(e);
+      if (m) { rescue.set(m, (rescue.get(m) || 0) + g); lowsCounted++; rescueCarbs += g; } else lowsUnattached++;
+    } else if (isMeal(e)) {
+      // A correction added to this meal because glucose was high when eating is the previous meal's shortfall.
+      const c = Number(e.correctionDose) || 0;
+      if (c > 0) {
+        const m = target(e);
+        if (m) { extra.set(m, (extra.get(m) || 0) + c); correctionsCounted++; correctionUnits += c; } else correctionsUnattached++;
+      }
+      lastMeal = e;
+    } else if (insulinOf(e) > 0) {
+      const u = insulinOf(e);
+      const m = target(e);
+      if (m) { extra.set(m, (extra.get(m) || 0) + u); correctionsCounted++; correctionUnits += u; } else correctionsUnattached++;
+    }
   }
   const groups = new Map();
   for (const e of list) {
@@ -486,9 +505,10 @@ export function idealRatioByBracket(entries, settings, windowHours = 3, { skip =
     // credited to the meal before them above, so leaving a meal out never moves its lows onto another one.
     if (!ratioWasApplied(e) || skip(e)) continue;
     const key = e.ratioLabel || "";
-    const r = rescue.get(e) || 0;
+    const r = rescue.get(e) || 0, u = extra.get(e) || 0;
+    const R = Number(e.ratioValue), C = Number(e.totalCarbs);
     if (!groups.has(key)) groups.set(key, []);
-    groups.get(key).push({ used: Number(e.ratioValue), ideal: Number(e.ratioValue) * ((Number(e.totalCarbs) + r) / Number(e.totalCarbs)), hadLow: r > 0, r });
+    groups.get(key).push({ used: R, ideal: R * (C + r) / (C + R * u), hadLow: r > 0, hadCorrection: u > 0, r, u });
   }
   const mean = (v, f) => v.reduce((s, x) => s + f(x), 0) / v.length;
   const rows = [], seen = new Set();
@@ -499,14 +519,19 @@ export function idealRatioByBracket(entries, settings, windowHours = 3, { skip =
       label: name, kind, ...extra, count: v.length,
       used: v.length ? mean(v, x => x.used) : null,
       ideal: v.length ? mean(v, x => x.ideal) : null,
-      affected: v.filter(x => x.hadLow).length,
-      rescueCarbs: v.reduce((s, x) => s + x.r, 0)
+      affected: v.filter(x => x.hadLow || x.hadCorrection).length,
+      withLows: v.filter(x => x.hadLow).length, withCorrections: v.filter(x => x.hadCorrection).length,
+      rescueCarbs: v.reduce((s, x) => s + x.r, 0),
+      extraUnits: Math.round(v.reduce((s, x) => s + x.u, 0) * 100) / 100
     });
   };
   for (const r of (settings && settings.timeRatios) || []) add(r.name, "time", { color: r.color, current: r.ratio, start: r.start, end: r.end, days: r.days });
   for (const r of (settings && settings.activityRatios) || []) add(r.name, "activity", { color: r.color, current: r.ratio });
   for (const name of groups.keys()) if (!seen.has(name)) add(name || "Unnamed", "other", { color: null, current: null });
-  return { rows, lowsCounted, lowsUnattached, rescueCarbs, windowHours: windowMs / 3600000, total: rows.reduce((s, r) => s + r.count, 0) };
+  return {
+    rows, lowsCounted, lowsUnattached, rescueCarbs, correctionsCounted, correctionsUnattached,
+    correctionUnits: Math.round(correctionUnits * 100) / 100, windowHours: windowMs / 3600000, total: rows.reduce((s, r) => s + r.count, 0)
+  };
 }
 
 /**
