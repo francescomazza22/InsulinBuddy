@@ -1,4 +1,4 @@
-// Text contrast audit (2.68.7): every visible piece of text on the main screens, in every theme, light and dark, measured
+// Text contrast audit (2.68.7; night only required since 2.68.8): every visible piece of text on the main screens, in every theme, measured
 // against what is really behind it (solid colours, gradients and see-through layers composited), against WCAG AA: 4.5:1, or
 // 3:1 for large text (24px+, or 18.66px+ bold). Disabled controls are exempt, as in WCAG.
 // CONTRAST_REPORT=1 prints every failure; SHOTS=<dir> saves the dose card in each theme.
@@ -10,7 +10,9 @@ const t = makeChecker();
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const SHOTS = process.env.SHOTS || "", REPORT = process.env.CONTRAST_REPORT === "1";
 const PALETTES = (process.env.PALETTES || "redOrange,orangeYellow,greenMint,tealCyan,blueIndigo,purplePink").split(",");
-const MODES = (process.env.MODES || "light,dark").split(",");
+// Night mode must pass. Day mode shows each theme's designed colours exactly (Francesco's choice, 2.68.8), so it is reported
+// with MODES=light,dark but not required.
+const MODES = (process.env.MODES || "dark").split(",");
 const app = await startApp(DIR, null, { "foods_data.js": FOODS_JS, "manifest.json": "{}" });
 
 const AUDIT = String.raw`(() => {

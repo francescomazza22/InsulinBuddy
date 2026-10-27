@@ -44,25 +44,28 @@ test("style.css keeps radius, type size and spacing on the scale (no stray raw v
   assert.deepEqual([...new Set(sizes)], [], "use var(--fs-*) for text sizes");
 });
 
-// 2.68.7: the colours each theme actually shows are readable in light and dark mode (WCAG AA), by construction.
+// 2.68.8: by day each theme shows its designed colours exactly; at night the same colours are only made darker (card, filled
+// controls) or lighter (text on black), and everything passes WCAG AA.
 import { contrast, over } from "../../tools/contrast-colours.mjs";
-test("every theme's generated colours are readable: accent text, text on filled controls, and the dose card", () => {
+test("themes: day colours exactly as designed; night colours readable (accent text, filled controls, dose card)", () => {
   const css = read("tokens.css");
   const grab = (block, name) => (new RegExp(`--${name}:\\s*(#[0-9A-Fa-f]{6})`).exec(block) || [])[1];
-  const pages = { light: [tokens.color.light.surface, tokens.color.light.paper], dark: [tokens.color.dark.paper, tokens.color.dark.surface] };
+  const nightPages = [tokens.color.dark.paper, tokens.color.dark.surface];
   let checked = 0;
-  for (const name of Object.keys(tokens.palette.set)) for (const mode of ["light", "dark"]) {
-    const sel = mode === "light" ? `html[data-palette="${name}"]` : `html[data-theme="dark"][data-palette="${name}"]`;
-    const line = css.split("\n").find(l => l.startsWith(sel));
-    assert.ok(line, `${name}/${mode} missing from tokens.css`);
-    const acc = grab(line, "acc-1"), onAcc = grab(line, "on-acc"), c1 = grab(line, "card-1"), c2 = grab(line, "card-2");
-    for (const p of pages[mode]) assert.ok(contrast(acc, p) >= 4.5, `${name}/${mode}: accent text ${acc} on ${p} is ${contrast(acc, p).toFixed(2)}:1`);
-    assert.ok(contrast(onAcc, acc) >= 4.5, `${name}/${mode}: ${onAcc} on a filled ${acc} control is ${contrast(onAcc, acc).toFixed(2)}:1`);
+  for (const [name, p] of Object.entries(tokens.palette.set)) {
+    const day = css.split("\n").find(l => l.startsWith(`html[data-palette="${name}"]`));
+    const night = css.split("\n").find(l => l.startsWith(`html[data-theme="dark"][data-palette="${name}"]`));
+    assert.ok(day && night, `${name} missing from tokens.css`);
+    assert.equal(grab(day, "acc-1"), p["acc-1"].toUpperCase(), `${name}: day accent changed`);
+    assert.equal(grab(day, "card-1"), p["acc-1"].toUpperCase(), `${name}: day card changed`);
+    assert.equal(grab(day, "card-2"), p["acc-2"].toUpperCase(), `${name}: day card changed`);
+    const acc = grab(night, "acc-1"), fill = grab(night, "acc-fill"), c1 = grab(night, "card-1"), c2 = grab(night, "card-2");
+    for (const pg of nightPages) assert.ok(contrast(acc, pg) >= 4.5, `${name}/night: accent text ${acc} on ${pg} is ${contrast(acc, pg).toFixed(2)}:1`);
+    assert.ok(contrast("#FFFFFF", fill) >= 4.5, `${name}/night: white on a filled ${fill} control`);
     for (const c of [c1, c2]) {
-      assert.ok(contrast("#FFFFFF", c) >= 4.5, `${name}/${mode}: white on the dose card ${c}`);
-      assert.ok(contrast("#FFFFFF", over("#FFFFFF", 0.06, c)) >= 4.5, `${name}/${mode}: white under the card's sheen on ${c}`);
+      assert.ok(contrast("#FFFFFF", c) >= 4.5 && contrast("#FFFFFF", over("#FFFFFF", 0.06, c)) >= 4.5, `${name}/night: white on the dose card ${c}`);
     }
     checked++;
   }
-  assert.equal(checked, Object.keys(tokens.palette.set).length * 2);
+  assert.equal(checked, Object.keys(tokens.palette.set).length);
 });

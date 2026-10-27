@@ -2,6 +2,17 @@
 // summary can never drift. Bump CHANGELOG[0].version here (and CACHE_VERSION in sw.js) on every release.
 export const CHANGELOG = [
   {
+    version: "2.68.8",
+    summary: "Your theme colours are back as they were by day; at night they are the same colours, darker.",
+    changes: [
+      "By day every theme shows its original colours again, exactly as before 2.68.7 (the dose card, buttons, tabs and links)",
+      "At night the app no longer swaps to Apple's brighter night colours, which made the dose card hard to read. It uses your day colours made darker for the dose card and buttons, so white text reads, and only a little lighter where the colour is text on the black background",
+      "At night the pills on the dose card sit on a slightly darker band and its labels are solid white. By day the card looks as it always did",
+      "The other readability fixes from 2.68.7 stay (Library tags, GI tags at night, ratio timeline labels, Edit Meal)",
+      "Doses are calculated exactly as before"
+    ]
+  },
+  {
     version: "2.68.7",
     summary: "Everything is readable in every theme, day and night.",
     changes: [

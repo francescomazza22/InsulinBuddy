@@ -86,8 +86,7 @@ const picked = await dev.eval(`JSON.parse(localStorage.getItem("insulinBuddy.v2"
 await dev.click('#bg-swatch-grid .bg-swatch--default'); await sleep(250);
 const restored = await dev.eval(`JSON.parse(localStorage.getItem("insulinBuddy.v2")).settings.customBackground`);
 t.check("picking a colour saves it, and the Theme default circle puts the theme's own background back", picked === "#E1EDF7" && restored == null && /^default\* /.test(await sw()), JSON.stringify({ picked, restored }));
-// 2.68.7: colour 1 is the readable version the app actually uses (#0088FF deepened to #096DCB for 4.5:1 text), colour 2 as designed.
-t.check("Blue & Indigo's dots are the colours the app uses (#096DCB, #6155F5)", pc.dots[0] === "rgb(9, 109, 203)" && pc.dots[1] === "rgb(97, 85, 245)", JSON.stringify(pc.dots));
+t.check("Blue & Indigo's dots are its real colours 1 and 2 (#0088FF, #6155F5)", pc.dots[0] === "rgb(0, 136, 255)" && pc.dots[1] === "rgb(97, 85, 245)", JSON.stringify(pc.dots));
 
 dev.close();
 // Fresh device: the basal sheet opens on last time's dose with the caret after it (typing adds to it; the X clears it).

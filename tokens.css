@@ -9,7 +9,7 @@
   --amber: #C93400;
   --brick: #D70015;
   --brick-soft: #FFE5E6;
-  --green: #1E7B34;
+  --green: #248A3D;
   --app-bg: var(--paper);
 
   /* shape, spacing, type, motion */
@@ -43,7 +43,7 @@
   --motion-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
 
   /* palette accents: overridden per data-palette */
-  --acc-1:#096DCB; --acc-2:#6155F5; --acc-3:#096DCB; --acc-1-rgb: 9,109,203; --on-acc:#FFFFFF; --card-1:#096DCB; --card-2:#6053F3;
+  --acc-1:#0088FF; --acc-2:#6155F5; --acc-3:#0088FF; --acc-1-rgb: 0,136,255; --acc-fill:#0088FF; --on-acc:#FFFFFF; --card-1:#0088FF; --card-2:#6155F5;
 
   /* Liquid Glass */
   --glass-bg: rgba(255,255,255,0.60);
@@ -56,18 +56,18 @@
 }
 
 /* ---------- Palettes ---------- */
-html[data-palette="redOrange"], [data-swatch="redOrange"] { --acc-1:#D70015; --acc-2:#FF8D28; --acc-3:#D70015; --acc-1-rgb: 215,0,21; --on-acc:#FFFFFF; --card-1:#D70015; --card-2:#A65812; }
-html[data-palette="orangeYellow"], [data-swatch="orangeYellow"] { --acc-1:#C93400; --acc-2:#FFCC00; --acc-3:#C93400; --acc-1-rgb: 201,52,0; --on-acc:#FFFFFF; --card-1:#C93400; --card-2:#9B5E02; }
-html[data-palette="greenMint"], [data-swatch="greenMint"] { --acc-1:#107E31; --acc-2:#00C8B3; --acc-3:#107E31; --acc-1-rgb: 16,126,49; --on-acc:#FFFFFF; --card-1:#107E31; --card-2:#067B6D; }
-html[data-palette="tealCyan"], [data-swatch="tealCyan"] { --acc-1:#03788E; --acc-2:#00C0E8; --acc-3:#03788E; --acc-1-rgb: 3,120,142; --on-acc:#FFFFFF; --card-1:#03788E; --card-2:#0A7790; }
-html[data-palette="blueIndigo"], [data-swatch="blueIndigo"] { --acc-1:#096DCB; --acc-2:#6155F5; --acc-3:#096DCB; --acc-1-rgb: 9,109,203; --on-acc:#FFFFFF; --card-1:#096DCB; --card-2:#6053F3; }
-html[data-palette="purplePink"], [data-swatch="purplePink"] { --acc-1:#BA12CF; --acc-2:#FF2D55; --acc-3:#BA12CF; --acc-1-rgb: 186,18,207; --on-acc:#FFFFFF; --card-1:#BD1AD2; --card-2:#DE1143; }
-html[data-theme="dark"][data-palette="redOrange"], html[data-theme="dark"] [data-swatch="redOrange"] { --acc-1:#FA635E; --acc-2:#FF9230; --acc-3:#FA635E; --acc-1-rgb: 250,99,94; --on-acc:#000000; --card-1:#CA0C22; --card-2:#924E0C; }
-html[data-theme="dark"][data-palette="orangeYellow"], html[data-theme="dark"] [data-swatch="orangeYellow"] { --acc-1:#FF9230; --acc-2:#FFD600; --acc-3:#FF9230; --acc-1-rgb: 255,146,48; --on-acc:#000000; --card-1:#924E0C; --card-2:#7B590A; }
-html[data-theme="dark"][data-palette="greenMint"], html[data-theme="dark"] [data-swatch="greenMint"] { --acc-1:#30D158; --acc-2:#00DAC3; --acc-3:#30D158; --acc-1-rgb: 48,209,88; --on-acc:#000000; --card-1:#0E6F29; --card-2:#0E6C60; }
-html[data-theme="dark"][data-palette="tealCyan"], html[data-theme="dark"] [data-swatch="tealCyan"] { --acc-1:#00D2E0; --acc-2:#3CD3FE; --acc-3:#00D2E0; --acc-1-rgb: 0,210,224; --on-acc:#000000; --card-1:#026B73; --card-2:#066981; }
-html[data-theme="dark"][data-palette="blueIndigo"], html[data-theme="dark"] [data-swatch="blueIndigo"] { --acc-1:#3599F9; --acc-2:#6D7CFF; --acc-3:#3599F9; --acc-1-rgb: 53,153,249; --on-acc:#000000; --card-1:#0862AD; --card-2:#484FCE; }
-html[data-theme="dark"][data-palette="purplePink"], html[data-theme="dark"] [data-swatch="purplePink"] { --acc-1:#E752FC; --acc-2:#FF375F; --acc-3:#E752FC; --acc-1-rgb: 231,82,252; --on-acc:#000000; --card-1:#A90DBD; --card-2:#C51040; }
+html[data-palette="redOrange"], [data-swatch="redOrange"] { --acc-1:#D70015; --acc-2:#FF8D28; --acc-3:#D70015; --acc-1-rgb: 215,0,21; --acc-fill:#D70015; --on-acc:#FFFFFF; --card-1:#D70015; --card-2:#FF8D28; }
+html[data-palette="orangeYellow"], [data-swatch="orangeYellow"] { --acc-1:#C93400; --acc-2:#FFCC00; --acc-3:#C93400; --acc-1-rgb: 201,52,0; --acc-fill:#C93400; --on-acc:#FFFFFF; --card-1:#C93400; --card-2:#FFCC00; }
+html[data-palette="greenMint"], [data-swatch="greenMint"] { --acc-1:#248A3D; --acc-2:#00C8B3; --acc-3:#248A3D; --acc-1-rgb: 36,138,61; --acc-fill:#248A3D; --on-acc:#FFFFFF; --card-1:#248A3D; --card-2:#00C8B3; }
+html[data-palette="tealCyan"], [data-swatch="tealCyan"] { --acc-1:#008299; --acc-2:#00C0E8; --acc-3:#008299; --acc-1-rgb: 0,130,153; --acc-fill:#008299; --on-acc:#FFFFFF; --card-1:#008299; --card-2:#00C0E8; }
+html[data-palette="blueIndigo"], [data-swatch="blueIndigo"] { --acc-1:#0088FF; --acc-2:#6155F5; --acc-3:#0088FF; --acc-1-rgb: 0,136,255; --acc-fill:#0088FF; --on-acc:#FFFFFF; --card-1:#0088FF; --card-2:#6155F5; }
+html[data-palette="purplePink"], [data-swatch="purplePink"] { --acc-1:#CB30E0; --acc-2:#FF2D55; --acc-3:#CB30E0; --acc-1-rgb: 203,48,224; --acc-fill:#CB30E0; --on-acc:#FFFFFF; --card-1:#CB30E0; --card-2:#FF2D55; }
+html[data-theme="dark"][data-palette="redOrange"], html[data-theme="dark"] [data-swatch="redOrange"] { --acc-1:#FB6458; --acc-2:#FF8D28; --acc-3:#FB6458; --acc-1-rgb: 251,100,88; --acc-fill:#D70015; --on-acc:#FFFFFF; --card-1:#C90916; --card-2:#944D09; }
+html[data-theme="dark"][data-palette="orangeYellow"], html[data-theme="dark"] [data-swatch="orangeYellow"] { --acc-1:#FB653E; --acc-2:#FFCC00; --acc-3:#FB653E; --acc-1-rgb: 251,101,62; --acc-fill:#C93400; --on-acc:#FFFFFF; --card-1:#B3330E; --card-2:#88530C; }
+html[data-theme="dark"][data-palette="greenMint"], html[data-theme="dark"] [data-swatch="greenMint"] { --acc-1:#47A859; --acc-2:#00C8B3; --acc-3:#47A859; --acc-1-rgb: 71,168,89; --acc-fill:#1D8539; --on-acc:#FFFFFF; --card-1:#036F28; --card-2:#0F6C60; }
+html[data-theme="dark"][data-palette="tealCyan"], html[data-theme="dark"] [data-swatch="tealCyan"] { --acc-1:#39A1B8; --acc-2:#00C0E8; --acc-3:#39A1B8; --acc-1-rgb: 57,161,184; --acc-fill:#168095; --on-acc:#FFFFFF; --card-1:#0A687B; --card-2:#11697E; }
+html[data-theme="dark"][data-palette="blueIndigo"], html[data-theme="dark"] [data-swatch="blueIndigo"] { --acc-1:#4197FA; --acc-2:#6155F5; --acc-3:#4197FA; --acc-1-rgb: 65,151,250; --acc-fill:#0374DA; --on-acc:#FFFFFF; --card-1:#1060B2; --card-2:#5645E5; }
+html[data-theme="dark"][data-palette="purplePink"], html[data-theme="dark"] [data-swatch="purplePink"] { --acc-1:#E651FC; --acc-2:#FF2D55; --acc-3:#E651FC; --acc-1-rgb: 230,81,252; --acc-fill:#C323D7; --on-acc:#FFFFFF; --card-1:#AB0FBE; --card-2:#C8043A; }
 
 /* ---------- Dark mode ---------- */
 html[data-theme="dark"] {
@@ -87,7 +87,7 @@ html[data-theme="dark"] {
   --glass-edge-soft: rgba(255,255,255,0.05);
   --glass-line: rgba(0,0,0,0.35);
   --glass-shadow: 0 10px 28px rgba(0,0,0,0.35), 0 2px 6px rgba(0,0,0,0.25);
-  --acc-1:#3599F9; --acc-2:#6D7CFF; --acc-3:#3599F9; --acc-1-rgb: 53,153,249; --on-acc:#000000; --card-1:#0862AD; --card-2:#484FCE;
+  --acc-1:#4197FA; --acc-2:#6155F5; --acc-3:#4197FA; --acc-1-rgb: 65,151,250; --acc-fill:#0374DA; --on-acc:#FFFFFF; --card-1:#1060B2; --card-2:#5645E5;
 }
 
 /* ---------- Increase Contrast (iOS Settings > Accessibility) ---------- */
