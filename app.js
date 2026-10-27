@@ -5894,7 +5894,9 @@ import { nearActivity, activitySkip, countNearActivity, breakfastByActivity, act
         return;
       }
       const totalCarbs = round1(items.reduce((s, i) => s + i.carbs, 0));
-      const parts = editDoseParts(totalCarbs);
+      // The dose comes from the exact carb total, as in the Calculator; only the shown/saved total is rounded (2.68.5:
+      // rounding first made a meal logged at 2.0 u re-save as 2.5 u when its carbs sat on a rounding boundary).
+      const parts = editDoseParts(items.reduce((s, i) => s + (Number(i.carbs) || 0), 0));
       const capText = parts.capped ? ` — capped at your ${state.settings.maxDose} u maximum (calculated ${parts.requested} u)`
         : parts.overMax ? ` — above your ${state.settings.maxDose} u maximum` : "";
       backdrop.querySelector("#em-preview").textContent =
@@ -5966,7 +5968,7 @@ import { nearActivity, activitySkip, countNearActivity, breakfastByActivity, act
       const totalCarbs = round1(items.reduce((s, i) => s + i.carbs, 0));
       const totalKcal = Math.round(items.reduce((s, i) => s + (i.kcal || 0), 0));
       // The same calculation the preview just showed, so what it promised is what gets saved.
-      const parts = kind === "eatout" ? eatOutParts() : editDoseParts(totalCarbs);
+      const parts = kind === "eatout" ? eatOutParts() : editDoseParts(items.reduce((s, i) => s + (Number(i.carbs) || 0), 0));   // exact total, as in the preview
       const mealDose = parts.meal;
       const correctionDose = parts.correction;
       const glucoseInputEl2 = backdrop.querySelector("#em-glucose");

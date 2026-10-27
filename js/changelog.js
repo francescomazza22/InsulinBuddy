@@ -2,6 +2,16 @@
 // summary can never drift. Bump CHANGELOG[0].version here (and CACHE_VERSION in sw.js) on every release.
 export const CHANGELOG = [
   {
+    version: "2.68.5",
+    summary: "Second stress test: re-saving a meal in Edit Meal no longer changes its dose.",
+    changes: [
+      "Fixed: a meal logged in the Calculator could get a different dose when opened in Edit Meal and saved without changes. The Calculator works the dose out from the exact carbs (for example 22.49 g) while Edit Meal used the total rounded to 0.1 g (22.5 g); on a rounding boundary that is 2.0 u against 2.5 u. Edit Meal now uses the same exact carbs, so it shows and saves the dose you logged",
+      "Checked with a second round of random tests and found correct: meal totals, kcal and GI from their foods, recipe totals, what is sent to Nightscout (in both formats; basal and activity never carry insulin), what goes to Apple Health, cloud sync between devices (nothing lost, deletions kept, same result in either order, restored backups stick), the Apple Health workout import and glucose readings from Nightscout",
+      "The first round's checks were run again on new data, 100,000 dose cases, with no new problems",
+      "Doses are calculated exactly as before"
+    ]
+  },
+  {
     version: "2.68.4",
     summary: "A full stress test of every calculation and statistic, with the problems it found fixed.",
     changes: [
