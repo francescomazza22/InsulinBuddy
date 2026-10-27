@@ -80,3 +80,15 @@ test("quantity foods: whole numbers, decimals and fractions of a unit", () => {
   assert.match(parseQuantity("two").error, /how many/);
   assert.match(parseQuantity("-1").error, /how many|greater than 0/);
 });
+
+// ---- 2.68.4: limits found by the stress test ----
+import { MAX_GRAMS, MAX_QUANTITY } from "../../js/portion.js";
+test("an amount that rounds to 0 g is refused like 0; a slip of the finger is caught", () => {
+  for (const s of ["0,0001", "0.04", ",01"]) assert.equal(parsePortion(s).ok, false, s);
+  assert.equal(parsePortion("0,05").grams, 0.1);
+  assert.equal(parsePortion(String(MAX_GRAMS)).grams, MAX_GRAMS);
+  for (const s of ["5001", "8000", "999999999999"]) { const p = parsePortion(s); assert.equal(p.ok, false, s); assert.match(p.error, /more than 5 kg/); }
+  assert.equal(parseQuantity("100").quantity, 100);
+  for (const s of ["101", "999999", "150 1/2"]) assert.equal(parseQuantity(s).ok, false, s);
+  assert.equal(MAX_QUANTITY, 100);
+});

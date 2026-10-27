@@ -1004,7 +1004,7 @@ import { nearActivity, activitySkip, countNearActivity, breakfastByActivity, act
     const item = draft.items[idx];
     if (!item) return;
     e.target.style.setProperty("--qch", String(e.target.value || "0").length);
-    const entered = parseFloat(e.target.value) || 0;
+    const entered = parseDecimalInput(e.target.value) || 0;   // "1,5" is 1.5 (2.68.4)
     let grams;
     if (item.quantity != null && item.gramsPerUnit) {
       item.quantity = entered;
@@ -2102,7 +2102,7 @@ import { nearActivity, activitySkip, countNearActivity, breakfastByActivity, act
       try {
         errEl.hidden = true;
         const fail = msg => { errEl.textContent = msg; errEl.hidden = false; };
-        const units = parseFloat(unitsInput.value);
+        const units = parseDecimalInput(unitsInput.value);   // "12,5" is 12.5 (2.68.4)
         const ts = new Date(timeInput.value).getTime();
         if (isNaN(ts)) return fail("Choose when you took it.");
         if (ts > Date.now() + 5 * 60000) return fail("That time is in the future.");
@@ -2140,7 +2140,7 @@ import { nearActivity, activitySkip, countNearActivity, breakfastByActivity, act
       if (slotBtn) { slot = slotBtn.dataset.slot; slotChosenByHand = true; return refreshSlot(); }
       const stepBtn = e.target.closest("[data-step]");
       if (stepBtn) {
-        const next = Math.max(0, Math.round(((parseFloat(unitsInput.value) || 0) + Number(stepBtn.dataset.step)) * 100) / 100);
+        const next = Math.max(0, Math.round(((parseDecimalInput(unitsInput.value) || 0) + Number(stepBtn.dataset.step)) * 100) / 100);
         unitsInput.value = next; prefilled = null;   // a hand-set value is the person's, not a prefill
         fitDose();
       }
@@ -2758,7 +2758,7 @@ import { nearActivity, activitySkip, countNearActivity, breakfastByActivity, act
     // Show the working, so a correction can be checked at a glance against the Settings it came from.
     const workingEl = el("cc-correction-working");
     if (workingEl) {
-      const bgNow = parseFloat(glucoseInput.value);
+      const bgNow = parseDecimalInput(glucoseInput.value);
       if (draft.correctionOn && !draft.correctionManual && !isNaN(bgNow) && bgNow > 0 && state.settings.isf > 0) {
         const inUnit = convertGlucose(bgNow, draft.glucoseUnit, state.settings.units);
         const uLabel = unitLabel(state.settings.units);
@@ -2947,7 +2947,7 @@ import { nearActivity, activitySkip, countNearActivity, breakfastByActivity, act
   glucoseInput.addEventListener("input", () => { recompute(); saveDraftLocal(); });
   glucoseUnitLabel.addEventListener("click", () => {
     const newUnit = draft.glucoseUnit === "mmol" ? "mgdl" : "mmol";
-    const current = parseFloat(glucoseInput.value);
+    const current = parseDecimalInput(glucoseInput.value);
     if (!isNaN(current)) {
       const converted = convertGlucose(current, draft.glucoseUnit, newUnit);
       glucoseInput.value = newUnit === "mmol" ? round1(converted) : Math.round(converted);
@@ -3230,7 +3230,7 @@ import { nearActivity, activitySkip, countNearActivity, breakfastByActivity, act
     const periodEntry = currentTimeRatio(now);
     // Never save a glucose reading for a manual correction, even if one is still sitting in the
     // (now hidden) field from before switching modes -- it wasn't what the logged dose came from.
-    const glucoseRaw = (draft.correctionOn && !draft.correctionManual) ? parseFloat(glucoseInput.value) : NaN;
+    const glucoseRaw = (draft.correctionOn && !draft.correctionManual) ? parseDecimalInput(glucoseInput.value) : NaN;
     const glucoseVal = !isNaN(glucoseRaw) ? round1(convertGlucose(glucoseRaw, draft.glucoseUnit || state.settings.units, state.settings.units)) : null;
     const entry = buildMealEntry({
       now, mealType, periodEntry, ratioEntry, items: draft.items, eatingOut: draft.eatingOutOn, noInsulin: draft.noInsulinOn,
@@ -5884,7 +5884,7 @@ import { nearActivity, activitySkip, countNearActivity, breakfastByActivity, act
         return;
       }
       if (kind === "correction") {
-        const d = parseFloat(backdrop.querySelector("#em-corr-dose").value) || 0;
+        const d = parseDecimalInput(backdrop.querySelector("#em-corr-dose").value) || 0;
         backdrop.querySelector("#em-preview").textContent = `Saved as a correction of ${round1(d)} units, no food.`;
         return;
       }
@@ -5920,7 +5920,7 @@ import { nearActivity, activitySkip, countNearActivity, breakfastByActivity, act
     backdrop.querySelector("#em-items").addEventListener("input", e => {
       if (!e.target.classList.contains("em-grams-input")) return;
       const idx = parseInt(e.target.dataset.idx, 10);
-      const entered = parseFloat(e.target.value) || 0;
+      const entered = parseDecimalInput(e.target.value) || 0;
       const it = items[idx];
       if (it) delete it.portion;   // changed by hand: no longer "1/2" or "1/8"
       let grams;
@@ -5958,7 +5958,7 @@ import { nearActivity, activitySkip, countNearActivity, breakfastByActivity, act
       if (items.length === 0 && kind !== "correction" && kind !== "eatout") { dialogs.alert(kind === "low" ? "A treated low needs the food or drink you had — add an item, or delete the entry." : "A meal needs at least one item — delete it instead if you want it gone."); return; }
       let corrDose = 0;
       if (kind === "correction") {
-        corrDose = parseFloat(backdrop.querySelector("#em-corr-dose").value);
+        corrDose = parseDecimalInput(backdrop.querySelector("#em-corr-dose").value);
         if (!(corrDose >= 0)) { dialogs.alert("Enter the correction dose in units."); return; }
         if (items.length && entry.mealType !== "correction" && !(await dialogs.confirm("Saving as a correction removes the food from this entry and keeps only the insulin.", { title: "Turn into a correction?", confirmText: "Turn into correction" }))) return;
       }
@@ -5971,7 +5971,7 @@ import { nearActivity, activitySkip, countNearActivity, breakfastByActivity, act
       const correctionDose = parts.correction;
       const glucoseInputEl2 = backdrop.querySelector("#em-glucose");
       let newGlucose = entry.glucose;
-      if (glucoseInputEl2) newGlucose = parseFloat(glucoseInputEl2.value) || null;
+      if (glucoseInputEl2) newGlucose = parseDecimalInput(glucoseInputEl2.value) || null;
       entry.mealType = mealType;
       if (kind === "correction") {
         // insulin on its own: no food, no carbs, no ratio
@@ -6877,7 +6877,7 @@ import { nearActivity, activitySkip, countNearActivity, breakfastByActivity, act
     else el("set-target").value = state.settings.target;
     state.settings.units = el("set-units").value;
     state.settings.rounding = el("set-rounding").value;
-    state.settings.maxDose = parseFloat(el("set-max").value) || 0;
+    state.settings.maxDose = parseDecimalInput(el("set-max").value) || 0;
     saveState();
     fillCorrectionForm();
     const conf = el("save-confirm");

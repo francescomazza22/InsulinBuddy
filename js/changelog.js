@@ -2,6 +2,19 @@
 // summary can never drift. Bump CHANGELOG[0].version here (and CACHE_VERSION in sw.js) on every release.
 export const CHANGELOG = [
   {
+    version: "2.68.4",
+    summary: "A full stress test of every calculation and statistic, with the problems it found fixed.",
+    changes: [
+      "Every dose calculation was run through tens of thousands of random cases (all rounding steps, maximum doses, units, corrections, reductions, active insulin, Eating Out). The dose is never negative, never over your maximum, its parts always add up, more carbs or higher glucose never gives less insulin, mg/dL and mmol/L agree, and editing a meal gives back the same dose",
+      "Fixed: a glucose typed with a decimal comma (7,5 mmol/L) could be read as 7 by the dose maths. It is now read as 7.5 everywhere: the dose, the explanation, the reading saved with the meal and Edit Meal",
+      "Fixed: a reading with a broken value counted as in range in the Glucose statistics, lifting time in range and blanking the average. Broken readings are now ignored, as everywhere else",
+      "Fixed: readings with decimals (like 69.5 or 180.4 mg/dL) fell into no band of the Time in Range breakdown, so the bands didn't add up to 100%",
+      "Fixed: an amount that rounds to 0 g (0,01) was accepted as 0 g. It is now refused like 0, and more than 5 kg or more than 100 pieces asks you to check the number",
+      "Basal units, the correction dose in Edit Meal, item grams and the maximum dose setting now read a decimal comma the same way as the calculator",
+      "Checked and unchanged: insulin and carbs on board, the insulin curve for every setting allowed, projections, expected vs observed, learned absorption, trends, ratios, the ideal ratio (against an independent re-calculation), activity statistics and the Day view (including the clock-change day). Doses are calculated exactly as before"
+    ]
+  },
+  {
     version: "2.68.3",
     summary: "Reopening the app brings you back to the same tab and place, not half way down Meals.",
     changes: [

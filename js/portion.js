@@ -28,6 +28,10 @@ export const slicesLabel = n => `${n} slice${n === 1 ? "" : "s"}`;
  * @returns {{ok:true, grams:number, kind:"grams"|"fraction"|"slices", label:string|null, share:number|null}
  *          |{ok:false, empty?:true, error?:string}}
  */
+// Upper limits for a typed amount (2.68.4): well above any real portion, low enough to catch a slip before it becomes a dose.
+export const MAX_GRAMS = 5000;
+export const MAX_QUANTITY = 100;
+
 export function parsePortion(text, { dishWeight = null, slices = null } = {}) {
   const s = String(text ?? "").trim().replace(/\s+/g, " ");
   if (!s) return { ok: false, empty: true };
@@ -35,7 +39,13 @@ export function parsePortion(text, { dishWeight = null, slices = null } = {}) {
 
   // Plain grams, with a decimal point or comma.
   const g = parseDecimalInput(s);
-  if (!isNaN(g)) return g > 0 ? { ok: true, grams: round1(g), kind: "grams", label: null, share: null } : { ok: false, error: "Enter an amount greater than 0." };
+  if (!isNaN(g)) {
+    // 2.68.4: an amount that rounds to 0 g ("0,01") is refused like "0" (it was accepted as 0 g), and a slip of the finger
+    // like "8000" or "999999" is caught here before it reaches the dose.
+    if (!(round1(g) > 0)) return { ok: false, error: "Enter an amount greater than 0." };
+    if (g > MAX_GRAMS) return { ok: false, error: `That's more than ${MAX_GRAMS / 1000} kg. Check the amount.` };
+    return { ok: true, grams: round1(g), kind: "grams", label: null, share: null };
+  }
 
   // The whole dish: "Whole", "all", "intero".
   if (WHOLE_WORDS.test(s)) {
@@ -86,7 +96,11 @@ export function parseQuantity(text) {
   const s = String(text ?? "").trim().replace(/\s+/g, " ");
   if (!s) return { ok: false, empty: true };
   const plain = parseDecimalInput(s);
-  if (!isNaN(plain)) return plain > 0 ? { ok: true, quantity: plain, label: null } : { ok: false, error: "Enter a quantity greater than 0." };
+  if (!isNaN(plain)) {
+    if (!(plain > 0)) return { ok: false, error: "Enter a quantity greater than 0." };
+    if (plain > MAX_QUANTITY) return { ok: false, error: `That's more than ${MAX_QUANTITY}. Check the number.` };
+    return { ok: true, quantity: plain, label: null };
+  }
   // Optional whole number, then a fraction written n/d or as one character.
   const m = /^(?:(\d+) ?)?(?:(\d+) ?\/ ?(\d+)|([½⅓⅔¼¾⅕⅙⅛]))$/.exec(s);
   if (!m) return { ok: false, error: "Enter how many, for example 1, 1,5 or 1/2." };
@@ -95,6 +109,7 @@ export function parseQuantity(text) {
   if (d === 0) return { ok: false, error: "A fraction can't divide by 0." };
   const quantity = whole + n / d;
   if (!(quantity > 0)) return { ok: false, error: "Enter a quantity greater than 0." };
+  if (quantity > MAX_QUANTITY) return { ok: false, error: `That's more than ${MAX_QUANTITY}. Check the number.` };
   const frac = fractionLabel(n, d);
   return { ok: true, quantity, label: whole ? `${whole} ${frac}` : frac };
 }

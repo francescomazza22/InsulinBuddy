@@ -1,5 +1,9 @@
 import { MGDL_PER_MMOL } from "./calc.js";
 
+// A usable reading has a real time and a real value (2.68.4): a reading whose value is NaN used to be counted as IN RANGE
+// (NaN is neither below 70 nor above 180), lifting time in range and blanking the average.
+const usable = r => !!r && Number.isFinite(r.mgdl) && Number.isFinite(r.at);
+
 // Pure glucose statistics for the History > Glucose tab. Takes plain readings
 // ({ at: epoch-ms, mgdl }) so it's fully testable without any DOM, network, or Date-object
 // pitfalls -- callers own the actual data fetching.
@@ -24,7 +28,7 @@ export function dailyPatternBuckets(readings, bucketMinutes = 30) {
   const n = Math.round(1440 / bucketMinutes);
   const groups = Array.from({ length: n }, () => []);
   for (const r of readings || []) {
-    if (!r || typeof r.mgdl !== "number" || typeof r.at !== "number") continue;
+    if (!usable(r)) continue;
     const d = new Date(r.at);
     const minuteOfDay = d.getHours() * 60 + d.getMinutes();
     const bucket = Math.min(n - 1, Math.floor(minuteOfDay / bucketMinutes));
@@ -49,7 +53,7 @@ export function dailyPatternBuckets(readings, bucketMinutes = 30) {
 export function daysSpanned(readings) {
   const days = new Set();
   for (const r of readings || []) {
-    if (!r || typeof r.at !== "number") continue;
+    if (!usable(r)) continue;
     const d = new Date(r.at);
     days.add(`${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`);
   }
@@ -66,13 +70,17 @@ export function estimatedA1c(meanMgdl) {
 // The standard ADA/ATTD consensus "time in ranges" bands (Battelino et al. 2019), the same
 // breakdown Dexcom Clarity and FreeStyle LibreLink reports use. Ordered high-to-low to match
 // how those reports are conventionally displayed (very high at the top).
+// `test` decides membership (2.68.4) so the bands meet with no gaps for readings with decimals (69.5, 180.4, 53.5 used to fall
+// in no band, so the percentages didn't add up to 100); for whole numbers it is exactly the low-high labels. The edges match
+// glucoseSummaryStats and extendedGlucoseStats: under 70 is low, over 180 is high.
 export const TIME_IN_RANGE_BANDS = [
-  { key: "veryHigh", label: "Very High", low: 251, high: Infinity },
-  { key: "high", label: "High", low: 181, high: 250 },
-  { key: "target", label: "Target", low: 70, high: 180 },
-  { key: "low", label: "Low", low: 54, high: 69 },
-  { key: "veryLow", label: "Very Low", low: -Infinity, high: 53 }
+  { key: "veryHigh", label: "Very High", low: 251, high: Infinity, test: v => v > 250 },
+  { key: "high", label: "High", low: 181, high: 250, test: v => v > 180 && v <= 250 },
+  { key: "target", label: "Target", low: 70, high: 180, test: v => v >= 70 && v <= 180 },
+  { key: "low", label: "Low", low: 54, high: 69, test: v => v >= 54 && v < 70 },
+  { key: "veryLow", label: "Very Low", low: -Infinity, high: 53, test: v => v < 54 }
 ];
+const inBand = (v, b) => (typeof b.test === "function" ? b.test(v) : v >= b.low && v <= b.high);
 
 /** Rows for a mg/dL <-> mmol/L reference table (default 40..400 in steps of 10). Each row carries the
  * standard band it falls in -- the same bands Time in Range uses -- so the table can colour-code itself
@@ -83,7 +91,7 @@ export function glucoseGuideRows(fromMgdl = 40, toMgdl = 400, step = 10) {
   const count = Math.floor((toMgdl - fromMgdl) / step + 1e-9) + 1;
   return Array.from({ length: count }, (_, i) => {
     const mgdl = fromMgdl + i * step;
-    const band = TIME_IN_RANGE_BANDS.find(b => mgdl >= b.low && mgdl <= b.high);
+    const band = TIME_IN_RANGE_BANDS.find(b => inBand(mgdl, b));
     return { mgdl, mmol: Math.round((mgdl / MGDL_PER_MMOL) * 10) / 10, band: band ? band.key : null };
   });
 }
@@ -91,10 +99,10 @@ export function glucoseGuideRows(fromMgdl = 40, toMgdl = 400, step = 10) {
 /** What % of readings fall in each standard band. `bands` defaults to the ADA consensus bands
  * above, but accepts a custom list (same shape) for a different breakdown. */
 export function timeInRangeBreakdown(readings, bands = TIME_IN_RANGE_BANDS) {
-  const values = (readings || []).filter(r => r && typeof r.mgdl === "number").map(r => r.mgdl);
+  const values = (readings || []).filter(usable).map(r => r.mgdl);
   const count = values.length;
   return bands.map(b => {
-    const n = values.filter(v => v >= b.low && v <= b.high).length;
+    const n = values.filter(v => inBand(v, b)).length;
     return { key: b.key, label: b.label, low: b.low, high: b.high, count: n, pct: count === 0 ? 0 : (n / count) * 100 };
   });
 }
@@ -102,7 +110,7 @@ export function timeInRangeBreakdown(readings, bands = TIME_IN_RANGE_BANDS) {
 /** Summary stats for a stretch of readings: average, estimated A1c, and time in/below/above
  * a range (70-180 mg/dL by default, the same clinical convention used elsewhere in the app). */
 export function glucoseSummaryStats(readings, { low = 70, high = 180 } = {}) {
-  const values = (readings || []).filter(r => r && typeof r.mgdl === "number").map(r => r.mgdl);
+  const values = (readings || []).filter(usable).map(r => r.mgdl);
   const count = values.length;
   if (count === 0) return { count: 0, days: 0, avgMgdl: null, gmi: null, timeInRangePct: null, timeLowPct: null, timeHighPct: null };
   const avgMgdl = values.reduce((s, v) => s + v, 0) / count;
@@ -123,7 +131,7 @@ export function glucoseSummaryStats(readings, { low = 70, high = 180 } = {}) {
 // The full set of figures a FreeStyle Libre (LibreView AGP) report and Gluroo show, worked out from the same readings.
 // Everything here is plain arithmetic on what is already loaded: nothing runs until the Statistics view is opened.
 
-const sortedByTime = readings => (readings || []).filter(r => r && typeof r.mgdl === "number" && typeof r.at === "number").sort((a, b) => a.at - b.at);
+const sortedByTime = readings => (readings || []).filter(usable).sort((a, b) => a.at - b.at);
 const mean = a => a.reduce((s, v) => s + v, 0) / a.length;
 
 /** The usual gap between readings in minutes (the median of the gaps up to an hour): 5 for most CGMs, 15 for Libre. */

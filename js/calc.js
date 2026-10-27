@@ -1,7 +1,7 @@
 // Pure calculation core. Nothing in here touches the DOM, localStorage or any
 // module-level state -- everything is passed in -- so it can be tested in Node.
 
-import { round1, dayKeyFromTs } from "./util.js";
+import { round1, dayKeyFromTs, parseDecimalInput } from "./util.js";
 
 export const MGDL_PER_MMOL = 18.0182;
 
@@ -172,7 +172,9 @@ export function planDose({ carbs = 0, ratio = 0, mealUnits = null, mealTyped, co
     // Signed: positive adds to the meal dose, negative takes insulin off it. (The screen types the size and picks Add or Subtract.)
     if (Number.isFinite(correctionUnits) && correctionUnits !== 0) { correctionPart = correctionUnits; correctionIsManual = true; }
   } else if (correction === "auto") {
-    const bg = parseFloat(glucose);
+    // Typed text is read like every dose box (2.68.4): "7,5" is 7.5, and anything that isn't a plain positive number
+    // ("1e3", "7,5,1", "-5") is no reading at all. parseFloat used to read "7,5" as 7 and "1e3" as 1000.
+    const bg = typeof glucose === "number" ? glucose : parseDecimalInput(glucose);
     if (!isNaN(bg) && bg > 0 && settings.isf > 0) {
       correctionApplied = true;
       bgInSettingsUnit = convertGlucose(bg, glucoseUnit || settings.units, settings.units);
