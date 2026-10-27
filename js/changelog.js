@@ -2,6 +2,15 @@
 // summary can never drift. Bump CHANGELOG[0].version here (and CACHE_VERSION in sw.js) on every release.
 export const CHANGELOG = [
   {
+    version: "2.68.6",
+    summary: "Recipes in the food list show how many times you've used them.",
+    changes: [
+      "In the Calculator's food list a recipe used to show only \u201cRecipe\u201d where foods show how often they were used. It now shows its count too (for example 34\u00d7), next to a small bowl, in your theme's second colour so recipes still stand out from foods",
+      "A recipe you haven't used yet shows just the bowl. The badge is no wider than a food's, so names have a little more room than before",
+      "Logging a recipe adds one to its count, as it always did. Doses are calculated exactly as before"
+    ]
+  },
+  {
     version: "2.68.5",
     summary: "Second stress test: re-saving a meal in Edit Meal no longer changes its dose.",
     changes: [

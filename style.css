@@ -370,6 +370,9 @@ input.meal-item__grams-input:focus { outline: none; }
 .food-pick-item__meta .c-kcal { color: var(--amber); }
 .food-pick-item__note { font-size: var(--fs-xs); font-style: italic; color: var(--ink-soft); margin: 2px 0 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .food-pick-item__badge { font-size: var(--fs-2xs); color: var(--ink-soft); background: var(--paper); padding: 2px 7px; border-radius: var(--radius-pill); flex-shrink: 0; }
+/* A recipe's badge (2.68.6): its usage count in the theme's second colour, so recipes stand out from foods. Text stays ink for contrast. */
+.food-pick-item__badge.food-pick-item__badge--recipe { background: color-mix(in srgb, var(--acc-2) 22%, var(--paper)); color: var(--ink); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--acc-2) 45%, transparent); font-weight: 600; white-space: nowrap; display: inline-flex; align-items: center; gap: 3px; }
+.food-pick-item__badge--recipe svg { width: 1.1em; height: 1.1em; flex-shrink: 0; }
 
 /* ================= LIBRARY ================= */
 .segmented { display: flex; background: var(--surface); border: 1.5px solid var(--line); border-radius: var(--radius-pill); padding: var(--space-3xs); margin-bottom: var(--space-l); }

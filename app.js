@@ -752,7 +752,11 @@ import { nearActivity, activitySkip, countNearActivity, breakfastByActivity, act
           </p>
           ${item.notes ? `<p class="food-pick-item__note">${escapeHtml(item.notes)}</p>` : ""}
         </div>
-        ${item.refType === "recipe" ? '<span class="food-pick-item__badge">Recipe</span>' : (item.usageCount ? `<span class="food-pick-item__badge">${item.usageCount}×</span>` : "")}
+        ${item.refType === "recipe"
+          // A recipe shows how often it was used too (2.68.6; it only said "Recipe"), in its own tint so it still stands out.
+          // A small bowl stands for "recipe" so the badge is no wider than a food's and the name keeps its room.
+          ? `<span class="food-pick-item__badge food-pick-item__badge--recipe" role="img" aria-label="Recipe${item.usageCount ? `, used ${item.usageCount} times` : ""}" title="Recipe"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M3 11h18a9 9 0 01-18 0zM8 7c0-1.5 1-2 1-3.5M12 7c0-1.5 1-2 1-3.5M16 7c0-1.5 1-2 1-3.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>${item.usageCount ? `${item.usageCount}\u00d7` : ""}</span>`
+          : (item.usageCount ? `<span class="food-pick-item__badge">${item.usageCount}×</span>` : "")}
       `;
       foodListBox.appendChild(row);
     });
