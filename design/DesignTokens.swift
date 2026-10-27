@@ -12,7 +12,7 @@ enum IBTokens {
         static let amber = Color(hex: 0xC93400)
         static let brick = Color(hex: 0xD70015)
         static let brickSoft = Color(hex: 0xFFE5E6)
-        static let green = Color(hex: 0x248A3D)
+        static let green = Color(hex: 0x1E7B34)
     }
     enum Dark {
         static let ink = Color(hex: 0xFFFFFF)
@@ -26,12 +26,12 @@ enum IBTokens {
         static let green = Color(hex: 0x30D158)
     }
     enum Palette {
-        static let redOrange = (acc1: Color(hex: 0xD70015), acc2: Color(hex: 0xFF8D28), acc3: Color(hex: 0xD70015), acc1Dark: Color(hex: 0xFF4245), acc2Dark: Color(hex: 0xFF9230))
-        static let orangeYellow = (acc1: Color(hex: 0xC93400), acc2: Color(hex: 0xFFCC00), acc3: Color(hex: 0xC93400), acc1Dark: Color(hex: 0xFF9230), acc2Dark: Color(hex: 0xFFD600))
-        static let greenMint = (acc1: Color(hex: 0x248A3D), acc2: Color(hex: 0x00C8B3), acc3: Color(hex: 0x248A3D), acc1Dark: Color(hex: 0x30D158), acc2Dark: Color(hex: 0x00DAC3))
-        static let tealCyan = (acc1: Color(hex: 0x008299), acc2: Color(hex: 0x00C0E8), acc3: Color(hex: 0x008299), acc1Dark: Color(hex: 0x00D2E0), acc2Dark: Color(hex: 0x3CD3FE))
-        static let blueIndigo = (acc1: Color(hex: 0x0088FF), acc2: Color(hex: 0x6155F5), acc3: Color(hex: 0x0088FF), acc1Dark: Color(hex: 0x0091FF), acc2Dark: Color(hex: 0x6D7CFF))
-        static let purplePink = (acc1: Color(hex: 0xCB30E0), acc2: Color(hex: 0xFF2D55), acc3: Color(hex: 0xCB30E0), acc1Dark: Color(hex: 0xDB34F2), acc2Dark: Color(hex: 0xFF375F))
+        static let redOrange = (acc1: Color(hex: 0xD70015), acc2: Color(hex: 0xFF8D28), acc3: Color(hex: 0xD70015), acc1Dark: Color(hex: 0xFA635E), acc2Dark: Color(hex: 0xFF9230), onAcc: Color(hex: 0xFFFFFF), onAccDark: Color(hex: 0x000000), card1: Color(hex: 0xD70015), card2: Color(hex: 0xA65812), card1Dark: Color(hex: 0xCA0C22), card2Dark: Color(hex: 0x924E0C))
+        static let orangeYellow = (acc1: Color(hex: 0xC93400), acc2: Color(hex: 0xFFCC00), acc3: Color(hex: 0xC93400), acc1Dark: Color(hex: 0xFF9230), acc2Dark: Color(hex: 0xFFD600), onAcc: Color(hex: 0xFFFFFF), onAccDark: Color(hex: 0x000000), card1: Color(hex: 0xC93400), card2: Color(hex: 0x9B5E02), card1Dark: Color(hex: 0x924E0C), card2Dark: Color(hex: 0x7B590A))
+        static let greenMint = (acc1: Color(hex: 0x107E31), acc2: Color(hex: 0x00C8B3), acc3: Color(hex: 0x107E31), acc1Dark: Color(hex: 0x30D158), acc2Dark: Color(hex: 0x00DAC3), onAcc: Color(hex: 0xFFFFFF), onAccDark: Color(hex: 0x000000), card1: Color(hex: 0x107E31), card2: Color(hex: 0x067B6D), card1Dark: Color(hex: 0x0E6F29), card2Dark: Color(hex: 0x0E6C60))
+        static let tealCyan = (acc1: Color(hex: 0x03788E), acc2: Color(hex: 0x00C0E8), acc3: Color(hex: 0x03788E), acc1Dark: Color(hex: 0x00D2E0), acc2Dark: Color(hex: 0x3CD3FE), onAcc: Color(hex: 0xFFFFFF), onAccDark: Color(hex: 0x000000), card1: Color(hex: 0x03788E), card2: Color(hex: 0x0A7790), card1Dark: Color(hex: 0x026B73), card2Dark: Color(hex: 0x066981))
+        static let blueIndigo = (acc1: Color(hex: 0x096DCB), acc2: Color(hex: 0x6155F5), acc3: Color(hex: 0x096DCB), acc1Dark: Color(hex: 0x3599F9), acc2Dark: Color(hex: 0x6D7CFF), onAcc: Color(hex: 0xFFFFFF), onAccDark: Color(hex: 0x000000), card1: Color(hex: 0x096DCB), card2: Color(hex: 0x6053F3), card1Dark: Color(hex: 0x0862AD), card2Dark: Color(hex: 0x484FCE))
+        static let purplePink = (acc1: Color(hex: 0xBA12CF), acc2: Color(hex: 0xFF2D55), acc3: Color(hex: 0xBA12CF), acc1Dark: Color(hex: 0xE752FC), acc2Dark: Color(hex: 0xFF375F), onAcc: Color(hex: 0xFFFFFF), onAccDark: Color(hex: 0x000000), card1: Color(hex: 0xBD1AD2), card2: Color(hex: 0xDE1143), card1Dark: Color(hex: 0xA90DBD), card2Dark: Color(hex: 0xC51040))
         static let `default` = blueIndigo
     }
     enum Radius {

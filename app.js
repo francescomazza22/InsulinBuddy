@@ -5790,7 +5790,7 @@ import { nearActivity, activitySkip, countNearActivity, breakfastByActivity, act
         <label class="block-label">Meal type</label>
         <div class="field-grid" id="em-meal-types" style="margin-bottom:18px;">
           ${Object.entries(MEAL_TYPES).map(([key, m]) => `
-            <button class="btn btn--secondary" data-meal="${escapeAttr(key)}" type="button" style="display:flex;align-items:center;gap:8px;justify-content:center;${key === mealType ? `border-color:${m.color};color:${m.color};background:${m.color}1a;` : ""}">
+            <button class="btn btn--secondary" data-meal="${escapeAttr(key)}" type="button" style="display:flex;align-items:center;gap:8px;justify-content:center;${key === mealType ? `border-color:${m.color};font-weight:700;background:${m.color}1a;` : ""}">
               <span style="color:${m.color};width:18px;height:18px;">${m.icon}</span>${m.label}
             </button>
           `).join("")}
@@ -5870,7 +5870,8 @@ import { nearActivity, activitySkip, countNearActivity, breakfastByActivity, act
       backdrop.querySelector("#em-items-part").hidden = kind === "eatout";
       backdrop.querySelectorAll("#em-meal-types button").forEach(b => {
         const m = MEAL_TYPES[b.dataset.meal], on = b.dataset.meal === mealType;
-        b.style.borderColor = on ? m.color : ""; b.style.color = on ? m.color : ""; b.style.background = on ? m.color + "1a" : "";
+        // The meal's colour is in the border, tint and icon; the label stays ink so it is readable (2.68.7: yellow text was 1.7:1).
+        b.style.borderColor = on ? m.color : ""; b.style.fontWeight = on ? "700" : ""; b.style.background = on ? m.color + "1a" : "";
         b.hidden = b.dataset.meal === "correction";             // "Correction" is now picked above, not as a meal type
       });
       const ratioLabel = backdrop.querySelector("#em-ratio-label"), ratioSel = backdrop.querySelector("#em-ratio");
@@ -6627,6 +6628,14 @@ import { nearActivity, activitySkip, countNearActivity, breakfastByActivity, act
     await dialogs.alert(currentUser ? "Passphrase removed. Your data is stored unencrypted again, on this device and in the cloud." : "Passphrase removed. Your data is stored unencrypted on this device again.");
   }
 
+  // Black or white, whichever has more contrast on a #rrggbb colour (WCAG relative luminance). Anything else gets white.
+  function readableTextOn(hex) {
+    const m = /^#?([0-9a-f]{6})$/i.exec(String(hex || "").trim());
+    if (!m) return "#fff";
+    const n = parseInt(m[1], 16), lin = v => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); };
+    const L = 0.2126 * lin((n >> 16) & 255) + 0.7152 * lin((n >> 8) & 255) + 0.0722 * lin(n & 255);
+    return (1.05) / (L + 0.05) >= (L + 0.05) / 0.05 ? "#fff" : "#000";
+  }
   function renderTimeline() {
     const bar = el("timeline-bar");
     bar.innerHTML = "";
@@ -6647,6 +6656,8 @@ import { nearActivity, activitySkip, countNearActivity, breakfastByActivity, act
       div.className = "timeline__seg";
       div.style.width = width + "%";
       div.style.background = seg.r.color;
+      // White or black text, whichever reads better on this range's own colour (2.68.7: white on a light colour was hard to read).
+      if (readableTextOn(seg.r.color) === "#000") { div.style.color = "#000"; div.classList.add("timeline__seg--dark-text"); }
       const px = width / 100 * barPx, full = `${seg.r.name} · ${ratioText(seg.r.ratio)}`, short = `${ratioText(seg.r.ratio)}`;
       div.textContent = fits(full, px) ? full : fits(short, px) ? short : "";
       div.title = full;

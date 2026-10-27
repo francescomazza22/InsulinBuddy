@@ -43,7 +43,7 @@ button, .tab, .segmented__btn { touch-action: manipulation; }
 
 .fab {
   width: 42px; height: 42px; border-radius: 50%; border: none; flex-shrink: 0;
-  background: var(--acc-1); color: #fff; display: flex; align-items: center; justify-content: center; cursor: pointer;
+  background: var(--acc-1); color: var(--on-acc); display: flex; align-items: center; justify-content: center; cursor: pointer;
 }
 .fab svg { width: 20px; height: 20px; }
 
@@ -93,7 +93,7 @@ select {
 input:focus-visible, select:focus-visible, button:focus-visible { outline: 2px solid var(--acc-1); outline-offset: 2px; }
 
 .btn { display: block; width: 100%; padding: 14px 18px; border-radius: var(--radius-s); border: none; font-size: var(--fs-body); font-weight: 600; font-family: var(--font-ui); cursor: pointer; text-align: center; }
-.btn--primary { background: var(--acc-1); color: #fff; }
+.btn--primary { background: var(--acc-1); color: var(--on-acc); }
 .btn--primary:disabled { background: var(--line); color: var(--ink-soft); cursor: not-allowed; }
 .btn--danger-solid { background: var(--brick); color: #fff; margin-top: 18px; }
 
@@ -145,7 +145,7 @@ input:focus-visible, select:focus-visible, button:focus-visible { outline: 2px s
 
 /* ================= CALCULATOR ================= */
 .dose-card {
-  background: linear-gradient(155deg, var(--acc-1) 0%, var(--acc-2) 100%);
+  background: linear-gradient(155deg, var(--card-1) 0%, var(--card-2) 100%);   /* readable per theme and mode (tokens, 2.68.7) */
   color: #fff; border-radius: var(--radius-l); padding: 13px 14px var(--space-m); margin-bottom: 14px;
 }
 .dose-card__top { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--dose-gap); }
@@ -185,7 +185,7 @@ input:focus-visible, select:focus-visible, button:focus-visible { outline: 2px s
   border: 1.5px solid var(--line); background: var(--surface); color: var(--ink-soft);
   padding: 5px 14px; border-radius: var(--radius-pill); font: 600 var(--fs-s) var(--font-ui); cursor: pointer;
 }
-.glucose-range-btn.is-active { background: var(--acc-1); border-color: var(--acc-1); color: #fff; }
+.glucose-range-btn.is-active { background: var(--acc-1); border-color: var(--acc-1); color: var(--on-acc); }
 .carbs-pill--muted { background: var(--surface); color: var(--ink-soft); border: 1px solid var(--line); }
 .dose-card__value-row { display: flex; align-items: center; justify-content: space-between; gap: var(--space-xs); margin-bottom: var(--dose-gap); }
 .dose-card__value { display: flex; align-items: baseline; gap: var(--space-2xs); font-family: var(--font-display); font-size: calc(1.55 * var(--rem)); line-height: 1; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
@@ -207,7 +207,7 @@ input:focus-visible, select:focus-visible, button:focus-visible { outline: 2px s
   font-size: var(--fs-xs); font-weight: 600; cursor: pointer; font-family: var(--font-ui); white-space: nowrap;
 }
 .pill-btn svg { width: 12px; height: 12px; }
-.pill-btn.is-active { background: #fff; color: var(--acc-1); border-color: #fff; }
+.pill-btn.is-active { background: #fff; color: var(--card-1); border-color: #fff; }
 .pill-btn--warn.is-active { background: #FBBF24; color: #7C2D12; border-color: #FBBF24; }
 .pill-btn--icon { padding: 5px; }
 .dose-card__no-insulin-note { font-size: var(--fs-xs); color: rgba(255,255,255,0.95); background: rgba(0,0,0,0.15); padding: var(--space-2xs) 9px; border-radius: var(--radius-s); margin: var(--space-xs) 0 0; }
@@ -300,7 +300,7 @@ input:focus-visible, select:focus-visible, button:focus-visible { outline: 2px s
 }
 .meal-item__edit-reveal {
   position: absolute; top: 0; right: 0; bottom: 0; width: 72px;
-  background: var(--acc-1); color: #fff; border: none; cursor: pointer;
+  background: var(--acc-1); color: var(--on-acc); border: none; cursor: pointer;
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
   font-size: var(--fs-xs); font-weight: 700; font-family: var(--font-ui);
 }
@@ -342,7 +342,7 @@ input.meal-item__grams-input:focus { outline: none; }
 }
 .search-input-clear svg { width: 12px; height: 12px; }
 .add-row__grams { width: 76px; flex-shrink: 0; padding: var(--space-s) var(--space-xs); font-size: var(--fs-l); text-align: center; }
-.add-row__btn { width: 40px; flex-shrink: 0; border: none; border-radius: var(--radius-s); background: var(--acc-1); color: #fff; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+.add-row__btn { width: 40px; flex-shrink: 0; border: none; border-radius: var(--radius-s); background: var(--acc-1); color: var(--on-acc); cursor: pointer; display: flex; align-items: center; justify-content: center; }
 .add-row__btn svg { width: 16px; height: 16px; }
 
 .food-pick-list { display: flex; flex-direction: column; gap: 5px; margin-bottom: var(--space-l); max-height: 420px; overflow-y: auto; -webkit-overflow-scrolling: touch; }
@@ -406,7 +406,7 @@ input.meal-item__grams-input:focus { outline: none; }
 .lib-item__meta { font-size: var(--fs-s); margin: var(--space-3xs) 0 0; }
 .lib-item__meta .c-carbs { color: var(--green); font-weight: 600; }
 .lib-item__meta .c-kcal { color: var(--amber); }
-.lib-item__usage { position: absolute; right: 9px; bottom: 6px; display: inline-flex; align-items: center; gap: 3px; font-size: var(--fs-2xs); font-weight: 500; color: var(--ink-soft); opacity: 0.6; font-variant-numeric: tabular-nums; pointer-events: none; }
+.lib-item__usage { position: absolute; right: 9px; bottom: 6px; display: inline-flex; align-items: center; gap: 3px; font-size: var(--fs-2xs); font-weight: 500; color: var(--ink-soft); font-variant-numeric: tabular-nums; pointer-events: none; }
 .lib-item__usage svg { width: 11px; height: 11px; }
 .lib-item__note { font-size: var(--fs-xs); font-style: italic; color: var(--ink-soft); margin: 3px 0 0; }
 .lib-item__actions { display: flex; gap: 1px; flex-shrink: 0; }
@@ -416,14 +416,14 @@ input.meal-item__grams-input:focus { outline: none; }
 .lib-item__actions svg { width: 15px; height: 15px; display: block; }
 
 /* category color chips */
-.cat-fruits { background: #FBE1EC; color: #B23A6B; }
-.cat-vegetables { background: #E1F0DA; color: #3E7A32; }
-.cat-grains { background: #F7E7C4; color: #97701C; }
+.cat-fruits { background: #FBE1EC; color: #B0386A; }
+.cat-vegetables { background: #E1F0DA; color: #38742C; }
+.cat-grains { background: #F7E7C4; color: #835F0C; }
 .cat-protein { background: #E4E9FB; color: #3C4FA8; }
 .cat-dairy { background: #E8F3F7; color: #29738D; }
-.cat-beverages { background: #DCF3F0; color: #157C6C; }
+.cat-beverages { background: #DCF3F0; color: #077666; }
 .cat-snacks { background: #EFE1FB; color: #7132B2; }
-.cat-other { background: #ECEAE3; color: #6B7A89; }
+.cat-other { background: #ECEAE3; color: #596776; }   /* 2.68.7: tag text deepened to 4.7:1+ on its tint, same hues */
 html[data-theme="dark"] .cat-fruits, html[data-theme="dark"] .cat-vegetables, html[data-theme="dark"] .cat-grains,
 html[data-theme="dark"] .cat-protein, html[data-theme="dark"] .cat-dairy, html[data-theme="dark"] .cat-beverages,
 html[data-theme="dark"] .cat-snacks, html[data-theme="dark"] .cat-other { filter: brightness(0.85) saturate(1.1); }
@@ -520,7 +520,7 @@ html[data-theme="dark"] .cat-snacks, html[data-theme="dark"] .cat-other { filter
 .stat-kcal { font-size: var(--fs-xs); color: var(--ink-soft); font-weight: 500; }
 .stat-grams { font-size: var(--fs-s); color: var(--ink); font-weight: 600; }
 .gl-indicator--compact { font-size: var(--fs-2xs); padding: 2px var(--space-xs); }
-.dose-pill { background: var(--acc-1); color: #fff; font-size: var(--fs-s); font-weight: 700; padding: var(--space-3xs) 11px; border-radius: var(--radius-pill); display: inline-flex; align-items: center; gap: var(--space-3xs); line-height: 1.2; }
+.dose-pill { background: var(--acc-1); color: var(--on-acc); font-size: var(--fs-s); font-weight: 700; padding: var(--space-3xs) 11px; border-radius: var(--radius-pill); display: inline-flex; align-items: center; gap: var(--space-3xs); line-height: 1.2; }
 /* "No insulin" is information, not an alarm: an outlined amber chip rather than a big solid block. */
 .dose-pill--warn { background: transparent; color: #B45309; border: 1.5px solid #D97706; padding: 2.5px var(--space-s); font-weight: 600; }
 html[data-theme="dark"] .dose-pill--warn { color: #FBBF24; border-color: #FBBF2499; }
@@ -725,7 +725,7 @@ input[type="number"]::-webkit-inner-spin-button {
   font-weight: 600; cursor: pointer; text-align: center;
 }
 .insulin-preset-btn--wide { grid-column: 1 / -1; }
-.insulin-preset-btn.is-active { border-color: var(--acc-1); color: var(--acc-1); background: rgba(var(--acc-1-rgb), 0.08); }
+.insulin-preset-btn.is-active { border-color: var(--acc-1); color: var(--ink); font-weight: 700; background: rgba(var(--acc-1-rgb), 0.08); }   /* ink text: the theme colour on its own tint fell just short of 4.5:1 (2.68.7) */
 
 .ingredient-box { border: 1.5px solid var(--line); border-radius: var(--radius-m); padding: var(--space-m); background: var(--paper); margin-bottom: var(--space-3xs); }
 .ingredient-search-wrap { position: relative; margin-bottom: var(--space-xs); }
@@ -746,7 +746,7 @@ input[type="number"]::-webkit-inner-spin-button {
 .ingredient-add-row input { width: 84px; flex-shrink: 0; padding: var(--space-m) var(--space-s); font-size: max(16px, var(--rem)); background: var(--surface); text-align: center; }
 .ingredient-add-row button {
   width: 44px; flex-shrink: 0; border: none; border-radius: var(--radius-s); background: var(--acc-1);
-  color: #fff; cursor: pointer; display: flex; align-items: center; justify-content: center;
+  color: var(--on-acc); cursor: pointer; display: flex; align-items: center; justify-content: center;
 }
 .ingredient-add-row button svg { width: 18px; height: 18px; }
 .ingredient-list { display: flex; flex-direction: column; gap: var(--space-2xs); margin-top: var(--space-s); }
@@ -996,7 +996,7 @@ html[data-theme="dark"] .pattern-card__preview--abstract { background-image: url
 }
 .lock-screen__card { max-width: 360px; width: 100%; text-align: center; }
 .lock-screen__icon {
-  width: 56px; height: 56px; border-radius: 50%; background: var(--acc-1); color: #fff;
+  width: 56px; height: 56px; border-radius: 50%; background: var(--acc-1); color: var(--on-acc);
   display: flex; align-items: center; justify-content: center; margin: 0 auto 18px;
 }
 .lock-screen__icon svg { width: 26px; height: 26px; }
@@ -1208,12 +1208,12 @@ html[data-theme="dark"] .undo-toast { background: var(--surface); border: 1px so
 /* ================= Basal insulin =================
    #356E9C rather than a lighter blue: white text on it clears the 4.5:1 contrast minimum (about 5.4:1). */
 .history-entry--basal { border-left-color: #356E9C; }
-.dose-pill--basal { background: #356E9C; }
+.dose-pill--basal { background: #356E9C; color: #fff; }
 
 /* ================= Physical activity (2.65.0) =================
    #0E7C86: white text on it clears the 4.5:1 contrast minimum (about 5:1), like the basal blue. */
 .history-entry--activity { border-left-color: #0E7C86; }
-.dose-pill--activity { background: #0E7C86; }
+.dose-pill--activity { background: #0E7C86; color: #fff; }
 .activity-detail { margin: 0 0 var(--space-2xs); font-size: var(--fs-s); color: var(--ink-soft); }
 .activity-detail--glu { color: var(--ink); }
 .activity-choices { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-xs); }
@@ -1270,7 +1270,7 @@ html[data-theme="dark"] .undo-toast { background: var(--surface); border: 1px so
 .dialog__input { width: 100%; padding: var(--space-m) 14px; margin-bottom: var(--space-l); border: 1.5px solid var(--line); border-radius: var(--radius-s); background: var(--paper); color: var(--ink); font-size: max(16px, var(--rem)); font-family: var(--font-ui); }
 .dialog__actions { display: flex; gap: var(--space-s); justify-content: flex-end; }
 .dialog__btn { flex: 1; padding: var(--space-m) 14px; border-radius: var(--radius-s); border: 1.5px solid transparent; font: 600 var(--fs-l) var(--font-ui); cursor: pointer; }
-.dialog__btn--primary { background: var(--acc-1); color: #fff; }
+.dialog__btn--primary { background: var(--acc-1); color: var(--on-acc); }
 .dialog__btn--danger { background: var(--brick); color: #fff; }
 .dialog__btn--ghost { background: none; border-color: var(--line); color: var(--ink-soft); }
 
@@ -1406,8 +1406,8 @@ html[data-theme="dark"] .undo-toast { background: var(--surface); border: 1px so
     .tab[aria-current="page"] { background: var(--glass-bg-strong); box-shadow: inset 0 1px 0 var(--glass-edge), 0 1px 6px rgba(27,42,58,0.10); }
     /* The dose banner keeps its colour but gains a sheen across the top and a lit edge, like a curved glass tile. */
     .dose-card {
-      background: linear-gradient(180deg, rgba(255,255,255,0.26) 0%, rgba(255,255,255,0) 46%), linear-gradient(155deg, var(--acc-1) 0%, var(--acc-2) 100%);
-      box-shadow: inset 0 1px 0 rgba(255,255,255,0.55), inset 0 -1px 0 rgba(255,255,255,0.12), inset 0 0 0 1px rgba(255,255,255,0.10), 0 14px 30px -10px color-mix(in srgb, var(--acc-2) 55%, transparent);
+      background: linear-gradient(180deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0) 46%), linear-gradient(155deg, var(--card-1) 0%, var(--card-2) 100%);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.55), inset 0 -1px 0 rgba(255,255,255,0.12), inset 0 0 0 1px rgba(255,255,255,0.10), 0 14px 30px -10px color-mix(in srgb, var(--card-2) 55%, transparent);
     }
     .dose-card .pill-btn, .dose-card .carbs-pill:not(.carbs-pill--ratio) {
       -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
@@ -1580,7 +1580,7 @@ html[data-theme="dark"] { --glass-sheet: rgba(30,36,43,0.90); }
 .day-chips { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; flex-basis: 100%; margin-top: var(--space-s); }
 .day-chips__label { font-size: var(--fs-m); font-weight: 600; margin-right: 4px; }
 .day-chip { min-width: 40px; min-height: 36px; padding: 0 8px; border-radius: var(--radius-s); border: 1.5px solid var(--line); background: var(--surface); color: var(--ink-soft); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
-.day-chip.is-on { background: var(--acc-1); border-color: var(--acc-1); color: #fff; }
+.day-chip.is-on { background: var(--acc-1); border-color: var(--acc-1); color: var(--on-acc); }
 .day-chips__hint { flex-basis: 100%; margin: 4px 0 0; font-size: 12.5px; color: var(--ink-soft); }
 
 .ratio-name { display: flex; align-items: center; gap: var(--space-s); flex-basis: 100%; font-size: var(--fs-m); font-weight: 600; }
@@ -1634,7 +1634,7 @@ html[data-theme="dark"] :is(.c-kcal) { color: #F0BE5E; }
 .hs-row .history-entry { position: relative; transition: transform var(--motion-base) var(--motion-ease); touch-action: pan-y; }
 .hs-actions { position: absolute; top: -1.5px; bottom: -1.5px; left: calc(100% + 6px); width: 138px; display: flex; gap: 6px; }
 .hs-actions button { flex: 1; border: none; border-radius: var(--radius-m); font: inherit; font-size: var(--fs-m); font-weight: 700; color: #fff; cursor: pointer; }
-.hs-actions__edit { background: var(--acc-1); }
+.hs-actions__edit { background: var(--acc-1); color: var(--on-acc); }
 .hs-actions--three { width: 210px; }
 .hs-actions__use { background: var(--green); line-height: 1.15; }   /* its own colour, apart from Edit (theme) and Delete (red) */
 .hs-actions__del { background: var(--brick); }
@@ -1856,3 +1856,22 @@ input.ingredient-row__input.is-invalid { border-color: var(--brick); box-shadow:
 .portion__note:empty { display: none; }
 .portion__note.is-error { color: var(--amber); }
 .meal-item__portion { font-weight: 600; color: var(--ink); }
+
+/* ================= READABLE DOSE CARD (2.68.7) =================
+   Every theme, light and dark, passes WCAG AA on the dose card (tests/e2e/contrast.e2e.js). The card's colours are the
+   readable --card-1/--card-2 from the tokens, and what sits on it is darker, not lighter: a white wash under white text
+   made it harder to read (the pills were 1.5:1 on the bright night colours). Text on the card is solid white. */
+.dose-card .carbs-pill:not(.carbs-pill--ratio), .dose-card .glucose-pill, .dose-card .pill-btn:not(.is-active),
+.dose-card .glucose-guide-btn, .dose-card .correction-row__unit-toggle, .dose-card .correction-row__input { background: rgba(0,0,0,0.18); }
+.dose-card .correction-row__input:focus-within { background: rgba(0,0,0,0.26); }
+.dose-card .carbs-pill.carbs-pill--ratio { background: rgba(0,0,0,0.32); }
+.dose-card .dose-card__label, .dose-card .dose-card__unit, .dose-card .dose-card__breakdown, .dose-card .correction-row label,
+.dose-card #cc-eating-out-row label, .dose-card .correction-mode-link, .dose-card .correction-row__iob-note,
+.dose-card .correction-row__input span, .dose-card .dose-card__no-insulin-note { color: #fff; }
+/* Night-mode versions of colours that were made for a light background (2.68.7). */
+html[data-theme="dark"] .gl-indicator--low { color: #7FD8A4; border-color: #2E5A43; background: #13261C; }
+html[data-theme="dark"] .gl-indicator--medium { color: #FFD27A; border-color: #5E4A1E; background: #2A2111; }
+html[data-theme="dark"] .gl-indicator--high { color: #FF9C93; border-color: #6B2C27; background: #2E1513; }
+html[data-theme="dark"] .btn--danger-solid { background: #D70015; }   /* the night red is too bright for white text */
+html[data-theme="dark"] .hs-actions__use { color: #000; }             /* white on the bright night green was 2:1 */
+.timeline__seg--dark-text { text-shadow: none; }

@@ -3,16 +3,29 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { readableAccents, contrast, rgbToHex, hexToRgb } from "./contrast-colours.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 export function buildTokens(t) {
-  const hexToRgb = h => { const n = parseInt(h.slice(1), 16); return `${(n >> 16) & 255},${(n >> 8) & 255},${n & 255}`; };
+  const rgbCsv = h => hexToRgb(h).join(",");
   const decl = (obj, prefix = "") => Object.entries(obj).map(([k, v]) => `  --${prefix}${k}: ${v};`).join("\n");
   const def = t.palette.set[t.palette.default];
   // Each palette carries light accents (acc-1..3) and dark-mode twins (acc-1-dark, acc-2-dark): Apple's system colours
   // shift brighter on black, so a theme swaps to its own dark pair when dark mode is on.
-  const light = p => ({ "acc-1": p["acc-1"], "acc-2": p["acc-2"], "acc-3": p["acc-3"] });
-  const accents = (a1, a2, a3) => `--acc-1:${a1}; --acc-2:${a2}; --acc-3:${a3}; --acc-1-rgb: ${hexToRgb(a1)};`;
+  // 2.68.7: the colours a theme actually shows are its readable versions (tools/contrast-colours.mjs): --acc-1 is the accent
+  // as text on the page (and the fill behind --on-acc text), --card-1/--card-2 the dose card. --acc-2 stays as designed (decor).
+  const PAGES = { light: [t.color.light.surface, t.color.light.paper], dark: [t.color.dark.paper, t.color.dark.surface, "#2C2C2E"] };
+  const mixHex = (a, b, w) => rgbToHex(hexToRgb(a).map((v, i) => Math.round(v * (1 - w) + hexToRgb(b)[i] * w)));
+  const readable = (p, mode) => {
+    const a1 = mode === "dark" ? p["acc-1-dark"] : p["acc-1"], a2raw = mode === "dark" ? p["acc-2-dark"] : p["acc-2"];
+    const a2 = p["card-mix"] ? mixHex(a2raw, a1, p["card-mix"]) : a2raw;
+    const r = readableAccents({ a1, a2, pages: PAGES[mode], mode, sheen: 0.06, cardRatio: mode === "dark" ? 5.5 : 4.6 });
+    // Text on a filled control: white where the accent is deep enough (light mode always is), else black (bright night colours).
+    const onAcc = contrast("#FFFFFF", r.text) >= 4.6 ? "#FFFFFF" : "#000000";
+    if (contrast(onAcc, r.text) < 4.5) throw new Error(`no readable text colour on ${r.text}`);
+    return { ...r, onAcc, a2: a2raw };
+  };
+  const accents = (p, mode) => { const r = readable(p, mode); return `--acc-1:${r.text}; --acc-2:${r.a2}; --acc-3:${r.text}; --acc-1-rgb: ${rgbCsv(r.text)}; --on-acc:${r.onAcc}; --card-1:${r.card1}; --card-2:${r.card2};`; };
   const px = o => Object.fromEntries(Object.entries(o).map(([k, v]) => [k, v + "px"]));
   const rem = o => Object.fromEntries(Object.entries(o).map(([k, v]) => [k, v + "rem"]));
 
@@ -33,8 +46,7 @@ ${Object.entries(t.type.size).map(([k, v]) => `  --fs-${k}: calc(${v} * var(--re
 ${decl(t.motion, "motion-")}
 
   /* palette accents: overridden per data-palette */
-${decl(light(def))}
-  --acc-1-rgb: ${hexToRgb(def["acc-1"])};
+  ${accents(def, "light")}
 
   /* Liquid Glass */
 ${decl(t.glass.light, "glass-")}
@@ -42,15 +54,15 @@ ${decl(t.glass.light, "glass-")}
 }
 
 /* ---------- Palettes ---------- */
-${Object.entries(t.palette.set).map(([n, p]) => `html[data-palette="${n}"], [data-swatch="${n}"] { ${accents(p["acc-1"], p["acc-2"], p["acc-3"])} }`).join("\n")}
-${Object.entries(t.palette.set).map(([n, p]) => `html[data-theme="dark"][data-palette="${n}"], html[data-theme="dark"] [data-swatch="${n}"] { ${accents(p["acc-1-dark"], p["acc-2-dark"], p["acc-1-dark"])} }`).join("\n")}
+${Object.entries(t.palette.set).filter(([n]) => !n.startsWith("_")).map(([n, p]) => `html[data-palette="${n}"], [data-swatch="${n}"] { ${accents(p, "light")} }`).join("\n")}
+${Object.entries(t.palette.set).filter(([n]) => !n.startsWith("_")).map(([n, p]) => `html[data-theme="dark"][data-palette="${n}"], html[data-theme="dark"] [data-swatch="${n}"] { ${accents(p, "dark")} }`).join("\n")}
 
 /* ---------- Dark mode ---------- */
 html[data-theme="dark"] {
 ${decl(t.color.dark)}
   --app-bg: var(--paper);
 ${decl(t.glass.dark, "glass-")}
-  ${accents(def["acc-1-dark"], def["acc-2-dark"], def["acc-1-dark"])}
+  ${accents(def, "dark")}
 }
 
 /* ---------- Increase Contrast (iOS Settings > Accessibility) ---------- */
@@ -93,7 +105,7 @@ ${colors(t.color.light, "        ")}
 ${colors(t.color.dark, "        ")}
     }
     enum Palette {
-${Object.entries(t.palette.set).map(([n, p]) => `        static let ${lower(n)} = (acc1: ${hex(p["acc-1"])}, acc2: ${hex(p["acc-2"])}, acc3: ${hex(p["acc-3"])}, acc1Dark: ${hex(p["acc-1-dark"])}, acc2Dark: ${hex(p["acc-2-dark"])})`).join("\n")}
+${Object.entries(t.palette.set).map(([n, p]) => `        static let ${lower(n)} = (acc1: ${hex(readable(p, "light").text)}, acc2: ${hex(p["acc-2"])}, acc3: ${hex(readable(p, "light").text)}, acc1Dark: ${hex(readable(p, "dark").text)}, acc2Dark: ${hex(p["acc-2-dark"])}, onAcc: ${hex(readable(p, "light").onAcc)}, onAccDark: ${hex(readable(p, "dark").onAcc)}, card1: ${hex(readable(p, "light").card1)}, card2: ${hex(readable(p, "light").card2)}, card1Dark: ${hex(readable(p, "dark").card1)}, card2Dark: ${hex(readable(p, "dark").card2)})`).join("\n")}
         static let \`default\` = ${lower(t.palette.default)}
     }
     enum Radius {

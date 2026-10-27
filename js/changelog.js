@@ -2,6 +2,18 @@
 // summary can never drift. Bump CHANGELOG[0].version here (and CACHE_VERSION in sw.js) on every release.
 export const CHANGELOG = [
   {
+    version: "2.68.7",
+    summary: "Everything is readable in every theme, day and night.",
+    changes: [
+      "The dose card was hard to read in several themes, worst at night (the yellow, green and cyan themes had white text at about 1.5:1). Its colours are now deeper versions of your theme, worked out so all its text passes the accessibility standard (WCAG AA), a bit deeper at night for less glare. The yellow theme becomes a warm amber: bright yellow can't carry white text",
+      "The pills on the card (carbs, glucose, Correction, Treating a Low, Eating Out, ratio) sit on a slightly darker band instead of a white wash, and the labels on the card are solid white",
+      "Buttons filled with the theme colour (Log Meal, Save, selected chips, dose badges) use black text at night, where the theme colours are bright",
+      "Theme-coloured text (tabs, Browse, links, figures) is a touch deeper in the blue, purple, green and teal themes so it reads on white",
+      "Also fixed: the GI tag and the red delete button at night, the green carbs figures, the food category tags and usage counts in the Library, the selected meal type in Edit Meal, and the names on the ratio timeline (now black or white, whichever suits the colour)",
+      "A new automatic check measures every piece of text on 12 screens in all 6 themes, day and night (7,026 checks), so this stays readable. Doses are calculated exactly as before"
+    ]
+  },
+  {
     version: "2.68.6",
     summary: "Recipes in the food list show how many times you've used them.",
     changes: [
