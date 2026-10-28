@@ -2,6 +2,17 @@
 // summary can never drift. Bump CHANGELOG[0].version here (and CACHE_VERSION in sw.js) on every release.
 export const CHANGELOG = [
   {
+    version: "2.71.0",
+    summary: "The Now tab's glucose projection is replaced by \"Next 2 hours\": a likely range built from what your own glucose did at similar moments.",
+    changes: [
+      "The old projected line worked glucose out from insulin and carbs. Tested on your last 30 days, it was further off than simply assuming no change (about 45 mg/dL wrong at 2 hours) and often showed lows or highs that didn't come",
+      "The new chart looks for the 40 past moments most like now (similar glucose, trend, insulin and carbs still active) where you didn't eat or dose again, and shows what your glucose did next: a dashed middle line and a shaded range where 8 in 10 of them stayed",
+      "On the same 30 days it was about 24 mg/dL off at 2 hours, closer than both, and its range held the real value about 4 times in 5",
+      "Below the chart: where you'll usually be in 2 hours, a warning if similar moments dipped below 70, and how often the range was right on your own last 14 days",
+      "It needs about two weeks of stored readings (Cloud Sync) and is never dosing advice. Doses are calculated exactly as before"
+    ]
+  },
+  {
     version: "2.70.0",
     summary: "Two-step sign-in, and a button to sign out your other devices (Settings > Sync > Sign-in security).",
     changes: [

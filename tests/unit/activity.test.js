@@ -12,6 +12,7 @@ import { dosingSummary, insulinStats, recentDistinctMeals, matchesQuery, isNonMe
 import { sanityPool } from "../../js/dose-sanity.js";
 import { weekdayWeekend, outcomeByBracket, overnightStats, iobStacking, lowTreatmentUsual, correctionEffectiveness } from "../../js/insights.js";
 import { expectedFromInsulin, observedCarbs, projectGlucose } from "../../js/glucose-model.js";
+import { glucoseForecast } from "../../js/glucose-forecast.js";
 import { treatmentsForEntry } from "../../js/nightscout.js";
 import { healthTarget } from "../../js/core/health-target.js";
 import { validateEntry } from "../../js/core/schema.js";
@@ -127,6 +128,7 @@ same("correction effectiveness", h => correctionEffectiveness(h, readings, { isf
 same("expected from insulin", h => expectedFromInsulin(h, readings, { isfMgdl: 50, peak: 75, dia: 360, now: NOW }));
 same("observed carbs", h => observedCarbs(h, readings, { isfMgdl: 50, peak: 75, dia: 360, absMinutes: () => 180, fallbackRatio: 10 }, NOW));
 same("glucose projection", h => projectGlucose(h, readings, { isfMgdl: 50, peak: 75, dia: 360, absMinutes: () => 180, fallbackRatio: 10 }, NOW));
+same("glucose forecast", h => glucoseForecast(h, readings, { isfMgdl: 50, peak: 75, dia: 360, absMinutes: () => 180, fallbackRatio: 10 }, NOW));
 same("Apple Health Shortcut export", h => flattenHistoryEntries(h, NOW - 14 * 24 * HOUR, { includeBasal: true }));
 
 test("Nightscout gets an activity as a plain Note, never insulin or carbs", () => {

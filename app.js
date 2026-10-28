@@ -6,7 +6,8 @@ import { SCHEMA_VERSION, normalizeState as normalizeStateWith, makeFingerprint, 
 import { NightscoutClient, NsOutbox, nsToken, nsBaseUrl, nsConfigured, treatmentsForEntry, entriesToGlucoseRows } from "./js/nightscout.js";
 import { createDiag, hookGlobalErrors } from "./js/diag.js";
 import { postMealCurves, outcomeByBracket, foodImpact, correctionEffectiveness, iobStacking, overnightStats, weekdayWeekend, lowTreatmentUsual, lastTimesFor, isfToMgdl, activityGlucose, activityImpact, ACTIVITY_AFTER_HOURS } from "./js/insights.js";
-import { expectedFromInsulin, EXPECTED_FLOOR, observedCarbs, cobAt, projectGlucose, learnAbsorption, gapSummary } from "./js/glucose-model.js";
+import { expectedFromInsulin, EXPECTED_FLOOR, observedCarbs, cobAt, learnAbsorption, gapSummary } from "./js/glucose-model.js";
+import { buildForecastLibrary, glucoseForecast, forecastSummary, forecastTrackRecord } from "./js/glucose-forecast.js";
 import { summarizeSync } from "./js/sync-status.js";
 import { SEED_RECIPES } from "./js/seed-recipes.js";
 import { CHANGELOG } from "./js/changelog.js";
@@ -2481,9 +2482,10 @@ import { nearActivity, activitySkip, countNearActivity, breakfastByActivity, act
   const mgUnitText = () => state.settings.units === "mmol" ? "mmol/L" : "mg/dL";
   const clockTime = t => new Date(t).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
 
-  /** A small multi-line glucose chart. lines: [{ pts:[{t,v}], stroke, dash?, width? }], nowT: optional vertical marker. Values in mg/dL. */
+  /** A small multi-line glucose chart. lines: [{ pts:[{t,v}], stroke, dash?, width? }] or a shaded band { band:[{t,lo,hi}], fill },
+   *  nowT: optional vertical marker. Values in mg/dL. */
   function renderGlucoseLinesSVG(lines, nowT, markers) {
-    const all = lines.flatMap(l => l.pts);
+    const all = lines.flatMap(l => l.band ? l.band.flatMap(b => [{ t: b.t, v: b.lo }, { t: b.t, v: b.hi }]) : l.pts);
     if (all.length < 2) return "";
     const W = 320, H = 165, padL = 30, padR = 10, padT = 10, padB = 22;
     const plotW = W - padL - padR, plotH = H - padT - padB;
@@ -2503,7 +2505,8 @@ import { nearActivity, activitySkip, countNearActivity, breakfastByActivity, act
       const anchor = x < padL + 14 ? "start" : x > padL + plotW - 14 ? "end" : "middle";
       ticks += `<line x1="${x}" y1="${padT + plotH}" x2="${x}" y2="${padT + plotH + 3}" stroke="var(--ink-soft)" stroke-width="1"/><text x="${x}" y="${H - 4}" font-size="9" fill="var(--ink-soft)" text-anchor="${anchor}">${clockTime(t)}</text>`;
     }
-    const paths = lines.map(l => `<path d="${l.pts.map((p, i) => `${i ? "L" : "M"}${xFor(p.t).toFixed(1)},${yFor(p.v).toFixed(1)}`).join(" ")}" fill="none" stroke="${l.stroke}" stroke-width="${l.width || 2}"${l.dash ? ` stroke-dasharray="${l.dash}"` : ""} stroke-linejoin="round" stroke-linecap="round"/>`).join("");
+    const bands = lines.filter(l => l.band && l.band.length > 1).map(l => `<path class="glu-band" d="${[...l.band.map(b => [b.t, b.hi]), ...l.band.slice().reverse().map(b => [b.t, b.lo])].map(([t, v], i) => `${i ? "L" : "M"}${xFor(t).toFixed(1)},${yFor(v).toFixed(1)}`).join(" ")} Z" fill="${l.fill}" stroke="none"/>`).join("");
+    const paths = lines.filter(l => l.pts).map(l => `<path d="${l.pts.map((p, i) => `${i ? "L" : "M"}${xFor(p.t).toFixed(1)},${yFor(p.v).toFixed(1)}`).join(" ")}" fill="none" stroke="${l.stroke}" stroke-width="${l.width || 2}"${l.dash ? ` stroke-dasharray="${l.dash}"` : ""} stroke-linejoin="round" stroke-linecap="round"/>`).join("");
     const nowLine = nowT && nowT > t0 && nowT < t1 ? `<line x1="${xFor(nowT).toFixed(1)}" y1="${padT}" x2="${xFor(nowT).toFixed(1)}" y2="${padT + plotH}" stroke="var(--ink-soft)" stroke-width="1" stroke-dasharray="1,3"/>` : "";
     return `
       <svg viewBox="0 0 ${W} ${H}" style="width:100%; height:auto; display:block;" role="img">
@@ -2513,7 +2516,7 @@ import { nearActivity, activitySkip, countNearActivity, breakfastByActivity, act
         <line x1="${padL}" y1="${highY}" x2="${padL + plotW}" y2="${highY}" stroke="#F59E0B" stroke-width="1" stroke-dasharray="2,3" opacity="0.6"/>
         <text x="${padL - 4}" y="${(parseFloat(lowY) + 3).toFixed(1)}" font-size="8" fill="#EF4444" text-anchor="end">${glucoseDisp(70)}</text>
         <text x="${padL - 4}" y="${(parseFloat(highY) + 3).toFixed(1)}" font-size="8" fill="#F59E0B" text-anchor="end">${glucoseDisp(180)}</text>
-        ${nowLine}${paths}${(markers || []).filter(m => m.t >= t0 && m.t <= t1).map(m => `<path d="M${xFor(m.t).toFixed(1)},${padT + plotH - 1} l-4,-8 h8 z" fill="#0D9488"><title>${m.label}</title></path>`).join("")}
+        ${bands}${nowLine}${paths}${(markers || []).filter(m => m.t >= t0 && m.t <= t1).map(m => `<path d="M${xFor(m.t).toFixed(1)},${padT + plotH - 1} l-4,-8 h8 z" fill="#0D9488"><title>${m.label}</title></path>`).join("")}
         <line x1="${padL}" y1="${padT + plotH}" x2="${padL + plotW}" y2="${padT + plotH}" stroke="var(--line)" stroke-width="1"/>
         ${ticks}
       </svg>`;
@@ -2552,7 +2555,62 @@ import { nearActivity, activitySkip, countNearActivity, breakfastByActivity, act
       <p class="panel-card__hint" style="margin-top:12px;">${msg}</p>`;
   }
 
-  /** Now tab, once readings are in: the carbs line adjusted to the readings, plus the projected glucose. */
+  // ---- Next 2 hours (2.71.0): a likely range from what your glucose did next at similar past moments ----
+  // js/glucose-forecast.js. Needs ~2 weeks of stored readings (Cloud Sync), fetched once and kept for FORECAST_REFRESH_MS;
+  // the library of past moments and its track record are rebuilt only when those readings or the history change.
+  const FORECAST_DAYS = 30, FORECAST_REFRESH_MS = 10 * 60000;
+  let forecastStore = null;   // { readings, fetchedAt } or { error, fetchedAt }
+  let forecastMemo = null;    // { key, library, record }
+  async function loadForecastHistory() {
+    if (forecastStore && Date.now() - forecastStore.fetchedAt < FORECAST_REFRESH_MS) return false;
+    const r = await fetchStoredGlucoseReadings(FORECAST_DAYS);
+    forecastStore = r.ok && r.readings.length ? { readings: r.readings, fetchedAt: Date.now() }
+      : { error: r.ok ? "No stored glucose readings yet." : r.reason, signIn: !!r.signIn, fetchedAt: Date.now() };
+    return true;
+  }
+  function forecastLibrary(ms) {
+    const key = `${forecastStore.fetchedAt}|${state.history.length}|${ms.isfMgdl}|${ms.peak}|${ms.dia}`;
+    if (!forecastMemo || forecastMemo.key !== key) {
+      const library = buildForecastLibrary(state.history, forecastStore.readings, ms);
+      forecastMemo = { key, library, record: forecastTrackRecord(library, { days: 14, every: 3 }) };
+    }
+    return forecastMemo;
+  }
+  function renderForecastHtml(liveReadings, now, ms) {
+    const head = secHead("Next 2 hours", "projection", 18);
+    const u = mgUnitText();
+    if (!(ms.isfMgdl > 0)) return `${head}<p class="panel-card__hint">Set your correction factor in Settings to see this.</p>`;
+    if (!forecastStore) return `${head}<p class="panel-card__hint">Looking at your last ${FORECAST_DAYS} days of readings…</p>`;
+    if (forecastStore.error) return `${head}<p class="panel-card__hint">This range is built from your stored glucose history. ${escapeHtml(forecastStore.error)}</p>`;
+    const stored = forecastStore.readings;
+    const lastStored = stored.length ? stored[stored.length - 1].at : 0;
+    const readings = stored.concat(liveReadings.filter(r => r.at > lastStored).map(r => ({ at: r.at, mgdl: r.mgdl })));
+    const { library, record } = forecastLibrary(ms);
+    const fc = glucoseForecast(state.history, readings, ms, now, { library });
+    if (!fc) {
+      const latest = readings.length ? readings[readings.length - 1].at : 0;
+      const why = now - latest > 10 * 60000 ? "No glucose reading in the last 10 minutes." : "Not enough history yet: this needs about two weeks of glucose readings to compare with.";
+      return `${head}<p class="panel-card__hint">${why}</p>`;
+    }
+    const sum = forecastSummary(fc);
+    const recent = liveReadings.filter(r => r.at >= fc.start.t - 60 * 60000 && r.at <= fc.start.t);
+    const chart = renderGlucoseLinesSVG([
+      { band: fc.points.map(p => ({ t: p.t, lo: p.low, hi: p.high })), fill: "rgba(139, 92, 246, 0.22)" },
+      { pts: recent.map(r => ({ t: r.at, v: r.mgdl })), stroke: "#3B82F6" },
+      { pts: fc.points.map(p => ({ t: p.t, v: p.mid })), stroke: "#8B5CF6", dash: "5,4" }
+    ], fc.start.t);
+    const bandKey = `<span style="display:flex; align-items:center; gap:6px; font-size:calc(0.8 * var(--rem)); color:var(--ink-soft);"><span style="width:16px; height:10px; border-radius:3px; background:rgba(139, 92, 246, 0.3); display:inline-block;"></span>Likely range</span>`;
+    const low = sum.lowRisk ? `<p class="panel-card__hint" style="color:#B91C1C;">At least 1 in 10 similar moments went below ${glucoseDisp(70)} ${u} within 2 hours.</p>` : "";
+    const rec = record && record.checked >= 30 ? `<p class="panel-card__hint">Checked on ${record.checked} moments from your last 14 days, the range held the real 2-hour value ${Math.round(record.held * 100)}% of the time.</p>` : "";
+    return `
+      ${head}
+      <p class="panel-card__hint">From your reading of ${glucoseDisp(fc.start.mgdl)} ${u} at ${clockTime(fc.start.t)}: what your glucose did next at the ${fc.used} most similar moments of the last ${FORECAST_DAYS} days (similar level, trend, insulin and carbs still active) when you <b>didn't eat or dose again</b>. Not a measurement and not dosing advice.</p>
+      ${chart}
+      <div style="display:flex; gap:16px; justify-content:center; flex-wrap:wrap; margin-top:8px;">${keyDot("#3B82F6", false, "Your readings")}${keyDot("#8B5CF6", true, "Middle")}${bandKey}</div>
+      <p class="panel-card__hint" style="margin-top:12px;">By ${clockTime(sum.end.t)}: usually between <b>${glucoseDisp(sum.end.low)} and ${glucoseDisp(sum.end.high)} ${u}</b>, middle about ${glucoseDisp(sum.end.mid)}.</p>${low}${rec}`;
+  }
+
+  /** Now tab, once readings are in: the carbs line adjusted to the readings, plus the likely range for the next 2 hours. */
   function renderNowWithReadings(readings) {
     const now = Date.now();
     const entries = modelEntries(), ms = modelSettings();
@@ -2562,23 +2620,7 @@ import { nearActivity, activitySkip, countNearActivity, breakfastByActivity, act
     let adjust = "";
     if (obs && obs.observed) adjust = `<p class="panel-card__hint">The carbs line follows your glucose readings: about <b>${Math.round(obs.cob)} g</b> still to absorb (the fixed timers alone would say ${Math.round(obs.modelCob)} g).</p>`;
     else if (obs && obs.cob > 0) adjust = `<p class="panel-card__hint">Not enough readings since your last meal to adjust the carbs line, so it uses your ${state.settings.useLearnedAbsorption && state.settings.learnedAbsorption ? "learned" : "fixed"} absorption times.</p>`;
-    let proj = "";
-    const p = ok ? projectGlucose(entries, readings, ms, now) : null;
-    if (p) {
-      const recent = readings.filter(r => r.at >= p.start.t - 90 * 60000 && r.at <= p.start.t);
-      const chart = renderGlucoseLinesSVG([
-        { pts: recent.map(r => ({ t: r.at, v: r.mgdl })), stroke: "#3B82F6" },
-        { pts: p.points.map(q => ({ t: q.t, v: q.mgdl })), stroke: "#8B5CF6", dash: "5,4" }
-      ], now);
-      const dips = p.low.mgdl < 70 ? `<p class="panel-card__hint" style="color:#B91C1C;">This projection dips below ${glucoseDisp(70)} ${u}. It is an estimate only.</p>` : "";
-      proj = `
-        ${secHead("Projected glucose", "projection", 18)}
-        <p class="panel-card__hint">A projection from your last reading (${glucoseDisp(p.start.mgdl)} ${u}, ${clockTime(p.start.t)}), <b>assuming no further food or insulin</b>. It is not a measurement and not dosing advice; it ignores basal insulin, exercise, illness and sensor error.</p>
-        ${chart}
-        <div style="display:flex; gap:16px; justify-content:center; margin-top:8px;">${keyDot("#3B82F6", false, "Your readings")}${keyDot("#8B5CF6", true, "Projection")}</div>
-        <p class="panel-card__hint" style="margin-top:12px;">Settles around <b>${glucoseDisp(p.end.mgdl)} ${u}</b> by ${clockTime(p.end.t)}; highest about ${glucoseDisp(p.high.mgdl)}, lowest about ${glucoseDisp(p.low.mgdl)}.</p>${dips}`;
-    } else if (ok) proj = `${secHead("Projected glucose", "projection", 18)}<p class="panel-card__hint">No glucose reading in the last 15 minutes, so there is no projection.</p>`;
-    else proj = `${secHead("Projected glucose", "projection", 18)}<p class="panel-card__hint">${ms.isfMgdl > 0 ? "No glucose readings found." : "Set your correction factor in Settings to see a projection."}</p>`;
+    const proj = renderForecastHtml(readings, now, ms);
     return `
       ${secHead("Active insulin & carbs", "iobcob")}
       <p class="panel-card__hint">Projected forward from now assuming no further food or insulin — a real dose or meal will change this.</p>
@@ -2620,10 +2662,10 @@ import { nearActivity, activitySkip, countNearActivity, breakfastByActivity, act
         <p><b>Carbs (orange).</b> Each meal's carbs are counted down over how long that kind of food takes to absorb, from ${learned}: high GI ${ca.high} min, medium ${ca.medium}, low ${ca.low}, unknown ${ca.unknown}.</p>
         <p>If your glucose readings are available, the carbs line is <b>adjusted to them</b>: the rise in your glucose since the meal, less the rise that insulin alone would allow, is the part the carbs must be responsible for. A faster rise means the carbs are being absorbed faster, so the line drops sooner (never later than 1.5&times; the usual time). With no readings it uses the plain timer.</p>
         <p>Everything to the right of "now" assumes you log nothing more.</p>`,
-      projection: `<p>This is a <b>projection, not a measurement and not advice</b>. It starts from your latest reading and draws two things that are already in motion:</p>
-        <p>&bull; <b>Falls</b> as the insulin still on board finishes working: each dose &times; your correction factor (${isf} ${u} per unit) &times; the share of it still to act.</p>
-        <p>&bull; <b>Rises</b> as the carbs still on board are absorbed: grams left &times; (correction factor &divide; the carb ratio you used for that meal) &mdash; the carbs line from above, converted to glucose.</p>
-        <p>It assumes no further food, insulin, exercise or illness, ignores basal insulin, and can be thrown off by sensor error. It is hidden when your last reading is over 15 minutes old.</p>`,
+      projection: `<p>This is <b>not a measurement and not advice</b>. It shows what your glucose usually did next at moments like this one, from your own last ${FORECAST_DAYS} days.</p>
+        <p>Every 15 minutes of your history is a "moment", described by four things: your glucose, its trend over the previous 30 minutes, the insulin still to act (each logged dose &times; your correction factor (${isf} ${u} per unit) &times; the share still to come) and the carbs still to absorb (grams left &times; correction factor &divide; the ratio you used; a treated low counts as absorbed in 45 minutes).</p>
+        <p>The 40 moments most like now are picked, using only those where you <b>logged nothing</b> (no meal, dose, treated low or basal) during the following 2 hours. For each 15 minutes ahead, the dashed line is the middle of what they did and the shaded band is where 8 in 10 of them stayed. Those changes start from your latest reading.</p>
+        <p>Why not work it out from insulin and carbs? Tested on your own readings, that maths was further off than simply assuming no change, while this method was closer than both. It can still miss things it has no record of: exercise, illness, stress, unlogged food or sensor error. It is hidden when your last reading is over 10 minutes old.</p>`,
       expected: `<p>From your last meal or dose that has a glucose reading beside it, the dashed line shows where glucose would go if <b>only the logged insulin acted</b>: that starting reading minus the insulin's effect so far (each dose &times; ${isf} ${u} per unit &times; the share already acted).</p>
         <p>The blue line is your real readings. The <b>gap</b> between them is what the insulin doesn't explain &mdash; usually carbs still being absorbed (or absorbed faster or slower than the dose assumed), but also unlogged food, stress, illness, activity or sensor error.</p>
         <p>A gap within 15 ${u} is called "tracking".</p>
@@ -2698,6 +2740,7 @@ import { nearActivity, activitySkip, countNearActivity, breakfastByActivity, act
       if (cached.length) content.innerHTML = renderNowWithReadings(nsToReadings(cached));
       else { content.innerHTML = plain(); content.insertAdjacentHTML("beforeend", `<p class="panel-card__hint" id="aiog-live-note" style="margin-top:12px;">Checking your glucose readings…</p>`); }
       const unsub = onGlucoseUpdate(() => { if (!live()) { unsub(); return; } repaint(); });
+      loadForecastHistory().then(changed => { if (changed && glucoseEntriesWithin(8).length) repaint(); }).catch(() => {});
       const r = await refreshGlucoseStore({ maxAgeMs: fresh ? 0 : 15000 });
       if (!live()) { unsub(); return; }
       if (!r.ok && !cached.length) { const n = el("aiog-live-note"); if (n) n.textContent = `Couldn't load glucose to adjust this: ${r.reason}`; }

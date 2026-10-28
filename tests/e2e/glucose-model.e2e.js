@@ -19,14 +19,15 @@ be.ns.entries = entries;
 be.row = { user_id: "user-1", data: stateBlob({ history: [m], settings: { nightscoutUrl: "https://demo.ns.example.com/?token=tok-abcdef-123456" } }), updated_at: be.stamp() };
 const dev = await openDevice(app, { width: 420, height: 900, mobile: true, inject: fakeSupabaseSource({ userId: "user-1" }), wait: 2500 });
 
-t.section("NOW TAB: observed carbs and a labelled projection");
+t.section("NOW TAB: observed carbs and the labelled next-2-hours range");
 await dev.click(".active-panel"); await sleep(400);
-await dev.waitFor(`/Projected glucose/.test(document.getElementById("aiog-content").textContent)`, 20000, 300);
+await dev.waitFor(`/Next 2 hours/.test(document.getElementById("aiog-content").textContent) && !/Looking at your last/.test(document.getElementById("aiog-content").textContent)`, 30000, 300);
 const now_ = await dev.text("#aiog-content");
-t.check("the projection is labelled as a projection, not advice", /assuming no further food or insulin/.test(now_) && /not dosing advice/.test(now_), now_.slice(0, 400));
+// with only 2.5 h of readings there is too little history for a range, and the section says so instead of guessing
+t.check("the range section explains itself: labelled range, or why there is none", /Next 2 hours/.test(now_) && (/didn.t eat or dose again/.test(now_) && /not dosing advice/.test(now_) || /Not enough history yet|stored glucose history/.test(now_)), now_.slice(now_.indexOf("Next 2 hours"), now_.indexOf("Next 2 hours") + 300));
 t.check("the carbs line says it follows the readings (or why it can't)", /follows your glucose readings|Not enough readings/.test(now_));
 await dev.eval(`document.getElementById("aiog-content").scrollIntoView()`); await dev.shot("/tmp/shots/gm-now.png"); await dev.eval(`document.getElementById("aiog-content").scrollTop=0`);
-t.check("two charts drawn", (await dev.eval(`document.querySelectorAll("#aiog-content svg").length`)) >= 2);
+t.check("the active insulin & carbs chart is drawn (the range needs weeks of history: see forecast.e2e.js)", (await dev.eval(`document.querySelectorAll("#aiog-content svg").length`)) >= 1);
 const carbsPath = await dev.eval(`(document.querySelector('#aiog-content path[stroke="#D97706"]') || {getAttribute: () => ""}).getAttribute("d")`);
 const ys = (carbsPath.match(/[ML]\s*[-\d.]+[ ,][-\d.]+/g) || []).map(x => Number(x.replace(/[ML]\s*/, "").split(/[ ,]/)[1]));
 let worstRise = 0; for (let k = 1; k < ys.length; k++) worstRise = Math.max(worstRise, ys[k - 1] - ys[k]);   // SVG y shrinks when the line goes UP
@@ -47,7 +48,7 @@ await dev.click("#aiog-close"); await sleep(300);
 const readsBefore = be.log.filter(l => l.kind === "ns" && l.action === "read").length;
 await dev.click(".active-panel"); await sleep(60);
 const instant = await dev.text("#aiog-content");
-t.check("reopened with the projection already there (no loading message)", /Projected glucose/.test(instant) && !/Checking your glucose/.test(instant), instant.slice(0, 120));
+t.check("reopened with the range section already there (no loading message)", /Next 2 hours/.test(instant) && !/Checking your glucose/.test(instant), instant.slice(0, 120));
 await sleep(500);
 const readsOpen = be.log.filter(l => l.kind === "ns" && l.action === "read").length;
 await dev.click('[data-tab="glucose"]'); await sleep(300); await dev.click('[data-tab="now"]'); await sleep(300);
