@@ -1268,6 +1268,15 @@ html[data-theme="dark"] .undo-toast { background: var(--surface); border: 1px so
    anyway) and this reminder, which is still there the moment the keyboard goes away. */
 .kb-open .sheet { padding-bottom: var(--space-l); }
 .kb-open .basal-note { display: none; }
+/* 2.72.0: "Active before this dose" suggestion in the basal sheet (his own rule in Settings > Dosing). */
+.basal-activity {
+  margin-top: var(--space-s); padding: var(--space-s) var(--space-m); border: 1px solid var(--line); border-left: 4px solid #0E7C86;
+  border-radius: var(--radius-s); background: var(--surface); font-size: var(--fs-s); color: var(--ink);
+}
+.basal-activity p { margin: 0 0 var(--space-2xs); }
+.basal-activity .basal-activity__head { font-weight: 700; color: #0E7C86; }
+html[data-theme="dark"] .basal-activity .basal-activity__head { color: #5FC4CC; }
+.basal-activity .basal-activity__btn { width: 100%; margin-top: var(--space-2xs); }
 .ns-badge {
   display: inline-block; margin-left: var(--space-2xs); padding: 1px 7px; border-radius: var(--radius-pill); border: 1px solid var(--line);
   background: none; font: 600 var(--fs-2xs) var(--font-ui); vertical-align: 1px; cursor: pointer; color: var(--ink-soft);

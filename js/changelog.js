@@ -2,6 +2,17 @@
 // summary can never drift. Bump CHANGELOG[0].version here (and CACHE_VERSION in sw.js) on every release.
 export const CHANGELOG = [
   {
+    version: "2.72.0",
+    summary: "When you log basal after exercise, Insulin Buddy can suggest your own reduced dose.",
+    changes: [
+      "New in Settings > Dosing: \u201cSuggest less basal after activity\u201d. Off until you turn it on and set the percentage (1\u201350%), the shortest activity that counts (30 min to start with) and how far back to look (60 min to start with)",
+      "When you log basal, a moderate or hard activity that lasted at least that long and was going on in that time before the dose shows a note in the basal sheet, with your dose less your percentage, rounded to your dose step",
+      "Nothing changes unless you tap \u201cUse\u201d, and Undo puts your dose back. Light activity is ignored, and so is anything you log after the dose",
+      "Workouts imported from Apple Health count too (their intensity is estimated from calories); the sheet checks for new ones when it opens",
+      "Editing a dose already logged shows no suggestion. Meal doses are calculated exactly as before"
+    ]
+  },
+  {
     version: "2.71.0",
     summary: "The Now tab's glucose projection is replaced by \"Next 2 hours\": a likely range built from what your own glucose did at similar moments.",
     changes: [

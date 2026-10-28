@@ -552,3 +552,57 @@ export function checkDoseConsistency({ mealDose, correctionDose, finalDose, show
   if (!Number.isFinite(shown) || Math.abs(shown - parts[2]) > 0.051) return `The number on screen (${shownText} u) does not match the dose to save (${parts[2]} u).`;
   return null;
 }
+
+// ---------------------------------------------------------------- basal after activity (2.72.0)
+// At Francesco's request: when he logs basal, look back at the activity he did just before and, if any moderate or hard
+// activity lasted at least as long as his rule says, suggest taking his own percentage off the dose. The percentage,
+// the look-back and the minimum length are all his settings (Settings > Dosing); the app never picks a clinical figure.
+// It is a suggestion only: the sheet shows it and he taps to use it. Nothing here feeds the meal dose (computeDose).
+export const BASAL_ACTIVITY_DEFAULTS = { enabled: false, lookbackMin: 60, minMinutes: 30, reducePct: null };
+export const BASAL_ACTIVITY_LIMITS = { lookbackMin: [15, 240], minMinutes: [5, 240], reducePct: [1, 50] };
+const BASAL_ACTIVITY_INTENSITIES = new Set(["moderate", "hard"]);
+
+/** The rule with every value present and inside its limits (anything missing or odd falls back to the default; a
+ * percentage that isn't a usable number stays null, which means "not set yet": no suggestion is made without one). */
+export function basalActivityRule(raw) {
+  const r = raw && typeof raw === "object" ? raw : {};
+  const lim = (v, [lo, hi], dflt) => { const n = Number(v); return Number.isFinite(n) && v !== null && v !== "" ? Math.min(hi, Math.max(lo, Math.round(n))) : dflt; };
+  return {
+    enabled: r.enabled === true,
+    lookbackMin: lim(r.lookbackMin, BASAL_ACTIVITY_LIMITS.lookbackMin, BASAL_ACTIVITY_DEFAULTS.lookbackMin),
+    minMinutes: lim(r.minMinutes, BASAL_ACTIVITY_LIMITS.minMinutes, BASAL_ACTIVITY_DEFAULTS.minMinutes),
+    reducePct: lim(r.reducePct, BASAL_ACTIVITY_LIMITS.reducePct, null)
+  };
+}
+
+/** Moderate or hard activities lasting at least rule.minMinutes that were going on at some point in the rule.lookbackMin
+ * minutes up to `takenTs` (one that started before the window but ran into it counts; one that starts after the dose
+ * doesn't). Newest finish first, each as { entry, startTs, endTs, minutesBefore } (minutesBefore is 0 when it was still
+ * going when the dose was taken). */
+export function activitiesBeforeBasal(history, takenTs, rawRule) {
+  const rule = basalActivityRule(rawRule);
+  if (!Number.isFinite(takenTs)) return [];
+  const from = takenTs - rule.lookbackMin * 60000;
+  const out = [];
+  for (const e of history || []) {
+    if (!e || e.entryType !== "activity" || !BASAL_ACTIVITY_INTENSITIES.has(e.intensity)) continue;
+    const mins = Number(e.durationMin);
+    if (!Number.isFinite(e.ts) || !(mins >= rule.minMinutes)) continue;
+    const startTs = e.ts, endTs = e.ts + mins * 60000;
+    if (startTs > takenTs || endTs < from) continue;
+    out.push({ entry: e, startTs, endTs, minutesBefore: Math.max(0, Math.round((takenTs - endTs) / 60000)) });
+  }
+  return out.sort((a, b) => b.endTs - a.endTs);
+}
+
+/** The suggested dose: `baseUnits` less rule.reducePct %, rounded to the pen step. On an exact half-step it rounds to
+ * the smaller dose (the safer side after exercise). null when there is no rule percentage or no usable base dose.
+ * `changed` is false when the reduction is smaller than half a pen step, so the rounded dose equals the base. */
+export function basalActivitySuggestion(baseUnits, rawRule, rounding) {
+  const rule = basalActivityRule(rawRule);
+  if (rule.reducePct == null || typeof baseUnits !== "number" || !Number.isFinite(baseUnits) || baseUnits <= 0) return null;
+  const step = parseFloat(rounding) || 0.5;
+  const exact = baseUnits * (1 - rule.reducePct / 100);
+  const units = Math.max(0, Math.round(Math.ceil(exact / step - 0.5 - 1e-9) * step * 100) / 100);
+  return { units, fromUnits: Math.round(baseUnits * 100) / 100, pct: rule.reducePct, exact: Math.round(exact * 100) / 100, changed: units < Math.round(baseUnits * 100) / 100 };
+}

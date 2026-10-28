@@ -605,6 +605,32 @@
           <p class="panel-card__hint" style="margin-top:6px;">Like the one above, this changes your suggested dose. When on, a reading below your target takes insulin off the meal dose: (reading − target) ÷ correction factor, so 55 against a target of 100 and a factor of 50 takes off about 1 unit. It never takes the dose below zero. When off, a low reading adds nothing and takes nothing off. If you're actually low, treating the low comes first.</p>
         </div>
 
+        <div class="panel-card" id="basal-activity-card">
+          <div class="toggle-row">
+            <span>Suggest less basal after activity</span>
+            <label class="switch">
+              <input type="checkbox" id="basal-activity-toggle">
+              <span class="switch__track"></span>
+            </label>
+          </div>
+          <p class="panel-card__hint" style="margin-top:6px;">When you log basal, Insulin Buddy looks at the activity you logged (or imported from Apple Health) just before. If a moderate or hard one lasted at least as long as you set here, the basal sheet suggests your dose less your percentage, and you tap to use it. It never changes the dose by itself, and meal doses are not affected. Agree the percentage with your diabetes team.</p>
+          <div id="basal-activity-fields" hidden>
+            <div class="field">
+              <label for="basal-activity-pct">Reduce basal by</label>
+              <div class="field__row"><input type="number" id="basal-activity-pct" min="1" max="50" step="1" inputmode="numeric" placeholder="Set"><span class="field__unit">%</span></div>
+            </div>
+            <div class="field">
+              <label for="basal-activity-min">For activity lasting at least</label>
+              <div class="field__row"><input type="number" id="basal-activity-min" min="5" max="240" step="5" inputmode="numeric"><span class="field__unit">min</span></div>
+            </div>
+            <div class="field">
+              <label for="basal-activity-lookback">Done within</label>
+              <div class="field__row"><input type="number" id="basal-activity-lookback" min="15" max="240" step="15" inputmode="numeric"><span class="field__unit">min before the dose</span></div>
+            </div>
+            <p class="panel-card__hint basal-activity-status" id="basal-activity-status"></p>
+          </div>
+        </div>
+
         <div class="panel-card">
           <h2 class="panel-card__title">After-meal glucose check</h2>
           <p class="panel-card__hint">After you log a meal with insulin, show a reminder on the calculator for when to check your glucose, with an “Add to calendar” button (your phone's Calendar then alerts you even when the app is closed).</p>

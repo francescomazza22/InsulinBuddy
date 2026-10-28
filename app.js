@@ -1,7 +1,7 @@
 import { saveReportPdf } from "./js/pdf-report.js";
 import { sanityPool, doseSanity } from "./js/dose-sanity.js";
 import { escapeHtml, escapeAttr, round1, formatQty, dayKeyFromTs, timeAgo, makeId, redact, parseDecimalInput } from "./js/util.js";
-import { convertGlucose, convertDosingSetting, roundDose as roundDoseWith, roundSignedDose as roundSignedDoseWith, activeAt, compoundGiInfo, computeDose, checkDoseConsistency, planDose, planEditDose, capDoseParts, giBand, niceScale, buildTrendBuckets, summarizeTrends, mealTypeBreakdown, absorptionMinutesForEntry as absorptionForEntry, iobFraction, cobGrams, glucoseTrendArrow, glucoseRangeClass, glucoseRangeLabel, basalByDay, summarizeBasal, ratioWasApplied, ratioByBracket, idealRatioByBracket } from "./js/calc.js";
+import { convertGlucose, convertDosingSetting, roundDose as roundDoseWith, roundSignedDose as roundSignedDoseWith, activeAt, compoundGiInfo, computeDose, checkDoseConsistency, planDose, planEditDose, capDoseParts, giBand, niceScale, buildTrendBuckets, summarizeTrends, mealTypeBreakdown, absorptionMinutesForEntry as absorptionForEntry, iobFraction, cobGrams, glucoseTrendArrow, glucoseRangeClass, glucoseRangeLabel, basalByDay, summarizeBasal, ratioWasApplied, ratioByBracket, idealRatioByBracket, BASAL_ACTIVITY_DEFAULTS, BASAL_ACTIVITY_LIMITS, basalActivityRule, activitiesBeforeBasal, basalActivitySuggestion } from "./js/calc.js";
 import { SCHEMA_VERSION, normalizeState as normalizeStateWith, makeFingerprint, stampChanges, mergeStates, statesEquivalent, prepareRestoredState } from "./js/state.js";
 import { NightscoutClient, NsOutbox, nsToken, nsBaseUrl, nsConfigured, treatmentsForEntry, entriesToGlucoseRows } from "./js/nightscout.js";
 import { createDiag, hookGlobalErrors } from "./js/diag.js";
@@ -18,7 +18,7 @@ import { glucoseAxisTicks, percentile, dailyPatternBuckets, daysSpanned, estimat
 import { randomBytes, toB64, fromB64, deriveKey, encryptString, decryptString, isEncryptedPayload, exportKeyRaw, importKeyRaw } from "./js/crypto.js";
 import { LocalBackups, shouldAutoSnapshot } from "./js/backup.js";
 import { slotUsage, sortBySlotUsage, doseBadge, groupByDay, takeEntries, matchesQuery, recentDistinctMeals, mealLabel, dosingSummary, insulinStats, isBasalEntry, basalSlotForTime, basalSlotLabel, lastBasalDose, basalDoseCheck, makeBasalEntry, isNonMealEntry, PAGE_SIZE } from "./js/history.js";
-import { ACTIVITY_TYPES, INTENSITIES, DURATION_CHIPS, ACTIVITY_MAX_MINUTES, ACTIVITY_NAME_MAX, ACTIVITY_NOTE_MAX, isActivityEntry, isIntensity, activityLabel, intensityLabel, formatDuration as formatMinutes, activityCheck, makeActivityEntry, applyActivityEdit, lastActivity } from "./js/activity.js";
+import { ACTIVITY_TYPES, INTENSITIES, DURATION_CHIPS, ACTIVITY_MAX_MINUTES, ACTIVITY_NAME_MAX, ACTIVITY_NOTE_MAX, isActivityEntry, isIntensity, activityLabel, intensityLabel, formatDuration as formatMinutes, activityCheck, makeActivityEntry, applyActivityEdit, lastActivity, describeActivity } from "./js/activity.js";
 import { createDialogs } from "./js/dialogs.js";
 import { installClearButtons } from "./js/clear-field.js";
 import { swipeAxis, swipePos, swipeSettle, swipeVelocity, daySwipeResult, daySwipeOffset, flickVelocity } from "./js/swipe.js";
@@ -127,6 +127,7 @@ import { nearActivity, activitySkip, countNearActivity, breakfastByActivity, act
         useLearnedAbsorption: false,   // use the times learned from my own readings instead of the fixed ones above
         learnedAbsorption: null,       // last learned snapshot: { high:{minutes,n}|null, ..., counts, at }
         iobAwareCorrection: false,
+        basalActivity: { ...BASAL_ACTIVITY_DEFAULTS },   // 2.72.0: suggest a lower basal after activity (his own % in Settings > Dosing; off until he turns it on)
         reduceBelowTarget: false,   // when glucose is below target, take insulin off the meal dose (off = a low reading changes nothing)
         nightscoutUrl: "",
         nsFormat: "combined",   // "combined" (one Meal Bolus) or "split" (carbs and insulin separately)
@@ -2066,6 +2067,12 @@ import { nearActivity, activitySkip, countNearActivity, breakfastByActivity, act
     const others = () => state.history.filter(e => e !== existing);   // an edit shouldn't compare against itself
     const fieldStyle = "padding:12px 14px; border:1.5px solid var(--line); border-radius:var(--radius-s); font-size:16px; background:var(--surface); color:var(--ink); font-family:var(--font-ui);";
     const when = ts => `${new Date(ts).toLocaleDateString(undefined, { weekday: "short" })} ${formatTime(ts)}`;
+    // 2.72.0: his own "less basal after activity" rule. Only for a new dose (an edit was already decided), and only with a
+    // percentage set. `applied` remembers the dose before he tapped Use, so Undo puts it back and a second look never
+    // takes the percentage off twice.
+    const activityRule = basalActivityRule(state.settings.basalActivity);
+    const suggestActivity = !editing && activityRule.enabled && activityRule.reducePct != null;
+    let applied = null;   // { units, fromUnits, pct } once "Use" is tapped
 
     const backdrop = document.createElement("div");
     backdrop.className = "sheet-backdrop";
@@ -2090,12 +2097,15 @@ import { nearActivity, activitySkip, countNearActivity, breakfastByActivity, act
           </div>
           <p class="basal-hint" id="basal-hint"></p>
           <p class="basal-error" id="basal-error" role="alert" hidden></p>
+          <div class="basal-activity" id="basal-activity" aria-live="polite" hidden></div>
         </div>
         <div class="field">
           <label for="basal-time">Taken at</label>
           <input type="datetime-local" id="basal-time" value="${toDatetimeLocalValue(startTs)}" style="${fieldStyle}">
         </div>
-        <p class="basal-note">Logged only. Insulin Buddy never suggests a basal dose, and it isn't counted in active insulin.</p>
+        <p class="basal-note">${activityRule.enabled && activityRule.reducePct != null
+          ? `Logged only, and not counted in active insulin. A lower dose is suggested only after activity, from your own rule in Settings &gt; Dosing (${activityRule.reducePct}% less).`
+          : "Logged only. Insulin Buddy never suggests a basal dose, and it isn't counted in active insulin."}</p>
         <div class="sheet-actions">
           <button class="btn btn--secondary" id="basal-cancel" type="button">Cancel</button>
           <button class="btn btn--primary" id="basal-save" type="button">${editing ? "Save Changes" : "Log dose"}</button>
@@ -2104,6 +2114,32 @@ import { nearActivity, activitySkip, countNearActivity, breakfastByActivity, act
     `;
     const $ = sel => backdrop.querySelector(sel);
     const unitsInput = $("#basal-units"), timeInput = $("#basal-time"), hintEl = $("#basal-hint"), errEl = $("#basal-error"), saveBtn = $("#basal-save");
+    const activityEl = $("#basal-activity");
+
+    const refreshActivity = () => {
+      if (!suggestActivity) { activityEl.hidden = true; return; }
+      const typed = parseDecimalInput(unitsInput.value);
+      if (applied && typed !== applied.units) applied = null;   // he typed over the suggestion: start again from what he typed
+      const acts = activitiesBeforeBasal(state.history, new Date(timeInput.value).getTime(), activityRule);
+      if (!applied && !acts.length) { activityEl.hidden = true; activityEl.innerHTML = ""; return; }
+      if (applied) {
+        activityEl.innerHTML = `<p>Using <b>${applied.units}u</b>: ${applied.pct}% less than ${applied.fromUnits}u, after activity.</p>
+          <button type="button" class="btn btn--ghost basal-activity__btn" data-activity="undo">Undo, back to ${applied.fromUnits}u</button>`;
+        activityEl.hidden = false; return;
+      }
+      const a = acts[0];
+      const ago = a.minutesBefore === 0 ? "still going at this time" : `finished ${a.minutesBefore} min before this dose`;
+      const more = acts.length > 1 ? ` (and ${acts.length - 1} more)` : "";
+      const head = `<p class="basal-activity__head">Active before this dose</p><p>${escapeHtml(describeActivity(a.entry))}, ${ago}${more}.</p>`;
+      const s = basalActivitySuggestion(typed, activityRule, state.settings.rounding);
+      let body;
+      if (!s) body = `<p>Enter the dose to see it ${activityRule.reducePct}% lower.</p>`;
+      else if (!s.changed) body = `<p>Your rule takes ${activityRule.reducePct}% off: ${s.fromUnits}u becomes ${s.exact}u, less than half a ${state.settings.rounding}-unit step, so the dose stays ${s.fromUnits}u.</p>`;
+      else body = `<p>Your rule (${activityRule.reducePct}% less) suggests <b>${s.units}u</b> instead of ${s.fromUnits}u${s.exact !== s.units ? ` (${s.exact}u, rounded to your ${state.settings.rounding}-unit step)` : ""}.</p>
+          <button type="button" class="btn btn--secondary basal-activity__btn" data-activity="use" data-units="${s.units}" data-from="${s.fromUnits}">Use ${s.units}u</button>`;
+      activityEl.innerHTML = head + body;
+      activityEl.hidden = false;
+    };
 
     // Sized to what is typed (digits are all the same width here), so "14 units" reads as one centred group. When the
     // field stretched to fill the box it pushed "units" to the far edge. A half-typed "14." reads as empty to a number
@@ -2128,6 +2164,7 @@ import { nearActivity, activitySkip, countNearActivity, breakfastByActivity, act
         else { unitsInput.value = ""; prefilled = null; }
       }
       fitDose();
+      refreshActivity();
     };
 
     const close = () => {
@@ -2185,14 +2222,30 @@ import { nearActivity, activitySkip, countNearActivity, breakfastByActivity, act
         const next = Math.max(0, Math.round(((parseDecimalInput(unitsInput.value) || 0) + Number(stepBtn.dataset.step)) * 100) / 100);
         unitsInput.value = next; prefilled = null;   // a hand-set value is the person's, not a prefill
         fitDose();
+        refreshActivity();
+      }
+      const actBtn = e.target.closest("[data-activity]");
+      if (actBtn) {
+        if (actBtn.dataset.activity === "use") {
+          applied = { units: Number(actBtn.dataset.units), fromUnits: Number(actBtn.dataset.from), pct: activityRule.reducePct };
+          unitsInput.value = applied.units;
+        } else if (applied) {
+          unitsInput.value = applied.fromUnits;
+          applied = null;
+        }
+        prefilled = null;   // either way the dose is now his choice, not a prefill to replace
+        errEl.hidden = true;
+        fitDose();
+        refreshActivity();
       }
     });
-    unitsInput.addEventListener("input", () => { errEl.hidden = true; fitDose(); });
+    unitsInput.addEventListener("input", () => { errEl.hidden = true; fitDose(); refreshActivity(); });
     // The field is now only as wide as its digits, so the space around it is part of the box and should still focus it.
     $(".basal-dose-row .field__row").addEventListener("click", e => { if (e.target !== unitsInput) unitsInput.focus(); });
     const followTime = () => {
       const t = new Date(timeInput.value).getTime();
       if (!slotChosenByHand && !isNaN(t)) { slot = basalSlotForTime(t); refreshSlot(); }
+      else refreshActivity();
     };
     timeInput.addEventListener("change", followTime);
     timeInput.addEventListener("input", followTime);
@@ -2201,6 +2254,8 @@ import { nearActivity, activitySkip, countNearActivity, breakfastByActivity, act
 
     refreshSlot();
     openSheet(backdrop);
+    // A workout from Apple Health may not be imported yet: fetch it (rate-limited by the import itself) and look again.
+    if (suggestActivity) importHealthWorkouts().then(() => { if (backdrop.isConnected) refreshActivity(); }).catch(() => {});
     unitsInput.focus({ preventScroll: true });   // caret after the prefilled dose, nothing pre-selected; the X or backspace clears it
     try { const n = unitsInput.value.length; unitsInput.setSelectionRange(n, n); } catch { /* number inputs have no selection API */ }
   }
@@ -6400,6 +6455,7 @@ import { nearActivity, activitySkip, countNearActivity, breakfastByActivity, act
     el("carb-abs-unknown").value = ca.unknown;
     el("iob-aware-correction-toggle").checked = state.settings.iobAwareCorrection;
     el("reduce-below-target-toggle").checked = !!state.settings.reduceBelowTarget;
+    renderBasalActivitySettings();
     el("use-learned-abs-toggle").checked = !!state.settings.useLearnedAbsorption;
     const L = state.settings.learnedAbsorption;
     const names = { high: "High GI", medium: "Medium GI", low: "Low GI", unknown: "No GI data" };
@@ -6431,6 +6487,40 @@ import { nearActivity, activitySkip, countNearActivity, breakfastByActivity, act
     saveState();
     recompute();
   });
+
+  // ---- Suggest less basal after activity (2.72.0) ----
+  // His own rule: a percentage, a minimum activity length and how far back to look. Read through basalActivityRule so a
+  // missing or odd value can never reach the sheet. Off, or on without a percentage, means no suggestion is ever shown.
+  function renderBasalActivitySettings() {
+    const rule = basalActivityRule(state.settings.basalActivity);
+    el("basal-activity-toggle").checked = rule.enabled;
+    el("basal-activity-fields").hidden = !rule.enabled;
+    el("basal-activity-pct").value = rule.reducePct == null ? "" : rule.reducePct;
+    el("basal-activity-min").value = rule.minMinutes;
+    el("basal-activity-lookback").value = rule.lookbackMin;
+    const status = el("basal-activity-status");
+    if (rule.reducePct == null) { status.textContent = "Set the percentage to start seeing suggestions."; return; }
+    const last = lastBasalDose(state.history, basalSlotForTime(Date.now()));
+    const base = last ? last.units : 10;
+    const s = basalActivitySuggestion(base, rule, state.settings.rounding);
+    status.textContent = `Example: after ${rule.minMinutes} min or more of moderate or hard activity in the ${rule.lookbackMin} min before a dose, ${s.fromUnits}u would be suggested as ${s.units}u (${rule.reducePct}% less, rounded to your ${state.settings.rounding}-unit step).`;
+  }
+  function saveBasalActivity(patch) {
+    const before = basalActivityRule(state.settings.basalActivity);
+    const next = basalActivityRule({ ...before, ...patch });
+    if (JSON.stringify(next) !== JSON.stringify(before)) { state.settings.basalActivity = next; saveState(); }
+    renderBasalActivitySettings();
+  }
+  bind("basal-activity-toggle", "change", e => saveBasalActivity({ enabled: e.target.checked }));
+  // A cleared or non-numeric box keeps what is saved (the same rule as every other number box here).
+  const basalActivityBox = (id, key) => {
+    const n = parseDecimalInput(el(id).value);
+    if (n == null || !Number.isFinite(n)) return renderBasalActivitySettings();
+    saveBasalActivity({ [key]: n });
+  };
+  bind("basal-activity-pct", "change", () => basalActivityBox("basal-activity-pct", "reducePct"));
+  bind("basal-activity-min", "change", () => basalActivityBox("basal-activity-min", "minMinutes"));
+  bind("basal-activity-lookback", "change", () => basalActivityBox("basal-activity-lookback", "lookbackMin"));
 
   bind("insulin-preset-buttons", "click", e => {
     const btn = e.target.closest(".insulin-preset-btn");

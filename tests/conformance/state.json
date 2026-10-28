@@ -80,7 +80,8 @@
      "medium": 180,
      "low": 240,
      "unknown": 180
-    }
+    },
+    "basalActivity": {}
    },
    "settingsUpdatedAt": 0,
    "library": [],
@@ -216,7 +217,8 @@
      "medium": 180,
      "low": 240,
      "unknown": 180
-    }
+    },
+    "basalActivity": {}
    },
    "settingsUpdatedAt": 0,
    "library": [],
@@ -355,7 +357,8 @@
      "medium": 180,
      "low": 240,
      "unknown": 180
-    }
+    },
+    "basalActivity": {}
    },
    "settingsUpdatedAt": 0,
    "library": [],
@@ -678,7 +681,8 @@
      "medium": 180,
      "low": 240,
      "unknown": 180
-    }
+    },
+    "basalActivity": {}
    },
    "settingsUpdatedAt": 0,
    "library": [],
@@ -1033,7 +1037,8 @@
      "medium": 180,
      "low": 240,
      "unknown": 180
-    }
+    },
+    "basalActivity": {}
    },
    "settingsUpdatedAt": 0,
    "library": [],
@@ -1357,7 +1362,8 @@
      "medium": 180,
      "low": 240,
      "unknown": 180
-    }
+    },
+    "basalActivity": {}
    },
    "settingsUpdatedAt": 0,
    "library": [],
@@ -1616,7 +1622,8 @@
      "medium": 180,
      "low": 240,
      "unknown": 180
-    }
+    },
+    "basalActivity": {}
    },
    "settingsUpdatedAt": 0,
    "library": [],
@@ -1907,7 +1914,8 @@
      "medium": 180,
      "low": 240,
      "unknown": 180
-    }
+    },
+    "basalActivity": {}
    },
    "settingsUpdatedAt": 0,
    "library": [],
@@ -2128,7 +2136,8 @@
      "medium": 180,
      "low": 240,
      "unknown": 180
-    }
+    },
+    "basalActivity": {}
    },
    "settingsUpdatedAt": 900,
    "library": [],
@@ -2303,7 +2312,8 @@
      "medium": 180,
      "low": 240,
      "unknown": 180
-    }
+    },
+    "basalActivity": {}
    },
    "settingsUpdatedAt": 0,
    "library": [],
@@ -2545,7 +2555,8 @@
      "medium": 180,
      "low": 240,
      "unknown": 180
-    }
+    },
+    "basalActivity": {}
    },
    "settingsUpdatedAt": 0,
    "library": [
@@ -4052,7 +4063,8 @@
      "medium": 180,
      "low": 240,
      "unknown": 180
-    }
+    },
+    "basalActivity": {}
    },
    "settingsUpdatedAt": 2000,
    "library": [],
