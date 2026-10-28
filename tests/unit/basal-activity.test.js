@@ -58,8 +58,8 @@ test("his look-back and minimum settings are used", () => {
 });
 
 test("newest first, and a bad dose time finds nothing", () => {
-  const a = act(100, 50, "hard"), b = act(40, 30, "moderate");
-  assert.deepEqual(activitiesBeforeBasal([a, b], DOSE, RULE).map(x => x.entry), [b, a]);
+  const a = act(150, 50, "hard"), b = act(40, 30, "moderate");   // a ends 100 min before, b starts 60 min after: two workouts
+  assert.deepEqual(activitiesBeforeBasal([a, b], DOSE, { ...RULE, lookbackMin: 120 }).map(x => x.entry), [b, a]);
   assert.deepEqual(activitiesBeforeBasal([a, b], NaN, RULE), []);
   assert.deepEqual(activitiesBeforeBasal(null, DOSE, RULE), []);
 });
@@ -96,4 +96,35 @@ test("the meal dose is not touched by the rule or by activity", () => {
   const b = computeDose({ carbs: 60, ratio: 10, correctionOn: true, glucose: "180", glucoseUnit: "mgdl", iob: 0, settings: { ...settings, basalActivity: RULE } });
   assert.equal(a.finalDose, 7.5);   // 6u for 60 g at 1u:10g + 1.6u correction, rounded
   assert.deepEqual(a, b);
+});
+
+// 28 Oct 2026, Francesco's real evening: Apple Health sent one workout as two sessions, a hard 25 min (20:51-21:16) then a
+// moderate 26 min (21:18-21:44). Each is under his 30-minute minimum, so 2.72.0 suggested nothing at 22:19.
+test("REGRESSION: back-to-back sessions count as one workout (two Apple Health pieces, each under the minimum)", () => {
+  const at = (h, m, s = 0) => Date.UTC(2026, 9, 28, h, m, s);
+  const other = makeActivityEntry({ type: "other", minutes: 25, intensity: "hard", ts: at(20, 51, 20), now: 1 });
+  const gym = makeActivityEntry({ type: "gym", minutes: 26, intensity: "moderate", ts: at(21, 18, 14), now: 2 });
+  const found = activitiesBeforeBasal([gym, other], at(22, 19), RULE);
+  assert.equal(found.length, 1, "one workout found");
+  assert.deepEqual(found[0].entries, [other, gym], "both pieces, in time order");
+  assert.equal(found[0].minutes, 51);
+  assert.equal(found[0].minutesBefore, 35);
+});
+
+test("joining: within 15 min joins, further apart doesn't; light neither counts nor joins; duplicates aren't counted twice", () => {
+  const two = (gapMin) => [act(90, 20, "hard"), act(70 - gapMin, 20, "moderate")];   // first ends 70 min before
+  assert.equal(activitiesBeforeBasal(two(15), DOSE, RULE)[0].minutes, 40, "15 min gap joins");
+  assert.deepEqual(activitiesBeforeBasal(two(16), DOSE, RULE), [], "16 min gap: two 20-min pieces, neither enough");
+  assert.deepEqual(activitiesBeforeBasal([act(90, 20, "hard"), act(70, 20, "light"), act(50, 20, "hard")], DOSE, RULE), [], "a light piece between doesn't bridge (20 min gap)");
+  const typed = act(80, 40, "hard", "gym"), imported = act(78, 40, "moderate", "gym");
+  assert.equal(activitiesBeforeBasal([typed, imported], DOSE, RULE)[0].minutes, 42, "overlap counted once");
+  assert.deepEqual(activitiesBeforeBasal([act(60, 10, "hard"), act(55, 10, "hard"), act(50, 10, "hard")], DOSE, RULE), [], "overlapping short pieces: 20 min covered, under 30");
+  assert.equal(activitiesBeforeBasal([act(60, 10, "hard"), act(55, 10, "hard"), act(50, 10, "hard")], DOSE, { ...RULE, minMinutes: 20 })[0].minutes, 20, "and counted as 20 min, not 30");
+});
+
+test("a joined workout counts if any of it is in the window, even when its first piece ended before", () => {
+  const w = [act(140, 60, "hard"), act(75, 20, "moderate")];   // 140-80 before, then 75-55 before
+  const f = activitiesBeforeBasal(w, DOSE, RULE);
+  assert.equal(f.length, 1); assert.equal(f[0].minutes, 80); assert.equal(f[0].minutesBefore, 55);
+  assert.equal(f[0].entries.length, 2);
 });

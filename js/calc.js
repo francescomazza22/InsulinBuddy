@@ -575,24 +575,45 @@ export function basalActivityRule(raw) {
   };
 }
 
-/** Moderate or hard activities lasting at least rule.minMinutes that were going on at some point in the rule.lookbackMin
- * minutes up to `takenTs` (one that started before the window but ran into it counts; one that starts after the dose
- * doesn't). Newest finish first, each as { entry, startTs, endTs, minutesBefore } (minutesBefore is 0 when it was still
- * going when the dose was taken). */
+/** Pieces of activity less than this apart are one workout. Apple Health often sends one session as several (a hard
+ * 25 min then a moderate 26 min, 2 minutes apart, on 28 Oct 2026), and each piece alone was under his minimum. */
+export const BASAL_ACTIVITY_JOIN_GAP_MIN = 15;
+
+/** Workouts before a basal dose that his rule counts: moderate or hard activities that started no later than `takenTs`,
+ * joined into one workout when one starts within BASAL_ACTIVITY_JOIN_GAP_MIN of the previous one ending, kept when the
+ * workout lasted at least rule.minMinutes in all and was still going at some point in the rule.lookbackMin minutes up to
+ * the dose. Minutes are the time covered, so two records of the same session (typed and imported) aren't counted twice.
+ * Newest finish first, each as { entries (in time order), entry (the last piece), startTs, endTs, minutes, minutesBefore }
+ * (minutesBefore is 0 when it was still going when the dose was taken). Light activity neither counts nor joins pieces. */
 export function activitiesBeforeBasal(history, takenTs, rawRule) {
   const rule = basalActivityRule(rawRule);
   if (!Number.isFinite(takenTs)) return [];
-  const from = takenTs - rule.lookbackMin * 60000;
-  const out = [];
+  const from = takenTs - rule.lookbackMin * 60000, gap = BASAL_ACTIVITY_JOIN_GAP_MIN * 60000;
+  const pieces = [];
   for (const e of history || []) {
     if (!e || e.entryType !== "activity" || !BASAL_ACTIVITY_INTENSITIES.has(e.intensity)) continue;
     const mins = Number(e.durationMin);
-    if (!Number.isFinite(e.ts) || !(mins >= rule.minMinutes)) continue;
-    const startTs = e.ts, endTs = e.ts + mins * 60000;
-    if (startTs > takenTs || endTs < from) continue;
-    out.push({ entry: e, startTs, endTs, minutesBefore: Math.max(0, Math.round((takenTs - endTs) / 60000)) });
+    if (!Number.isFinite(e.ts) || !(mins > 0) || e.ts > takenTs) continue;
+    pieces.push({ entry: e, startTs: e.ts, endTs: e.ts + mins * 60000 });
   }
-  return out.sort((a, b) => b.endTs - a.endTs);
+  pieces.sort((a, b) => a.startTs - b.startTs || a.endTs - b.endTs);
+  const workouts = [];
+  let cur = null;
+  for (const p of pieces) {
+    if (cur && p.startTs <= cur.endTs + gap) {
+      cur.coveredMs += Math.max(0, p.endTs - Math.max(p.startTs, cur.endTs));
+      cur.endTs = Math.max(cur.endTs, p.endTs);
+      cur.entries.push(p.entry);
+    } else {
+      cur = { entries: [p.entry], startTs: p.startTs, endTs: p.endTs, coveredMs: p.endTs - p.startTs };
+      workouts.push(cur);
+    }
+  }
+  return workouts
+    .filter(w => w.endTs >= from && w.coveredMs >= rule.minMinutes * 60000)
+    .map(w => ({ entries: w.entries, entry: w.entries[w.entries.length - 1], startTs: w.startTs, endTs: w.endTs,
+      minutes: Math.round(w.coveredMs / 60000), minutesBefore: Math.max(0, Math.round((takenTs - w.endTs) / 60000)) }))
+    .sort((a, b) => b.endTs - a.endTs);
 }
 
 /** The suggested dose: `baseUnits` less rule.reducePct %, rounded to the pen step. On an exact half-step it rounds to

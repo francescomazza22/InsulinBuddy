@@ -2130,7 +2130,10 @@ import { nearActivity, activitySkip, countNearActivity, breakfastByActivity, act
       const a = acts[0];
       const ago = a.minutesBefore === 0 ? "still going at this time" : `finished ${a.minutesBefore} min before this dose`;
       const more = acts.length > 1 ? ` (and ${acts.length - 1} more)` : "";
-      const head = `<p class="basal-activity__head">Active before this dose</p><p>${escapeHtml(describeActivity(a.entry))}, ${ago}${more}.</p>`;
+      const what = a.entries.length > 1
+        ? `${a.entries.map(x => escapeHtml(describeActivity(x))).join(", then ")} (${escapeHtml(formatMinutes(a.minutes))} in all)`
+        : escapeHtml(describeActivity(a.entry));
+      const head = `<p class="basal-activity__head">Active before this dose</p><p>${what}, ${ago}${more}.</p>`;
       const s = basalActivitySuggestion(typed, activityRule, state.settings.rounding);
       let body;
       if (!s) body = `<p>Enter the dose to see it ${activityRule.reducePct}% lower.</p>`;

@@ -2,6 +2,16 @@
 // summary can never drift. Bump CHANGELOG[0].version here (and CACHE_VERSION in sw.js) on every release.
 export const CHANGELOG = [
   {
+    version: "2.72.1",
+    summary: "Basal after activity: a workout Apple Health splits into pieces now counts as one.",
+    changes: [
+      "Moderate and hard activities less than 15 minutes apart are added together as one workout, so a hard 25 min followed by a moderate 26 min counts as 51 min (before, each piece was checked on its own and was under your 30-minute minimum)",
+      "The basal sheet names every piece and the total, for example \u201cOther \u00b7 25 min \u00b7 Hard, then Gym / weights \u00b7 26 min \u00b7 Moderate (51 min in all)\u201d",
+      "The workout counts if any part of it falls in your look-back time before the dose; the same session logged twice (typed and imported) isn't counted twice",
+      "Light activity still doesn't count. Meal doses are calculated exactly as before"
+    ]
+  },
+  {
     version: "2.72.0",
     summary: "When you log basal after exercise, Insulin Buddy can suggest your own reduced dose.",
     changes: [

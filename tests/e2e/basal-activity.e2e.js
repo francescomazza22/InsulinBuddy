@@ -85,6 +85,23 @@ await dev.eval(`document.querySelector('[data-edit="b0"]') && document.querySele
 t.check("edit sheet has no suggestion", !(await cardShown()));
 await close();
 
+t.section("TWO PIECES (2.72.1): a hard 25 min then a moderate 26 min, 2 min apart, count as one 51-min workout");
+await dev.eval(`(() => {
+  const k = "insulinBuddy.v2", st = JSON.parse(localStorage.getItem(k)), base = st.history.find(h => h.id === "a1"), t = Date.now(), M = 60000;
+  st.history = st.history.filter(h => h.id !== "a1");
+  st.history.push({ ...base, id: "p1", activityType: "other", activityName: "", intensity: "hard", durationMin: 25, ts: t - 83 * M });
+  st.history.push({ ...base, id: "p2", activityType: "gym", intensity: "moderate", durationMin: 26, ts: t - 56 * M });
+  st.history.sort((a, b) => b.ts - a.ts);
+  localStorage.setItem(k, JSON.stringify(st));
+})()`);
+await dev.go(); await sleep(500);
+await open();
+const c2 = await card();
+t.check("suggestion shown for the joined workout", await cardShown(), c2);
+t.check("names both pieces and the total", /Other · 25 min · Hard, then Gym \/ weights · 26 min · Moderate \(51 min in all\), finished (29|30) min before this dose/.test(c2), c2);
+if (SHOTS) await dev.shot(`${SHOTS}/basal-activity-joined-${W}${DARK ? "-dark" : ""}.png`);
+await close();
+
 t.check("no JS errors", (await dev.eval("window.__errs.length")) === 0 && dev.errors.length === 0, JSON.stringify(await dev.eval("window.__errs")));
 dev.close(); await app.close();
 process.exit(t.summary() ? 0 : 1);
