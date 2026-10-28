@@ -2,6 +2,17 @@
 // summary can never drift. Bump CHANGELOG[0].version here (and CACHE_VERSION in sw.js) on every release.
 export const CHANGELOG = [
   {
+    version: "2.70.0",
+    summary: "Two-step sign-in, and a button to sign out your other devices (Settings > Sync > Sign-in security).",
+    changes: [
+      "Two-step sign-in (optional): turn it on and signing in also needs a 6-digit code from an authenticator app, such as the iPhone's Passwords app or Google Authenticator, so your password alone is no longer enough",
+      "The database itself enforces it: once it's on, a sign-in that hasn't given the code can't read or change any of your data",
+      "Devices already signed in ask for the code once, before they load anything; after that they stay signed in as before",
+      "Sign out other devices: signs out every other phone, tablet and browser using your account, while this one stays signed in",
+      "Doses are calculated exactly as before"
+    ]
+  },
+  {
     version: "2.69.2",
     summary: "Tidy-up: the app no longer looks for the two old Nightscout functions you deleted from Supabase.",
     changes: [

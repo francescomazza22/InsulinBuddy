@@ -170,7 +170,10 @@ export function createBackend() {
 }
 
 // Runs in the PAGE: a stand-in for supabase-js that talks to the fake backend.
-export function fakeSupabaseSource({ userId = "user-1", email = "test@example.com", signedIn = true, delayMs = 0 } = {}) {
+// `mfa` (2.70.0): { verified: true } gives the account an authenticator factor; { aal: "aal2" } says this session already
+// passed the code check. The fake then plays the database rule from supabase/mfa.sql: a session owing a code sees no rows and
+// can't write. The correct code is window.__mfa.code ("123456"). Without `mfa` nothing changes for older tests.
+export function fakeSupabaseSource({ userId = "user-1", email = "test@example.com", signedIn = true, delayMs = 0, mfa = null } = {}) {
   return `
     (function () {
       const post = async (p, b) => {
@@ -179,12 +182,41 @@ export function fakeSupabaseSource({ userId = "user-1", email = "test@example.co
       };
       const user = { id: ${JSON.stringify(userId)}, email: ${JSON.stringify(email)} };
       window.__signedIn = ${signedIn};
+      const M = window.__mfa = { code: "123456", aal: ${JSON.stringify((mfa && mfa.aal) || "aal1")}, factors: ${mfa && mfa.verified ? `[{ id: "f-existing", status: "verified", factor_type: "totp", friendly_name: "Insulin Buddy", created_at: "2026-10-01T09:00:00Z" }]` : "[]"}, signOutOthers: 0, verifyCalls: 0, enrolls: 0, events: [] };
+      const verifiedF = () => M.factors.filter(f => f.status === "verified");
+      const blocked = () => verifiedF().length > 0 && M.aal !== "aal2";      // the database rule (supabase/mfa.sql)
+      const session = () => ({ user, access_token: "jwt-" + M.aal });
       window.supabase = { createClient: () => ({
         auth: {
-          getSession: async () => ({ data: { session: window.__signedIn ? { user } : null } }),
-          onAuthStateChange: cb => { window.__authCb = cb; setTimeout(() => cb(window.__signedIn ? "SIGNED_IN" : "SIGNED_OUT", window.__signedIn ? { user } : null), 0); return { data: { subscription: { unsubscribe() {} } } }; },
-          signInWithPassword: async () => ({ error: null }), signUp: async () => ({ error: null }),
-          signOut: async () => { window.__signedIn = false; if (window.__authCb) await window.__authCb("SIGNED_OUT", null); return { error: null }; },
+          getSession: async () => ({ data: { session: window.__signedIn ? session() : null } }),
+          onAuthStateChange: cb => { window.__authCb = cb; setTimeout(() => cb(window.__signedIn ? "SIGNED_IN" : "SIGNED_OUT", window.__signedIn ? session() : null), 0); return { data: { subscription: { unsubscribe() {} } } }; },
+          signInWithPassword: async () => { M.aal = "aal1"; window.__signedIn = true; if (window.__authCb) await window.__authCb("SIGNED_IN", session()); return { error: null }; },
+          signUp: async () => ({ error: null }),
+          signOut: async opts => {
+            if (opts && opts.scope === "others") { M.signOutOthers++; return { error: null }; }
+            window.__signedIn = false; if (window.__authCb) await window.__authCb("SIGNED_OUT", null); return { error: null };
+          },
+          refreshSession: async () => ({ data: { session: session() }, error: null }),
+          mfa: {
+            getAuthenticatorAssuranceLevel: async () => ({ data: { currentLevel: M.aal, nextLevel: verifiedF().length ? "aal2" : M.aal, currentAuthenticationMethods: [] }, error: null }),
+            listFactors: async () => ({ data: { all: M.factors.slice(), totp: verifiedF() }, error: null }),
+            enroll: async o => {
+              M.enrolls++;
+              const f = { id: "f-" + M.enrolls, status: "unverified", factor_type: "totp", friendly_name: o.friendlyName, created_at: new Date().toISOString() };
+              M.factors.push(f);
+              const svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><rect width="10" height="10" fill="#fff"/><rect x="1" y="1" width="3" height="3"/><rect x="6" y="1" width="3" height="3"/><rect x="1" y="6" width="3" height="3"/><rect x="6" y="6" width="2" height="2"/></svg>';
+              return { data: { id: f.id, type: "totp", totp: { qr_code: "data:image/svg+xml;utf-8," + encodeURIComponent(svg), secret: "JBSWY3DPEHPK3PXPJBSWY3DP", uri: "otpauth://totp/Insulin%20Buddy:test?secret=JBSWY3DPEHPK3PXPJBSWY3DP&issuer=Insulin%20Buddy" } }, error: null };
+            },
+            unenroll: async ({ factorId }) => { M.factors = M.factors.filter(f => f.id !== factorId); return { data: { id: factorId }, error: null }; },
+            challengeAndVerify: async ({ factorId, code }) => {
+              M.verifyCalls++;
+              const f = M.factors.find(x => x.id === factorId);
+              if (!f || code !== M.code) return { data: null, error: { message: "Invalid TOTP code entered" } };
+              f.status = "verified"; M.aal = "aal2"; M.events.push("MFA_CHALLENGE_VERIFIED");
+              if (window.__authCb) await window.__authCb("MFA_CHALLENGE_VERIFIED", session());
+              return { data: {}, error: null };
+            }
+          },
           // Test hooks: real supabase-js would parse the emailed link's URL fragment itself and
           // fire PASSWORD_RECOVERY on its own; here a test triggers that directly via __authCb.
           resetPasswordForEmail: async (email, opts) => { window.__resetCalls = window.__resetCalls || []; window.__resetCalls.push({ email, redirectTo: opts && opts.redirectTo }); return { data: {}, error: null }; },
@@ -192,7 +224,9 @@ export function fakeSupabaseSource({ userId = "user-1", email = "test@example.co
         },
         from: table => {
           const q = { table, op: "select", cols: "*", filters: {}, payload: null, returning: null };
-          const run = async () => { const j = await post("row", q); return { data: j.data === undefined ? null : j.data, count: j.count, error: j.error ? { message: j.error } : null }; };
+          const run = async () => {
+            if (blocked()) { M.blockedQueries = (M.blockedQueries || 0) + 1; return q.op === "select" ? { data: q.wantSingle ? null : [], count: 0, error: null } : { data: null, error: { message: "new row violates row-level security policy" } }; }
+            const j = await post("row", q); return { data: j.data === undefined ? null : j.data, count: j.count, error: j.error ? { message: j.error } : null }; };
           const b = {
             select(cols, opts) { if (q.op === "upsert") q.returning = cols || "*"; else { q.cols = cols || "*"; if (opts && opts.count === "exact") q.countExact = true; if (opts && opts.head) q.headOnly = true; } return b; },
             eq(k, v) { q.filters[k] = v; return b; },

@@ -1003,13 +1003,27 @@ html[data-theme="dark"] .pattern-card__preview--abstract { background-image: url
 .lock-screen__icon svg { width: 26px; height: 26px; }
 .lock-screen__card h1 { font-family: var(--font-display); font-size: var(--fs-h2); font-weight: 700; margin: 0 0 var(--space-xs); }
 .lock-screen__card > p { color: var(--ink-soft); font-size: var(--fs-m); line-height: 1.5; margin: 0 0 22px; }
-#lock-form input[type="password"] {
+#lock-form input[type="password"], #mfa-form input.mfa-code {
   width: 100%; padding: 13px 14px; font-size: max(16px, var(--rem)); text-align: center;
   border: 1.5px solid var(--line); border-radius: var(--radius-s); background: var(--surface);
   color: var(--ink); margin-bottom: var(--space-m);
 }
-#lock-form input[type="password"]:focus { outline: none; border-color: var(--acc-1); }
+#lock-form input[type="password"]:focus, #mfa-form input.mfa-code:focus { outline: none; border-color: var(--acc-1); }
 .lock-screen__error { color: var(--brick); font-size: var(--fs-m); margin: -4px 0 var(--space-m); }
+#mfa-form input.mfa-code { letter-spacing: 0.25em; font-variant-numeric: tabular-nums; }
+.lock-screen__card .mfa-screen__alt { margin: var(--space-m) auto 0; }
+/* Two-step sign-in set-up sheet (2.70.0) */
+.totp-sheet .totp-step { margin: 0 0 var(--space-s); font-size: var(--fs-m); }
+.totp-sheet .totp-open { display: flex; width: 100%; justify-content: center; text-decoration: none; margin-bottom: var(--space-s); }
+.totp-sheet .totp-or { margin: var(--space-s) 0 var(--space-xs); }
+.totp-qr { display: flex; justify-content: center; margin: 0 0 var(--space-s); }
+.totp-qr img { width: 176px; height: 176px; padding: var(--space-xs); background: #fff; border-radius: var(--radius-s); border: 1px solid var(--line); }
+.totp-secret-row { display: flex; align-items: center; gap: var(--space-xs); margin-bottom: var(--space-m); }
+.totp-secret { flex: 1; min-width: 0; padding: var(--space-xs) var(--space-s); border: 1px solid var(--line); border-radius: var(--radius-s); background: var(--surface); font-size: var(--fs-m); letter-spacing: 0.04em; overflow-wrap: anywhere; user-select: all; -webkit-user-select: all; }
+.totp-sheet .totp-copy { flex: none; width: auto; padding: var(--space-xs) var(--space-m); }
+.totp-sheet input.mfa-code { width: 100%; text-align: center; letter-spacing: 0.25em; font-variant-numeric: tabular-nums; }
+.security-note { color: var(--ink); }
+#security-section .dashed-btn + .panel-card__hint { margin-top: var(--space-m); }
 
 /* ---- Opening screen: a glucose trace drawing itself under a sky that matches the hour ----
    Every animation here plays a few times at most and then stops, so a slow start never keeps the screen redrawing. */

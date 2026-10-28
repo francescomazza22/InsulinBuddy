@@ -33,6 +33,7 @@ import { createWebPlatform, assertPlatform } from "./js/core/platform.js";
 import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS } from "./js/core/storage.js";
 import { workoutsToActivities, awaitingIntensity, intensityUpdates, INBOX_KEEP_MS } from "./js/health-import.js";
 import { dayBounds, shiftDay, dayTimeline, readingNear, stackRows } from "./js/day-timeline.js";
+import { sessionLevel, primaryTotp, verifyCode, startTotpSetup, cancelTotpSetup, removeTotp, signOutOtherDevices, groupSecret, cleanTotpCode, validTotpCode } from "./js/mfa.js";
 import { nearActivity, activitySkip, countNearActivity, breakfastByActivity, activitySummary, ACTIVITY_FILTERS, NEAR_BEFORE_HOURS, NEAR_AFTER_HOURS } from "./js/activity-stats.js";
 
 
@@ -505,6 +506,8 @@ import { nearActivity, activitySkip, countNearActivity, breakfastByActivity, act
     try {
       const { data: { session } } = await supabaseClient.auth.getSession();
       if (session && session.user) {
+        // A session still owing a two-step code sees no rows: leave it for the next start-up, which asks for the code.
+        if (await sessionLevel(supabaseClient.auth, session.access_token) === "code") return;
         currentUser = session.user;
         await saveStateCloud();
         renderEverything();
@@ -6532,6 +6535,8 @@ import { nearActivity, activitySkip, countNearActivity, breakfastByActivity, act
 
   function renderAccountSection() {
     const box = el("account-section");
+    const secCard = document.getElementById("security-card");
+    if (secCard) secCard.hidden = !(supabaseClient && currentUser);
     if (!supabaseClient && cloudConfigured) {
       // Sync IS configured, but the sync library didn't load (offline, blocked, or a damaged cache). Say so, and offer a retry.
       box.innerHTML = `<p class="panel-card__hint" style="margin-top:-4px;">Cloud sync is set up, but its component didn't load, so you're working offline for now. Your data is safe in this browser and will sync once it loads. <button type="button" class="dashed-btn" id="btn-reload-sync" style="margin-top:8px;">Reload and try again</button></p>`;
@@ -6550,6 +6555,7 @@ import { nearActivity, activitySkip, countNearActivity, breakfastByActivity, act
       `;
       bind("btn-sign-out", "click", async () => { await signOut(); });
       renderSyncStatus();
+      renderSecuritySection();
     } else {
       box.innerHTML = `
         <p class="panel-card__hint" style="margin-top:-4px;">Sign in to sync your library, ratios, and history to your account instead of just this device.</p>
@@ -6591,6 +6597,148 @@ import { nearActivity, activitySkip, countNearActivity, breakfastByActivity, act
         } catch (e) { showErr(e.message || "Couldn't create an account."); }
       });
     }
+  }
+
+  // ---- Sign-in security (2.70.0): two-step sign-in and signing out other devices ----
+  const SHIELD_SVG = `<svg viewBox="0 0 24 24" fill="none"><path d="M12 3l7 3v5c0 4.6-3 8.4-7 10-4-1.6-7-5.4-7-10V6l7-3z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>`;
+  let securityRenderSeq = 0;
+  let securityNote = "";       // the result of the last action (turned on/off, others signed out), shown in the card
+  function securityNotice(msg) { securityNote = msg; renderSecuritySection(); }
+  async function renderSecuritySection() {
+    const box = document.getElementById("security-section");
+    if (!box || !supabaseClient || !currentUser) return;
+    const seq = ++securityRenderSeq;
+    if (!box.dataset.ready) box.innerHTML = `<p class="panel-card__hint security-status" style="margin-top:-4px;">Checking two-step sign-in…</p>`;
+    let factor = null, failed = false;
+    try { factor = await primaryTotp(supabaseClient.auth); }
+    catch (e) { failed = true; diag.log("warn", "auth", "Couldn't read sign-in factors: " + ((e && e.message) || e)); }
+    if (seq !== securityRenderSeq) return;   // a newer render started meanwhile
+    box.dataset.ready = "1";
+    const since = factor && factor.created_at ? new Date(factor.created_at).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" }) : "";
+    const twoStep = failed
+      ? `<p class="panel-card__hint security-status" style="margin-top:-4px;">Couldn't check two-step sign-in right now (offline?). <button type="button" class="link-btn security-retry" id="btn-security-retry">Try again</button></p>`
+      : factor
+        ? `<p class="panel-card__hint security-status" style="margin-top:-4px;"><strong>Two-step sign-in is on</strong>${since ? ` (since ${escapeHtml(since)})` : ""}. Signing in on a new device asks for the 6-digit code from your authenticator app as well as your password.</p>
+           <button class="dashed-btn" id="btn-mfa-off" type="button" style="color:var(--brick); border-color:var(--brick-soft);">Turn off two-step sign-in</button>`
+        : `<p class="panel-card__hint security-status" style="margin-top:-4px;"><strong>Two-step sign-in is off.</strong> Turn it on and signing in also needs a 6-digit code from an authenticator app (the iPhone's Passwords app, Google Authenticator…), so your password alone isn't enough. Devices already signed in ask for the code once.</p>
+           <button class="dashed-btn" id="btn-mfa-on" type="button">${SHIELD_SVG} Turn on two-step sign-in</button>`;
+    const note = securityNote; securityNote = "";
+    box.innerHTML = `
+      ${note ? `<p class="panel-card__hint security-note" role="status" style="margin-top:-4px;"><strong>${escapeHtml(note)}</strong></p>` : ""}
+      ${twoStep}
+      <p class="panel-card__hint security-others-hint">Signs out every other phone, tablet and browser using your account; this one stays signed in. They stop syncing within the hour and need your password${factor ? " and a code" : ""} to sign back in.</p>
+      <button class="dashed-btn" id="btn-sign-out-others" type="button">Sign out other devices</button>
+    `;
+    const on = document.getElementById("btn-mfa-on"), off = document.getElementById("btn-mfa-off"), retry = document.getElementById("btn-security-retry");
+    if (on) on.addEventListener("click", () => openTotpSetupSheet());
+    if (retry) retry.addEventListener("click", () => renderSecuritySection());
+    if (off) off.addEventListener("click", async () => {
+      const ok = await dialogs.confirm("Your password alone will be enough to sign in again. You can turn it back on any time; you'd need to set up the authenticator app again.", { title: "Turn off two-step sign-in?", confirmText: "Turn off", danger: true });
+      if (!ok) return;
+      off.disabled = true;
+      try {
+        await removeTotp(supabaseClient.auth, factor.id);
+        diag.log("info", "auth", "Two-step sign-in turned off");
+        securityNotice("Two-step sign-in is off.");
+      } catch (e) {
+        await dialogs.alert("Couldn't turn it off: " + ((e && e.message) || e), { title: "Two-step sign-in" });
+      }
+      renderSecuritySection();
+    });
+    document.getElementById("btn-sign-out-others").addEventListener("click", async e => {
+      const btn = e.currentTarget;
+      const ok = await dialogs.confirm("Every other phone, tablet and browser signed in to your account will be signed out. This device stays signed in.", { title: "Sign out other devices?", confirmText: "Sign out others" });
+      if (!ok) return;
+      btn.disabled = true;
+      try {
+        await signOutOtherDevices(supabaseClient.auth);
+        diag.log("info", "auth", "Signed out other devices");
+        securityNotice("Other devices signed out. This one stays signed in.");
+      } catch (err) {
+        await dialogs.alert("Couldn't sign out other devices: " + ((err && err.message) || err) + ". Check your connection and try again.", { title: "Sign out other devices" });
+      }
+      btn.disabled = false;
+    });
+  }
+
+  // Set-up sheet: QR code (for an authenticator on another device), a one-tap link (for one on this phone) and the key
+  // to type by hand; then a code to prove it works. Nothing changes for the account until that code is accepted.
+  async function openTotpSetupSheet() {
+    let setup;
+    try { setup = await startTotpSetup(supabaseClient.auth); }
+    catch (e) {
+      const msg = (e && e.message) || String(e);
+      await dialogs.alert(/disabled|not enabled/i.test(msg) ? "Two-step sign-in isn't enabled on the server yet." : "Couldn't start setting it up: " + msg + ".", { title: "Two-step sign-in" });
+      renderSecuritySection();
+      return;
+    }
+    let done = false, busy = false;
+    const backdrop = document.createElement("div");
+    backdrop.className = "sheet-backdrop";
+    const qrOk = /^data:image\/svg\+xml/.test(setup.qr);
+    const uriOk = /^otpauth:\/\//.test(setup.uri);
+    backdrop.innerHTML = `
+      <div class="sheet totp-sheet" role="dialog" aria-modal="true" aria-labelledby="totp-title">
+        <div class="sheet-head">
+          <h2 id="totp-title">Turn on two-step sign-in</h2>
+          <button class="sheet-close" id="totp-close" type="button" aria-label="Close">
+            <svg viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+          </button>
+        </div>
+        <p class="totp-step"><strong>1. Add Insulin Buddy to an authenticator app.</strong></p>
+        ${uriOk ? `<a class="btn btn--secondary totp-open" id="totp-open" href="${escapeAttr(setup.uri)}">Add to an app on this device</a>` : ""}
+        ${qrOk ? `<p class="panel-card__hint totp-or">Or scan this with the app on another device:</p><div class="totp-qr"><img id="totp-qr" alt="QR code for your authenticator app" src="${escapeAttr(setup.qr)}"></div>` : ""}
+        <p class="panel-card__hint totp-or">Or type this key into the app:</p>
+        <div class="totp-secret-row"><code class="totp-secret" id="totp-secret">${escapeHtml(groupSecret(setup.secret))}</code><button class="btn btn--secondary totp-copy" id="totp-copy" type="button">Copy</button></div>
+        <div class="field totp-code-field">
+          <label for="totp-code"><strong>2. Enter the 6-digit code the app now shows</strong></label>
+          <input type="text" id="totp-code" class="mfa-code" inputmode="numeric" autocomplete="one-time-code" maxlength="9" placeholder="123 456" data-noclear>
+        </div>
+        <p class="basal-error" id="totp-error" role="alert" hidden></p>
+        <p class="basal-note">Keep the authenticator app: without it you can't sign in on a new device. The key above is shown only now.</p>
+        <div class="sheet-actions">
+          <button class="btn btn--secondary" id="totp-cancel" type="button">Cancel</button>
+          <button class="btn btn--primary" id="totp-verify" type="button">Turn on</button>
+        </div>
+      </div>
+    `;
+    const $ = sel => backdrop.querySelector(sel);
+    const codeInput = $("#totp-code"), errEl = $("#totp-error"), verifyBtn = $("#totp-verify");
+    const close = async () => {
+      document.removeEventListener("keydown", onKey);
+      closeSheet(backdrop);
+      if (!done) await cancelTotpSetup(supabaseClient.auth, setup.factorId);   // never leave a half-finished factor behind
+      renderSecuritySection();
+    };
+    const onKey = e => { if (e.key === "Escape" && !document.querySelector(".dialog-backdrop")) close(); };
+    const verify = async () => {
+      if (busy) return;
+      errEl.hidden = true;
+      busy = true; verifyBtn.disabled = true;
+      const r = await verifyCode(supabaseClient.auth, setup.factorId, codeInput.value);
+      busy = false; verifyBtn.disabled = false;
+      if (!r.ok) { errEl.textContent = r.message; errEl.hidden = false; codeInput.focus(); return; }
+      done = true;
+      diag.log("info", "auth", "Two-step sign-in turned on");
+      await close();
+      securityNotice("Two-step sign-in is on.");
+      const others = await dialogs.confirm("Devices already signed in will ask for a code the next time they open. To make every other device sign in again now, sign them out.", { title: "Sign out other devices too?", confirmText: "Sign out others", cancelText: "Not now" });
+      if (others) {
+        try { await signOutOtherDevices(supabaseClient.auth); securityNotice("Other devices signed out."); }
+        catch (e) { await dialogs.alert("Couldn't sign out other devices: " + ((e && e.message) || e) + ".", { title: "Sign out other devices" }); }
+      }
+    };
+    $("#totp-close").addEventListener("click", close);
+    $("#totp-cancel").addEventListener("click", close);
+    verifyBtn.addEventListener("click", verify);
+    codeInput.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); verify(); } });
+    codeInput.addEventListener("input", () => { if (cleanTotpCode(codeInput.value).length === 6) verify(); });
+    $("#totp-copy").addEventListener("click", async () => {
+      const ok = await copyText(setup.secret);
+      $("#totp-copy").textContent = ok === false ? "Couldn't copy" : "Copied";
+    });
+    document.addEventListener("keydown", onKey);
+    openSheet(backdrop);
   }
 
   function renderPrivacySection() {
@@ -7350,6 +7498,64 @@ import { nearActivity, activitySkip, countNearActivity, breakfastByActivity, act
     renderLibrary(); renderHistory(); renderSettings();
   }
 
+  // Two-step sign-in (2.70.0). Shown after the password, before the cloud copy is touched, when the account has an
+  // authenticator app set up and this session hasn't given a code yet. The database enforces the same rule
+  // (supabase/mfa.sql): until a code is accepted this session sees no rows, so loading first would look like "no data".
+  // Resolves true once a code is accepted, false if they chose to sign out instead (the SIGNED_OUT event then loads
+  // this device's copy).
+  function showMfaScreen() {
+    return new Promise(resolve => {
+      const overlay = el("mfa-screen"), form = el("mfa-form"), input = el("mfa-code"), errorEl = el("mfa-error");
+      const submit = el("mfa-submit"), out = el("mfa-sign-out");
+      let factorId = null, busy = false, settled = false;
+      overlay.hidden = false;
+      errorEl.hidden = true;
+      input.value = "";
+      const showErr = msg => { errorEl.textContent = msg; errorEl.hidden = false; };
+      const finish = ok => {
+        if (settled) return;
+        settled = true;
+        overlay.hidden = true;
+        input.value = "";
+        form.removeEventListener("submit", onSubmit);
+        input.removeEventListener("input", onInput);
+        out.removeEventListener("click", onSignOut);
+        resolve(ok);
+      };
+      const onSubmit = async e => {
+        e.preventDefault();
+        if (busy) return;
+        errorEl.hidden = true;
+        busy = true; submit.disabled = true;
+        try {
+          if (!factorId) {
+            const f = await primaryTotp(supabaseClient.auth);
+            if (!f) { finish(true); return; }   // the factor was removed meanwhile: nothing to ask
+            factorId = f.id;
+          }
+          const r = await verifyCode(supabaseClient.auth, factorId, input.value);
+          if (r.ok) { diag.log("info", "auth", "Two-step sign-in code accepted"); finish(true); return; }
+          showErr(r.message);
+          input.value = "";
+          input.focus();
+        } catch (err) {
+          showErr("Couldn't reach the server. Check your connection and try again.");
+          diag.log("warn", "auth", "Two-step sign-in: " + ((err && err.message) || err));
+        } finally { busy = false; submit.disabled = false; }
+      };
+      // Submit by itself once six digits are in (typed, pasted or filled in from the iPhone's code suggestion).
+      const onInput = () => { if (validTotpCode(input.value) && cleanTotpCode(input.value).length === 6 && !busy) form.requestSubmit ? form.requestSubmit() : onSubmit(new Event("submit")); };
+      const onSignOut = async () => {
+        finish(false);
+        try { await signOut(); } catch (e) { diag.log("warn", "auth", "Sign out from the code screen failed: " + ((e && e.message) || e)); }
+      };
+      form.addEventListener("submit", onSubmit);
+      input.addEventListener("input", onInput);
+      out.addEventListener("click", onSignOut);
+      input.focus();
+    });
+  }
+
   // Shown whenever a passphrase is required before proceeding -- local-only mode, or
   // cloud sign-in on a device that either already knows about the account's passphrase
   // or has just learned about it (see the cloud row fetch in the sign-in flow below).
@@ -7407,6 +7613,7 @@ import { nearActivity, activitySkip, countNearActivity, breakfastByActivity, act
       loading.hidden = false;
       let resolved = false;
       let lockAttempted = false; // guards against onAuthStateChange firing more than once before the first attempt finishes (see below)
+      let mfaAsking = false;     // the two-step sign-in code screen is up (2.70.0)
       supabaseClient.auth.onAuthStateChange(async (_event, session) => {
         if (_event === "PASSWORD_RECOVERY") {
           // They've just clicked the emailed reset link -- this session is real but its only
@@ -7424,6 +7631,19 @@ import { nearActivity, activitySkip, countNearActivity, breakfastByActivity, act
           // Either way, fall through to the normal sign-in flow below with this same session.
         }
         if (session && session.user) {
+          // Two-step sign-in: a code accepted on the code screen fires MFA_CHALLENGE_VERIFIED; the call that showed the
+          // screen carries on by itself, so this extra event must not start a second load. Same while the screen is up.
+          if (_event === "MFA_CHALLENGE_VERIFIED" || mfaAsking) return;
+          if (await sessionLevel(supabaseClient.auth, session.access_token) === "code") {
+            mfaAsking = true;
+            loading.hidden = true;
+            const passed = await showMfaScreen();
+            mfaAsking = false;
+            if (!passed) return;            // signed out instead: the SIGNED_OUT event loads this device's copy
+            if (!resolved) loading.hidden = false;
+            const fresh = await supabaseClient.auth.getSession();
+            if (fresh.data && fresh.data.session) session = fresh.data.session;
+          }
           currentUser = session.user;
 
           // Does this ACCOUNT require a passphrase? Prefer the cloud's record of it (the
@@ -7505,7 +7725,7 @@ import { nearActivity, activitySkip, countNearActivity, breakfastByActivity, act
       // Safety net: if Supabase never responds (e.g. offline, or misconfigured),
       // fall back to local-only rather than leaving the app stuck loading.
       setTimeout(async () => {
-        if (resolved) return;
+        if (resolved || mfaAsking) return;   // waiting for a sign-in code is the person, not a dead connection
         resolved = true;
         loading.hidden = true;
         state = loadStatePlain();

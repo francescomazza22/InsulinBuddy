@@ -68,6 +68,23 @@
     </div>
   </div>
 
+  <!-- Two-step sign-in (2.70.0): shown after the password when the account has an authenticator app set up. -->
+  <div class="lock-screen" id="mfa-screen" hidden>
+    <div class="lock-screen__card">
+      <div class="lock-screen__icon">
+        <svg viewBox="0 0 24 24" fill="none"><path d="M12 3l7 3v5c0 4.6-3 8.4-7 10-4-1.6-7-5.4-7-10V6l7-3z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M9 12l2 2 4-4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+      <h1>Enter your sign-in code</h1>
+      <p>Open your authenticator app and type the 6-digit code it shows for Insulin Buddy.</p>
+      <form id="mfa-form" novalidate>
+        <input type="text" id="mfa-code" class="mfa-code" inputmode="numeric" autocomplete="one-time-code" maxlength="9" placeholder="123 456" aria-label="6-digit code" data-noclear>
+        <p class="lock-screen__error" id="mfa-error" role="alert" hidden></p>
+        <button class="btn btn--primary" type="submit" id="mfa-submit">Continue</button>
+      </form>
+      <button type="button" class="link-btn mfa-screen__alt" id="mfa-sign-out">Sign out instead</button>
+    </div>
+  </div>
+
 
   <main class="views">
 
@@ -618,6 +635,12 @@
         <div class="panel-card">
           <h2 class="panel-card__title"><span class="panel-card__icon-badge panel-card__icon-badge--account"><svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="8" r="3.2" stroke="currentColor" stroke-width="1.6"/><path d="M5 20c0-3.5 3-6 7-6s7 2.5 7 6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></span> Account &amp; Sync</h2>
           <div id="account-section"></div>
+        </div>
+
+
+        <div class="panel-card" id="security-card" hidden>
+          <h2 class="panel-card__title"><span class="panel-card__icon-badge panel-card__icon-badge--account"><svg viewBox="0 0 24 24" fill="none"><path d="M12 3l7 3v5c0 4.6-3 8.4-7 10-4-1.6-7-5.4-7-10V6l7-3z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg></span> Sign-in security</h2>
+          <div id="security-section"></div>
         </div>
 
 
