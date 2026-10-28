@@ -2,7 +2,7 @@
 //
 // One function that lets the app talk to YOUR Nightscout server from a browser
 // without hitting CORS (CORS only restricts browsers, not servers). It replaces
-// the older fetch-nightscout-glucose and write-nightscout-treatment functions,
+// the older fetch-nightscout-glucose and write-nightscout-treatment functions (deleted 28 Oct 2026),
 // which accepted any URL and therefore could be used as an open proxy.
 //
 // What is different here

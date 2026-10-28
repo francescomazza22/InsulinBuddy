@@ -181,7 +181,6 @@ export class NightscoutClient {
     }
     const { data, error } = res || {};
     if (error) {
-      if (isNotDeployed(error) && (op === "read" || op === "create")) return this._viaLegacyProxy(op, cfg, payload);
       return { ok: false, problem: isNotDeployed(error) ? "nightscout-proxy isn't deployed yet" : (error.message || "proxy error") };
     }
     if (!data || typeof data !== "object") return { ok: false, problem: "empty proxy response" };
@@ -189,22 +188,6 @@ export class NightscoutClient {
     if (data.code === "UPSTREAM_HTTP") throw new NsError("http", data.error || `Nightscout responded with HTTP ${data.status}`, { status: data.status, via: "proxy" });
     if (data.code === "UPSTREAM_NETWORK") throw new NsError("network", data.error || "Proxy couldn't reach Nightscout", { via: "proxy" });
     throw new NsError("proxy", data.error || "The proxy rejected the request", { via: "proxy", code: data.code });
-  }
-
-  // Older deployments only have the two original functions.
-  async _viaLegacyProxy(op, cfg, payload) {
-    try {
-      if (op === "read") {
-        const { data, error } = await this.invoke("fetch-nightscout-glucose", { baseUrl: cfg.baseUrl, token: cfg.token, count: payload.count || 1 });
-        if (error || !data || data.error) return { ok: false, problem: "legacy read proxy failed" };
-        return { ok: true, body: data.entries };
-      }
-      const { data, error } = await this.invoke("write-nightscout-treatment", { baseUrl: cfg.baseUrl, token: cfg.token, treatment: payload.treatment });
-      if (error || !data || !data.ok) return { ok: false, problem: "legacy write proxy failed" };
-      return { ok: true, body: data.body };
-    } catch (e) {
-      return { ok: false, problem: (e && e.message) || "legacy proxy failed" };
-    }
   }
 
   async _viaDirect(op, cfg, payload) {

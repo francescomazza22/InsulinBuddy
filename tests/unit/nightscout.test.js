@@ -107,18 +107,15 @@ test("client: sends the right action and payload to the proxy", async () => {
   assert.equal(seen[0].body.count, 5); assert.equal(seen[2].body.id, "a");
 });
 
-test("client: falls back to the legacy functions when nightscout-proxy isn't deployed yet", async () => {
+test("client: without nightscout-proxy it never calls the deleted legacy functions (removed 2.69.2), it goes direct", async () => {
   const names = [];
-  const invoke = async (name) => {
-    names.push(name);
-    if (name === "nightscout-proxy") return { data: null, error: { message: "Requested function was not found", context: { status: 404 } } };
-    if (name === "write-nightscout-treatment") return { data: { ok: true, body: { _id: "legacy1" } }, error: null };
-    return { data: { entries: [{ sgv: 120 }] }, error: null };
-  };
-  const c = new NightscoutClient({ invoke });
-  assert.equal((await c.create(CFG, { eventType: "Note" })).id, "legacy1");
-  assert.deepEqual((await c.read(CFG, 1)).entries, [{ sgv: 120 }]);
-  assert.ok(names.includes("write-nightscout-treatment") && names.includes("fetch-nightscout-glucose"));
+  const invoke = async (name) => { names.push(name); return { data: null, error: { message: "Requested function was not found", context: { status: 404 } } }; };
+  const f = spyFetch(() => okRes({ _id: "direct1" }));
+  const c = new NightscoutClient({ invoke, fetchImpl: f });
+  const r = await c.create(CFG, { eventType: "Note" });
+  assert.equal(r.id, "direct1");
+  assert.equal(r.via, "direct");
+  assert.deepEqual(names, ["nightscout-proxy"]);
 });
 
 test("client: if the proxy is unavailable it falls back to a direct request", async () => {

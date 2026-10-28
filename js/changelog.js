@@ -2,6 +2,15 @@
 // summary can never drift. Bump CHANGELOG[0].version here (and CACHE_VERSION in sw.js) on every release.
 export const CHANGELOG = [
   {
+    version: "2.69.2",
+    summary: "Tidy-up: the app no longer looks for the two old Nightscout functions you deleted from Supabase.",
+    changes: [
+      "Nightscout reads and writes go through the Supabase proxy, as they already did",
+      "If the proxy were ever missing, the app now goes straight to Nightscout instead of trying the old functions first",
+      "Nothing changes in what you see; doses are calculated exactly as before"
+    ]
+  },
+  {
     version: "2.69.1",
     summary: "Glucose charts and statistics use your live readings, not a second, smoother copy that was mixed in.",
     changes: [
