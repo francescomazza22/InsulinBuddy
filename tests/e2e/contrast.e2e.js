@@ -88,6 +88,12 @@ const screens = [
     await dev.eval(`document.getElementById("cc-correction-toggle") && document.getElementById("cc-correction-toggle").click()`); await sleep(200);
     await dev.eval(`(() => { const g = document.getElementById("cc-glucose"); if (g) { g.value = "190"; g.dispatchEvent(new Event("input", { bubbles: true })); } })()`); await sleep(200);
   }],
+  // The live glucose pill turns yellow above range and white below it (2.72.4: at night the card's dark wash hid those
+  // backgrounds and left dark text on the dark card). Drawn as renderLiveGlucosePill draws it.
+  ...[["high", "183 mg/dL \u2197"], ["low", "62 mg/dL \u2198"]].map(([kind, text]) => [`calculator, glucose ${kind}`, async dev => {
+    await dev.tab("calculator");
+    await dev.eval(`(() => { const p = document.getElementById("cc-live-glucose"); p.className = "glucose-pill glucose-pill--${kind}"; p.textContent = ${JSON.stringify(text)}; p.hidden = false; })()`);
+  }]),
   ["insights meals", async dev => { await dev.tab("history"); await dev.click('#history-segmented [data-seg="log"]'); }],
   ["insights trends", async dev => { await dev.tab("history"); await dev.click('#history-segmented [data-seg="trends"]'); await sleep(400); }],
   ["settings dosing", async dev => { await dev.tab("settings"); await dev.click('#settings-segmented [data-seg="ratios"]'); }],

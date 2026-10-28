@@ -2,6 +2,14 @@
 // summary can never drift. Bump CHANGELOG[0].version here (and CACHE_VERSION in sw.js) on every release.
 export const CHANGELOG = [
   {
+    version: "2.72.4",
+    summary: "Night mode: the glucose reading on the dose card is readable again when it's high or low.",
+    changes: [
+      "Above range it shows dark text on yellow, below range red text on white, in every theme (before, at night, the yellow and white were hidden and the dark text sat almost invisibly on the card)",
+      "In range and in day mode it looks the same as before"
+    ]
+  },
+  {
     version: "2.72.3",
     summary: "Glucose > Day opens at once instead of showing \u201cLoading\u2026\u201d.",
     changes: [

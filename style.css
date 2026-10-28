@@ -1890,6 +1890,9 @@ html[data-theme="dark"] .dose-card .carbs-pill:not(.carbs-pill--ratio), html[dat
 html[data-theme="dark"] .dose-card .pill-btn:not(.is-active), html[data-theme="dark"] .dose-card .glucose-guide-btn,
 html[data-theme="dark"] .dose-card .correction-row__unit-toggle, html[data-theme="dark"] .dose-card .correction-row__input { background: rgba(0,0,0,0.18); }
 html[data-theme="dark"] .dose-card .correction-row__input:focus-within { background: rgba(0,0,0,0.26); }
+/* 2.72.4: the live glucose pill keeps its warning look at night (the dark wash above hid it: dark brown on dark red). */
+html[data-theme="dark"] .dose-card .glucose-pill.glucose-pill--high { background: rgba(255,196,60,0.95); color: #5a3e00; }
+html[data-theme="dark"] .dose-card .glucose-pill.glucose-pill--low { background: rgba(255,255,255,0.95); color: #D70015; }
 html[data-theme="dark"] .dose-card .carbs-pill.carbs-pill--ratio { background: rgba(0,0,0,0.32); }
 html[data-theme="dark"] .dose-card .dose-card__label, html[data-theme="dark"] .dose-card .dose-card__unit,
 html[data-theme="dark"] .dose-card .dose-card__breakdown, html[data-theme="dark"] .dose-card .correction-row label,
