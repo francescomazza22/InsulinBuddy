@@ -570,6 +570,9 @@ import { nearActivity, activitySkip, countNearActivity, breakfastByActivity, act
 
   function showView(name) {
     if (!state) return; // still waiting on the cloud auth check (see boot()); nothing to show yet
+    // 2.72.2: a screen opens at the top. The page is one scroller, so it used to keep the position of the screen you came
+    // from (halfway down Settings opened Insights halfway down). The old screen's own position is saved first, for reopening.
+    if (!restoringPlace) rememberPlace(currentViewName());
     views.forEach(v => { v.hidden = v.id !== `view-${name}`; });
     tabs.forEach(t => {
       if (t.dataset.target === name) t.setAttribute("aria-current", "page");
@@ -580,8 +583,9 @@ import { nearActivity, activitySkip, countNearActivity, breakfastByActivity, act
     if (name === "calculator") renderActivePanel();
     if (name === "history") { historyLimit = PAGE_SIZE; renderHistory(); }
     if (name === "settings") renderSettings();
-    if (!restoringPlace) rememberPlace(name);
+    if (!restoringPlace) { toTop(); rememberPlace(name); }
   }
+  function toTop() { try { window.scrollTo(0, 0); } catch { /* */ } }
   tabs.forEach(t => t.addEventListener("click", () => showView(t.dataset.target)));
 
   // ----- Reopen where you left off -----
@@ -5001,8 +5005,10 @@ import { nearActivity, activitySkip, countNearActivity, breakfastByActivity, act
   historySegmented.addEventListener("click", e => {
     const btn = e.target.closest(".segmented__btn");
     if (!btn) return;
+    if (!restoringPlace) rememberPlace();   // the sub-tab we are leaving keeps its own position for reopening
     historySeg = btn.dataset.seg;
     historySegmented.querySelectorAll(".segmented__btn").forEach(b => b.classList.toggle("is-active", b === btn));
+    if (!restoringPlace) toTop();   // 2.72.2: a sub-tab opens at the top too
     historyLogPanel.hidden = historySeg !== "log";
     historyTrendsPanel.hidden = historySeg !== "trends";
     historyGlucosePanel.hidden = historySeg !== "glucose";
@@ -6186,9 +6192,11 @@ import { nearActivity, activitySkip, countNearActivity, breakfastByActivity, act
   settingsSegmented.addEventListener("click", e => {
     const btn = e.target.closest(".segmented__btn");
     if (!btn) return;
+    if (!restoringPlace) rememberPlace();
     settingsSeg = btn.dataset.seg;
     settingsSegmented.querySelectorAll(".segmented__btn").forEach(b => b.classList.toggle("is-active", b === btn));
     showSettingsPanel();
+    if (!restoringPlace) toTop();
     if (settingsSeg === "library") renderLibrary();
     if (settingsSeg === "sync") { renderNightscoutSection(); renderStatusPanel(); }
   });

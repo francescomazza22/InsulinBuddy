@@ -2,6 +2,15 @@
 // summary can never drift. Bump CHANGELOG[0].version here (and CACHE_VERSION in sw.js) on every release.
 export const CHANGELOG = [
   {
+    version: "2.72.2",
+    summary: "Switching between Calculator, Insights and Settings, or between their tabs, now opens at the top.",
+    changes: [
+      "Before, the new screen opened as far down as you were on the one you left (from halfway down Settings, Insights opened halfway down)",
+      "The same for the tabs inside Insights (Meals, Trends, Glucose) and Settings (Dosing, Library, Sync, Data, General)",
+      "Reopening the app still brings you back to where you were on the screen you left"
+    ]
+  },
+  {
     version: "2.72.1",
     summary: "Basal after activity: a workout Apple Health splits into pieces now counts as one.",
     changes: [
