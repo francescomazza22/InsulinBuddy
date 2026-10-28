@@ -16,8 +16,8 @@ alter table health_inbox enable row level security;
 -- (service role, which bypasses these rules) can add them.
 drop policy if exists "Users can read their own health inbox" on health_inbox;
 create policy "Users can read their own health inbox"
-  on health_inbox for select using (auth.uid() = user_id);
+  on health_inbox for select using ((select auth.uid()) = user_id);
 
 drop policy if exists "Users can delete their own health inbox" on health_inbox;
 create policy "Users can delete their own health inbox"
-  on health_inbox for delete using (auth.uid() = user_id);
+  on health_inbox for delete using ((select auth.uid()) = user_id);

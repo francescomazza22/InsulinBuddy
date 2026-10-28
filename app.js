@@ -13,7 +13,7 @@ import { CHANGELOG } from "./js/changelog.js";
 import { fillMissingFoodDetails, stillBlank, applyPublishedGi } from "./js/food-reference.js";
 import { fieldSvg } from "./js/doodle-field.js";
 import { abstractSvg } from "./js/abstract-field.js";
-import { glucoseAxisTicks, percentile, dailyPatternBuckets, daysSpanned, estimatedA1c, extendedGlucoseStats, dailyStats, glucoseSummaryStats, timeInRangeBreakdown, glucoseGuideRows, TIME_IN_RANGE_BANDS } from "./js/glucose-stats.js";
+import { glucoseAxisTicks, percentile, dailyPatternBuckets, daysSpanned, estimatedA1c, extendedGlucoseStats, dailyStats, glucoseSummaryStats, timeInRangeBreakdown, glucoseGuideRows, TIME_IN_RANGE_BANDS, preferLiveReadings, preferLiveEntries } from "./js/glucose-stats.js";
 import { randomBytes, toB64, fromB64, deriveKey, encryptString, decryptString, isEncryptedPayload, exportKeyRaw, importKeyRaw } from "./js/crypto.js";
 import { LocalBackups, shouldAutoSnapshot } from "./js/backup.js";
 import { slotUsage, sortBySlotUsage, doseBadge, groupByDay, takeEntries, matchesQuery, recentDistinctMeals, mealLabel, dosingSummary, insulinStats, isBasalEntry, basalSlotForTime, basalSlotLabel, lastBasalDose, basalDoseCheck, makeBasalEntry, isNonMealEntry, PAGE_SIZE } from "./js/history.js";
@@ -3594,7 +3594,7 @@ import { nearActivity, activitySkip, countNearActivity, breakfastByActivity, act
     try {
       const r = await nsClient.read(nsCfg(), Math.min(hours * 12 + 12, 1000)); // +12 is a small safety margin, not load-bearing -- 24h at a 5-min interval is ~288, nowhere near Nightscout's own 1000 cap
       if (r.entries.length) saveGlucoseReadings(r.entries);
-      return { ok: true, entries: r.entries };
+      return { ok: true, entries: preferLiveEntries(r.entries) };
     } catch (e) { return { ok: false, reason: friendlyNsError(e) }; }
   }
 
@@ -3642,7 +3642,7 @@ import { nearActivity, activitySkip, countNearActivity, breakfastByActivity, act
       const total = Math.min(count || 0, HARD_CAP);
       const pageCount = Math.max(1, Math.ceil(total / PAGE)) || 1;
       // Pages are fetched a few at a time (all at once is dozens of simultaneous requests for a long window).
-      const fetchPage = i => supabaseClient.from("glucose_readings").select("at, mgdl").eq("user_id", currentUser.id).gte("at", sinceISO).order("at").range(i * PAGE, i * PAGE + PAGE - 1);
+      const fetchPage = i => supabaseClient.from("glucose_readings").select("at, mgdl, direction").eq("user_id", currentUser.id).gte("at", sinceISO).order("at").range(i * PAGE, i * PAGE + PAGE - 1);
       const pages = [];
       const pageTotal = total === 0 ? 0 : pageCount;
       for (let start = 0; start < pageTotal; start += PARALLEL) {
@@ -3650,7 +3650,10 @@ import { nearActivity, activitySkip, countNearActivity, breakfastByActivity, act
       }
       const firstError = pages.find(p => p.error);
       if (firstError) throw firstError.error;
-      const readings = pages.flatMap(p => p.data || []).map(row => ({ at: new Date(row.at).getTime(), mgdl: row.mgdl }));
+      // Live readings first: Nightscout also carries a later, arrow-less copy of the same sensor; those rows are used only
+      // where no live reading is near (js/glucose-stats.js preferLiveReadings, 2.69.1).
+      const readings = preferLiveReadings(pages.flatMap(p => p.data || []).map(row => ({ at: new Date(row.at).getTime(), mgdl: row.mgdl, direction: row.direction })))
+        .map(r => ({ at: r.at, mgdl: r.mgdl }));
       // Don't cache an empty result: it's most often a transient state (a write just failed, or
       // coverage hasn't caught up yet) rather than a durable "there's truly nothing here" fact,
       // and caching it would block the self-healing retry-on-reopen behavior from ever helping.
@@ -3782,7 +3785,7 @@ import { nearActivity, activitySkip, countNearActivity, breakfastByActivity, act
   } catch (e) { /* no saved readings -- the first refresh fills it */ }
   function glucoseEntriesWithin(hours) {
     const from = Date.now() - hours * 3600_000;
-    return glucoseStore.entries.filter(e => e.date >= from);
+    return preferLiveEntries(glucoseStore.entries.filter(e => e.date >= from));
   }
   function persistGlucoseStore() {
     try { store.setItem(GLUCOSE_STORE_KEY, JSON.stringify({ entries: glucoseStore.entries, at: glucoseStore.at, fullAt: glucoseStore.fullAt })); } catch (e) { /* storage full or blocked: still works in memory */ }

@@ -2,6 +2,16 @@
 // summary can never drift. Bump CHANGELOG[0].version here (and CACHE_VERSION in sw.js) on every release.
 export const CHANGELOG = [
   {
+    version: "2.69.1",
+    summary: "Glucose charts and statistics use your live readings, not a second, smoother copy that was mixed in.",
+    changes: [
+      "Nightscout (Gluroo) also sends a later copy of your sensor readings, every 5 minutes and without a trend arrow. It was being mixed in with the live readings, so lines zig-zagged and some real lows were averaged away",
+      "Charts, time in range, lows and every Insights figure now use the live readings; the copy is used only to fill gaps where no live reading exists (for example a missed hour)",
+      "Nothing is deleted: every reading is still stored, so this can be changed later",
+      "Doses are calculated exactly as before"
+    ]
+  },
+  {
     version: "2.69.0",
     summary: "The Calculator's food list puts what you usually eat at this time of day first.",
     changes: [

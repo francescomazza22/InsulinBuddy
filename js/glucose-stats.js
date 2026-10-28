@@ -234,3 +234,30 @@ export function glucoseAxisTicks(minMgdl, maxMgdl, units = "mgdl", maxTicks = 7)
   }
   return out;
 }
+
+/** Nightscout (Gluroo) carries two copies of the same sensor (found 28 Oct 2026): the live readings, every 1-3 minutes
+ * with a trend arrow, and a second set every 5 minutes with no arrow that turns up about an hour later. The second set
+ * is on average no higher or lower, but each value sits about 5 mg/dL (up to 36) away from the live one beside it, so
+ * mixing them made the lines zig-zag and could lift a low out of the low band. This keeps every reading with an arrow
+ * and drops an arrow-less one only when a reading with an arrow lies within `nearMs` of it; arrow-less readings that
+ * fill a real gap (sensor warm-up, phone out of range) are kept. Order is preserved; nothing is changed in place.
+ * getAt(item) -> epoch ms, hasArrow(item) -> boolean. */
+export const SHADOW_NEAR_MS = 150_000;
+export function dropShadowReadings(items, getAt, hasArrow, nearMs = SHADOW_NEAR_MS) {
+  const list = Array.isArray(items) ? items : [];
+  const live = [];
+  for (const it of list) { if (it && hasArrow(it)) { const t = getAt(it); if (Number.isFinite(t)) live.push(t); } }
+  if (live.length === 0 || live.length === list.length) return list.slice();
+  live.sort((a, b) => a - b);
+  const hasLiveNear = t => {
+    let lo = 0, hi = live.length;
+    while (lo < hi) { const mid = (lo + hi) >> 1; if (live[mid] < t) lo = mid + 1; else hi = mid; }
+    return (lo < live.length && live[lo] - t <= nearMs) || (lo > 0 && t - live[lo - 1] <= nearMs);
+  };
+  return list.filter(it => !it || hasArrow(it) || !Number.isFinite(getAt(it)) || !hasLiveNear(getAt(it)));
+}
+const hasDirection = d => typeof d === "string" && d.trim() !== "" && d !== "NONE" && d !== "NOT COMPUTABLE" && d !== "RATE OUT OF RANGE";
+/** Stored rows ({ at: ms, mgdl, direction }). */
+export const preferLiveReadings = (rows, nearMs) => dropShadowReadings(rows, r => r.at, r => hasDirection(r.direction), nearMs);
+/** Nightscout entries ({ date: ms, sgv, direction }). */
+export const preferLiveEntries = (entries, nearMs) => dropShadowReadings(entries, e => e.date, e => hasDirection(e.direction), nearMs);
