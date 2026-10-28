@@ -1856,7 +1856,6 @@ import { nearActivity, activitySkip, countNearActivity, breakfastByActivity, act
     const back = Math.round((today - glucoseDay) / 86400000);
     if (back < 0 || back > DAY_VIEW_MAX_BACK) glucoseDay = today;
     const daysBack = Math.max(0, Math.round((today - glucoseDay) / 86400000));
-    const windowDays = [7, 14, 30, 90].find(n => n >= daysBack + 2) || 90;
     const label = glucoseDay === today ? "Today" : glucoseDay === shiftDay(today, -1) ? "Yesterday" : new Date(glucoseDay).toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" });
     const nav = `<div class="day-nav">
         <button type="button" class="glucose-range-btn day-nav__btn" data-dayshift="-1" aria-label="Previous day"${daysBack >= DAY_VIEW_MAX_BACK ? " disabled" : ""}>‹</button>
@@ -1866,10 +1865,24 @@ import { nearActivity, activitySkip, countNearActivity, breakfastByActivity, act
       </div>`;
     // Keep showing the previous day while the next one loads (usually instant: readings are cached), so a swipe doesn't
     // flash a "Loading" page; only the first time is there nothing to show.
-    if (!box.querySelector(".day-swipe")) box.innerHTML = `${nav}<p class="panel-card__hint">Loading…</p>`;
-    const wanted = glucoseDay;
-    const result = await fetchStoredGlucoseReadings(windowDays);
-    if (!box.isConnected || glucoseView !== "day" || wanted !== glucoseDay) return;   // moved on while loading
+    const drawDay = (res, from) => { if (stillHere()) drawDayView(box, nav, res, from); };
+    const wanted = glucoseDay, dayEnd = shiftDay(glucoseDay, 1);
+    const stillHere = () => box.isConnected && glucoseView === "day" && wanted === glucoseDay;
+    // Draw at once from what is already on the device (2.72.3): this day's cached readings, a fresh cached window, or, for
+    // today, the last-24-hours store the Now view keeps. Then fetch just this day and redraw only if anything changed.
+    const quick = dayReadingsNow(glucoseDay, dayEnd);
+    let shown = null;
+    if (quick) { drawDay(quick, enterFrom); shown = readingsSignature(quick.readings); if (quick.fresh) return; }
+    else if (!box.querySelector(".day-swipe")) box.innerHTML = `${nav}<p class="panel-card__hint">Loading…</p>`;
+    else { const oldNav = box.querySelector(".day-nav"); if (oldNav) oldNav.outerHTML = nav; }   // the new date shows at once
+    const result = await fetchDayReadings(glucoseDay, dayEnd);
+    if (!stillHere()) return;   // moved on while loading
+    if (shown != null && result.ok && readingsSignature(result.readings) === shown) return;   // nothing new: leave it as it is
+    if (shown != null && !result.ok) return;   // keep what is on screen rather than replacing it with an error
+    drawDay(result, shown == null ? enterFrom : 0);
+  }
+  function readingsSignature(rs) { return rs.length ? `${rs.length}:${rs[0].at}:${rs[rs.length - 1].at}` : "0"; }
+  function drawDayView(box, nav, result, enterFrom) {
     const readings = result.ok ? result.readings : [];
     const now = Date.now();
     const d = dayTimeline(state.history, readings, glucoseDay);
@@ -3770,6 +3783,72 @@ import { nearActivity, activitySkip, countNearActivity, breakfastByActivity, act
     } catch (e) { return { ok: false, reason: "Couldn't load your glucose history." }; }
   }
 
+  // ---- Day view readings (2.72.3) ----
+  // The Day view used to load a whole week (or more) through fetchStoredGlucoseReadings: a Nightscout catch-up, a count and
+  // several pages, all before drawing, with a 60-second memory cache. Now it asks only for the day on show (usually one page),
+  // and today also uses the last-24-hours store, so it can draw before any network request.
+  const dayReadingsCache = new Map();   // local midnight -> { readings, at }
+  const DAY_CACHE_TODAY_MS = 60_000, DAY_CACHE_PAST_MS = 30 * 60_000, DAY_PAGE = 1000, DAY_MAX_PAGES = 6;
+  const dayCoverageTried = new Set();
+  const dayCacheTtl = start => start === dayBounds(Date.now()).start ? DAY_CACHE_TODAY_MS : DAY_CACHE_PAST_MS;
+  function storeReadingsBetween(start, end) {
+    return glucoseStore.entries.filter(e => e.date >= start && e.date < end).map(e => ({ at: e.date, mgdl: e.sgv, direction: e.direction || null }));
+  }
+  /** What can be shown for this day without any network request: { ok, readings, fresh } or null. */
+  function dayReadingsNow(start, end) {
+    const c = dayReadingsCache.get(start);
+    if (c) return { ok: true, readings: c.readings, fresh: Date.now() - c.at < dayCacheTtl(start) };
+    for (const [days, w] of glucoseReadingsCache) {
+      if (Date.now() - w.at < GLUCOSE_CACHE_TTL_MS && w.at - days * 86400_000 <= start) return { ok: true, readings: w.readings.filter(r => r.at >= start && r.at < end), fresh: true };
+    }
+    if (start === dayBounds(Date.now()).start && nightscoutConfigured()) {
+      const rs = storeReadingsBetween(start, end);
+      if (rs.length) return { ok: true, readings: preferLiveReadings(rs).map(r => ({ at: r.at, mgdl: r.mgdl })), fresh: false };
+    }
+    return null;
+  }
+  async function queryDayRows(start, end) {
+    const rows = [];
+    for (let i = 0; i < DAY_MAX_PAGES; i++) {
+      const { data, error } = await supabaseClient.from("glucose_readings").select("at, mgdl, direction").eq("user_id", currentUser.id)
+        .gte("at", new Date(start).toISOString()).lt("at", new Date(end).toISOString()).order("at").range(i * DAY_PAGE, i * DAY_PAGE + DAY_PAGE - 1);
+      if (error) throw error;
+      rows.push(...(data || []));
+      if (!data || data.length < DAY_PAGE) break;
+    }
+    return rows.map(row => ({ at: new Date(row.at).getTime(), mgdl: row.mgdl, direction: row.direction }));
+  }
+  /** One day of readings: stored ones for that day, plus (for days the 24-hour store covers) the store's own. { ok, readings, reason } */
+  async function fetchDayReadings(start, end) {
+    if (!nightscoutConfigured()) return { ok: false, reason: "Set up Nightscout Sync first." };
+    const isToday = start === dayBounds(Date.now()).start;
+    const storeRefresh = isToday ? refreshGlucoseStore({ maxAgeMs: 45000 }).catch(() => null) : null;
+    const signedIn = !!(supabaseClient && currentUser);
+    let rows = [], dbOk = signedIn;
+    if (signedIn) {
+      try {
+        rows = await queryDayRows(start, end);
+        // Nothing stored for an earlier day: maybe the database never caught up that far back. Fill it once, then look again.
+        if (!rows.length && !isToday && !dayCoverageTried.has(start)) {
+          dayCoverageTried.add(start);
+          await ensureGlucoseCoverage(Math.ceil((Date.now() - start) / 3600_000) + 1);
+          rows = await queryDayRows(start, end);
+        }
+      } catch (e) { dbOk = false; }
+    }
+    if (storeRefresh) await storeRefresh;
+    const byAt = new Map(storeReadingsBetween(start, end).map(r => [r.at, r]));
+    for (const r of rows) byAt.set(r.at, r);
+    const merged = [...byAt.values()].filter(r => Number.isFinite(r.at)).sort((a, b) => a.at - b.at);
+    if (!dbOk && !(isToday && merged.length)) {
+      if (!signedIn) return { ok: false, signIn: true, reason: "Sign in to Cloud Sync to see glucose for earlier days." };
+      return { ok: false, reason: "Couldn't load your glucose history." };
+    }
+    const readings = preferLiveReadings(merged).map(r => ({ at: r.at, mgdl: r.mgdl }));
+    if (readings.length) dayReadingsCache.set(start, { readings, at: Date.now() });
+    return { ok: true, readings };
+  }
+
   // ---- Apple Health workouts (2.66.0, 2.66.1) ----
   // The Health Webhook iPhone app posts Apple Health data to the health-webhook function, which keeps each delivery in
   // the health_inbox table. Here we read only the workout part of deliveries we haven't seen, add each workout as an
@@ -3899,6 +3978,7 @@ import { nearActivity, activitySkip, countNearActivity, breakfastByActivity, act
     try { store.setItem(GLUCOSE_STORE_KEY, JSON.stringify({ entries: glucoseStore.entries, at: glucoseStore.at, fullAt: glucoseStore.fullAt })); } catch (e) { /* storage full or blocked: still works in memory */ }
   }
   function resetGlucoseStore() {
+    dayReadingsCache.clear();
     glucoseStore.entries = []; glucoseStore.at = 0; glucoseStore.fullAt = 0;
     try { store.removeItem(GLUCOSE_STORE_KEY); } catch (e) { /* nothing to do */ }
   }

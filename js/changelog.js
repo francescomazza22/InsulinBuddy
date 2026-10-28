@@ -2,6 +2,15 @@
 // summary can never drift. Bump CHANGELOG[0].version here (and CACHE_VERSION in sw.js) on every release.
 export const CHANGELOG = [
   {
+    version: "2.72.3",
+    summary: "Glucose > Day opens at once instead of showing \u201cLoading\u2026\u201d.",
+    changes: [
+      "Today is drawn straight away from the readings the app already keeps on the phone, then quietly topped up",
+      "Other days load only that day's readings (one request) instead of a whole week in several pieces",
+      "When you move to another day the date changes at once, and a day you've just looked at comes back instantly"
+    ]
+  },
+  {
     version: "2.72.2",
     summary: "Switching between Calculator, Insights and Settings, or between their tabs, now opens at the top.",
     changes: [

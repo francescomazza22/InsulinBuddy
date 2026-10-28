@@ -77,6 +77,7 @@ export function createBackend() {
       if (q.op === "select") {
         let rows = be.glucose.filter(r => Object.entries(q.filters || {}).every(([k, v]) => r[k] === v));
         if (q.gte) rows = rows.filter(r => r[q.gte.col] >= q.gte.val);
+        if (q.lt) rows = rows.filter(r => r[q.lt.col] < q.lt.val);
         if (q.countExact && q.headOnly) return { data: null, count: rows.length }; // matches real Supabase: head:true returns no rows, just the count
         if (q.orderBy) { const { col, ascending } = q.orderBy; rows = rows.slice().sort((a, b) => (a[col] < b[col] ? -1 : a[col] > b[col] ? 1 : 0) * (ascending ? 1 : -1)); }
         // Real Supabase/PostgREST enforces a project-level max-rows cap that a client .limit()
