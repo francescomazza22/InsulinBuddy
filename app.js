@@ -16,7 +16,7 @@ import { abstractSvg } from "./js/abstract-field.js";
 import { glucoseAxisTicks, percentile, dailyPatternBuckets, daysSpanned, estimatedA1c, extendedGlucoseStats, dailyStats, glucoseSummaryStats, timeInRangeBreakdown, glucoseGuideRows, TIME_IN_RANGE_BANDS } from "./js/glucose-stats.js";
 import { randomBytes, toB64, fromB64, deriveKey, encryptString, decryptString, isEncryptedPayload, exportKeyRaw, importKeyRaw } from "./js/crypto.js";
 import { LocalBackups, shouldAutoSnapshot } from "./js/backup.js";
-import { doseBadge, groupByDay, takeEntries, matchesQuery, recentDistinctMeals, mealLabel, dosingSummary, insulinStats, isBasalEntry, basalSlotForTime, basalSlotLabel, lastBasalDose, basalDoseCheck, makeBasalEntry, isNonMealEntry, PAGE_SIZE } from "./js/history.js";
+import { slotUsage, sortBySlotUsage, doseBadge, groupByDay, takeEntries, matchesQuery, recentDistinctMeals, mealLabel, dosingSummary, insulinStats, isBasalEntry, basalSlotForTime, basalSlotLabel, lastBasalDose, basalDoseCheck, makeBasalEntry, isNonMealEntry, PAGE_SIZE } from "./js/history.js";
 import { ACTIVITY_TYPES, INTENSITIES, DURATION_CHIPS, ACTIVITY_MAX_MINUTES, ACTIVITY_NAME_MAX, ACTIVITY_NOTE_MAX, isActivityEntry, isIntensity, activityLabel, intensityLabel, formatDuration as formatMinutes, activityCheck, makeActivityEntry, applyActivityEdit, lastActivity } from "./js/activity.js";
 import { createDialogs } from "./js/dialogs.js";
 import { installClearButtons } from "./js/clear-field.js";
@@ -524,7 +524,9 @@ import { nearActivity, activitySkip, countNearActivity, breakfastByActivity, act
       store.mustSet(STORAGE_KEY, JSON.stringify(s));
     }
   }
+  let slotUsageCache = null;   // the Calculator food order's counts per time slot (see slotUsageFor)
   async function saveState() {
+    slotUsageCache = null;   // history or ranges may have changed: the food order recounts on its next draw
     if (!stateFp) { stateFp = makeFingerprint(state); diag.log("warn", "state", "saveState ran before the change baseline existed"); }
     stateFp = stampChanges(state, stateFp);   // notice what changed since the last save
     await saveStateRaw(state, encryptionKey);
@@ -728,12 +730,44 @@ import { nearActivity, activitySkip, countNearActivity, breakfastByActivity, act
     return [...recipes, ...foods];
   }
 
+  // The time slot the food list is ordered for: a time-of-day range picked by hand on the ratio pill, else the one in
+  // force now. (An activity ratio has no time, so it leaves the order on the time of day.)
+  function foodOrderSlot() {
+    const manual = draft.manualRatioId && state.settings.timeRatios.find(r => r.id === draft.manualRatioId);
+    return manual || currentTimeRatio();
+  }
+  let foodOrderSlotId = null;
+  // Counting a long history takes a few tens of milliseconds, too slow to repeat on every keystroke in the search, so
+  // the counts (slotUsageCache, declared by saveState) are kept until something is saved, the history is replaced (a
+  // cloud pull) or the ranges change.
+  function slotUsageFor(slot) {
+    const key = `${slot ? slot.id : ""}|${state.history.length}|${JSON.stringify(state.settings.timeRatios)}`;
+    if (slotUsageCache && slotUsageCache.history === state.history && slotUsageCache.key === key) return slotUsageCache.counts;
+    const counts = slotUsage(state.history, state.settings.timeRatios, slot, ratioMatch);
+    slotUsageCache = { history: state.history, key, counts };
+    return counts;
+  }
+  // Redraws the list only when the slot has changed (a new range began, or one was picked by hand).
+  function refreshFoodOrderForSlot() {
+    const s = foodOrderSlot();
+    if ((s && s.id) !== foodOrderSlotId) renderFoodPickList();
+  }
+
   function renderFoodPickList() {
     const q = searchInput.value.trim().toLowerCase();
     let items = pickableItems();
     if (q) items = items.filter(i => i.name.toLowerCase().includes(q));
-    items.sort((a, b) => (b.usageCount || 0) - (a.usageCount || 0) || a.name.localeCompare(b.name));
-    items = items.slice(0, 40);
+    // Most eaten in this time slot first (Morning, Lunch…), then most eaten overall, then A to Z.
+    const slot = foodOrderSlot();
+    foodOrderSlotId = slot ? slot.id : null;
+    const counts = slotUsageFor(slot);
+    items = sortBySlotUsage(items, counts).slice(0, 40);
+    const hint = el("cc-food-order");
+    if (hint) {
+      const show = !!slot && counts.size > 0 && items.length > 1;
+      hint.hidden = !show;
+      hint.textContent = show ? `Most eaten in ${slot.name} (${slot.start}–${slot.end}) first` : "";
+    }
 
     foodListBox.innerHTML = "";
     items.forEach(item => {
@@ -2995,6 +3029,7 @@ import { nearActivity, activitySkip, countNearActivity, breakfastByActivity, act
     draft.manualRatioId = btn.dataset.id === "__auto__" ? null : btn.dataset.id;
     ratioPicker.hidden = true;
     recompute();
+    refreshFoodOrderForSlot();
     saveDraftLocal();
   });
   document.addEventListener("click", () => { ratioPicker.hidden = true; });
@@ -3071,6 +3106,7 @@ import { nearActivity, activitySkip, countNearActivity, breakfastByActivity, act
     }
     renderMealItems();
     recompute();
+    refreshFoodOrderForSlot();   // a range picked by hand before the app closed orders the list again
   }
 
   // Belt-and-suspenders for iOS: per-action saves above should already cover
@@ -7279,6 +7315,7 @@ import { nearActivity, activitySkip, countNearActivity, breakfastByActivity, act
     const everyThirtySeconds = () => {
       if (document.hidden) return;   // nothing is showing, so nothing needs redrawing or fetching; coming back runs it straight away (below)
       if (!draft.manualRatioId) recompute();
+      refreshFoodOrderForSlot();   // a new time range has begun: its usual foods move to the top
       if (!el("view-settings").hidden && !panelRatios.hidden) renderTimeline();
       if (!el("view-calculator").hidden) renderActivePanel();
       if (currentUser && !cloudSyncPending && !document.hidden && ++tick % 4 === 0) pullAndMerge("periodic").catch(() => {});

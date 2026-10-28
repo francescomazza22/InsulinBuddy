@@ -218,3 +218,35 @@ export function doseBadge(entry) {
   if (corr < 0) return { kind: "meal", main: `${fmtU(total)} u`, sub: `${fmtU(meal)} meal \u2212 ${fmtU(-corr)} cut` };
   return { kind: "meal", main: `${fmtU(total)} u`, sub: "" };
 }
+
+// ---------------------------------------------------------------- food order by time slot
+// How many logged meals in a time slot (one of the time-of-day ratio ranges) included each food or recipe, keyed
+// "food:<id>" / "recipe:<id>" like the Calculator's pick list. A meal counts for the slot whose range covered the
+// moment it was logged, judged with the ranges as they are set now (so renaming or moving a range re-sorts history
+// with it), including day-limited ranges. A food eaten twice in one meal counts once. Entries without food (basal,
+// activity, corrections) are skipped.
+export function slotUsage(history, brackets, slot, matcher) {
+  const counts = new Map();
+  if (!slot || !Array.isArray(history) || !history.length) return counts;
+  for (const e of history) {
+    if (!e || !Array.isArray(e.items) || !e.items.length || isBasalEntry(e) || isActivityEntry(e)) continue;
+    const d = new Date(e.ts);
+    if (isNaN(d)) continue;
+    if (matcher(brackets, d.getHours() * 60 + d.getMinutes(), d.getDay()) !== slot) continue;
+    const seen = new Set();
+    for (const i of e.items) {
+      if (!i || (i.refType !== "food" && i.refType !== "recipe") || i.refId == null) continue;
+      const key = `${i.refType}:${i.refId}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      counts.set(key, (counts.get(key) || 0) + 1);
+    }
+  }
+  return counts;
+}
+
+// The Calculator's food order: most eaten in this time slot first, then most eaten overall, then A to Z.
+export function sortBySlotUsage(items, counts) {
+  const c = i => (counts && counts.get(i.id)) || 0;
+  return items.slice().sort((a, b) => c(b) - c(a) || (b.usageCount || 0) - (a.usageCount || 0) || a.name.localeCompare(b.name));
+}

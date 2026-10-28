@@ -2,6 +2,17 @@
 // summary can never drift. Bump CHANGELOG[0].version here (and CACHE_VERSION in sw.js) on every release.
 export const CHANGELOG = [
   {
+    version: "2.69.0",
+    summary: "The Calculator's food list puts what you usually eat at this time of day first.",
+    changes: [
+      "Foods and recipes are ordered by how many of your meals in the current time range (Morning, Lunch… from your ratio settings) included them, then by how often you use them overall",
+      "Pick a range by hand on the ratio pill and the list follows that range; back on automatic it follows the clock, and re-orders by itself when a new range begins",
+      "A line above the list says which range it is ordered for, for example \u201cMost eaten in Morning (06:00\u201311:00) first\u201d",
+      "The counts beside each food still show your total uses",
+      "Doses are calculated exactly as before"
+    ]
+  },
+  {
     version: "2.68.8",
     summary: "Your theme colours are back as they were by day; at night they are the same colours, darker.",
     changes: [

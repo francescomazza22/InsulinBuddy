@@ -345,6 +345,7 @@ input.meal-item__grams-input:focus { outline: none; }
 .add-row__btn { width: 40px; flex-shrink: 0; border: none; border-radius: var(--radius-s); background: var(--acc-fill); color: var(--on-acc); cursor: pointer; display: flex; align-items: center; justify-content: center; }
 .add-row__btn svg { width: 16px; height: 16px; }
 
+.food-pick-list__hint { margin: 0 0 var(--space-2xs); font-size: var(--fs-xs); color: var(--ink-soft); }
 .food-pick-list { display: flex; flex-direction: column; gap: 5px; margin-bottom: var(--space-l); max-height: 420px; overflow-y: auto; -webkit-overflow-scrolling: touch; }
 /* Phones keep the fixed 420px above. On wider screens (tablet / computer) the
    list grows to use the window height: viewport minus the two fixed bottom bars
