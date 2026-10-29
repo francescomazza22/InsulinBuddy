@@ -2,6 +2,16 @@
 // summary can never drift. Bump CHANGELOG[0].version here (and CACHE_VERSION in sw.js) on every release.
 export const CHANGELOG = [
   {
+    version: "2.74.0",
+    summary: "Swap foods: change what you eat after dosing, and see how much of one food keeps the carbs matching your bolus.",
+    changes: [
+      "Open a meal in Insights > Meals and tap Swap foods. It shows the carbs your insulin covered",
+      "Change the grams, add a food or remove one, then tap Adjust on the food that should make up the difference: it tells you how much of it to have (for example \u201cHave 32 g of Bread\u201d)",
+      "If the other foods already have more carbs than the bolus covered, it says by how much, so you know to have less of them",
+      "Update meal saves the new foods. Total carbs, insulin and ratio stay exactly as they were, so nothing new is sent to Nightscout; Undo puts the meal back"
+    ]
+  },
+  {
     version: "2.73.0",
     summary: "The Now tab's insulin and carbs chart now shows both in glucose terms, so you can see which one is winning.",
     changes: [

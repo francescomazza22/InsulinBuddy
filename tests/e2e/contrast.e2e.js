@@ -103,7 +103,9 @@ const screens = [
   ["settings data", async dev => { await dev.tab("settings"); await dev.click('#settings-segmented [data-seg="data"]'); }],
   ["insights glucose stats", async dev => { await dev.tab("history"); await dev.click('#history-segmented [data-seg="glucose"]'); await dev.click('[data-glview="stats"]'); await sleep(400); }],
   ["insights glucose day", async dev => { await dev.tab("history"); await dev.click('#history-segmented [data-seg="glucose"]'); await dev.click('[data-glview="day"]'); await sleep(500); }],
-  ["edit meal sheet", async dev => { await dev.tab("history"); await dev.click('#history-segmented [data-seg="log"]'); await dev.eval(`document.querySelector('[data-edit="m1"]').click()`); await sleep(500); }]
+  ["swap foods sheet", async dev => { await dev.tab("history"); await dev.click('#history-segmented [data-seg="log"]'); await dev.eval(`document.querySelector('[data-swap="m1"]').click()`); await sleep(400); await dev.eval(`document.querySelector('[data-adjust="0"]').click()`); await sleep(200); }],
+  ["swap foods sheet, over", async dev => { await dev.eval(`(() => { const s = document.getElementById("sw-search"); s.value = "pane"; s.dispatchEvent(new Event("input", { bubbles: true })); })()`); await sleep(150); await dev.eval(`document.querySelector(".swap-result").click()`); await sleep(150); await dev.eval(`(() => { const i = document.querySelector('.swap-row__grams[data-idx="1"]'); i.value = "200"; i.dispatchEvent(new Event("input", { bubbles: true })); })()`); await sleep(150); }],
+  ["edit meal sheet", async dev => { await dev.eval(`document.getElementById("sw-cancel") && document.getElementById("sw-cancel").click()`); await sleep(400); await dev.tab("history"); await dev.click('#history-segmented [data-seg="log"]'); await dev.eval(`document.querySelector('[data-edit="m1"]').click()`); await sleep(500); }]
 ];
 
 const now = Date.now();

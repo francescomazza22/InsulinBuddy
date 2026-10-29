@@ -14,6 +14,7 @@ import { CHANGELOG } from "./js/changelog.js";
 import { fillMissingFoodDetails, stillBlank, applyPublishedGi } from "./js/food-reference.js";
 import { fieldSvg } from "./js/doodle-field.js";
 import { abstractSvg } from "./js/abstract-field.js";
+import { solveSwap, carbsForGrams, canAdjust, setGrams } from "./js/swap.js";
 import { glucoseAxisTicks, percentile, dailyPatternBuckets, daysSpanned, estimatedA1c, extendedGlucoseStats, dailyStats, glucoseSummaryStats, timeInRangeBreakdown, glucoseGuideRows, TIME_IN_RANGE_BANDS, preferLiveReadings, preferLiveEntries } from "./js/glucose-stats.js";
 import { randomBytes, toB64, fromB64, deriveKey, encryptString, decryptString, isEncryptedPayload, exportKeyRaw, importKeyRaw } from "./js/crypto.js";
 import { LocalBackups, shouldAutoSnapshot } from "./js/backup.js";
@@ -5090,6 +5091,7 @@ import { nearActivity, activitySkip, countNearActivity, breakfastByActivity, act
               }).join("")}
               ${ratioWasApplied(entry) ? `<p class="history-entry__ratio">Ratio used: ${escapeHtml(entry.ratioLabel || "")} ${ratioText(round1(entry.ratioValue))}</p>` : ""}
               ${entry.cappedFrom ? `<p class="history-entry__cap">Capped at your maximum dose (calculated ${entry.cappedFrom}u)</p>` : ""}
+              ${canSwapFoods(entry) ? `<button type="button" class="history-entry__swap" data-swap="${escapeAttr(entry.id)}"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M7 7h12m0 0l-3.5-3.5M19 7l-3.5 3.5M17 17H5m0 0l3.5-3.5M5 17l3.5 3.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>Swap foods</button>` : ""}
               <div class="history-entry__row-actions">
                 <button data-use="${escapeAttr(entry.id)}" type="button">Use Again</button>
                 <button data-edit="${escapeAttr(entry.id)}" type="button">Edit</button>
@@ -5930,6 +5932,12 @@ import { nearActivity, activitySkip, countNearActivity, breakfastByActivity, act
       if (entry) useMealAgain(entry);
       return;
     }
+    const swapBtn = e.target.closest("[data-swap]");
+    if (swapBtn) {
+      const entry = state.history.find(h => h.id === swapBtn.dataset.swap);
+      if (entry) openSwapSheet(entry);
+      return;
+    }
     const editBtn = e.target.closest("[data-edit]");
     if (editBtn) {
       const entry = state.history.find(h => h.id === editBtn.dataset.edit);
@@ -6292,6 +6300,179 @@ import { nearActivity, activitySkip, countNearActivity, breakfastByActivity, act
         for (const k of Object.keys(entry)) delete entry[k];
         Object.assign(entry, before);
         state.history.sort((a, b) => b.ts - a.ts);
+        saveState(); queueNsUpdate(entry);
+        renderHistory(); renderActivePanel(); renderRecentMeals();
+      });
+    });
+  }
+
+  // ================= Swap foods (2.74.0) =================
+  // For a meal already injected for: change the foods and let ONE food the person picks take up the carbs that are left,
+  // so the total still matches what the bolus covered. No dose is worked out (the insulin is already taken); the maths is
+  // js/swap.js. "Update meal" replaces the foods; total carbs, insulin and ratio stay exactly as they were.
+  function canSwapFoods(entry) {
+    return !!entry && !isBasalEntry(entry) && !isActivityEntry(entry) && !entry.noInsulin && !entry.carbsUnknown &&
+      entry.mealType !== "correction" && (Number(entry.mealDose) || 0) > 0 && (Number(entry.totalCarbs) || 0) > 0 &&
+      Array.isArray(entry.items) && entry.items.some(canAdjust);
+  }
+  function openSwapSheet(entry) {
+    const target = Number(entry.totalCarbs) || 0;
+    const units = round1(Number(entry.mealDose) || 0);
+    let items = entry.items.map(i => ({ ...i }));
+    let adjustIdx = -1;
+    let solved = null;
+    const backdrop = document.createElement("div");
+    backdrop.className = "sheet-backdrop";
+    backdrop.innerHTML = `
+      <div class="sheet swap-sheet">
+        <div class="sheet-head">
+          <h2>Swap foods</h2>
+          <button class="sheet-close" id="sw-close" type="button" aria-label="Close">
+            <svg viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+          </button>
+        </div>
+        <p class="swap-sheet__target">Your <b>${units} u</b> covered <b>${round1(target)} g carbs</b>.</p>
+        <p class="panel-card__hint swap-sheet__hint">Change the amounts or add a food, then tap <b>Adjust</b> on the food that should make up the difference. The insulin stays as it is.</p>
+        <div id="sw-items" class="swap-list"></div>
+        <div class="field swap-add">
+          <label for="sw-search">Add a food</label>
+          <input type="search" id="sw-search" placeholder="Search your foods" autocomplete="off" enterkeyhint="search">
+          <div id="sw-results" class="swap-results" hidden></div>
+        </div>
+        <p class="swap-status" id="sw-status" role="status" aria-live="polite"></p>
+        <div class="sheet-actions">
+          <button class="btn btn--secondary" id="sw-cancel" type="button">Close</button>
+          <button class="btn btn--primary" id="sw-save" type="button" disabled>Update meal</button>
+        </div>
+      </div>`;
+    openSheet(backdrop);
+    const listEl = backdrop.querySelector("#sw-items"), statusEl = backdrop.querySelector("#sw-status"), saveBtn = backdrop.querySelector("#sw-save");
+
+    function solve() {
+      solved = adjustIdx >= 0 ? solveSwap({ target, items, adjustIdx }) : null;
+      return solved;
+    }
+    function shown() { return solved && solved.status !== "none" ? solved.items : items; }
+    function renderRows() {
+      const rows = shown();
+      listEl.innerHTML = rows.map((it, idx) => {
+        const isAdj = idx === adjustIdx, adjustable = canAdjust(it);
+        const per = it.carbsPer100g != null ? `${round1(it.carbsPer100g)} g carbs / 100 g` : "carbs as entered";
+        return `<div class="swap-row${isAdj ? " is-adjusting" : ""}" data-idx="${idx}">
+            <div class="swap-row__main"><span class="swap-row__name">${escapeHtml(it.name)}</span><span class="swap-row__per">${escapeHtml(per)}</span></div>
+            <div class="swap-row__amt">
+              <input class="swap-row__grams" type="text" inputmode="decimal" autocomplete="off" aria-label="Grams of ${escapeAttr(it.name)}" data-idx="${idx}" value="${escapeAttr(String(Math.round(Number(it.grams) || 0)))}"${isAdj || it.carbsPer100g == null ? " readonly" : ""}><span class="swap-row__g">g</span>
+            </div>
+            <span class="swap-row__carbs" data-carbs="${idx}">${round1(Number(it.carbs) || 0)} g</span>
+            <button type="button" class="swap-row__adjust${isAdj ? " is-on" : ""}" data-adjust="${idx}" aria-pressed="${isAdj}"${adjustable ? "" : ` disabled title="This food has no carbs to adjust with"`}>Adjust</button>
+            <button type="button" class="swap-row__remove" data-remove="${idx}" aria-label="Remove ${escapeAttr(it.name)}">
+              <svg viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+            </button>
+          </div>`;
+      }).join("");
+    }
+    function renderStatus() {
+      const rows = shown();
+      const total = round1(rows.reduce((s, i) => s + (Number(i.carbs) || 0), 0));
+      const changed = JSON.stringify(rows.map(i => [i.name, Math.round(Number(i.grams) || 0)])) !== JSON.stringify(entry.items.map(i => [i.name, Math.round(Number(i.grams) || 0)]));
+      let html, ok = false;
+      if (!solved || solved.status === "none") {
+        const diff = round1(total - target);
+        html = `Now <b>${total} g carbs</b>${diff === 0 ? ", the same as your bolus covered." : `, ${Math.abs(diff)} g ${diff > 0 ? "more" : "less"} than your bolus covered.`} Tap <b>Adjust</b> on the food that should make up the difference.`;
+      } else if (solved.status === "over") {
+        const name = escapeHtml(rows[adjustIdx].name);
+        html = `Even with no ${name}, the other foods have <b>${round1(solved.others)} g carbs</b>, ${round1(solved.over)} g more than your ${units} u covered. Have less of them, or pick a different food to adjust.`;
+        statusEl.className = "swap-status swap-status--warn";
+      } else {
+        const it = rows[adjustIdx];
+        html = solved.adjustGrams === 0
+          ? `Leave out the ${escapeHtml(it.name)}: the other foods already make <b>${round1(target)} g carbs</b>.`
+          : `Have <b>${solved.adjustGrams} g of ${escapeHtml(it.name)}</b>. Total <b>${round1(target)} g carbs</b>, the same as your ${units} u covered.`;
+        ok = true;
+      }
+      if (!solved || solved.status !== "over") statusEl.className = "swap-status" + (ok ? " swap-status--ok" : "");
+      statusEl.innerHTML = html;
+      saveBtn.disabled = !(ok && changed);
+    }
+    function refresh({ rows = true } = {}) {
+      solve();
+      if (rows) renderRows();
+      else shown().forEach((it, idx) => {   // typing in a field: update the figures without redrawing (keeps the keyboard up)
+        const c = listEl.querySelector(`[data-carbs="${idx}"]`); if (c) c.textContent = `${round1(Number(it.carbs) || 0)} g`;
+        if (idx === adjustIdx) { const g = listEl.querySelector(`.swap-row__grams[data-idx="${idx}"]`); if (g) g.value = String(Math.round(Number(it.grams) || 0)); }
+      });
+      renderStatus();
+    }
+
+    listEl.addEventListener("input", e => {
+      const inp = e.target.closest(".swap-row__grams");
+      if (!inp || inp.readOnly) return;
+      const idx = Number(inp.dataset.idx), it = items[idx];
+      const g = parseDecimalInput(inp.value);
+      setGrams(it, Number.isFinite(g) ? g : 0);
+      it.carbs = carbsForGrams(it, it.grams);
+      refresh({ rows: false });
+    });
+    listEl.addEventListener("click", e => {
+      const a = e.target.closest("[data-adjust]");
+      if (a) { const idx = Number(a.dataset.adjust); if (adjustIdx >= 0 && solved && solved.status !== "none") items = solved.items; adjustIdx = adjustIdx === idx ? -1 : idx; refresh(); return; }
+      const r = e.target.closest("[data-remove]");
+      if (r) {
+        if (adjustIdx >= 0 && solved && solved.status !== "none") items = solved.items;
+        const idx = Number(r.dataset.remove);
+        items.splice(idx, 1);
+        adjustIdx = adjustIdx === idx ? -1 : adjustIdx > idx ? adjustIdx - 1 : adjustIdx;
+        refresh();
+      }
+    });
+
+    // Adding a food: the same foods and recipes the Calculator offers, matched on the name.
+    const searchEl = backdrop.querySelector("#sw-search"), resultsEl = backdrop.querySelector("#sw-results");
+    function renderResults() {
+      const q = searchEl.value.trim().toLowerCase();
+      if (!q) { resultsEl.hidden = true; resultsEl.innerHTML = ""; return; }
+      const found = pickableItems().filter(p => p.carbsPer100g != null && p.name.toLowerCase().includes(q))
+        .sort((a, b) => (b.name.toLowerCase().startsWith(q) - a.name.toLowerCase().startsWith(q)) || (b.usageCount - a.usageCount) || a.name.localeCompare(b.name))
+        .slice(0, 6);
+      resultsEl.hidden = false;
+      resultsEl.innerHTML = found.length
+        ? found.map(p => `<button type="button" class="swap-result" data-pick="${escapeAttr(p.id)}"><span>${escapeHtml(p.name)}</span><span class="swap-result__per">${round1(p.carbsPer100g)} g / 100 g</span></button>`).join("")
+        : `<p class="panel-card__hint">No food matches “${escapeHtml(searchEl.value.trim())}”.</p>`;
+    }
+    searchEl.addEventListener("input", renderResults);
+    resultsEl.addEventListener("click", e => {
+      const b = e.target.closest("[data-pick]");
+      if (!b) return;
+      const p = pickableItems().find(x => x.id === b.dataset.pick);
+      if (!p) return;
+      if (adjustIdx >= 0 && solved && solved.status !== "none") items = solved.items;
+      const [type, id] = p.id.split(":");
+      items.push({ refType: type, refId: id, name: p.name, grams: 0, quantity: null, unitLabel: null, gramsPerUnit: p.unitBased ? p.gramsPerUnit : null,
+        carbsPer100g: p.carbsPer100g, kcalPer100g: p.kcalPer100g, gi: p.gi || null, carbs: 0, kcal: p.kcalPer100g ? 0 : null });
+      searchEl.value = ""; renderResults();
+      refresh();
+      const inp = listEl.querySelector(`.swap-row__grams[data-idx="${items.length - 1}"]`);
+      if (inp && !inp.readOnly) { inp.value = ""; inp.focus(); }
+    });
+
+    refresh();
+    backdrop.addEventListener("click", e => { if (e.target === backdrop || e.target.id === "sw-cancel" || e.target.closest("#sw-close")) closeSheet(backdrop); });
+    saveBtn.addEventListener("click", () => {
+      if (!solved || solved.status !== "ok") return;
+      const before = structuredClone(entry);
+      const newItems = solved.items.filter(i => (Number(i.grams) || 0) > 0 || (i.carbsPer100g == null && (Number(i.carbs) || 0) > 0));
+      entry.items = newItems;
+      // Carbs and insulin stay exactly as they were: the bolus is already taken and still covers the same carbs.
+      entry.totalCarbs = before.totalCarbs;
+      entry.totalKcal = Math.round(newItems.reduce((s, i) => s + (Number(i.kcal) || 0), 0));
+      entry.glycemicLoad = compoundGiInfo(newItems);
+      saveState();
+      queueNsUpdate(entry);
+      renderHistory(); renderActivePanel(); renderRecentMeals();
+      closeSheet(backdrop);
+      showUndoToast("Meal updated with the new foods", () => {
+        for (const k of Object.keys(entry)) delete entry[k];
+        Object.assign(entry, before);
         saveState(); queueNsUpdate(entry);
         renderHistory(); renderActivePanel(); renderRecentMeals();
       });

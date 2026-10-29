@@ -535,6 +535,12 @@ html[data-theme="dark"] .dose-pill--warn { color: #FBBF24; border-color: #FBBF24
 .history-entry__item-unit { font-size: var(--fs-xs); font-weight: 500; }
 .history-entry__item-qty { color: var(--ink-soft); opacity: 0.75; font-size: var(--fs-xs); flex-shrink: 0; }
 .history-entry__item-carbs { font-weight: 600; color: var(--green); flex-shrink: 0; min-width: 38px; text-align: right; }
+button.history-entry__swap {
+  display: inline-flex; align-items: center; gap: 6px; margin-top: var(--space-xs); padding: 7px 14px; min-height: 36px;
+  border: 1.5px solid var(--line); border-radius: var(--radius-pill); background: var(--surface); color: var(--ink);
+  font-family: var(--font-ui); font-size: var(--fs-s); font-weight: 600; cursor: pointer;
+}
+button.history-entry__swap svg { width: 16px; height: 16px; color: var(--acc-1); }
 .history-entry__row-actions { display: flex; gap: var(--space-s); margin-top: var(--space-s); }
 /* On touch screens (iPhone, iPad) Use again / Edit / Delete live behind the swipe, so the opened meal doesn't repeat them.
    A mouse can't swipe, so on a PC they stay here. */
@@ -877,6 +883,52 @@ html[data-bg-pattern="abstract"] body { background-image: url("assets/patterns/p
 html[data-bg-pattern="abstract"][data-theme="dark"] body { background-image: url("assets/patterns/pattern-abstract-dark.svg"); }
 .pattern-card__preview--abstract { background-image: url("assets/patterns/pattern-abstract-light.svg"); background-size: 130px; }
 html[data-theme="dark"] .pattern-card__preview--abstract { background-image: url("assets/patterns/pattern-abstract-dark.svg"); }
+
+/* ================= Swap foods sheet (2.74.0) ================= */
+.swap-sheet__target { margin: 0 0 var(--space-xs); font-size: var(--fs-m); color: var(--ink); }
+.swap-sheet__hint { margin: 0; line-height: 1.4; }
+.swap-list { display: flex; flex-direction: column; gap: var(--space-2xs); margin: var(--space-s) 0; }
+.swap-row {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto auto auto auto; align-items: center; gap: var(--space-2xs);
+  padding: var(--space-2xs) var(--space-xs); border: 1.5px solid var(--line); border-radius: var(--radius-s); background: var(--surface);
+}
+.swap-row.is-adjusting { border-color: var(--acc-1); }
+.swap-row__main { display: flex; flex-direction: column; min-width: 0; }
+.swap-row__name { font-weight: 600; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.swap-row__per { font-size: var(--fs-2xs); color: var(--ink-soft); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.swap-row__amt { display: flex; align-items: center; gap: 3px; }
+input.swap-row__grams { width: 58px; height: 36px; min-height: 0; padding: 0 8px; font-size: 16px; text-align: right; border: 1.5px solid var(--line); border-radius: var(--radius-s); background: var(--surface); color: var(--ink); font-family: var(--font-ui); font-variant-numeric: tabular-nums; }
+input.swap-row__grams[readonly] { border-color: transparent; background: transparent; font-weight: 700; }
+.swap-row.is-adjusting input.swap-row__grams { color: var(--acc-1); }
+.swap-row__g { font-size: var(--fs-xs); color: var(--ink-soft); }
+.swap-row__carbs { min-width: 46px; text-align: right; font-size: var(--fs-xs); color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+button.swap-row__adjust {
+  appearance: none; border: 1.5px solid var(--line); background: transparent; color: var(--ink); border-radius: var(--radius-pill);
+  padding: 5px 10px; font-size: var(--fs-xs); font-weight: 600; font-family: var(--font-ui); cursor: pointer; min-height: 32px;
+}
+button.swap-row__adjust.is-on { background: var(--acc-fill); border-color: var(--acc-fill); color: var(--on-acc); }
+button.swap-row__adjust:disabled { opacity: 0.4; cursor: default; }
+button.swap-row__remove { background: none; border: none; color: var(--ink-soft); cursor: pointer; padding: 3px; width: 26px; height: 26px; }
+button.swap-row__remove svg { width: 18px; height: 18px; }
+.swap-add { margin-top: var(--space-xs); }
+.swap-add input[type="search"] { width: 100%; padding: 12px 14px; border: 1.5px solid var(--line); border-radius: var(--radius-s); font-size: 16px; background: var(--surface); color: var(--ink); font-family: var(--font-ui); }
+.swap-results { display: flex; flex-direction: column; margin-top: var(--space-2xs); border: 1.5px solid var(--line); border-radius: var(--radius-s); overflow: hidden; }
+.swap-results .panel-card__hint { margin: var(--space-xs); }
+button.swap-result {
+  display: flex; justify-content: space-between; align-items: center; gap: var(--space-xs); padding: 11px 14px; min-height: 44px;
+  background: var(--surface); color: var(--ink); border: none; border-bottom: 1px solid var(--line); text-align: left;
+  font-size: var(--fs-s); font-family: var(--font-ui); cursor: pointer;
+}
+button.swap-result:last-child { border-bottom: none; }
+.swap-result__per { color: var(--ink-soft); font-size: var(--fs-xs); white-space: nowrap; }
+.swap-status { margin: var(--space-s) 0; padding: var(--space-xs) var(--space-s); border-radius: var(--radius-s); background: var(--surface); border: 1.5px solid var(--line); color: var(--ink); font-size: var(--fs-s); line-height: 1.4; }
+.swap-status--ok { border-color: var(--green); }
+.swap-status--warn { border-color: var(--amber); }
+@media (max-width: 380px) {
+  .swap-row { gap: 4px; padding-left: var(--space-2xs); padding-right: 2px; }
+  .swap-row__carbs { min-width: 38px; }
+  button.swap-row__adjust { padding: 5px 8px; }
+}
 
 /* ================= RESPONSIVE LAYOUT =================
    under 700px   Phone. The original single column with the tab bar along the bottom. Nothing in this block touches it.
