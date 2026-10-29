@@ -2,6 +2,16 @@
 // summary can never drift. Bump CHANGELOG[0].version here (and CACHE_VERSION in sw.js) on every release.
 export const CHANGELOG = [
   {
+    version: "2.75.0",
+    summary: "Calculator: a slim bar at the bottom of the dose card shows today's carbs against your average day.",
+    changes: [
+      "\u201cToday 90 g\u201d on the left, \u201cavg 180 g\u201d on the right, and a thin bar that fills as the day goes on",
+      "The meal you're putting together shows as \u201c+46\u201d and a lighter piece of the bar, so you can see where it takes you before logging",
+      "The average is your last 14 days with meals, today left out (as in Trends). Basal and activities don't count; carbs for lows do",
+      "Tap it to open Trends. It stays hidden until there's an earlier day to compare with"
+    ]
+  },
+  {
     version: "2.74.0",
     summary: "Swap foods: change what you eat after dosing, and see how much of one food keeps the carbs matching your bolus.",
     changes: [

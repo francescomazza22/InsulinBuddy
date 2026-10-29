@@ -14,6 +14,7 @@ import { CHANGELOG } from "./js/changelog.js";
 import { fillMissingFoodDetails, stillBlank, applyPublishedGi } from "./js/food-reference.js";
 import { fieldSvg } from "./js/doodle-field.js";
 import { abstractSvg } from "./js/abstract-field.js";
+import { dailyCarbsSummary, dailyCarbsBar } from "./js/daily-carbs.js";
 import { solveSwap, carbsForGrams, canAdjust, setGrams } from "./js/swap.js";
 import { glucoseAxisTicks, percentile, dailyPatternBuckets, daysSpanned, estimatedA1c, extendedGlucoseStats, dailyStats, glucoseSummaryStats, timeInRangeBreakdown, glucoseGuideRows, TIME_IN_RANGE_BANDS, preferLiveReadings, preferLiveEntries } from "./js/glucose-stats.js";
 import { randomBytes, toB64, fromB64, deriveKey, encryptString, decryptString, isEncryptedPayload, exportKeyRaw, importKeyRaw } from "./js/crypto.js";
@@ -2906,7 +2907,29 @@ import { nearActivity, activitySkip, countNearActivity, breakfastByActivity, act
   bind("active-panel", "click", () => openActiveDetailSheet("now"));
   bind("cc-live-glucose", "click", () => openActiveDetailSheet("glucose"));
 
+  // ---- today's carbs against the usual day (2.75.0): a slim bar at the bottom of the dose card ----
+  // Logged carbs fill the bar, the meal being put together shows lighter on top; the end of the bar is the average day
+  // (last 14 complete days with something logged, as in Trends). Hidden until there is an earlier day to compare with.
+  function renderDayCarbs() {
+    const box = el("cc-day-carbs");
+    if (!box) return;
+    const { today, avg, daysUsed } = dailyCarbsSummary(state.history, Date.now());   // one pass over the log: well under a millisecond
+    if (avg == null || !(avg > 0)) { box.hidden = true; return; }
+    const draftCarbs = draft.eatingOutOn ? 0 : Math.max(0, totalCarbs());
+    const bar = dailyCarbsBar({ today, draft: draftCarbs, avg });
+    box.hidden = false;
+    el("cc-day-carbs-today").innerHTML = `Today <b>${Math.round(today)} g</b>${draftCarbs > 0 ? ` <span class="day-carbs__plus">+${Math.round(draftCarbs)}</span>` : ""}`;
+    el("cc-day-carbs-avg").textContent = `avg ${Math.round(avg)} g`;
+    el("cc-day-carbs-fill").style.width = `${(bar.logged * 100).toFixed(1)}%`;
+    const d = el("cc-day-carbs-draft");
+    d.style.left = `${(bar.logged * 100).toFixed(1)}%`; d.style.width = `${(bar.draft * 100).toFixed(1)}%`;
+    box.classList.toggle("is-over", bar.over);
+    box.setAttribute("aria-label", `Carbs today: ${Math.round(today)} grams logged${draftCarbs > 0 ? `, plus ${Math.round(draftCarbs)} in this meal` : ""}. Your average day over the last ${daysUsed} day${daysUsed === 1 ? "" : "s"} with meals: ${Math.round(avg)} grams. Opens Trends.`);
+  }
+  bind("cc-day-carbs", "click", () => { showView("history"); const b = document.querySelector('#history-segmented [data-seg="trends"]'); if (b) b.click(); });
+
   function renderActivePanel() {
+    renderDayCarbs();
     const panel = el("active-panel");
     const { iob, cob, iobClearAt, cobClearAt } = calcActiveInsulinAndCarbs();
     if (iob <= 0 && cob <= 0) { panel.hidden = true; return; }
@@ -2934,6 +2957,7 @@ import { nearActivity, activitySkip, countNearActivity, breakfastByActivity, act
     // ratio-based formula are both bypassed in favor of the insulin dose entered directly.
     const carbs = draft.eatingOutOn ? 0 : totalCarbs();
     carbsPill.textContent = draft.eatingOutOn ? "Carbs not logged" : `${round1(carbs)}g Carbs`;
+    renderDayCarbs();
 
     const ratioEntry = activeRatioEntry();
     ratioValueLabel.textContent = ratioEntry ? `${ratioText(ratioEntry.ratio)}` : "—";

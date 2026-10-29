@@ -190,6 +190,23 @@ input:focus-visible, select:focus-visible, button:focus-visible { outline: 2px s
 .dose-card__value-row { display: flex; align-items: center; justify-content: space-between; gap: var(--space-xs); margin-bottom: var(--dose-gap); }
 .dose-card__value { display: flex; align-items: baseline; gap: var(--space-2xs); font-family: var(--font-display); font-size: calc(1.55 * var(--rem)); line-height: 1; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
 .dose-card__unit { font-family: var(--font-ui); font-size: var(--fs-s); font-weight: 500; color: rgba(255,255,255,0.82); }
+/* Today's carbs against the average day (2.75.0): one quiet line at the bottom of the dose card. */
+button.day-carbs {
+  display: flex; align-items: center; gap: var(--space-xs); width: 100%; margin: var(--space-s) 0 0; padding: 4px 0 0;
+  background: none; border: none; color: rgba(255,255,255,0.88); font-family: var(--font-ui); font-size: var(--fs-xs);
+  font-variant-numeric: tabular-nums; cursor: pointer; text-align: left; -webkit-tap-highlight-color: transparent;
+}
+button.day-carbs[hidden] { display: none; }
+.day-carbs__today, .day-carbs__avg { white-space: nowrap; flex-shrink: 0; }
+.day-carbs__today b { font-weight: 700; color: #fff; }
+.day-carbs__plus { color: #fff; }
+.day-carbs__bar { position: relative; flex: 1 1 auto; min-width: 40px; height: 6px; border-radius: 3px; background: rgba(255,255,255,0.24); overflow: hidden; }
+.day-carbs__fill, .day-carbs__draft { position: absolute; top: 0; bottom: 0; left: 0; width: 0; transition: width 0.3s ease-out, left 0.3s ease-out; }
+.day-carbs__fill { background: rgba(255,255,255,0.92); border-radius: 3px; }
+.day-carbs__draft { background: rgba(255,255,255,0.5); }
+button.day-carbs.is-over .day-carbs__avg { font-weight: 700; color: #fff; }
+@media (prefers-reduced-motion: reduce) { .day-carbs__fill, .day-carbs__draft { transition: none; } }
+html[data-theme="dark"] .dose-card button.day-carbs { color: #fff; }
 .dose-card__controls { display: flex; gap: var(--space-2xs); }
 .dose-card__controls .pill-btn { flex: 1 1 auto; min-width: 0; justify-content: center; padding-left: var(--space-2xs); padding-right: var(--space-2xs); }
 /* The Ratio pill sits between the carbs pill (top row) and the Eating Out pill (toggle row), and
