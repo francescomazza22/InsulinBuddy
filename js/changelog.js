@@ -2,6 +2,17 @@
 // summary can never drift. Bump CHANGELOG[0].version here (and CACHE_VERSION in sw.js) on every release.
 export const CHANGELOG = [
   {
+    version: "2.73.0",
+    summary: "The Now tab's insulin and carbs chart now shows both in glucose terms, so you can see which one is winning.",
+    changes: [
+      "\"Still on board\" replaces the old chart, which drew units of insulin and grams of carbs on two scales each stretched to fill the chart, so 4 u and 7 g looked about even",
+      "Now one scale in mg/dL (or mmol/L): from now on, how far the insulin will still pull glucose down (blue), how far the carbs will still push it up (orange), and the two together (dashed)",
+      "Above the chart, in words: e.g. 3.6 u insulin (about 179 mg/dL still to lower) and 5 g carbs (about 34 still to raise); below it, the net",
+      "Clock times along the bottom, and it ends when both are spent instead of running hours on at 0.1 u",
+      "It counts only what you logged and says so: real glucose usually moves less, and Next 2 hours below shows what usually happens. Doses are calculated exactly as before"
+    ]
+  },
+  {
     version: "2.72.4",
     summary: "Night mode: the glucose reading on the dose card is readable again when it's high or low.",
     changes: [

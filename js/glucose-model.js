@@ -187,6 +187,41 @@ export function cobAt(obs, offsetMin) {
 }
 
 /**
+ * What is still on board, in glucose terms (2.73.0): from `now`, how far the logged insulin will still pull glucose down and
+ * the carbs not yet absorbed will still push it up, and the two together. Same maths as the rest of this file (insulin:
+ * dose x correction factor x share still to act; carbs: `obs` from observedCarbs, grams left x its carb effect per gram).
+ * It is the push and pull of what's logged, NOT where glucose will end up: basal, the liver and everything unlogged are
+ * missing, and backtested on real readings this maths overstates the movement (see glucose-forecast.js).
+ * Returns { points: [{ t, insulin (<= 0), carbs (>= 0), net }], insulinTotal, carbsTotal, net, iobUnits, cobGrams, end }
+ * in mg/dL, every `stepMin` minutes until both effects have under `doneMgdl` left to give (at least `minMinutes`).
+ */
+export function onBoardEffect(entries, settings, now, obs, { stepMin = 5, doneMgdl = 3, minMinutes = 60 } = {}) {
+  const { isfMgdl, peak, dia } = settings;
+  if (!(isfMgdl > 0)) return null;
+  const acting = (entries || []).filter(e => insulinOf(e) > 0 && Number.isFinite(e.ts) && e.ts <= now && now - e.ts < dia * MIN);
+  const iobUnits = acting.reduce((s, e) => s + insulinOf(e) * iobFraction((now - e.ts) / MIN, peak, dia), 0);
+  const cob = obs && obs.cob > 0.5 ? obs.cob : 0;
+  const csf = obs && obs.csf > 0 ? obs.csf : 0;
+  const carbsTotal = cob * csf;
+  const insulinAt = t => 0 - insulinDrop(acting, now, t, isfMgdl, peak, dia) || 0;   // never -0 (would print "−0")
+  const carbsAt = t => (cob ? csf * (cob - cobAt(obs, (t - now) / MIN)) : 0);
+  const insulinTotal = insulinAt(now + dia * MIN);
+  const points = [];
+  let end = now;
+  for (let m = 0; m <= dia + stepMin; m += stepMin) {
+    const t = now + m * MIN;
+    const insulin = insulinAt(t), carbs = carbsAt(t);
+    points.push({ t, insulin, carbs, net: insulin + carbs });
+    end = t;
+    if (m >= minMinutes && insulin - insulinTotal < doneMgdl && carbsTotal - carbs < doneMgdl) break;
+  }
+  // The last point carries the full totals (under doneMgdl away), so the chart's end labels and the words always agree.
+  const lastPt = points[points.length - 1];
+  if (points.length > 1) Object.assign(lastPt, { insulin: insulinTotal, carbs: carbsTotal, net: insulinTotal + carbsTotal });
+  return { points, insulinTotal, carbsTotal, net: insulinTotal + carbsTotal, iobUnits, cobGrams: cob, end };
+}
+
+/**
  * Glucose projected forward from the latest reading, assuming no further food or insulin:
  *   now - the insulin still to act + the rise from the carbs still to absorb.
  * Returns { start: { t, mgdl }, points: [{ t, mgdl }], low: { t, mgdl }, high: { t, mgdl }, end, observed } or null.

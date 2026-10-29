@@ -1,4 +1,5 @@
-// The carbs line on the Now tab must join smoothly at "now" even when the readings say more carbs are left than the timers do.
+// Now tab (2.73.0): when the readings say more carbs are left than the timers do, the carbs push shown is the readings' amount,
+// and the carbs line (glucose terms, from now) only ever rises.
 import { createBackend, startApp, openDevice, fakeSupabaseSource, makeChecker } from "./harness.js";
 import { FOODS_JS, stateBlob, meal } from "./helpers.js";
 
@@ -15,12 +16,14 @@ be.ns.entries = entries;
 be.row = { user_id: "user-1", data: stateBlob({ history: [m], settings: { nightscoutUrl: "https://demo.ns.example.com/?token=tok-abcdef-123456" } }), updated_at: be.stamp() };
 const dev = await openDevice(app, { width: 420, height: 900, mobile: true, inject: fakeSupabaseSource({ userId: "user-1" }), wait: 2500 });
 await dev.click(".active-panel"); await sleep(400);
-await dev.waitFor(`/follows your glucose readings/.test(document.getElementById("aiog-content").textContent)`, 20000, 300);
-const d = await dev.eval(`(document.querySelector('#aiog-content path[stroke="#D97706"]') || {getAttribute: () => ""}).getAttribute("d")`);
+await dev.waitFor(`/Carbs follow your glucose readings/.test(document.getElementById("aiog-content").textContent)`, 20000, 300);
+const d = await dev.eval(`(document.querySelector("#aiog-content path.onboard-carbs") || {getAttribute: () => ""}).getAttribute("d")`);
 const ys = (d.match(/[ML]\s*[-\d.]+[ ,][-\d.]+/g) || []).map(x => Number(x.replace(/[ML]\s*/, "").split(/[ ,]/)[1]));
-let worst = 0; for (let k = 1; k < ys.length; k++) worst = Math.max(worst, ys[k - 1] - ys[k]);
-t.check("the readings really do disagree with the timers here", /still to absorb/.test(await dev.text("#aiog-content")));
-t.check("no upward jump in the carbs line", ys.length > 5 && worst < 3, `points ${ys.length}, biggest rise ${worst.toFixed(1)}px`);
+let worst = 0; for (let k = 1; k < ys.length; k++) worst = Math.max(worst, ys[k] - ys[k - 1]);   // SVG y grows when the line goes DOWN
+const txt = await dev.text("#aiog-content");
+const g = /(\d+) g carbs/.exec(txt), timers = /fixed timers alone would say (\d+) g/.exec(txt);
+t.check("the readings really do disagree with the timers here", !!g && !!timers && Number(g[1]) > Number(timers[1]), txt.slice(0, 300));
+t.check("the carbs line only rises (no drop anywhere)", ys.length > 5 && worst < 0.05, `points ${ys.length}, biggest drop ${worst.toFixed(2)}px`);
 t.check("no JS errors", dev.errors.length === 0);
 dev.close(); await app.close();
 process.exit(t.summary() ? 0 : 1);

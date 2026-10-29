@@ -6,7 +6,7 @@ import { SCHEMA_VERSION, normalizeState as normalizeStateWith, makeFingerprint, 
 import { NightscoutClient, NsOutbox, nsToken, nsBaseUrl, nsConfigured, treatmentsForEntry, entriesToGlucoseRows } from "./js/nightscout.js";
 import { createDiag, hookGlobalErrors } from "./js/diag.js";
 import { postMealCurves, outcomeByBracket, foodImpact, correctionEffectiveness, iobStacking, overnightStats, weekdayWeekend, lowTreatmentUsual, lastTimesFor, isfToMgdl, activityGlucose, activityImpact, ACTIVITY_AFTER_HOURS } from "./js/insights.js";
-import { expectedFromInsulin, EXPECTED_FLOOR, observedCarbs, cobAt, learnAbsorption, gapSummary } from "./js/glucose-model.js";
+import { expectedFromInsulin, EXPECTED_FLOOR, observedCarbs, cobAt, learnAbsorption, gapSummary, onBoardEffect } from "./js/glucose-model.js";
 import { buildForecastLibrary, glucoseForecast, forecastSummary, forecastTrackRecord } from "./js/glucose-forecast.js";
 import { summarizeSync } from "./js/sync-status.js";
 import { SEED_RECIPES } from "./js/seed-recipes.js";
@@ -1133,7 +1133,7 @@ import { nearActivity, activitySkip, countNearActivity, breakfastByActivity, act
   // the total therefore reaches zero exactly when the last-contributing
   // dose/meal does.
 
-  // Same as buildActiveSeries, but a real historical view: from midnight
+  // The Today tab: a real historical view of insulin and carbs on board, from midnight
   // today to now, showing what actually happened rather than a forward
   // projection. No "no further doses" caveat needed here -- it's history.
   function buildTodaySeries() {
@@ -1148,29 +1148,6 @@ import { nearActivity, activitySkip, countNearActivity, breakfastByActivity, act
       points.push({ t, iob: r.iob, cob: r.cob });
     }
     return { points, startTime, endTime: now, now };
-  }
-
-  // Builds a (time, iob, cob) series for the detail graph: 30 minutes of
-  // recent context, then projected forward (assuming no further doses/meals)
-  // until whichever of IOB/COB clears last.
-  // `obs` (optional, from observedCarbs) makes the carbs line follow what the glucose readings show from now on.
-  function buildActiveSeries(obs) {
-    const now = Date.now();
-    const info = calcActiveInsulinAndCarbs(now);
-    const startTime = now - 30 * 60000;
-    const useObs = !!(obs && obs.observed);
-    const cobClear = useObs ? (obs.cob > 0.5 ? now + obs.finishMin * 60000 : 0) : (info.cobClearAt || now);
-    const endTime = Math.max(info.iobClearAt || now, cobClear || now, now + 30 * 60000);
-    const stepMs = 5 * 60000;
-    const points = [];
-    for (let t = startTime; t <= endTime; t += stepMs) {
-      const r = calcActiveInsulinAndCarbs(t);
-      // Right of "now" the carbs follow the readings; left of it the fixed timers. Joined as they are the line would jump at "now"
-      // by the difference between the two, so the past half-hour is eased towards the adjusted value (a drawing aid, not a record).
-      const eased = useObs && t < now ? Math.max(0, Math.round(r.cob + (obs.cob - info.cob) * ((t - startTime) / (now - startTime)))) : r.cob;
-      points.push({ t, iob: r.iob, cob: useObs && t >= now ? Math.round(cobAt(obs, (t - now) / 60000)) : eased });
-    }
-    return { points, startTime, endTime, now, info };
   }
 
   function renderActiveGraphSVG(series) {
@@ -2685,23 +2662,88 @@ import { nearActivity, activitySkip, countNearActivity, breakfastByActivity, act
       <p class="panel-card__hint" style="margin-top:12px;">By ${clockTime(sum.end.t)}: usually between <b>${glucoseDisp(sum.end.low)} and ${glucoseDisp(sum.end.high)} ${u}</b>, middle about ${glucoseDisp(sum.end.mid)}.</p>${low}${rec}`;
   }
 
-  /** Now tab, once readings are in: the carbs line adjusted to the readings, plus the likely range for the next 2 hours. */
+  // ---- Still on board (2.73.0) ----
+  // The Now tab used to draw insulin (u) and carbs (g) on two axes each stretched to its own maximum, so a 4 u : 7 g moment looked
+  // even. Now both are in glucose terms from now on (js/glucose-model.js onBoardEffect): how far the insulin still pulls down,
+  // how far the carbs still push up, and the net. Changes, never an absolute glucose: this maths overstates real movement.
+  const fmtChange = v => { const a = glucoseDisp(Math.abs(v)); return Number(a) === 0 ? "0" : `${v < 0 ? "\u2212" : "+"}${a}`; };
+  function renderOnBoardSVG(eff) {
+    const W = 320, H = 170, padL = 34, padR = 44, padT = 10, padB = 22;
+    const plotW = W - padL - padR, plotH = H - padT - padB;
+    const pts = eff.points, t0 = pts[0].t, t1 = pts[pts.length - 1].t;
+    const vals = pts.flatMap(p => [p.insulin, p.carbs, p.net]);
+    const mmol = state.settings.units === "mmol";
+    const steps = (mmol ? [0.5, 1, 2, 2.5, 5, 10] : [10, 20, 25, 50, 100, 200]).map(v => mmol ? v * 18.016 : v);
+    let lo = Math.min(0, ...vals), hi = Math.max(0, ...vals);
+    const step = steps.find(st => (Math.ceil(hi / st) - Math.floor(lo / st)) <= 5) || steps[steps.length - 1];
+    lo = Math.floor(lo / step) * step; hi = Math.ceil(hi / step) * step;
+    if (hi - lo < step) hi = lo + step;
+    const xFor = t => padL + ((t - t0) / Math.max(1, t1 - t0)) * plotW;
+    const yFor = v => padT + plotH - ((v - lo) / (hi - lo)) * plotH;
+    let grid = "";
+    for (let v = lo; v <= hi + 1e-6; v += step) {
+      const y = yFor(v).toFixed(1), zero = Math.abs(v) < 1e-6;
+      grid += `<line x1="${padL}" y1="${y}" x2="${padL + plotW}" y2="${y}" stroke="${zero ? "var(--ink-soft)" : "var(--line)"}" stroke-width="${zero ? 1 : 0.75}"/><text x="${padL - 4}" y="${(+y + 3).toFixed(1)}" font-size="8" fill="var(--ink-soft)" text-anchor="end">${fmtChange(v)}</text>`;
+    }
+    const tickMin = [30, 60, 120].find(m => (t1 - t0) / (m * 60000) <= 5) || 120;
+    const tickMs = tickMin * 60000;
+    let ticks = `<text x="${padL}" y="${H - 4}" font-size="9" fill="var(--ink-soft)" text-anchor="start">now</text>`;
+    for (let t = Math.ceil((t0 + 20 * 60000) / tickMs) * tickMs; t <= t1; t += tickMs) {
+      const x = xFor(t);
+      if (x > padL + plotW - 4 || x < padL + 34) continue;
+      ticks += `<line x1="${x.toFixed(1)}" y1="${padT + plotH}" x2="${x.toFixed(1)}" y2="${padT + plotH + 3}" stroke="var(--ink-soft)" stroke-width="1"/><text x="${x.toFixed(1)}" y="${H - 4}" font-size="9" fill="var(--ink-soft)" text-anchor="middle">${clockTime(t)}</text>`;
+    }
+    const path = (key, stroke, width, dash) => `<path class="onboard-${key}" d="${pts.map((p, i) => `${i ? "L" : "M"}${xFor(p.t).toFixed(1)},${yFor(p[key]).toFixed(1)}`).join(" ")}" fill="none" stroke="${stroke}" stroke-width="${width}"${dash ? ` stroke-dasharray="${dash}"` : ""} stroke-linejoin="round" stroke-linecap="round"/>`;
+    // end labels, nudged apart so they never overlap
+    const last = pts[pts.length - 1];
+    const labels = [["insulin", "#3B82F6"], ["carbs", "#D97706"], ["net", "var(--ink)"]].filter(([k]) => k === "net" || Math.abs(last[k]) >= 0.5)
+      .map(([k, c]) => ({ k, c, y: yFor(last[k]) + 3 })).sort((a, b) => a.y - b.y);
+    for (let i = 1; i < labels.length; i++) if (labels[i].y - labels[i - 1].y < 10) labels[i].y = labels[i - 1].y + 10;
+    const endLabels = labels.map(l => `<text x="${padL + plotW + 4}" y="${l.y.toFixed(1)}" font-size="9" font-weight="${l.k === "net" ? 700 : 400}" fill="${l.c}">${fmtChange(last[l.k])}</text>`).join("");
+    return `
+      <svg viewBox="0 0 ${W} ${H}" style="width:100%; height:auto; display:block;" role="img" aria-label="Glucose change still to come from insulin and carbs on board">
+        ${grid}
+        ${eff.carbsTotal >= 0.5 ? path("carbs", "#D97706", 2) : ""}
+        ${eff.insulinTotal <= -0.5 ? path("insulin", "#3B82F6", 2) : ""}
+        ${path("net", "var(--ink)", 2.5, "6,4")}
+        ${endLabels}${ticks}
+      </svg>`;
+  }
+  function renderOnBoardHtml(obs, { readingsNote = "", forecastBelow = false } = {}) {
+    const head = secHead("Still on board", "iobcob");
+    const ms = modelSettings(), now = Date.now();
+    if (!(ms.isfMgdl > 0)) return `${head}<p class="panel-card__hint">Set your correction factor in Settings to see this.</p>`;
+    const entries = modelEntries();
+    const eff = onBoardEffect(entries, ms, now, obs || observedCarbs(entries, [], ms, now));
+    const u = mgUnitText();
+    if (eff.iobUnits < 0.05 && eff.cobGrams < 0.5) return `${head}<p class="panel-card__hint">No logged insulin or carbs are still acting.</p>`;
+    const parts = [];
+    if (eff.iobUnits >= 0.05) parts.push(`<b>${round1(eff.iobUnits)} u insulin</b> (about ${glucoseDisp(Math.abs(eff.insulinTotal))} ${u} still to lower)`);
+    if (eff.cobGrams >= 0.5) parts.push(`<b>${Math.round(eff.cobGrams)} g carbs</b> (about ${glucoseDisp(eff.carbsTotal)} ${u} still to raise)`);
+    const dir = Math.abs(eff.net) < 5 ? `they roughly cancel out` : `about <b>${glucoseDisp(Math.abs(eff.net))} ${u} ${eff.net < 0 ? "lower" : "higher"}</b> than now by ${clockTime(eff.end)}`;
+    const key = (color, dashed, text, w = 2) => `<span style="display:flex; align-items:center; gap:6px; font-size:calc(0.8 * var(--rem)); color:var(--ink-soft);"><span style="width:16px; height:0; border-top:${w}px ${dashed ? "dashed" : "solid"} ${color}; display:inline-block;"></span>${text}</span>`;
+    return `
+      ${head}
+      <p class="panel-card__hint">${parts.join(" and ")}.${readingsNote}</p>
+      ${renderOnBoardSVG(eff)}
+      <div style="display:flex; gap:16px; justify-content:center; flex-wrap:wrap; margin-top:8px;">${eff.insulinTotal <= -0.5 ? key("#3B82F6", false, "Insulin") : ""}${eff.carbsTotal >= 0.5 ? key("#D97706", false, "Carbs") : ""}${key("var(--ink)", true, "Net", 2.5)}</div>
+      <p class="panel-card__hint" style="margin-top:12px;">Together, ${dir}, counting only what you logged. Real glucose usually moves less: basal, your liver and anything not logged push back${forecastBelow ? " (Next 2 hours, below, shows what usually happens)" : ""}.</p>`;
+  }
+
+  /** Now tab, once readings are in: what is still on board (carbs adjusted to the readings), plus the likely range for the next 2 hours. */
   function renderNowWithReadings(readings) {
     const now = Date.now();
     const entries = modelEntries(), ms = modelSettings();
     const ok = ms.isfMgdl > 0 && readings.length > 0;
     const obs = ok ? observedCarbs(entries, readings, ms, now) : null;
     const u = mgUnitText();
-    let adjust = "";
-    if (obs && obs.observed) adjust = `<p class="panel-card__hint">The carbs line follows your glucose readings: about <b>${Math.round(obs.cob)} g</b> still to absorb (the fixed timers alone would say ${Math.round(obs.modelCob)} g).</p>`;
-    else if (obs && obs.cob > 0) adjust = `<p class="panel-card__hint">Not enough readings since your last meal to adjust the carbs line, so it uses your ${state.settings.useLearnedAbsorption && state.settings.learnedAbsorption ? "learned" : "fixed"} absorption times.</p>`;
+    let note = "";
+    if (obs && obs.observed && Math.round(obs.cob) !== Math.round(obs.modelCob)) note = ` Carbs follow your glucose readings (the fixed timers alone would say ${Math.round(obs.modelCob)} g).`;
+    else if (obs && obs.observed) note = " Carbs follow your glucose readings.";
+    else if (obs && obs.cob > 0) note = ` Not enough readings since your last meal to adjust the carbs, so they use your ${state.settings.useLearnedAbsorption && state.settings.learnedAbsorption ? "learned" : "fixed"} absorption times.`;
     const proj = renderForecastHtml(readings, now, ms);
     return `
-      ${secHead("Active insulin & carbs", "iobcob")}
-      <p class="panel-card__hint">Projected forward from now assuming no further food or insulin — a real dose or meal will change this.</p>
-      ${renderActiveGraphSVG(buildActiveSeries(obs))}
-      ${aiogLegendHtml()}
-      ${adjust}
+      ${renderOnBoardHtml(obs, { readingsNote: note, forecastBelow: true })}
       ${proj}`;
   }
 
@@ -2733,10 +2775,11 @@ import { nearActivity, activitySkip, countNearActivity, breakfastByActivity, act
     const learned = state.settings.useLearnedAbsorption && state.settings.learnedAbsorption ? "your learned times" : "your timers in Settings";
     const isf = state.settings.isf;
     const T = {
-      iobcob: `<p><b>Insulin (blue).</b> Every dose you logged in the last ${Math.round(im.diaMinutes / 60)} hours is counted. A dose doesn't vanish at once: it works along a curve that peaks about ${im.peakMinutes} minutes after the injection and is spent after ${im.diaMinutes} minutes (Settings &gt; Insulin). Adding up what is left of each dose gives the line.</p>
-        <p><b>Carbs (orange).</b> Each meal's carbs are counted down over how long that kind of food takes to absorb, from ${learned}: high GI ${ca.high} min, medium ${ca.medium}, low ${ca.low}, unknown ${ca.unknown}.</p>
-        <p>If your glucose readings are available, the carbs line is <b>adjusted to them</b>: the rise in your glucose since the meal, less the rise that insulin alone would allow, is the part the carbs must be responsible for. A faster rise means the carbs are being absorbed faster, so the line drops sooner (never later than 1.5&times; the usual time). With no readings it uses the plain timer.</p>
-        <p>Everything to the right of "now" assumes you log nothing more.</p>`,
+      iobcob: `<p>Insulin and carbs are put in the same terms, <b>glucose</b>, so you can see which is winning. The chart starts at zero now and shows how much each will still move your glucose from here.</p>
+        <p><b>Insulin (blue, down).</b> Every meal and correction dose logged in the last ${Math.round(im.diaMinutes / 60)} hours, along a curve that peaks about ${im.peakMinutes} minutes after the injection and is spent after ${im.diaMinutes} minutes (Settings &gt; Insulin). What is still to act &times; your correction factor (${isf} ${u} per unit) gives the line. Basal is left out: taken as usual, it holds glucose steady.</p>
+        <p><b>Carbs (orange, up).</b> Carbs not yet absorbed &times; your correction factor &divide; the ratio you used for that meal. They are counted down over how long that food takes, from ${learned} (high GI ${ca.high} min, medium ${ca.medium}, low ${ca.low}, unknown ${ca.unknown}). With glucose readings, the amount left is <b>adjusted to them</b>: the rise the insulin doesn't explain is put down to carbs, so faster absorption leaves fewer.</p>
+        <p><b>Net (dashed).</b> The two added together. The chart ends when both have under ${glucoseDisp(3)} ${u} left to give.</p>
+        <p>This counts only what you logged and is <b>not where your glucose will end up</b>. Tested on your own readings, this kind of sum overstates how far glucose moves, because basal, your liver and everything unlogged push back. It is not dosing advice.</p>`,
       projection: `<p>This is <b>not a measurement and not advice</b>. It shows what your glucose usually did next at moments like this one, from your own last ${FORECAST_DAYS} days.</p>
         <p>Every 15 minutes of your history is a "moment", described by four things: your glucose, its trend over the previous 30 minutes, the insulin still to act (each logged dose &times; your correction factor (${isf} ${u} per unit) &times; the share still to come) and the carbs still to absorb (grams left &times; correction factor &divide; the ratio you used; a treated low counts as absorbed in 45 minutes).</p>
         <p>The 40 moments most like now are picked, using only those where you <b>logged nothing</b> (no meal, dose, treated low or basal) during the following 2 hours. For each 15 minutes ahead, the dashed line is the middle of what they did and the shaded band is where 8 in 10 of them stayed. Those changes start from your latest reading.</p>
@@ -2799,12 +2842,7 @@ import { nearActivity, activitySkip, countNearActivity, breakfastByActivity, act
     const content = backdrop.querySelector("#aiog-content");
     content.dataset.tab = tab;
     if (tab === "now") {
-      const plain = () => `
-        ${secHead("Active insulin & carbs", "iobcob")}
-        <p class="panel-card__hint">Projected forward from now assuming no further food or insulin — a real dose or meal will change this.</p>
-        ${renderActiveGraphSVG(buildActiveSeries())}
-        ${aiogLegendHtml()}
-      `;
+      const plain = () => renderOnBoardHtml(null);
       if (!nightscoutConfigured()) { content.innerHTML = plain(); return; }
       const L = state.settings.learnedAbsorption;
       if (state.settings.useLearnedAbsorption && (!L || Date.now() - L.at > 86400_000)) refreshLearnedAbsorption().catch(() => {});

@@ -25,13 +25,15 @@ await dev.waitFor(`/Next 2 hours/.test(document.getElementById("aiog-content").t
 const now_ = await dev.text("#aiog-content");
 // with only 2.5 h of readings there is too little history for a range, and the section says so instead of guessing
 t.check("the range section explains itself: labelled range, or why there is none", /Next 2 hours/.test(now_) && (/didn.t eat or dose again/.test(now_) && /not dosing advice/.test(now_) || /Not enough history yet|stored glucose history/.test(now_)), now_.slice(now_.indexOf("Next 2 hours"), now_.indexOf("Next 2 hours") + 300));
-t.check("the carbs line says it follows the readings (or why it can't)", /follows your glucose readings|Not enough readings/.test(now_));
+t.check("the carbs say they follow the readings (or why they can't)", /Carbs follow your glucose readings|Not enough readings/.test(now_));
 await dev.eval(`document.getElementById("aiog-content").scrollIntoView()`); await dev.shot("/tmp/shots/gm-now.png"); await dev.eval(`document.getElementById("aiog-content").scrollTop=0`);
 t.check("the active insulin & carbs chart is drawn (the range needs weeks of history: see forecast.e2e.js)", (await dev.eval(`document.querySelectorAll("#aiog-content svg").length`)) >= 1);
-const carbsPath = await dev.eval(`(document.querySelector('#aiog-content path[stroke="#D97706"]') || {getAttribute: () => ""}).getAttribute("d")`);
-const ys = (carbsPath.match(/[ML]\s*[-\d.]+[ ,][-\d.]+/g) || []).map(x => Number(x.replace(/[ML]\s*/, "").split(/[ ,]/)[1]));
-let worstRise = 0; for (let k = 1; k < ys.length; k++) worstRise = Math.max(worstRise, ys[k - 1] - ys[k]);   // SVG y shrinks when the line goes UP
-t.check("the carbs line never jumps up at 'now' (it only falls)", ys.length > 5 && worstRise < 3, `points ${ys.length}, biggest rise ${worstRise.toFixed(1)}px`);
+// 2.73.0: one chart in glucose terms from now on: carbs only push up, insulin only pulls down, both start at zero
+const lineYs = cls => dev.eval(`(() => { const p = document.querySelector("#aiog-content path.${cls}"); return p ? (p.getAttribute("d").match(/[ML][-\\d.]+,[-\\d.]+/g) || []).map(x => Number(x.slice(1).split(",")[1])) : []; })()`);
+const cy = await lineYs("onboard-carbs"), iy = await lineYs("onboard-insulin");
+let carbsDown = 0; for (let k = 1; k < cy.length; k++) carbsDown = Math.max(carbsDown, cy[k] - cy[k - 1]);   // SVG y grows when the line goes DOWN
+let insulinUp = 0; for (let k = 1; k < iy.length; k++) insulinUp = Math.max(insulinUp, iy[k - 1] - iy[k]);
+t.check("carbs line only rises, insulin line only falls, both from the same zero", cy.length > 5 && iy.length > 5 && carbsDown < 0.05 && insulinUp < 0.05 && Math.abs(cy[0] - iy[0]) < 0.05, `carbs ${cy.length} pts, insulin ${iy.length} pts`);
 
 t.section("INFO BUTTONS");
 const nInfo = await dev.eval(`document.querySelectorAll("#aiog-content .info-btn").length`);
