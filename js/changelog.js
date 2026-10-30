@@ -2,6 +2,15 @@
 // summary can never drift. Bump CHANGELOG[0].version here (and CACHE_VERSION in sw.js) on every release.
 export const CHANGELOG = [
   {
+    version: "2.77.1",
+    summary: "The clinic report now follows dark mode on screen, like the doctor report.",
+    changes: [
+      "In dark mode the clinic report used to open as a bright white page; it is now black with light text, matching the doctor report and the rest of the app",
+      "Saved PDFs and printouts of both reports are still dark text on a white page",
+      "Charts in a PDF saved while in dark mode came out with heavy black gridlines; they now use the same light colours as on paper (the screen goes blank for a moment while the PDF is made)"
+    ]
+  },
+  {
     version: "2.77.0",
     summary: "Usual basal doses: set your normal morning and evening basal, and logging basal starts from it.",
     changes: [

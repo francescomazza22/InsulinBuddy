@@ -160,6 +160,22 @@ export async function reportBlocks(root) {
   return blocks;
 }
 
+/**
+ * Runs fn with the light theme on, so charts are copied in paper colours (in dark mode their gridlines came out black and their
+ * text pale on the white PDF). A cover in the current page colour hides the switch; the theme is put back even if fn fails.
+ */
+export async function withLightTheme(fn) {
+  const html = document.documentElement;
+  if (html.getAttribute("data-theme") !== "dark") return fn();
+  const cover = document.createElement("div");
+  cover.setAttribute("aria-hidden", "true");
+  cover.style.cssText = `position:fixed;inset:0;z-index:2147483647;background:${getComputedStyle(document.body).backgroundColor || "#000"}`;
+  document.body.appendChild(cover);
+  html.setAttribute("data-theme", "light");
+  try { return await fn(); }
+  finally { html.setAttribute("data-theme", "dark"); cover.remove(); }
+}
+
 let measureCtx = null;
 export const browserMeasure = (text, size, bold) => {
   if (!measureCtx) measureCtx = document.createElement("canvas").getContext("2d");
@@ -169,7 +185,7 @@ export const browserMeasure = (text, size, bold) => {
 
 /** Makes the PDF from a report element, then shares it (Files, Mail, AirDrop on a phone) or downloads it. Returns "shared" | "downloaded". */
 export async function saveReportPdf(root, { title, fileName }) {
-  const blocks = await reportBlocks(root);
+  const blocks = await withLightTheme(() => reportBlocks(root));
   if (!blocks.length) throw new Error("The report is empty");
   const bytes = buildPdf(blocks, { title, measure: browserMeasure });
   const file = new File([bytes], fileName, { type: "application/pdf" });

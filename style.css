@@ -830,12 +830,10 @@ input[type="number"]::-webkit-inner-spin-button {
 .clinic-report-overlay {
   position: fixed; inset: 0; z-index: 500; overflow-y: auto;
   -webkit-overflow-scrolling: touch;
-  /* A report is a document headed for paper, so it keeps one light palette whatever the app
-     theme is. Without this the page stayed white while text inherited the dark theme's pale
-     colours (pale on white). Re-declaring the variables here means everything inside can keep
-     using var(--ink), var(--line) etc. and simply get the light values. */
-  --ink: #17212F; --ink-soft: #5B6878; --line: #E1E5EA; --surface: #FFFFFF; --paper: #F4F5F7;
-  background: #fff; color: var(--ink);
+  /* On screen it follows the app theme, like the doctor report (2.77.1: it used to stay white in
+     dark mode). Paper is still dark-on-white: the print block below forces the light palette, and
+     Save PDF reads the report with the light theme on (withLightTheme in js/pdf-report.js). */
+  background: var(--paper); color: var(--ink);
 }
 .clinic-report-toolbar {
   position: sticky; top: 0; z-index: 1; display: flex; gap: var(--space-s); padding: var(--space-m) var(--space-l);
