@@ -2,6 +2,16 @@
 // summary can never drift. Bump CHANGELOG[0].version here (and CACHE_VERSION in sw.js) on every release.
 export const CHANGELOG = [
   {
+    version: "2.76.1",
+    summary: "Edit sheet tidied: the glucose unit sits inside its box like \u201cunits\u201d does, and the title says what you're editing.",
+    changes: [
+      "\u201cmg/dL\u201d (or mmol/L) was squeezed against the right edge of the glucose box, larger and darker than \u201cunits\u201d above it; now they match",
+      "The line under the fields reads \u201cSaved as a correction of 1.0 units\u201d, with one decimal like the dose card (it said \u201c1 units\u201d)",
+      "The title follows the entry: Edit Meal, Edit Correction, Edit Treated Low or Edit Eating Out",
+      "\u201cCurrent glucose at the time\u201d is now \u201cGlucose at the time\u201d, and its keyboard has a decimal point"
+    ]
+  },
+  {
     version: "2.76.0",
     summary: "Insights > Trends: new \u201cRatio over time\u201d chart, and every change to a ratio in Settings is now saved with its date.",
     changes: [

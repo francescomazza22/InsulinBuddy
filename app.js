@@ -6127,6 +6127,8 @@ import { nearActivity, activitySkip, countNearActivity, breakfastByActivity, act
     return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
   }
 
+  // Doses read the same way everywhere, with one decimal like the dose card: "1.0 units", "1.5 units" (2.76.1: a correction said "1 units").
+  const unitsText = u => `${round1(Number(u) || 0).toFixed(1)} units`;
   function openEditMealSheet(entry) {
     let items = entry.items.map(i => ({ ...i }));
     let mealType = entry.mealType;
@@ -6152,7 +6154,7 @@ import { nearActivity, activitySkip, countNearActivity, breakfastByActivity, act
     backdrop.innerHTML = `
       <div class="sheet">
         <div class="sheet-head">
-          <h2>Edit Meal</h2>
+          <h2 id="em-title">Edit Meal</h2>
           <button class="sheet-close" id="em-close" type="button" aria-label="Close">
             <svg viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
           </button>
@@ -6199,11 +6201,11 @@ import { nearActivity, activitySkip, countNearActivity, breakfastByActivity, act
         </div>
         ${entry.glucose != null ? `
           <div class="field">
-            <label>Current glucose at the time</label>
-            <div class="field__row"><input type="number" id="em-glucose" value="${entry.glucose}" step="0.1"><span>${unitLabel()}</span></div>
+            <label for="em-glucose">Glucose at the time</label>
+            <div class="field__row"><input type="number" id="em-glucose" value="${entry.glucose}" step="0.1" inputmode="decimal"><span class="field__unit">${unitLabel()}</span></div>
           </div>
         ` : ""}
-        <p class="disclaimer" id="em-preview" style="margin-bottom:16px;"></p>
+        <p class="disclaimer" id="em-preview" style="margin:14px 0 16px;"></p>
         <div class="sheet-actions">
           <button class="btn btn--secondary" id="em-cancel" type="button">Cancel</button>
           <button class="btn btn--primary" id="em-save" type="button">Save Changes</button>
@@ -6256,6 +6258,7 @@ import { nearActivity, activitySkip, countNearActivity, breakfastByActivity, act
     function applyKind() {
       backdrop.querySelectorAll("#em-kind [data-kind]").forEach(b => { const on = b.dataset.kind === kind; b.classList.toggle("is-active", on); b.setAttribute("aria-pressed", on); });
       backdrop.querySelector("#em-kind-hint").textContent = KIND_HINTS[kind];
+      backdrop.querySelector("#em-title").textContent = { meal: "Edit Meal", correction: "Edit Correction", low: "Edit Treated Low", eatout: "Edit Eating Out" }[kind];
       backdrop.querySelector("#em-corr-field").hidden = kind !== "correction";
       backdrop.querySelector("#em-meal-part").hidden = kind === "correction";
       backdrop.querySelector("#em-eatout-field").hidden = kind !== "eatout";
@@ -6277,12 +6280,12 @@ import { nearActivity, activitySkip, countNearActivity, breakfastByActivity, act
         if (isNaN(u)) { backdrop.querySelector("#em-preview").textContent = "That isn't a number I can read. Try something like 1.5 or 1,5"; return; }
         const parts = eatOutParts();
         const capText = parts.capped ? ` — capped at your ${state.settings.maxDose} u maximum (entered ${parts.requested} u)` : "";
-        backdrop.querySelector("#em-preview").textContent = `Saved as eating out: ${parts.total.toFixed(1)} units, carbs not logged.${capText}`;
+        backdrop.querySelector("#em-preview").textContent = `Saved as eating out: ${unitsText(parts.total)}, carbs not logged.${capText}`;
         return;
       }
       if (kind === "correction") {
         const d = parseDecimalInput(backdrop.querySelector("#em-corr-dose").value) || 0;
-        backdrop.querySelector("#em-preview").textContent = `Saved as a correction of ${round1(d)} units, no food.`;
+        backdrop.querySelector("#em-preview").textContent = `Saved as a correction of ${unitsText(d)}, no food.`;
         return;
       }
       if (kind === "low") {
@@ -6297,7 +6300,7 @@ import { nearActivity, activitySkip, countNearActivity, breakfastByActivity, act
       const capText = parts.capped ? ` — capped at your ${state.settings.maxDose} u maximum (calculated ${parts.requested} u)`
         : parts.overMax ? ` — above your ${state.settings.maxDose} u maximum` : "";
       backdrop.querySelector("#em-preview").textContent =
-        `New total: ${round1(totalCarbs)}g carbs → ${parts.total.toFixed(1)} units` +
+        `New total: ${round1(totalCarbs)}g carbs → ${unitsText(parts.total)}` +
         (selectedRatioValue ? ` (using ${selectedRatioLabel ? escapeHtml(selectedRatioLabel) + " " : ""}${ratioText(selectedRatioValue)})` : "") + capText;
     }
 
