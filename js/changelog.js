@@ -2,6 +2,16 @@
 // summary can never drift. Bump CHANGELOG[0].version here (and CACHE_VERSION in sw.js) on every release.
 export const CHANGELOG = [
   {
+    version: "2.76.0",
+    summary: "Insights > Trends: new \u201cRatio over time\u201d chart, and every change to a ratio in Settings is now saved with its date.",
+    changes: [
+      "The chart shows the ratio each meal was dosed with, as a line per time range (Morning, Lunch\u2026) over the Trends period, from your whole log",
+      "Tap a range to see just that one: it says how often it changed (for example 10 \u2192 11 \u2192 12 \u2192 13) and what it's set to now",
+      "From today, changing a ratio in Settings is recorded, and shows on the chart as a dashed line, so you can see what you set against what you used",
+      "Recorded changes sync between your devices. Times and colours of ranges aren't recorded, only the ratios and names"
+    ]
+  },
+  {
     version: "2.75.1",
     summary: "Apple Health workouts: calories are no longer counted twice when Health Webhook sends the same data twice.",
     changes: [

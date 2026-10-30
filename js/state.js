@@ -13,6 +13,8 @@
 //   * deletion marker vs edit        -> whichever happened later wins
 //   * settings                       -> the side with the newer `settingsUpdatedAt`
 
+import { mergeRatioHistory } from "./ratio-history.js";
+
 export const SCHEMA_VERSION = 2;
 export const TOMBSTONE_MAX_AGE_MS = 90 * 24 * 60 * 60 * 1000;
 export const COLLECTIONS = ["history", "library", "recipes"];
@@ -143,6 +145,9 @@ export function mergeStates(local, remote, defaults) {
     deleted
   };
   out.history.sort((a, b) => b.ts - a.ts);
+  // The record of ratio changes (2.76.0) lives in settings, which sync keeps whole from the newer side: keep both sides' records.
+  const lh = L.settings && L.settings.ratioHistory, rh = R.settings && R.settings.ratioHistory;
+  if (Array.isArray(lh) || Array.isArray(rh)) out.settings = { ...out.settings, ratioHistory: mergeRatioHistory(lh, rh) };
   return out;
 }
 

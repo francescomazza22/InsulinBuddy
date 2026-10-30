@@ -14,6 +14,7 @@ import { CHANGELOG } from "./js/changelog.js";
 import { fillMissingFoodDetails, stillBlank, applyPublishedGi } from "./js/food-reference.js";
 import { fieldSvg } from "./js/doodle-field.js";
 import { abstractSvg } from "./js/abstract-field.js";
+import { recordRatioChange, ratioTimeline, ratioChanges } from "./js/ratio-history.js";
 import { dailyCarbsSummary, dailyCarbsBar } from "./js/daily-carbs.js";
 import { solveSwap, carbsForGrams, canAdjust, setGrams } from "./js/swap.js";
 import { glucoseAxisTicks, percentile, dailyPatternBuckets, daysSpanned, estimatedA1c, extendedGlucoseStats, dailyStats, glucoseSummaryStats, timeInRangeBreakdown, glucoseGuideRows, TIME_IN_RANGE_BANDS, preferLiveReadings, preferLiveEntries } from "./js/glucose-stats.js";
@@ -535,6 +536,7 @@ import { nearActivity, activitySkip, countNearActivity, breakfastByActivity, act
   async function saveState() {
     slotUsageCache = null;   // history or ranges may have changed: the food order recounts on its next draw
     if (!stateFp) { stateFp = makeFingerprint(state); diag.log("warn", "state", "saveState ran before the change baseline existed"); }
+    recordRatioChange(state.settings);          // a changed ratio is kept with its date (2.76.0), for Trends > Ratio over time
     stateFp = stampChanges(state, stateFp);   // notice what changed since the last save
     await saveStateRaw(state, encryptionKey);
     maybeAutoSnapshot();
@@ -5525,6 +5527,7 @@ import { nearActivity, activitySkip, countNearActivity, breakfastByActivity, act
       renderBasalTrend(buckets, basalSummary, 320);
       if (ratioCard) ratioCard.hidden = true;
       if (el("trend-card-ideal")) el("trend-card-ideal").hidden = true;
+      renderRatioTime(days);   // a ratio changed in Settings in this period is still worth showing
       return;
     }
     emptyBox.hidden = true;
@@ -5605,6 +5608,7 @@ import { nearActivity, activitySkip, countNearActivity, breakfastByActivity, act
     renderBasalTrend(buckets, basalSummary, width);
     renderTrendMealBreakdown(inRange);
     renderRatioTrend(inRange);
+    renderRatioTime(days);
     renderActivityFilter(inRange);
     renderIdealRatioTrend(inRange);
     renderInsights(inRange, days);
@@ -5639,6 +5643,94 @@ import { nearActivity, activitySkip, countNearActivity, breakfastByActivity, act
       (res.unrecorded > 0 ? ` ${res.unrecorded} older meal${res.unrecorded === 1 ? " has" : "s have"} no ratio saved, so ${res.unrecorded === 1 ? "isn't" : "aren't"} counted.` : "") + `</p>`;
   }
 
+
+  // "Ratio over time" (2.76.0): the ratio each meal was dosed with, per bracket, through the Trends period, and (dashed) what
+  // the bracket was set to, from the changes recorded since 2.76.0. js/ratio-history.js has the data; this draws it.
+  const RATIO_TIME_KEY = "insulinBuddy.ratioTimeBracket";
+  let ratioTimePick = "all";
+  try { ratioTimePick = store.getItem(RATIO_TIME_KEY) || "all"; } catch (e) { /* storage unavailable: show all */ }
+  let ratioTimeDays = 30;
+  function renderRatioTime(days) {
+    if (days) ratioTimeDays = days;
+    const card = el("trend-card-ratio-time"), chart = el("ratio-time-chart");
+    if (!card || !chart) return;
+    const now = Date.now();
+    const start = new Date(); start.setHours(0, 0, 0, 0); start.setDate(start.getDate() - (ratioTimeDays - 1));
+    const from = start.getTime();
+    const { brackets, unrecorded } = ratioTimeline(state.history, state.settings, { from, to: now });
+    card.hidden = brackets.length === 0;
+    if (!brackets.length) { chart.innerHTML = ""; return; }
+    if (ratioTimePick !== "all" && !brackets.some(b => b.name === ratioTimePick)) ratioTimePick = "all";
+    const colourOf = b => (b.color && /^#[0-9a-fA-F]{3,8}$/.test(b.color) ? b.color : "var(--acc-1)");
+    el("ratio-time-chips").innerHTML = [["all", "All"], ...brackets.map(b => [b.name, b.name])].map(([k, label]) =>
+      `<button type="button" class="glucose-range-btn${k === ratioTimePick ? " is-active" : ""}" data-ratiotime="${escapeAttr(k)}" aria-pressed="${k === ratioTimePick}">${escapeHtml(label)}</button>`).join("");
+    const shown = ratioTimePick === "all" ? brackets : brackets.filter(b => b.name === ratioTimePick);
+    const single = shown.length === 1 && ratioTimePick !== "all";
+
+    // Scale: every value drawn, with a little room; whole numbers on the axis.
+    const vals = shown.flatMap(b => [...b.used.map(u => u.ratio), ...(single ? b.set.map(x => x.ratio).filter(v => v != null) : []), ...(single && b.current ? [b.current] : [])]);
+    let lo = Math.floor(Math.min(...vals) - 1), hi = Math.ceil(Math.max(...vals) + 1);
+    if (hi - lo < 4) { const mid = (hi + lo) / 2; lo = Math.floor(mid - 2); hi = Math.ceil(mid + 2); }
+    lo = Math.max(0, lo);
+    const W = Math.max(chart.clientWidth || 320, 220), H = 180, padL = 28, padR = 8, padT = 10, padB = 24;
+    const plotW = W - padL - padR, plotH = H - padT - padB;
+    const x = t => padL + ((t - from) / Math.max(1, now - from)) * plotW;
+    const y = v => padT + plotH - ((v - lo) / (hi - lo)) * plotH;
+    const stepY = Math.max(1, Math.ceil((hi - lo) / 4));
+    let grid = "";
+    for (let v = Math.ceil(lo / stepY) * stepY; v <= hi; v += stepY)
+      grid += `<line class="trend-chart__grid" x1="${padL}" x2="${W - padR}" y1="${y(v).toFixed(1)}" y2="${y(v).toFixed(1)}"></line><text class="trend-chart__axis-label" x="${padL - 5}" y="${(y(v) + 3).toFixed(1)}" text-anchor="end">${v}</text>`;
+    const fmtShort = t => new Date(t).toLocaleDateString(undefined, { day: "numeric", month: "short" });
+    const ticks = ratioTimeDays <= 7 ? ratioTimeDays : 4;
+    for (let i = 0; i < ticks; i++) {
+      const t = from + (i / Math.max(1, ticks - 1)) * (now - from);
+      const anchor = i === 0 ? "start" : i === ticks - 1 ? "end" : "middle";
+      grid += `<text class="trend-chart__axis-label" x="${x(t).toFixed(1)}" y="${H - 6}" text-anchor="${anchor}">${escapeHtml(fmtShort(t))}</text>`;
+    }
+    // Used: a step line through each meal's ratio (it holds until the next meal), with a dot per meal.
+    const stepPath = pts => pts.map((p, i) => i === 0 ? `M${x(p.ts).toFixed(1)},${y(p.ratio).toFixed(1)}` : `H${x(p.ts).toFixed(1)}V${y(p.ratio).toFixed(1)}`).join("");
+    let lines = "";
+    for (const b of shown) {
+      const c = colourOf(b);
+      if (single) {
+        // What it was set to, dashed, from each recorded change to the end of the period.
+        const set = b.set.filter(s => s.ratio != null);
+        if (set.length) lines += `<path class="ratio-time__set" d="${stepPath(set)}H${x(now).toFixed(1)}" fill="none" stroke="var(--ink)" stroke-width="1.5" stroke-dasharray="4 4"></path>`;
+      }
+      if (b.used.length) {
+        lines += `<path d="${stepPath(b.used)}" fill="none" stroke="${c}" stroke-width="2.2" stroke-linejoin="round"></path>`;
+        lines += b.used.map(u => `<circle class="ratio-time__dot" cx="${x(u.ts).toFixed(1)}" cy="${y(u.ratio).toFixed(1)}" r="${single ? 3 : 2.2}" fill="${c}"></circle>`).join("");
+      }
+    }
+    const fmt = v => String(round1(v));
+    const describe = b => {
+      const ch = ratioChanges(b.used);
+      const last = b.used.length ? b.used[b.used.length - 1].ratio : null;
+      const parts = [];
+      if (b.used.length) parts.push(`${ratioText(fmt(last))} in the latest of ${b.count} meal${b.count === 1 ? "" : "s"}`);
+      if (ch.length) parts.push(`changed ${ch.length} time${ch.length === 1 ? "" : "s"} (${[b.used[0].ratio, ...ch.map(c => c.to)].map(fmt).join(" → ")})`);
+      else if (b.used.length) parts.push("the same throughout");
+      return parts.join(", ");
+    };
+    chart.innerHTML = `<svg class="trend-chart ratio-time" viewBox="0 0 ${W} ${H}" style="width:100%;height:${H}px;display:block;" role="img" aria-label="${escapeAttr(shown.map(b => `${b.name}: ${describe(b) || "no meals"}${b.current ? `, set now to ${ratioText(fmt(b.current))}` : ""}`).join(". "))}">${grid}${lines}</svg>`;
+    el("ratio-time-readout").textContent = single
+      ? `${shown[0].name}: ${describe(shown[0]) || "no meals in this period"}.${shown[0].current ? ` Set now: ${ratioText(fmt(shown[0].current))}.` : " No longer in Settings."}`
+      : "The ratio each meal was dosed with, by time range. Pick one to compare it with what it was set to.";
+    el("ratio-time-legend").innerHTML = single
+      ? `<span><span class="trend-legend__dot" style="background:${colourOf(shown[0])};"></span>Used for each meal</span><span><span class="ratio-time__dash"></span>Set in Settings</span>`
+      : shown.map(b => `<span><span class="trend-legend__dot" style="background:${colourOf(b)};"></span>${escapeHtml(b.name)}</span>`).join("");
+    const hasSet = shown.some(b => b.set.some(s => s.ratio != null));
+    el("ratio-time-caption").textContent = "Grams of carbs per unit of insulin." +
+      (single && !hasSet ? " Changes made in Settings are recorded from now on, and will show here as a dashed line." : single ? ` Changes made in Settings are recorded from ${(() => { const h = (state.settings.ratioHistory || [])[0]; return h ? new Date(h.ts).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" }) : "now"; })()}.` : "") +
+      (unrecorded > 0 ? ` ${unrecorded} older meal${unrecorded === 1 ? " has" : "s have"} no ratio saved.` : "");
+  }
+  bind("ratio-time-chips", "click", e => {
+    const b = e.target.closest("[data-ratiotime]");
+    if (!b) return;
+    ratioTimePick = b.dataset.ratiotime;
+    try { store.setItem(RATIO_TIME_KEY, ratioTimePick); } catch (err) { /* storage unavailable: just this time */ }
+    renderRatioTime();
+  });
 
   // "Ideal ratio by time of day": the ratio that would have matched each meal if the carbs eaten to treat a low shortly
   // afterwards had been counted into it. The look-back window is the person's choice (2, 3 or 4 hours; 3 by default).

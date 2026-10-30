@@ -1251,6 +1251,10 @@ html[data-theme="dark"] .undo-toast { background: var(--surface); border: 1px so
 .rtrend__track--double .rtrend__bar--ideal { top: 11px; }
 .trend-legend__tick { display: inline-block; width: 3px; height: 12px; border-radius: 2px; background: var(--ink); margin-right: var(--space-2xs); vertical-align: -2px; }
 .history-entry__ratio { margin: var(--space-2xs) 0 0; font-size: var(--fs-s); color: var(--ink-soft); }
+/* Ratio over time (2.76.0) */
+.ratio-time-chips { display: flex; flex-wrap: wrap; gap: var(--space-2xs); margin: var(--space-3xs) 0 var(--space-s); }
+.ratio-time-dash, .ratio-time__dash { display: inline-block; width: 16px; height: 0; border-top: 2px dashed var(--ink); margin-right: 5px; vertical-align: 3px; }
+#ratio-time-legend { flex-wrap: wrap; gap: var(--space-2xs) var(--space-m); }
 .trend-legend { display: flex; justify-content: center; gap: var(--space-l); margin-top: var(--space-xs); font-size: var(--fs-xs); color: var(--ink-soft); }
 .trend-legend__dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 5px; }
 
