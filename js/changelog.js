@@ -2,6 +2,15 @@
 // summary can never drift. Bump CHANGELOG[0].version here (and CACHE_VERSION in sw.js) on every release.
 export const CHANGELOG = [
   {
+    version: "2.75.1",
+    summary: "Apple Health workouts: calories are no longer counted twice when Health Webhook sends the same data twice.",
+    changes: [
+      "This morning's 10:02 ride was shown as 78 kcal and Hard; Apple Watch says 39 kcal, which is Moderate. Health Webhook had sent the same delivery twice and both copies were added up",
+      "Each calorie reading now counts once, however many times it arrives",
+      "Workouts from the last two days that were doubled are corrected automatically on the next delivery (your 08:20 ride: 186 kcal becomes 93). Anything you've changed by hand is left alone"
+    ]
+  },
+  {
     version: "2.75.0",
     summary: "Calculator: a slim bar at the bottom of the dose card shows today's carbs against your average day.",
     changes: [

@@ -34,7 +34,7 @@ import { createCloudSync, supabaseCloudTarget } from "./js/core/cloud-sync.js";
 import { groupEvents, logHealth, isSyncStuck } from "./js/core/problems.js";
 import { createWebPlatform, assertPlatform } from "./js/core/platform.js";
 import { createStorage, localStorageBackend, runMigrations, STORAGE_MIGRATIONS } from "./js/core/storage.js";
-import { workoutsToActivities, awaitingIntensity, intensityUpdates, INBOX_KEEP_MS } from "./js/health-import.js";
+import { workoutsToActivities, awaitingIntensity, mayBeDoubleCounted, intensityUpdates, INBOX_KEEP_MS } from "./js/health-import.js";
 import { dayBounds, shiftDay, dayTimeline, readingNear, stackRows } from "./js/day-timeline.js";
 import { sessionLevel, primaryTotp, verifyCode, startTotpSetup, cancelTotpSetup, removeTotp, signOutOtherDevices, groupSecret, cleanTotpCode, validTotpCode } from "./js/mfa.js";
 import { nearActivity, activitySkip, countNearActivity, breakfastByActivity, activitySummary, ACTIVITY_FILTERS, NEAR_BEFORE_HOURS, NEAR_AFTER_HOURS } from "./js/activity-stats.js";
@@ -3966,7 +3966,8 @@ import { nearActivity, activitySkip, countNearActivity, breakfastByActivity, act
       const sessionRows = list.filter(r => Array.isArray(r.sessions) && r.sessions.length).map(r => ({ sessions: r.sessions }));
       const known = { history: state.history, deleted: state.deleted && state.deleted.history, now };
       const fresh = workoutsToActivities(sessionRows, known);                 // new workouts, before calories
-      const waiting = state.history.filter(e => awaitingIntensity(e, now));  // earlier imports still without calories
+      // Earlier imports still without calories, and recent estimates that may have counted the same calories twice (2.75.1).
+      const waiting = state.history.filter(e => awaitingIntensity(e, now) || mayBeDoubleCounted(e, now));
       let calories = [];
       if (fresh.length || waiting.length) {
         // Calories burned during a workout arrive in deliveries received after it started, whichever delivery the workout

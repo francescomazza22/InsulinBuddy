@@ -63,8 +63,15 @@ const timeOf = v => { const t = Date.parse(v); return Number.isFinite(t) ? t : N
  * there are no calorie samples at all for that window. */
 export function caloriesDuring(startMs, endMs, samples) {
   let total = 0, any = false;
+  // Health Webhook can send the same delivery twice (seen 30 Oct 2026: two identical deliveries one second apart), and
+  // calories are gathered across deliveries, so the same sample can be here more than once. Count each sample once:
+  // by its id, or, without one, by its times and value (2.75.1).
+  const seen = new Set();
   for (const s of samples || []) {
     if (!s || typeof s.value !== "number" || !Number.isFinite(s.value) || s.value < 0) continue;
+    const key = typeof s.id === "string" && s.id ? "id:" + s.id : `t:${s.start_time}|${s.end_time}|${s.value}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
     if (s.unit && String(s.unit).toLowerCase() !== "kcal") continue;
     const a = timeOf(s.start_time), b = timeOf(s.end_time);
     if (!Number.isFinite(a) || !Number.isFinite(b) || b < a) continue;
@@ -124,7 +131,23 @@ export function awaitingIntensity(e, now = Date.now()) {
   return isImportedActivity(e) && e.note === UNKNOWN_INTENSITY_NOTE && Number.isFinite(e.ts) && now - e.ts <= INBOX_KEEP_MS;
 }
 
-/** For imports waiting for calories: [{ id, intensity, note }] for each one the calorie samples now cover. */
+/** The calories an untouched estimate was made from, or null: the note is still the one the import wrote, and the
+ * intensity is still the one those calories give (so a changed intensity is left alone). */
+export function estimatedKcal(e) {
+  if (!isImportedActivity(e) || typeof e.note !== "string" || !(e.durationMin > 0)) return null;
+  const m = /^From Apple Health · (\d+) kcal \(intensity estimated\)$/.exec(e.note);
+  if (!m) return null;
+  const kcal = Number(m[1]);
+  return estimateIntensity(e.durationMin, kcal).intensity === e.intensity ? kcal : null;
+}
+/** Imports whose estimate may have counted the same calories twice (2.75.1): untouched and recent enough to re-check. */
+export function mayBeDoubleCounted(e, now = Date.now()) {
+  return estimatedKcal(e) != null && Number.isFinite(e.ts) && now - e.ts <= INBOX_KEEP_MS;
+}
+
+/** [{ id, intensity, note }] for imports waiting for calories that the samples now cover, and for untouched estimates
+ * that come out LOWER once each sample is counted once (duplicates only ever add, so a lower figure is the fix; a
+ * higher one could just mean part of the samples have already been tidied away, so it is left alone). */
 export function intensityUpdates(entries, calories) {
   const out = [];
   for (const e of entries || []) {
@@ -132,6 +155,8 @@ export function intensityUpdates(entries, calories) {
     const kcal = caloriesDuring(e.ts, e.ts + e.durationMin * 60000, calories);
     if (kcal == null) continue;
     const est = estimateIntensity(e.durationMin, kcal);
+    const before = estimatedKcal(e);
+    if (e.note !== UNKNOWN_INTENSITY_NOTE && !(before != null && est.kcal < before)) continue;
     out.push({ id: e.id, intensity: est.intensity, note: estimatedNote(est.kcal) });
   }
   return out;

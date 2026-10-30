@@ -107,3 +107,51 @@ test("calories from another delivery are used when the workout is first added", 
   assert.equal(a.intensity, "light");
   assert.match(a.note, /55 kcal \(intensity estimated\)/);
 });
+
+// ---- 2.75.1: Health Webhook sent the same delivery twice (30 Oct 2026, ids 24 and 25, one second apart) ----
+{
+  const { caloriesDuring: cal, workoutsToActivities: w2a, intensityUpdates: upd, mayBeDoubleCounted, estimatedKcal } = await import("../../js/health-import.js");
+  // The 10:02:48-10:09:00 ride: Apple Watch says 39 active kcal, sent as 104 samples of 0.375 kcal.
+  const start = Date.parse("2026-10-30T10:02:48.147Z"), end = Date.parse("2026-10-30T10:09:00.595Z");
+  const samples = Array.from({ length: 104 }, (_, i) => {
+    const a = start + i * 3500;
+    return { id: `S-${i}`, unit: "kcal", value: 0.375, start_time: new Date(a).toISOString(), end_time: new Date(a + 3500).toISOString() };
+  });
+  const session = { id: "6F401C94-C3ED-46EB-9BF8-B05F7886A916", label: "cycling", start_time: new Date(start).toISOString(), end_time: new Date(end).toISOString() };
+  const delivery = () => ({ sessions: [session], calories: samples.map(s => ({ ...s })) });
+
+  test("2.75.1: the same delivery twice counts its calories once (39 kcal, not 78)", () => {
+    assert.equal(Math.round(cal(start, end, [...samples, ...samples])), 39);
+    const [ride] = w2a([delivery(), delivery()], { now: end + 600000 });
+    assert.equal(ride.note, "From Apple Health · 39 kcal (intensity estimated)");
+    assert.equal(ride.intensity, "moderate");                     // 39 kcal in 6 min = 6.5 a minute; 78 read as hard
+  });
+
+  test("2.75.1: samples without an id are matched on their times and value", () => {
+    const noId = samples.map(({ id, ...s }) => s);
+    assert.equal(Math.round(cal(start, end, [...noId, ...noId])), 39);
+    // two different samples that happen to have the same value are both counted
+    assert.equal(cal(0, 10, [{ unit: "kcal", value: 1, start_time: new Date(0).toISOString(), end_time: new Date(5).toISOString() }, { unit: "kcal", value: 1, start_time: new Date(5).toISOString(), end_time: new Date(10).toISOString() }]), 2);
+  });
+
+  test("2.75.1: an untouched import that was doubled is corrected; an edited one is left alone", () => {
+    const now = end + 3600000;
+    const doubled = { id: "hk-" + session.id, entryType: "activity", source: "appleHealth", ts: start, durationMin: 6, intensity: "hard", note: "From Apple Health · 78 kcal (intensity estimated)" };
+    assert.equal(estimatedKcal(doubled), 78);
+    assert.ok(mayBeDoubleCounted(doubled, now));
+    assert.deepEqual(upd([doubled], [...samples, ...samples]), [{ id: doubled.id, intensity: "moderate", note: "From Apple Health · 39 kcal (intensity estimated)" }]);
+    const edited = { ...doubled, intensity: "light" };            // changed by hand: no longer the estimate's intensity
+    assert.equal(estimatedKcal(edited), null);
+    assert.equal(mayBeDoubleCounted(edited, now), false);
+    assert.deepEqual(upd([edited], samples), []);
+    const renamed = { ...doubled, note: "Commute" };
+    assert.equal(mayBeDoubleCounted(renamed, now), false);
+  });
+
+  test("2.75.1: a correct estimate is never raised (some samples may already be tidied away)", () => {
+    const right = { id: "hk-x", entryType: "activity", source: "appleHealth", ts: start, durationMin: 6, intensity: "moderate", note: "From Apple Health · 39 kcal (intensity estimated)" };
+    assert.deepEqual(upd([right], samples), []);                         // same figure: nothing to do
+    assert.deepEqual(upd([right], [...samples, ...samples.map(s => ({ ...s, id: s.id + "b" }))]), []);   // more calories found: left as it is
+    assert.equal(mayBeDoubleCounted(right, start + 3 * 86400000), false);   // too old to re-check
+  });
+}
