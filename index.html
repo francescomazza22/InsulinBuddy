@@ -618,6 +618,22 @@
           <p class="panel-card__hint" style="margin-top:6px;">Like the one above, this changes your suggested dose. When on, a reading below your target takes insulin off the meal dose: (reading − target) ÷ correction factor, so 55 against a target of 100 and a factor of 50 takes off about 1 unit. It never takes the dose below zero. When off, a low reading adds nothing and takes nothing off. If you're actually low, treating the low comes first.</p>
         </div>
 
+        <div class="panel-card" id="basal-usual-card">
+          <h2 class="panel-card__title">Usual basal doses</h2>
+          <p class="panel-card__hint">Your normal long-acting doses. When you log basal, the dose starts from these, and you're told when what you enter is different. Leave one empty to start from your last dose instead. Change them only as agreed with your diabetes team.</p>
+          <div class="field-grid basal-usual-grid">
+            <div class="field">
+              <label for="basal-usual-am">Morning</label>
+              <div class="field__row"><input type="text" id="basal-usual-am" inputmode="decimal" autocomplete="off" placeholder="Not set"><span class="field__unit">units</span></div>
+            </div>
+            <div class="field">
+              <label for="basal-usual-pm">Evening</label>
+              <div class="field__row"><input type="text" id="basal-usual-pm" inputmode="decimal" autocomplete="off" placeholder="Not set"><span class="field__unit">units</span></div>
+            </div>
+          </div>
+          <p class="panel-card__hint basal-usual-status" id="basal-usual-status" role="status"></p>
+        </div>
+
         <div class="panel-card" id="basal-activity-card">
           <div class="toggle-row">
             <span>Suggest less basal after activity</span>

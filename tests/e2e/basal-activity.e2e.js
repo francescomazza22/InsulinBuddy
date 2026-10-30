@@ -27,7 +27,7 @@ const dev = await openDevice(app, { width: W, height: 900, mobile: W < 700, dark
 t.section(`OFF BY DEFAULT (${W}px${DARK ? ", dark" : ""}): no suggestion, the old note`);
 await open();
 t.check("no suggestion card", !(await cardShown()));
-t.check("note still says it never suggests a basal dose", /never suggests a basal dose/.test(await dev.text(".basal-note")));
+t.check("note still says it never works a basal dose out itself", /never works a basal dose out itself/.test(await dev.text(".basal-note")));
 t.check("dose prefilled from the last one", (await units()) === "10", await units());
 await close();
 

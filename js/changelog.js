@@ -2,6 +2,17 @@
 // summary can never drift. Bump CHANGELOG[0].version here (and CACHE_VERSION in sw.js) on every release.
 export const CHANGELOG = [
   {
+    version: "2.77.0",
+    summary: "Usual basal doses: set your normal morning and evening basal, and logging basal starts from it.",
+    changes: [
+      "New in Settings > Dosing: \u201cUsual basal doses\u201d, one for the morning and one for the evening, with the daily total",
+      "Logging basal now starts from your usual dose for that time of day (before, from the last dose you logged), and shows the last one alongside",
+      "If you enter something different it says so, for example \u201c2u more than your usual 10u\u201d, with a link to make the new dose your usual one",
+      "The \u201ccheck this dose\u201d warning for a big change now compares with your usual dose. After activity, your lower-basal rule starts from it too",
+      "Leave a usual dose empty to keep starting from your last dose, as before. Insulin Buddy still never works a basal dose out itself"
+    ]
+  },
+  {
     version: "2.76.1",
     summary: "Edit sheet tidied: the glucose unit sits inside its box like \u201cunits\u201d does, and the title says what you're editing.",
     changes: [

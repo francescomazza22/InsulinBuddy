@@ -34,7 +34,7 @@ export function normalizeState(parsed, defaults) {
   const ps = p.settings && typeof p.settings === "object" ? p.settings : {};
   const settings = { ...d.settings, ...ps };
   // nested settings objects: merge key-by-key so a partial object can't lose keys
-  for (const k of ["insulinModel", "carbAbsorptionMinutes", "basalActivity"]) {
+  for (const k of ["insulinModel", "carbAbsorptionMinutes", "basalActivity", "basalBaseline"]) {
     settings[k] = { ...d.settings[k], ...(ps[k] && typeof ps[k] === "object" ? ps[k] : {}) };
   }
   const deleted = emptyDeleted();

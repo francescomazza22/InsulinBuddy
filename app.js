@@ -20,7 +20,7 @@ import { solveSwap, carbsForGrams, canAdjust, setGrams } from "./js/swap.js";
 import { glucoseAxisTicks, percentile, dailyPatternBuckets, daysSpanned, estimatedA1c, extendedGlucoseStats, dailyStats, glucoseSummaryStats, timeInRangeBreakdown, glucoseGuideRows, TIME_IN_RANGE_BANDS, preferLiveReadings, preferLiveEntries } from "./js/glucose-stats.js";
 import { randomBytes, toB64, fromB64, deriveKey, encryptString, decryptString, isEncryptedPayload, exportKeyRaw, importKeyRaw } from "./js/crypto.js";
 import { LocalBackups, shouldAutoSnapshot } from "./js/backup.js";
-import { slotUsage, sortBySlotUsage, doseBadge, groupByDay, takeEntries, matchesQuery, recentDistinctMeals, mealLabel, dosingSummary, insulinStats, isBasalEntry, basalSlotForTime, basalSlotLabel, lastBasalDose, basalDoseCheck, makeBasalEntry, isNonMealEntry, PAGE_SIZE } from "./js/history.js";
+import { slotUsage, sortBySlotUsage, doseBadge, groupByDay, takeEntries, matchesQuery, recentDistinctMeals, mealLabel, dosingSummary, insulinStats, isBasalEntry, basalSlotForTime, basalSlotLabel, lastBasalDose, basalDoseCheck, makeBasalEntry, basalBaseline, basalStartDose, basalVsUsual, BASAL_BASELINE_DEFAULTS, isNonMealEntry, PAGE_SIZE } from "./js/history.js";
 import { ACTIVITY_TYPES, INTENSITIES, DURATION_CHIPS, ACTIVITY_MAX_MINUTES, ACTIVITY_NAME_MAX, ACTIVITY_NOTE_MAX, isActivityEntry, isIntensity, activityLabel, intensityLabel, formatDuration as formatMinutes, activityCheck, makeActivityEntry, applyActivityEdit, lastActivity, describeActivity } from "./js/activity.js";
 import { createDialogs } from "./js/dialogs.js";
 import { installClearButtons } from "./js/clear-field.js";
@@ -130,7 +130,8 @@ import { nearActivity, activitySkip, countNearActivity, breakfastByActivity, act
         useLearnedAbsorption: false,   // use the times learned from my own readings instead of the fixed ones above
         learnedAbsorption: null,       // last learned snapshot: { high:{minutes,n}|null, ..., counts, at }
         iobAwareCorrection: false,
-        basalActivity: { ...BASAL_ACTIVITY_DEFAULTS },   // 2.72.0: suggest a lower basal after activity (his own % in Settings > Dosing; off until he turns it on)
+        basalActivity: { ...BASAL_ACTIVITY_DEFAULTS },
+        basalBaseline: { ...BASAL_BASELINE_DEFAULTS },   // 2.77.0: his usual morning / evening basal; the basal sheet starts from it   // 2.72.0: suggest a lower basal after activity (his own % in Settings > Dosing; off until he turns it on)
         reduceBelowTarget: false,   // when glucose is below target, take insulin off the meal dose (off = a low reading changes nothing)
         nightscoutUrl: "",
         nsFormat: "combined",   // "combined" (one Meal Bolus) or "split" (carbs and insulin separately)
@@ -2102,8 +2103,8 @@ import { nearActivity, activitySkip, countNearActivity, breakfastByActivity, act
           <input type="datetime-local" id="basal-time" value="${toDatetimeLocalValue(startTs)}" style="${fieldStyle}">
         </div>
         <p class="basal-note">${activityRule.enabled && activityRule.reducePct != null
-          ? `Logged only, and not counted in active insulin. A lower dose is suggested only after activity, from your own rule in Settings &gt; Dosing (${activityRule.reducePct}% less).`
-          : "Logged only. Insulin Buddy never suggests a basal dose, and it isn't counted in active insulin."}</p>
+          ? `Logged only, and not counted in active insulin. It starts from your usual dose, and a lower one is suggested only after activity, from your own rule in Settings &gt; Dosing (${activityRule.reducePct}% less).`
+          : "Logged only, and not counted in active insulin. It starts from your usual dose in Settings &gt; Dosing (or your last one); Insulin Buddy never works a basal dose out itself."}</p>
         <div class="sheet-actions">
           <button class="btn btn--secondary" id="basal-cancel" type="button">Cancel</button>
           <button class="btn btn--primary" id="basal-save" type="button">${editing ? "Save Changes" : "Log dose"}</button>
@@ -2149,6 +2150,28 @@ import { nearActivity, activitySkip, countNearActivity, breakfastByActivity, act
       const len = unitsInput.value ? unitsInput.value.length : (unitsInput.validity && unitsInput.validity.badInput ? 4 : 1);
       unitsInput.style.width = Math.max(2, len + 0.5) + "ch";
     };
+    // What the hint under the dose says: the usual dose (or the last one) and how today's compares (2.77.0).
+    const refreshUsual = () => {
+      const name = basalSlotLabel(slot).toLowerCase();
+      const usual = basalBaseline(state.settings.basalBaseline)[slot];
+      const last = lastBasalDose(others(), slot);
+      const lastText = last ? `Last: ${last.units}u · ${when(last.ts)}.` : `No ${name} dose logged yet.`;
+      const typed = parseDecimalInput(unitsInput.value);
+      if (usual == null) {
+        hintEl.innerHTML = `${last ? `Last ${name} dose: ${last.units}u · ${escapeHtml(when(last.ts))}. Change it if today's differs.` : `No ${name} dose logged yet.`}` +
+          (!editing && typed > 0 ? ` <button type="button" class="basal-usual-link" data-usual="set">Make ${escapeHtml(String(typed))}u my usual ${name} dose</button>` : ` <span class="basal-usual-muted">Set your usual dose in Settings &gt; Dosing.</span>`);
+        hintEl.classList.remove("basal-hint--off");
+        return;
+      }
+      const vs = basalVsUsual(typed, usual);
+      const off = vs && vs.diff !== 0;
+      hintEl.classList.toggle("basal-hint--off", !!off);
+      hintEl.innerHTML = vs
+        ? (off ? `<b>${escapeHtml(vs.text)}</b> ${escapeHtml(lastText)}` +
+            (!editing && !applied ? ` <button type="button" class="basal-usual-link" data-usual="set">Make ${escapeHtml(String(typed))}u my usual</button>` : "")
+          : `Your usual ${name} dose: ${usual}u. ${escapeHtml(lastText)}`)
+        : `Your usual ${name} dose: ${usual}u. ${escapeHtml(lastText)}`;
+    };
     const refreshSlot = () => {
       backdrop.querySelectorAll("[data-slot]").forEach(b => {
         const on = b.dataset.slot === slot;
@@ -2156,15 +2179,15 @@ import { nearActivity, activitySkip, countNearActivity, breakfastByActivity, act
         b.setAttribute("aria-pressed", String(on));
       });
       const last = lastBasalDose(others(), slot);
-      const name = basalSlotLabel(slot).toLowerCase();
-      hintEl.textContent = last ? `Last ${name} dose: ${last.units}u · ${when(last.ts)}. Change it if today's differs.` : `No ${name} dose logged yet.`;
-      // Start from the last dose in this slot, but only ever replace a value we put there ourselves.
+      // Start from his usual dose for this slot (2.77.0), else the last one logged, but only ever replace a value we put there ourselves.
+      const start = basalStartDose(state.settings.basalBaseline, last, slot);
       const untouched = unitsInput.value === "" || unitsInput.value === String(prefilled);
       if (!editing && untouched) {
-        if (last) { unitsInput.value = last.units; prefilled = last.units; }
+        if (start) { unitsInput.value = start.units; prefilled = start.units; }
         else { unitsInput.value = ""; prefilled = null; }
       }
       fitDose();
+      refreshUsual();
       refreshActivity();
     };
 
@@ -2189,7 +2212,7 @@ import { nearActivity, activitySkip, countNearActivity, breakfastByActivity, act
         // A morning-looking time labelled Evening (or the reverse) is the easy slip that puts a dose in the wrong bar of the chart.
         const looksLike = basalSlotForTime(ts);
         if (looksLike !== slot && !(await dialogs.confirm(`${formatTime(ts)} looks like a ${basalSlotLabel(looksLike).toLowerCase()} dose, but it is set to ${basalSlotLabel(slot)}. Save it as ${basalSlotLabel(slot)} anyway?`, { title: "Check the time of day", confirmText: `Save as ${basalSlotLabel(slot)}` }))) return;
-        const check = basalDoseCheck(units, lastBasalDose(others(), slot));
+        const check = basalDoseCheck(units, lastBasalDose(others(), slot), basalBaseline(state.settings.basalBaseline)[slot]);
         if (check.level === "block") return fail(check.message);
         if (check.level === "confirm" && !(await dialogs.confirm(`${check.message} Log it anyway?`, { title: "Check this dose", confirmText: "Log it", danger: true }))) return;
 
@@ -2223,7 +2246,16 @@ import { nearActivity, activitySkip, countNearActivity, breakfastByActivity, act
         const next = Math.max(0, Math.round(((parseDecimalInput(unitsInput.value) || 0) + Number(stepBtn.dataset.step)) * 100) / 100);
         unitsInput.value = next; prefilled = null;   // a hand-set value is the person's, not a prefill
         fitDose();
+        refreshUsual();
         refreshActivity();
+      }
+      // "Make 9u my usual morning dose" (2.77.0): saves it in Settings > Dosing for this slot.
+      if (e.target.closest("[data-usual]")) {
+        const typed = parseDecimalInput(unitsInput.value);
+        const next = basalBaseline({ ...basalBaseline(state.settings.basalBaseline), [slot]: typed });
+        if (next[slot] != null) { state.settings.basalBaseline = next; saveState(); }
+        refreshUsual();
+        return;
       }
       const actBtn = e.target.closest("[data-activity]");
       if (actBtn) {
@@ -2237,10 +2269,11 @@ import { nearActivity, activitySkip, countNearActivity, breakfastByActivity, act
         prefilled = null;   // either way the dose is now his choice, not a prefill to replace
         errEl.hidden = true;
         fitDose();
+        refreshUsual();
         refreshActivity();
       }
     });
-    unitsInput.addEventListener("input", () => { errEl.hidden = true; fitDose(); refreshActivity(); });
+    unitsInput.addEventListener("input", () => { errEl.hidden = true; fitDose(); refreshActivity(); refreshUsual(); });
     // The field is now only as wide as its digits, so the space around it is part of the box and should still focus it.
     $(".basal-dose-row .field__row").addEventListener("click", e => { if (e.target !== unitsInput) unitsInput.focus(); });
     const followTime = () => {
@@ -6885,6 +6918,7 @@ import { nearActivity, activitySkip, countNearActivity, breakfastByActivity, act
     el("carb-abs-unknown").value = ca.unknown;
     el("iob-aware-correction-toggle").checked = state.settings.iobAwareCorrection;
     el("reduce-below-target-toggle").checked = !!state.settings.reduceBelowTarget;
+    renderBasalUsualSettings();
     renderBasalActivitySettings();
     el("use-learned-abs-toggle").checked = !!state.settings.useLearnedAbsorption;
     const L = state.settings.learnedAbsorption;
@@ -6921,6 +6955,36 @@ import { nearActivity, activitySkip, countNearActivity, breakfastByActivity, act
   // ---- Suggest less basal after activity (2.72.0) ----
   // His own rule: a percentage, a minimum activity length and how far back to look. Read through basalActivityRule so a
   // missing or odd value can never reach the sheet. Off, or on without a percentage, means no suggestion is ever shown.
+  // ---- Usual basal doses (2.77.0) ----
+  function renderBasalUsualSettings() {
+    const b = basalBaseline(state.settings.basalBaseline);
+    for (const slot of ["am", "pm"]) {
+      const inp = el(`basal-usual-${slot}`);
+      if (inp) inp.value = b[slot] == null ? "" : String(b[slot]);   // drawn after each change, so it always shows what is saved
+    }
+    const status = el("basal-usual-status");
+    if (!status) return;
+    const lastAm = lastBasalDose(state.history, "am"), lastPm = lastBasalDose(state.history, "pm");
+    const lastText = [lastAm && `morning ${lastAm.units}u`, lastPm && `evening ${lastPm.units}u`].filter(Boolean).join(", ");
+    status.textContent = b.am == null && b.pm == null
+      ? (lastText ? `Not set yet: the basal sheet starts from your last doses (${lastText}).` : "Not set yet.")
+      : `Total ${Math.round(((b.am || 0) + (b.pm || 0)) * 100) / 100}u a day${b.am == null || b.pm == null ? ` (only the ${b.am == null ? "evening" : "morning"} one is set)` : ""}.`;
+  }
+  // Empty clears it (back to "start from the last dose"); something that isn't a dose above 0 keeps what is saved.
+  const saveBasalUsual = slot => {
+    const inp = el(`basal-usual-${slot}`);
+    const raw = inp.value.trim();
+    const cur = basalBaseline(state.settings.basalBaseline);
+    let v;
+    if (raw === "") v = null;
+    else { v = basalBaseline({ [slot]: parseDecimalInput(raw) })[slot]; if (v == null) { renderBasalUsualSettings(); return; } }
+    if (cur[slot] !== v) { state.settings.basalBaseline = { ...cur, [slot]: v }; saveState(); }
+    renderBasalUsualSettings();
+    renderBasalActivitySettings();
+  };
+  bind("basal-usual-am", "change", () => saveBasalUsual("am"));
+  bind("basal-usual-pm", "change", () => saveBasalUsual("pm"));
+
   function renderBasalActivitySettings() {
     const rule = basalActivityRule(state.settings.basalActivity);
     el("basal-activity-toggle").checked = rule.enabled;
@@ -6930,8 +6994,9 @@ import { nearActivity, activitySkip, countNearActivity, breakfastByActivity, act
     el("basal-activity-lookback").value = rule.lookbackMin;
     const status = el("basal-activity-status");
     if (rule.reducePct == null) { status.textContent = "Set the percentage to start seeing suggestions."; return; }
-    const last = lastBasalDose(state.history, basalSlotForTime(Date.now()));
-    const base = last ? last.units : 10;
+    const nowSlot = basalSlotForTime(Date.now());
+    const start = basalStartDose(state.settings.basalBaseline, lastBasalDose(state.history, nowSlot), nowSlot);
+    const base = start ? start.units : 10;
     const s = basalActivitySuggestion(base, rule, state.settings.rounding);
     status.textContent = `Example: after ${rule.minMinutes} min or more of moderate or hard activity in the ${rule.lookbackMin} min before a dose, ${s.fromUnits}u would be suggested as ${s.units}u (${rule.reducePct}% less, rounded to your ${state.settings.rounding}-unit step).`;
   }

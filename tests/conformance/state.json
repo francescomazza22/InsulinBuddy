@@ -81,7 +81,8 @@
      "low": 240,
      "unknown": 180
     },
-    "basalActivity": {}
+    "basalActivity": {},
+    "basalBaseline": {}
    },
    "settingsUpdatedAt": 0,
    "library": [],
@@ -218,7 +219,8 @@
      "low": 240,
      "unknown": 180
     },
-    "basalActivity": {}
+    "basalActivity": {},
+    "basalBaseline": {}
    },
    "settingsUpdatedAt": 0,
    "library": [],
@@ -358,7 +360,8 @@
      "low": 240,
      "unknown": 180
     },
-    "basalActivity": {}
+    "basalActivity": {},
+    "basalBaseline": {}
    },
    "settingsUpdatedAt": 0,
    "library": [],
@@ -682,7 +685,8 @@
      "low": 240,
      "unknown": 180
     },
-    "basalActivity": {}
+    "basalActivity": {},
+    "basalBaseline": {}
    },
    "settingsUpdatedAt": 0,
    "library": [],
@@ -1038,7 +1042,8 @@
      "low": 240,
      "unknown": 180
     },
-    "basalActivity": {}
+    "basalActivity": {},
+    "basalBaseline": {}
    },
    "settingsUpdatedAt": 0,
    "library": [],
@@ -1363,7 +1368,8 @@
      "low": 240,
      "unknown": 180
     },
-    "basalActivity": {}
+    "basalActivity": {},
+    "basalBaseline": {}
    },
    "settingsUpdatedAt": 0,
    "library": [],
@@ -1623,7 +1629,8 @@
      "low": 240,
      "unknown": 180
     },
-    "basalActivity": {}
+    "basalActivity": {},
+    "basalBaseline": {}
    },
    "settingsUpdatedAt": 0,
    "library": [],
@@ -1915,7 +1922,8 @@
      "low": 240,
      "unknown": 180
     },
-    "basalActivity": {}
+    "basalActivity": {},
+    "basalBaseline": {}
    },
    "settingsUpdatedAt": 0,
    "library": [],
@@ -2137,7 +2145,8 @@
      "low": 240,
      "unknown": 180
     },
-    "basalActivity": {}
+    "basalActivity": {},
+    "basalBaseline": {}
    },
    "settingsUpdatedAt": 900,
    "library": [],
@@ -2313,7 +2322,8 @@
      "low": 240,
      "unknown": 180
     },
-    "basalActivity": {}
+    "basalActivity": {},
+    "basalBaseline": {}
    },
    "settingsUpdatedAt": 0,
    "library": [],
@@ -2556,7 +2566,8 @@
      "low": 240,
      "unknown": 180
     },
-    "basalActivity": {}
+    "basalActivity": {},
+    "basalBaseline": {}
    },
    "settingsUpdatedAt": 0,
    "library": [
@@ -4064,7 +4075,8 @@
      "low": 240,
      "unknown": 180
     },
-    "basalActivity": {}
+    "basalActivity": {},
+    "basalBaseline": {}
    },
    "settingsUpdatedAt": 2000,
    "library": [],

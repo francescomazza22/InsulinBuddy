@@ -41,16 +41,43 @@ const fmtUnits = n => String(Math.round(n * 100) / 100);
  * "confirm" (log only if sure) or "ok". The confirm rule targets typos (4.1 for 41, 14 for 140)
  * without nagging over ordinary day-to-day variation: it needs BOTH a swing of at least 50% AND at
  * least 4 units. With no previous dose to compare against, only a very large dose asks. */
-export function basalDoseCheck(units, last) {
+export function basalDoseCheck(units, last, usual = null) {
   if (typeof units !== "number" || !isFinite(units) || units <= 0) return { level: "block", message: "Enter a dose greater than 0." };
   if (units > BASAL_MAX_UNITS) return { level: "block", message: `That is over ${BASAL_MAX_UNITS} units, which doesn't look right. Check the number.` };
-  if (last && last.units > 0) {
-    const diff = Math.abs(units - last.units);
-    if (diff >= 4 && diff / last.units >= 0.5) return { level: "confirm", message: `Your last dose here was ${fmtUnits(last.units)}u and you entered ${fmtUnits(units)}u.` };
+  // 2.77.0: with a usual dose set, a big jump is measured against that rather than against the last dose logged.
+  const ref = usual > 0 ? { units: usual, usual: true } : last;
+  if (ref && ref.units > 0) {
+    const diff = Math.abs(units - ref.units);
+    if (diff >= 4 && diff / ref.units >= 0.5) return { level: "confirm", message: ref.usual ? `Your usual dose here is ${fmtUnits(ref.units)}u and you entered ${fmtUnits(units)}u.` : `Your last dose here was ${fmtUnits(ref.units)}u and you entered ${fmtUnits(units)}u.` };
   } else if (units > 100) {
     return { level: "confirm", message: `${fmtUnits(units)}u is a very large dose.` };
   }
   return { level: "ok", message: "" };
+}
+
+// ---- Usual basal doses (2.77.0) ----
+// The person's own baseline for each slot, set in Settings > Dosing. The basal sheet starts from it (else from the last dose
+// logged in that slot) and says how far a typed dose is from it. Insulin Buddy never works a basal dose out itself.
+export const BASAL_BASELINE_DEFAULTS = { am: null, pm: null };
+/** { am, pm }: each a dose above 0 and up to BASAL_MAX_UNITS (two decimals), or null when not set. */
+export function basalBaseline(b) {
+  const one = v => { const n = typeof v === "string" ? Number(v.replace(",", ".")) : v; return typeof n === "number" && isFinite(n) && n > 0 && n <= BASAL_MAX_UNITS ? Math.round(n * 100) / 100 : null; };
+  const o = b && typeof b === "object" ? b : {};
+  return { am: one(o.am), pm: one(o.pm) };
+}
+/** Where the sheet starts for a slot: { units, from: "usual" | "last" } or null. */
+export function basalStartDose(baseline, last, slot) {
+  const usual = basalBaseline(baseline)[slot];
+  if (usual != null) return { units: usual, from: "usual" };
+  if (last && last.units > 0) return { units: last.units, from: "last" };
+  return null;
+}
+/** How a typed dose compares with the usual one: null (nothing to say) or { diff, text } like "2u more than your usual 10u". */
+export function basalVsUsual(units, usual) {
+  if (!(usual > 0) || typeof units !== "number" || !isFinite(units) || units <= 0) return null;
+  const diff = Math.round((units - usual) * 100) / 100;
+  if (diff === 0) return { diff, text: `Your usual dose.` };
+  return { diff, text: `${fmtUnits(Math.abs(diff))}u ${diff > 0 ? "more" : "less"} than your usual ${fmtUnits(usual)}u.` };
 }
 
 /** A history entry for a basal dose. Every meal-shaped field is present and zero, so anything that

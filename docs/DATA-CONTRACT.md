@@ -63,6 +63,10 @@ bracket: `id`, `name`, `start`, `end` as `HH:MM`, `ratio`; a bracket may wrap pa
 `insulinModel` (`peakMinutes`, `diaMinutes`), `carbAbsorptionMinutes`, `rounding`, appearance and Nightscout options.
 `basalActivity` (2.72.0, optional): `enabled` (boolean), `reducePct` (1–50, or null = not set, no suggestion),
 `minMinutes` (5–240, for a workout: moderate/hard pieces under 15 min apart add up), `lookbackMin` (15–240). It only shapes a suggestion in the basal sheet; nothing is stored on the basal entry.
+`basalBaseline` (2.77.0, optional): `{ am, pm }`, the person's usual morning / evening basal in units (above 0, up to 200, two
+decimals), or null = not set. The basal sheet starts from it (else the last dose in that slot) and checks big changes against it; nothing is calculated from it.
+`ratioHistory` (2.76.0, optional): `[{ ts, ratios: [{ id, name, ratio, kind }] }]`, a dated snapshot each time a ratio, bracket name or the set of
+brackets changes (at most 400). Sync keeps both devices' records. Only drawn in Trends; never used for a dose.
 Secrets (the Nightscout token) are stored per URL outside the state and are never part of a backup.
 
 ## Other things on the device (not in the state)

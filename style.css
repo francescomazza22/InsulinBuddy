@@ -1335,6 +1335,15 @@ html[data-theme="dark"] .undo-toast { background: var(--surface); border: 1px so
 }
 .basal-step:active { background: var(--paper); }
 .basal-hint { font-size: var(--fs-s); color: var(--ink-soft); margin: 5px 0 0; }
+/* Usual basal doses (2.77.0) */
+.basal-hint--off b { color: var(--ink); font-weight: 700; }
+button.basal-usual-link { appearance: none; background: none; border: none; padding: 0; margin: 0; font: inherit; font-weight: 600; color: var(--acc-1); text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
+.basal-usual-muted { color: var(--ink-soft); }
+.basal-usual-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-m); margin-top: var(--space-xs); min-width: 0; }
+.basal-usual-grid > * { min-width: 0; }
+.basal-usual-grid .field { margin-bottom: 0; }
+.panel-card__hint.basal-usual-status { margin: var(--space-s) 0 0; }
+.basal-usual-grid input { min-width: 0; }
 .basal-error { font-size: var(--fs-m); font-weight: 600; color: var(--brick); margin: var(--space-2xs) 0 0; }
 .basal-note { font-size: var(--fs-xs); color: var(--ink-soft); margin: 0 0 var(--space-m); }
 /* With the keyboard up there is little room, so a sheet drops the bottom safe-area padding (it is under the keyboard
