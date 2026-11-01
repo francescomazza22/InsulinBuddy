@@ -1959,7 +1959,7 @@ input.ingredient-row__input.is-invalid { border-color: var(--brick); box-shadow:
 /* 2.77.2: the activity sheet has only five durations; they overflowed a phone by a few pixels and the last one looked cut off.
    Let them share the row (and wrap on a very narrow screen) instead of scrolling. */
 .portion__chips.activity-chips { flex-wrap: wrap; overflow-x: visible; }
-.portion__chips.activity-chips .portion__chip { flex: 1 0 auto; }
+.portion__chips.activity-chips .portion__chip.portion__chip { flex: 1 1 auto; padding: 0 var(--space-xs); }   /* tighter, so all five fit one row on a phone */
 .portion__chip {
   min-height: 32px; padding: 0 var(--space-s); border-radius: var(--radius-pill); border: 1.5px solid var(--line);
   background: var(--surface); color: var(--ink); font: 600 var(--fs-s) var(--font-ui); font-variant-numeric: tabular-nums; cursor: pointer;
