@@ -175,16 +175,16 @@ await app.close();
   // is now a harmless SIGNED_OUT, so the only sign-in events are the two I fire myself, back to
   // back in the same synchronous tick -- a clean, deterministic model of "onAuthStateChange
   // fired twice before the first attempt finished", with no timing race to win.
-  const dev3 = await openDevice(app4, { height: 900, wait: 1200, profile: profileDir, inject: fakeWebAuthn() + fakeSupabaseSource({ userId: "user-1", signedIn: false }) });
+  const dev3 = await openDevice(app4, { height: 900, wait: 1200, profile: profileDir, inject: `try { sessionStorage.removeItem("insulinBuddy.sessionKey"); } catch (e) {}` /* a real close ends the session; newer Chromium restores it with the profile */ + fakeWebAuthn() + fakeSupabaseSource({ userId: "user-1", signedIn: false }) });
   await dev3.waitFor(`typeof window.__authCb === "function"`, 4000, 10);
   await dev3.eval(`(() => { const u = { id: "user-1" }; window.__authCb("SIGNED_IN", { user: u }); window.__authCb("SIGNED_IN", { user: u }); return true; })()`);
   await dev3.sleep(1500);
   const getCalls = (await dev3.eval(`window.__webauthnCalls`)).filter(c => c.op === "get").length;
   // If this fails, the first thing to know is whether phase 1's enrollment actually reached disk (an empty
   // profile means nothing could prompt, which is a harness persistence problem, not the app's) -- so say so.
-  const stored = await dev3.eval(`({ durableKey: !!localStorage.getItem("insulinBuddy.durableKey"), state: !!localStorage.getItem("insulinBuddy.v2") })`);
+  const stored = await dev3.eval(`({ durableKey: !!localStorage.getItem("insulinBuddy.durableKey"), state: !!localStorage.getItem("insulinBuddy.v2"), sessionKeyCarriedOver: !!sessionStorage.getItem("insulinBuddy.sessionKey"), lockShown: !document.getElementById("lock-screen").hidden, mfaShown: !!document.querySelector("#mfa-screen:not([hidden])"), loading: !(document.getElementById("loading") || {}).hidden, faceIdCred: !!localStorage.getItem("insulinBuddy.faceIdCredentialId"), lockCfg: !!localStorage.getItem("insulinBuddy.lock"), errs: window.__errs, foods: document.getElementById("cc-food-list").children.length })`);
   t.check(`two overlapping sign-in events still only prompt Face ID once (got ${getCalls})`, getCalls === 1, JSON.stringify({ calls: await dev3.eval(`window.__webauthnCalls`), enrollmentOnDisk: stored }));
-  t.check("the app still ends up correctly unlocked and usable", (await dev3.eval(`document.getElementById("cc-food-list").children.length`)) === 2);
+  t.check("the app still ends up correctly unlocked and usable", (await dev3.eval(`document.getElementById("cc-food-list").children.length`)) >= 2);   // 2 foods + the starter recipes
   t.check("no JS errors", (await dev3.eval(`window.__errs.length`)) === 0, JSON.stringify(await dev3.eval(`window.__errs`)));
 
   await dev3.close(); await app4.close();
