@@ -26,7 +26,9 @@ const pick = names => dev.eval(`(async () => { const dt = new DataTransfer(); ${
 // the page's in-memory state still holds the recipe, so remove it there too through the UI-level API: import is by name -> would "update".
 const before = await dev.eval(`document.getElementById("export-count-label").textContent`);
 await pick([{ name: "Recipe_export.csv", text: csv }]); await sleep(600);
-const alerts1 = await dev.eval(`(window.__alerts || []).join(" | ")`);
+// the app reports through its own dialog (js/dialogs.js), not a native alert
+const said = () => dev.eval(`(() => { const d = [...document.querySelectorAll(".dialog-backdrop")].map(x => x.textContent).join(" | "); document.querySelectorAll(".dialog-backdrop .dialog__btn--primary").forEach(b => b.click()); return [d, ...(window.__alerts || [])].join(" | "); })()`);
+const alerts1 = await said();
 t.check("import reports recipes (and does not treat the file as foods)", /Recipes: \d+ (added|updated)/.test(alerts1) && !/Foods:/.test(alerts1), alerts1);
 const st = await localState(dev);
 const r = (st.recipes || []).find(x => x.name === "Pizza dough");
@@ -42,7 +44,15 @@ const st2 = await localState(dev);
 t.check("both arrived: new recipe and new food", st2.recipes.some(x => x.name === "Focaccia") && st2.library.some(x => x.name === "Olive oil"), JSON.stringify(st2.recipes.map(x => x.name)));
 t.check("the original recipe is untouched (still one Pizza dough)", st2.recipes.filter(x => x.name === "Pizza dough").length === 1);
 t.section("IMPORT: foods logged by quantity keep their unit (the real export file, plus a 'True' spelling)");
-const real = fs.readFileSync("/root/.claude/uploads/6958b332-d72b-5d2b-804e-720ac78a6776/546d21fb-Food_export.csv", "utf8");
+// A copy of the rows that mattered in Francesco's real export (same columns and spelling as app.js writes); the original upload
+// path only existed in one old session and crashed this suite everywhere else.
+const real = [
+  `"fat_per_100g","usage_count","is_favorite","notes","calories_per_100g","salt_per_100g","name","carbs_per_100g","category","protein_per_100g","unit_based","unit_label","grams_per_unit","glycemic_index","id"`,
+  `"21","4","false","","406","1","Croissant (Gails)","45","bakery","8","true","Portion","80","","f-crois"`,
+  `"9","2","false","","210","0.8","Bastoncini Findus (fish finger)","19","other","12","true","Piece","25","","f-bast"`,
+  `"47","3","true","","625","0.2","Lindor","49","sweets","5","true","Ball","12.5","","f-lind"`,
+  `"0.2","9","false","","52","0","Mela","14","fruit","0.3","false","","","low","f-mela"`
+].join("\n");
 await pick([{ name: "Food_export.csv", text: real }, { name: "Extra.csv", text: `"name","carbs_per_100g","unit_based","unit_label","grams_per_unit"\n"Test biscuit","60","True","Biscuit","12"\n"Test sweet","70","1","Sweet","5"` }]); await sleep(700);
 const st3 = await localState(dev);
 const by = n => st3.library.find(f => f.name === n) || {};
