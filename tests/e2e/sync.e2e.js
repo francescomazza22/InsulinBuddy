@@ -376,7 +376,7 @@ await scenario("Basal: a dose logged on one device reaches the other intact, sho
   t.check("every basal field survived the round trip", onB.basalDose === 14 && onB.basalSlot === "am" && onB.periodName === "morning" && onB.ts === c.ts && onB.mealDose === 0 && onB.correctionDose === 0);
   await B.tab("history"); await B.sleep(250);
   const rowB = await B.text("#history-groups .history-entry--basal");
-  t.check("on B it renders as a Basal row with the dose", /Basal/.test(rowB) && /14u/.test(rowB) && /Morning/.test(rowB), rowB);
+  t.check("on B it renders as a Basal row with the dose", /Basal/.test(rowB) && /14 u/.test(rowB) && /Morning/.test(rowB), rowB);
   t.check("on B it isn't counted as a meal", (await B.text("#hist-count-pill")) === "0 meals");
 
   // B deletes it; A hasn't pulled, so this also checks the tombstone beats A's stale copy

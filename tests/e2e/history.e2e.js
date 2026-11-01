@@ -473,7 +473,7 @@ const pressEscape = async dev => {
   t.check("its slot matches the time of day it was taken", e.basalSlot === (await dev.eval(`new Date(${e.ts}).getHours() < 14 ? "am" : "pm"`)));
   t.check("it is stamped for cloud sync (updatedAt)", typeof e.updatedAt === "number" && e.updatedAt > 0);
   const row = await dev.text("#history-groups .history-entry--basal");
-  t.check("History shows it as a Basal row with its dose", /Basal/.test(row) && /14u/.test(row) && /Long-acting insulin/.test(row), row);
+  t.check("History shows it as a Basal row with its dose (written \"14 u\" like meal doses since 2.77.2)", /Basal/.test(row) && /14 u/.test(row) && /Long-acting insulin/.test(row), row);
   t.check("it is not counted as a meal", (await dev.text("#hist-count-pill")) === "0 meals");
   t.check("the 'no meals yet' empty state is gone, because there is something to show", await dev.eval(`document.getElementById("history-empty").hidden`));
   t.check("a confirmation with Undo appears", !(await dev.eval(`document.getElementById("undo-toast").hidden`)) && /Basal 14u logged/.test(await dev.text("#undo-toast-message")));
