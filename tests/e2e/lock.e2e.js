@@ -35,7 +35,9 @@ await dev.tab("settings"); await dev.sleep(150);
 t.check("a Lock now button is offered while unlocked", !!(await dev.eval(`document.getElementById("btn-lock-now")`)));
 const beforeLock = await dev.eval(`sessionStorage.getItem("insulinBuddy.sessionKey")`);
 t.check("a session key is actually stored while unlocked", !!beforeLock);
-await dev.click("#btn-lock-now"); await dev.sleep(700); // this reloads the page itself
+await dev.click("#btn-lock-now"); await dev.sleep(300); // this reloads the page itself
+// wait for the reloaded page rather than a fixed 700 ms (a busy machine boots slower and failed this check falsely)
+await dev.waitFor(`document.readyState === "complete" && !!document.getElementById("lock-screen") && !document.getElementById("lock-screen").hidden`, 8000).catch(() => {});
 t.check("the session key was cleared", (await dev.eval(`sessionStorage.getItem("insulinBuddy.sessionKey")`)) == null);
 t.check("the lock screen shows again immediately", !(await dev.eval(`document.getElementById("lock-screen").hidden`)));
 await submitLock("wrong guess");
