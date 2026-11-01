@@ -19,7 +19,8 @@ const dev = await openDevice(app, { width: Number(process.env.SWEEP_WIDTH || 390
 await dev.cdp.send("Page.bringToFront"); await dev.cdp.send("Emulation.setFocusEmulationEnabled", { enabled: true });
 
 // Fields whose empty value legitimately means something ("no URL", "nothing searched"), so clearing them may change state.
-const CLEAR_OK = new Set(["ns-url", "ns-token", "ns-secret", "lib-search", "history-search", "cc-search", "cc-glucose", "cc-batch-weight", "cc-grams", "cc-correction-manual-input", "cc-eating-out-dose"]);
+const CLEAR_OK = new Set(["ns-url", "ns-token", "ns-secret", "lib-search", "history-search", "cc-search", "cc-glucose", "cc-batch-weight", "cc-grams", "cc-correction-manual-input", "cc-eating-out-dose",
+  "basal-usual-am", "basal-usual-pm"]);   // 2.77.0: an empty usual basal dose means "not set" (start from the last dose); the box shows it
 await dev.eval(`window.__probe = async (rootSel, label) => {
   const sleep = ms => new Promise(r => setTimeout(r, ms));
   const { validateState, hasErrors } = await import("./js/core/schema.js");

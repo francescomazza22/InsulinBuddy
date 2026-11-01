@@ -27,7 +27,7 @@ t.check("local storage is now ciphertext, not readable JSON", !raw.includes('"hi
 t.section("REGRESSION: once unlocked, this session stays unlocked across a reload");
 await dev.go("index.html", 700);
 t.check("no lock screen on a reload within the same session", await dev.eval(`document.getElementById("lock-screen").hidden`));
-t.check("the app is straight in, no re-entry needed", (await dev.eval(`document.getElementById("cc-food-list").children.length`)) === 2);
+t.check("the app is straight in, no re-entry needed", (await dev.eval(`document.getElementById("cc-food-list").children.length`)) >= 2);   // 2 foods + the starter recipes
 await noErrors("device");
 
 t.section("\"Lock now\" clears the session and requires the passphrase again");
@@ -100,7 +100,7 @@ await app.close();
   await dev2.go("index.html", 900);
   t.check("Face ID is offered and auto-attempted", (await dev2.eval(`window.__webauthnCalls`)).some(c => c.op === "get"));
   t.check("it unlocked without ever submitting the passphrase form", await dev2.eval(`document.getElementById("lock-screen").hidden`));
-  t.check("the app is actually usable afterward", (await dev2.eval(`document.getElementById("cc-food-list").children.length`)) === 2);
+  t.check("the app is actually usable afterward", (await dev2.eval(`document.getElementById("cc-food-list").children.length`)) >= 2);
   await noErr2("device");
 
   t.section("A declined/failed Face ID prompt falls back to the passphrase field, not a dead end");

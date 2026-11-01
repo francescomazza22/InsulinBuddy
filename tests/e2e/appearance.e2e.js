@@ -59,10 +59,12 @@ async function fresh(name, extra = {}) {
   const dev = await fresh("DARK MODE: a light-ink drawing on the dark background, and a colour choice still works with it", {});
   await openBackgroundSettings(dev);
   await dev.click('#bg-pattern-grid [data-pattern="doodles"]'); await sleep(200);
-  const light = await bodyBg(dev);
+  // Since the drawn field (js/doodle-field.js) the doodles are an <svg> in #bg-doodles, inked by its CSS colour, not a body background.
+  const ink = () => dev.eval(`(() => { const f = document.getElementById("bg-doodles"); return f && f.querySelector("svg") ? getComputedStyle(f).color : "none"; })()`);
+  const light = await ink();
   await dev.eval(`document.documentElement.setAttribute("data-theme", "dark")`); await sleep(150);
-  const dark = await bodyBg(dev);
-  t.check("dark mode switches to the dark version of the drawing", dark !== light && dark.startsWith('url("data:image/svg+xml,') && dark.includes("%23ECEAE3") && light.includes("%231B2A3A"), `${light.slice(-30)} / ${dark.slice(-30)}`);
+  const dark = await ink();
+  t.check("dark mode switches to the dark version of the drawing", light === "rgb(0, 0, 0)" && dark === "rgb(236, 234, 227)", `${light} / ${dark}`);
   await dev.eval(`document.documentElement.setAttribute("data-theme", "light")`); await sleep(150);
   await dev.click('#bg-swatch-grid [data-color="#E1EDF7"]'); await sleep(250);
   t.check("picking a background color keeps the pattern on top of it", (await attr(dev)) === "doodles" && (await dev.eval(`!!document.querySelector("#bg-doodles svg")`)) && (await bodyBg(dev, "backgroundColor")) === "rgb(225, 237, 247)", await bodyBg(dev, "backgroundColor"));
@@ -179,7 +181,7 @@ async function fresh(name, extra = {}) {
   t.check("switching Doodles to Abstract keeps your size choice (Medium)", (await attr(dev)) === "abstract" && (await dev.eval(`document.documentElement.getAttribute("data-bg-pattern-size")`)) === "medium" && await dev.eval(`document.querySelector('#bg-pattern-size [data-size="medium"]').classList.contains("is-active")`));
   t.check("it is saved in your settings", (await localState(dev)).settings.backgroundPattern === "abstract");
   await dev.go("index.html", 900); await dev.waitFor(`document.getElementById("cc-food-list").children.length > 0`);
-  t.check("after a reload Abstract is still on, with the artwork", (await attr(dev)) === "abstract" && /pattern-abstract-light\.svg/.test(await bodyBg(dev)));
+  t.check("after a reload Abstract is still on, with the artwork", (await attr(dev)) === "abstract" && await dev.eval(`(() => { const f = document.getElementById("bg-abstract"); return !!(f && f.querySelector("svg *")); })()`));
   await openBackgroundSettings(dev);
   await dev.click('#bg-pattern-grid [data-pattern="doodles"]'); await sleep(250);
   t.check("and back to Doodles gives the doodle drawing again", (await attr(dev)) === "doodles" && (await dev.eval(`!!document.querySelector("#bg-doodles svg")`)));

@@ -1590,6 +1590,8 @@ html[data-theme="dark"] { --glass-sheet: rgba(30,36,43,0.90); }
 .lib-item__star:not(.is-fav) { color: var(--ink-soft); opacity: 0.5; }
 /* Text fields directly inside a form row fill the row (the Food Name box used to stop short). */
 .sheet .field > input[type="text"], .sheet .field > input[type="email"], .sheet .field > input[type="url"] { width: 100%; box-sizing: border-box; padding: var(--space-m); font-size: max(16px, var(--rem)); }
+/* 2.77.2: the same for a bare text field on a settings card (the Nightscout URL), which was narrower than the dropdown under it and unpadded. */
+.panel-card .field > input[type="text"], .panel-card .field > input[type="email"], .panel-card .field > input[type="url"] { width: 100%; box-sizing: border-box; padding: 0 14px; }
 
 /* ---- Soft scrollbars ----
    The browser's default scrollbar is a square bar with arrows that runs the full height of a panel and pokes out of its

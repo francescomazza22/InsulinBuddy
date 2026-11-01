@@ -688,7 +688,7 @@ for (const showRecent of [false, true]) {
       const R = e => e.getBoundingClientRect();
       const panel = document.querySelector(".active-panel");
       const recent = document.getElementById("recent-meals-header");
-      const add = Array.from(document.querySelectorAll("#cc-food-section .section-header")).find(e => e.textContent.trim() === "Add food item");
+      const add = Array.from(document.querySelectorAll("#cc-food-section .section-header")).find(e => e.textContent.trim().startsWith("Add food item"));   // the header also holds the Browse button
       const next = recent && !recent.hidden ? recent : add;
       return { panelShown: !panel.hidden, gap: R(next).top - R(panel).bottom, mealItemsDisplay: getComputedStyle(document.getElementById("cc-meal-items")).display };
     })()`);
@@ -747,6 +747,8 @@ await scenario("Basal: sent to Nightscout as a Note with no insulin amount; edit
   await dev.eval(`(() => { const i = document.getElementById("basal-units"); i.value = "15"; i.dispatchEvent(new Event("input", { bubbles: true })); })()`);
   await dev.click('[data-slot="pm"]'); await sleep(50);
   await dev.click("#basal-save"); await sleep(250);
+  // An 8 AM dose set to Evening is questioned first (basal-slot check); confirm it.
+  await dev.eval(`(() => { const b = [...document.querySelectorAll(".dialog-backdrop .dialog__btn--primary")].find(x => /Save as Evening/.test(x.textContent)); if (b) b.click(); })()`); await sleep(300);
   t.check("editing updates the SAME Nightscout record", await until(() => be.ns.treatments.length === 1 && be.ns.treatments[0].notes === "Basal insulin: 15u (evening)"), JSON.stringify(be.ns.treatments.map(x => x.notes)));
   t.check("...with the same id, and still no insulin amount", be.ns.treatments[0]._id === tr._id && !("insulin" in be.ns.treatments[0]));
 

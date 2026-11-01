@@ -48,7 +48,9 @@ t.check("the range can be renamed", st.settings.timeRatios.find(x => x.id === "m
 t.check("meals logged under the old name follow the new one", st.history.find(x => x.id === "h1").ratioLabel === "Sunday morning", st.history[0].ratioLabel);
 await dev.eval(`(() => { const i = document.querySelector('#edit-mine [data-field="name"]'); i.value = "All day"; i.dispatchEvent(new Event("change", { bubbles: true })); })()`); await sleep(250);
 st = await localState(dev);
-t.check("a name already in use is refused and the old one kept", st.settings.timeRatios.find(x => x.id === "mine").name === "Sunday morning" && (await dev.eval(`window.__alerts.length`)) === 1);
+const said = await dev.eval(`(() => { const d = document.querySelector(".dialog-backdrop"); return d ? d.textContent : ""; })()`);   // the app's own dialog, not a native alert
+t.check("a name already in use is refused and the old one kept", st.settings.timeRatios.find(x => x.id === "mine").name === "Sunday morning" && /already a range called "All day"/.test(said), said);
+await dev.eval(`document.querySelectorAll(".dialog-backdrop .dialog__btn--primary, .dialog-backdrop .dialog__btn--ghost").forEach(b => b.click())`); await sleep(200);
 await dev.eval(`(() => { const i = document.querySelector('#edit-mine [data-field="name"]'); i.value = "   "; i.dispatchEvent(new Event("change", { bubbles: true })); })()`); await sleep(250);
 st = await localState(dev);
 t.check("a blank name is ignored", st.settings.timeRatios.find(x => x.id === "mine").name === "Sunday morning");

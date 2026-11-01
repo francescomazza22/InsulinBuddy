@@ -8,6 +8,9 @@ const { handle, extractToken, tokensMatch, parseSince, flattenHistoryEntries, re
 const ENV = { token: "secret-token-123", userId: "user-abc", supabaseUrl: "https://proj.supabase.co", serviceRoleKey: "service-role-key", appOrigins: [] };
 const NOW = Date.UTC(2026, 9, 1, 12, 0, 0);
 const hoursAgo = h => NOW - h * 3_600_000;
+// handle() reads the real clock and caps the look-back at 30 days, so its tests build data relative to the real now
+// (with the fixed NOW they started failing on 1 Nov 2026, 31 days later).
+const liveAgo = h => Date.now() - h * 3_600_000;
 
 function meal(ts, over = {}) {
   return { ts, mealDose: 0, correctionDose: 0, totalCarbs: 0, items: [{ name: "Pasta" }], ...over };
@@ -123,7 +126,7 @@ const fakeRow = (data) => async () => new Response(JSON.stringify([{ data }]), {
 function req(path, headers = {}) { return new Request(`https://proxy.example/functions/v1/health-export${path}`, { headers }); }
 
 test("handle: rejects without a valid token, accepts via header or query param", async () => {
-  const fetchImpl = fakeRow({ history: [meal(hoursAgo(1), { totalCarbs: 10 })] });
+  const fetchImpl = fakeRow({ history: [meal(liveAgo(1), { totalCarbs: 10 })] });
   let res = await handle(req(""), ENV, fetchImpl);
   assert.equal(res.status, 401);
   res = await handle(req("", { Authorization: "Bearer wrong" }), ENV, fetchImpl);
@@ -138,8 +141,8 @@ test("handle: returns flattened entries for a normal request", async () => {
   // Pass an explicit `since` rather than relying on the endpoint's real-wall-clock "last 24h"
   // default against a fixed test timestamp -- that combination only works until enough real
   // calendar days pass, which is exactly the bug this replacement avoids.
-  const fetchImpl = fakeRow({ history: [meal(hoursAgo(1), { mealDose: 3, totalCarbs: 45 })] });
-  const res = await handle(req(`?since=${encodeURIComponent(new Date(hoursAgo(2)).toISOString())}`, { Authorization: "Bearer secret-token-123" }), ENV, fetchImpl);
+  const fetchImpl = fakeRow({ history: [meal(liveAgo(1), { mealDose: 3, totalCarbs: 45 })] });
+  const res = await handle(req(`?since=${encodeURIComponent(new Date(liveAgo(2)).toISOString())}`, { Authorization: "Bearer secret-token-123" }), ENV, fetchImpl);
   const body = await res.json();
   assert.equal(body.entries.length, 2);
 });
@@ -237,9 +240,9 @@ test("basal: sorted oldest-first together with meals, and the since filter still
 });
 
 test("handle: ?include=basal adds basal, the plain URL doesn't, and the token is still required", async () => {
-  const fetchImpl = fakeRow({ history: [basalRow(hoursAgo(2), 14, "am"), meal(hoursAgo(3), { mealDose: 4 })] });
+  const fetchImpl = fakeRow({ history: [basalRow(liveAgo(2), 14, "am"), meal(liveAgo(3), { mealDose: 4 })] });
   const auth = { Authorization: "Bearer secret-token-123" };
-  const since = `since=${encodeURIComponent(new Date(hoursAgo(10)).toISOString())}`;
+  const since = `since=${encodeURIComponent(new Date(liveAgo(10)).toISOString())}`;
   const typesFor = async q => (await (await handle(req(`?${since}${q}`, auth), ENV, fetchImpl)).json()).entries.map(e => e.type);
   assert.deepEqual(await typesFor(""), ["mealInsulin"], "default: unchanged");
   assert.deepEqual(await typesFor("&include=basal"), ["mealInsulin", "basalInsulin"]);

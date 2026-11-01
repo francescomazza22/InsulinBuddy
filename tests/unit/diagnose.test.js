@@ -79,3 +79,24 @@ test("the page's own copy of that normaliser behaves exactly like the generator'
   const samples = [clean, clean.replace(/^<svg ([^>]*)>/, '<svg $1 xmlns:c2pa="http://c2pa.org/manifest"><metadata>\n<c2pa:manifest>QUJD</c2pa:manifest>\n</metadata>'), "<svg><metadata>a</metadata><g/><metadata>b</metadata></svg>", "no svg at all"];
   for (const s of samples) assert.equal(pageFn(s), normalizeSvg(s));
 });
+
+// 2.77.2: the page's own export reader (exportsOf, inside diagnose.html) missed every name after the first in
+// `export const A = 1, B = 2`, so it told a correct install that activity-stats.js couldn't start (HIGH_MGDL).
+// Every named import in the app must be found among the exports the page reads from its source file.
+test("diagnose.html's export reader finds every name the app's files import from each other", () => {
+  const src = /function exportsOf\(text\) \{[\s\S]*?\n\}\n/.exec(html);
+  assert.ok(src, "exportsOf not found in diagnose.html");
+  const exportsOf = new Function(`${src[0]}; return exportsOf;`)();
+  assert.deepEqual([...exportsOf("export const A = 1, B = [1, 2], C = { x: 1, y: 2 };\nexport function f() {}")].sort(), ["A", "B", "C", "f"]);
+  const files = ["app.js", ...fs.readdirSync(ROOT + "js").filter(f => f.endsWith(".js")).map(f => "js/" + f)];
+  const missing = [];
+  for (const file of files) {
+    const text = fs.readFileSync(ROOT + file, "utf8");
+    for (const m of text.matchAll(/import\s*\{([^}]*)\}\s*from\s*"\.\/([^"]+)"/g)) {
+      const target = (file.startsWith("js/") ? "js/" : "") + m[2].replace(/^js\//, file.startsWith("js/") ? "" : "js/");
+      const have = exportsOf(fs.readFileSync(ROOT + target, "utf8"));
+      for (const n of m[1].split(",").map(s => s.trim().split(/\s+as\s+/)[0].trim()).filter(Boolean)) if (!have.has(n)) missing.push(`${file} imports ${n} from ${target}`);
+    }
+  }
+  assert.deepEqual(missing, []);
+});

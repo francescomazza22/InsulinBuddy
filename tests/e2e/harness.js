@@ -309,9 +309,14 @@ export async function openDevice(app, { width = 390, height = 900, mobile = true
   const port = debugPort++;
   const userDir = profile || `/tmp/ib-chrome-${Date.now()}-${port}`;
   const proc = spawn(findChrome(), ["--headless=new", "--no-sandbox", "--disable-gpu", `--remote-debugging-port=${port}`, `--user-data-dir=${userDir}`, `--window-size=${width},${height}`, "--host-resolver-rules=MAP cdn.jsdelivr.net 127.0.0.1"], { stdio: "ignore" });
-  let targets;
-  for (let i = 0; i < 40; i++) { try { targets = JSON.parse(await httpGet(`http://localhost:${port}/json`)); break; } catch { await sleep(150); } }
-  const page = targets.find(t => t.type === "page");
+  // Wait for the page itself, not just the endpoint: a busy machine can answer /json before the first tab exists,
+  // which used to crash a suite with "reading 'webSocketDebuggerUrl'" and leave this Chrome running.
+  let page;
+  for (let i = 0; i < 80 && !page; i++) {
+    try { page = JSON.parse(await httpGet(`http://localhost:${port}/json`)).find(t => t.type === "page" && t.webSocketDebuggerUrl); } catch { /* not up yet */ }
+    if (!page) await sleep(150);
+  }
+  if (!page) { try { proc.kill("SIGKILL"); } catch { /* already gone */ } throw new Error(`Chrome on port ${port} never opened a page`); }
   const ws = new WebSocket(page.webSocketDebuggerUrl);
   await new Promise(r => { ws.onopen = r; });
   let id = 0; const pending = new Map(); const listeners = [];
