@@ -20,6 +20,15 @@ export function parseDecimalInput(text) {
   return parseFloat(s.replace(",", "."));
 }
 
+/** A change such as "+2" or "−13" (a true minus sign), formatted by `fmt`; the sign follows the number shown, so a change
+ *  that rounds to zero is plain "0", never "−0" (2.77.2). No value gives a dash. */
+export function signedChange(v, fmt) {
+  if (v == null || !Number.isFinite(v)) return "\u2014";
+  const shown = fmt(Math.abs(v));
+  if (Number(shown) === 0) return shown.replace(/^-/, "");
+  return (v < 0 ? "\u2212" : "+") + shown;
+}
+
 export function formatQty(n) { return n % 1 === 0 ? String(n) : String(round1(n)); }
 
 // Local-midnight timestamp for the day containing `ts`.

@@ -284,7 +284,7 @@ html[data-theme="dark"] .dose-card button.day-carbs { color: #fff; }
 .correction-row__input:focus-within { outline: 2px solid #fff; outline-offset: 2px; background: rgba(255,255,255,0.22); }
 .correction-row__input span { padding: 0 var(--space-m); font-size: var(--fs-s); color: rgba(255,255,255,0.85); }
 /* Shown when a typed dose can't be read as a number, so the Log button is never greyed out without a reason. */
-.log-why { margin: var(--space-xs) 2px 0; font-size: var(--fs-s); color: var(--text-muted, #6b6b6b); text-align: center; }
+.log-why { margin: var(--space-xs) 2px 0; font-size: var(--fs-s); color: var(--ink-soft); text-align: center; }   /* 2.77.2: was a fixed grey, dim on black at night */
 .correction-row__manual-error { margin: var(--space-2xs) 0 0; padding: var(--space-2xs) var(--space-s); border-radius: var(--radius-xs); background: rgba(150, 40, 30, 0.92); color: #fff; font-size: var(--fs-s); font-weight: 600; }
 .correction-row__unit-toggle {
   padding: 0 var(--space-m); align-self: stretch; font-size: var(--fs-s); font-weight: 700; color: #fff;
@@ -1440,7 +1440,7 @@ html[data-theme="dark"] .basal-activity .basal-activity__head { color: #5FC4CC; 
 .aiog-head { display: flex; align-items: center; gap: var(--space-xs); margin-bottom: var(--space-3xs); }
 .aiog-head .aiog-h { margin: 0; }
 .info-btn { width: 20px; height: 20px; flex: none; border-radius: 50%; border: 1.5px solid var(--ink-soft); background: transparent; color: var(--ink-soft); font: italic 700 var(--fs-xs)/1 Georgia, serif; padding: 0; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
-.info-btn[aria-expanded="true"] { background: var(--ink-soft); color: var(--card, #fff); }
+.info-btn[aria-expanded="true"] { background: var(--ink-soft); color: var(--paper); }   /* 2.77.2: was white, unreadable on the light grey it gets at night */
 .info-panel { font-size: var(--fs-s); color: var(--ink-soft); background: rgba(127,127,127,.1); border-radius: var(--radius-s); padding: var(--space-xs) var(--space-m); margin: var(--space-3xs) 0 var(--space-s); }
 .info-panel p { margin: 0 0 var(--space-2xs); }
 .info-panel p:last-child { margin-bottom: 0; }

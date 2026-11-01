@@ -1,6 +1,6 @@
 import { saveReportPdf } from "./js/pdf-report.js";
 import { sanityPool, doseSanity } from "./js/dose-sanity.js";
-import { escapeHtml, escapeAttr, round1, formatQty, dayKeyFromTs, timeAgo, makeId, redact, parseDecimalInput } from "./js/util.js";
+import { escapeHtml, escapeAttr, round1, formatQty, dayKeyFromTs, timeAgo, makeId, redact, parseDecimalInput, signedChange } from "./js/util.js";
 import { convertGlucose, convertDosingSetting, roundDose as roundDoseWith, roundSignedDose as roundSignedDoseWith, activeAt, compoundGiInfo, computeDose, checkDoseConsistency, planDose, planEditDose, capDoseParts, giBand, niceScale, buildTrendBuckets, summarizeTrends, mealTypeBreakdown, absorptionMinutesForEntry as absorptionForEntry, iobFraction, cobGrams, glucoseTrendArrow, glucoseRangeClass, glucoseRangeLabel, basalByDay, summarizeBasal, ratioWasApplied, ratioByBracket, idealRatioByBracket, BASAL_ACTIVITY_DEFAULTS, BASAL_ACTIVITY_LIMITS, basalActivityRule, activitiesBeforeBasal, basalActivitySuggestion } from "./js/calc.js";
 import { SCHEMA_VERSION, normalizeState as normalizeStateWith, makeFingerprint, stampChanges, mergeStates, statesEquivalent, prepareRestoredState } from "./js/state.js";
 import { NightscoutClient, NsOutbox, nsToken, nsBaseUrl, nsConfigured, treatmentsForEntry, entriesToGlucoseRows } from "./js/nightscout.js";
@@ -20,7 +20,7 @@ import { solveSwap, carbsForGrams, canAdjust, setGrams } from "./js/swap.js";
 import { glucoseAxisTicks, percentile, dailyPatternBuckets, daysSpanned, estimatedA1c, extendedGlucoseStats, dailyStats, glucoseSummaryStats, timeInRangeBreakdown, glucoseGuideRows, TIME_IN_RANGE_BANDS, preferLiveReadings, preferLiveEntries } from "./js/glucose-stats.js";
 import { randomBytes, toB64, fromB64, deriveKey, encryptString, decryptString, isEncryptedPayload, exportKeyRaw, importKeyRaw } from "./js/crypto.js";
 import { LocalBackups, shouldAutoSnapshot } from "./js/backup.js";
-import { slotUsage, sortBySlotUsage, doseBadge, groupByDay, takeEntries, matchesQuery, recentDistinctMeals, mealLabel, dosingSummary, insulinStats, isBasalEntry, basalSlotForTime, basalSlotLabel, lastBasalDose, basalDoseCheck, makeBasalEntry, basalBaseline, basalStartDose, basalVsUsual, BASAL_BASELINE_DEFAULTS, isNonMealEntry, PAGE_SIZE } from "./js/history.js";
+import { slotUsage, sortBySlotUsage, doseBadge, groupByDay, takeEntries, matchesQuery, recentDistinctMeals, mealLabel, dosingSummary, insulinStats, isBasalEntry, basalSlotForTime, basalSlotLabel, lastBasalDose, basalDoseCheck, makeBasalEntry, basalBaseline, basalStartDose, basalVsUsual, BASAL_BASELINE_DEFAULTS, isNonMealEntry, entryCountText, PAGE_SIZE } from "./js/history.js";
 import { ACTIVITY_TYPES, INTENSITIES, DURATION_CHIPS, ACTIVITY_MAX_MINUTES, ACTIVITY_NAME_MAX, ACTIVITY_NOTE_MAX, isActivityEntry, isIntensity, activityLabel, intensityLabel, formatDuration as formatMinutes, activityCheck, makeActivityEntry, applyActivityEdit, lastActivity, describeActivity } from "./js/activity.js";
 import { createDialogs } from "./js/dialogs.js";
 import { installClearButtons } from "./js/clear-field.js";
@@ -358,7 +358,7 @@ import { nearActivity, activitySkip, countNearActivity, breakfastByActivity, act
       const json = JSON.stringify(st);            // captured synchronously, before any caller mutates state
       let payload = json, encrypted = false;
       if (encryptionKey) { payload = JSON.stringify(await encryptString(encryptionKey, json)); encrypted = true; }
-      await backups.snapshot(payload, { reason, meals: st.history.length, foods: st.library.length, encrypted });
+      await backups.snapshot(payload, { reason, meals: st.history.filter(e => !isNonMealEntry(e)).length,   /* meals only, as Insights counts (2.77.2) */ foods: st.library.length, encrypted });
       store.setItem(LAST_SNAPSHOT_KEY, String(Date.now()));
       diag.log("info", "backup", `Snapshot saved (${reason}): ${st.history.length} meals`);
     } catch (e) { diag.log("warn", "backup", "Snapshot failed: " + ((e && e.message) || e)); }
@@ -1466,7 +1466,7 @@ import { nearActivity, activitySkip, countNearActivity, breakfastByActivity, act
 
     const preset = GLUCOSE_BAND_PRESETS[glucoseBandPreset];
     const buckets = dailyPatternBuckets(readings, 30);
-    const svg = renderDailyPatternSVG(buckets, preset);
+    const svg = renderDailyPatternSVG(buckets, preset, (box.clientWidth || 0) - 34);   // the card's inside width (its padding is 16 + 1 each side)
     const bandPicker = `
       <div class="band-preset-row">
         <span class="band-preset-row__label">Bands:</span>
@@ -1627,10 +1627,12 @@ import { nearActivity, activitySkip, countNearActivity, breakfastByActivity, act
       }).join("");
   }
 
-  function renderDailyPatternSVG(buckets, preset) {
+  // `width` (2.77.2): the on-screen width to draw for, so a wide iPad/desktop card gets a wider drawing with normal-size
+  // text instead of a phone-width drawing stretched to twice the size. Left out (the reports), it is drawn 340 wide as before.
+  function renderDailyPatternSVG(buckets, preset, width) {
     if (buckets.length === 0) return null;
     const sorted = buckets.slice().sort((a, b) => a.minute - b.minute);
-    const W = 340, H = 220, padL = 32, padR = 10, padT = 10, padB = 26;
+    const W = width > 340 ? Math.round(width) : 340, H = 220, padL = 32, padR = 10, padT = 10, padB = 26;
     const plotW = W - padL - padR, plotH = H - padT - padB;
     const unit = state.settings.units;
     const toDisplay = v => unit === "mmol" ? convertGlucose(v, "mgdl", "mmol") : v;
@@ -5905,7 +5907,8 @@ import { nearActivity, activitySkip, countNearActivity, breakfastByActivity, act
   }
 
   function insCurveSvg(group, hours) {
-    const W = Math.max(280, Math.min(640, (el("trend-insights").clientWidth || 340) - 8)), H = 190, L = 34, R = 8, T = 8, B = 22;
+    // drawn at the card's inside width (2.77.2: a 640 cap stretched it, and its text, on a desktop)
+    const W = Math.max(280, (el("trend-insights").clientWidth || 340) - 34), H = 190, L = 34, R = 8, T = 8, B = 22;
     const pts = group.points.filter(p => p.p50 != null);
     if (pts.length < 2) return `<p class="trend-caption">Not enough readings after these meals yet.</p>`;
     const vals = pts.flatMap(p => [p.p25, p.p50, p.p75]).filter(v => v != null).concat([70, 180]);
@@ -5978,7 +5981,7 @@ import { nearActivity, activitySkip, countNearActivity, breakfastByActivity, act
     // 6. Overnight
     const ov = overnightStats(entries, readings);
     if (ov.n) {
-      const sign = v => (v > 0 ? "+" : v < 0 ? "−" : "") + fmtGlu(Math.abs(v));
+      const sign = v => signedChange(v, fmtGlu);   // never "−0" (2.77.2)
       cards.push(insCard("Overnight (00:00–06:00)", "Quiet nights only: no food or mealtime insulin in the 3 hours before midnight or during the night.",
         `<div class="ins-cols"><div class="ins-col"><div class="ins-col__title">Average drift</div><div class="ins-col__num">${sign(ov.avgDrift)}</div><div class="rtrend__n">${gluUnit()} by 06:00 · ${ov.n} nights</div></div><div class="ins-col"><div class="ins-col__title">Nights with a low</div><div class="ins-col__num">${ov.lowNights}</div><div class="rtrend__n">of ${ov.n}</div></div></div>` +
         (ov.byBasal.length > 1 ? `<ul class="ins-list ins-list--plain">${ov.byBasal.map(b => `<li><span class="ins-li__name">Basal ${round1(b.dose)} u</span><span class="ins-li__val">${sign(b.avgDrift)} ${gluUnit()}</span><span class="rtrend__n">${b.n} nights${b.lows ? ` · ${b.lows} with a low` : ""}</span></li>`).join("")}</ul>` : `<p class="trend-caption trend-caption--tight">Log basal doses in more than one amount to compare how the night went for each.</p>`)));
@@ -6000,7 +6003,7 @@ import { nearActivity, activitySkip, countNearActivity, breakfastByActivity, act
     const since = Date.now() - (lastInsights.days || 14) * 86400000;
     const acts = activityImpact(state.history.filter(e => isActivityEntry(e) && e.ts >= since), readings);
     if (acts.length) {
-      const sign = v => v == null ? "—" : (v > 0 ? "+" : v < 0 ? "−" : "") + fmtGlu(Math.abs(v));
+      const sign = v => signedChange(v, fmtGlu);   // never "−0" (2.77.2)
       const row = a => {
         const ints = a.byIntensity.length > 1 ? `<span class="rtrend__n">${a.byIntensity.map(b => `${escapeHtml(intensityLabel(b.intensity))} ${sign(b.avgChange)} (${b.n})`).join(" · ")}</span>` : "";
         return `<li><span class="ins-li__name">${escapeHtml(a.label)}</span><span class="ins-li__val">${sign(a.avgChange)} ${gluUnit()}</span><span class="rtrend__n">${a.n} time${a.n === 1 ? "" : "s"} · about ${escapeHtml(formatMinutes(a.avgMinutes))} · started at ${fmtGluU(a.avgStart)}</span><span class="rtrend__n">lowest in the ${ACTIVITY_AFTER_HOURS} h after: ${fmtGluU(a.avgLowest)} on average${a.lows ? ` · ${a.lows} went below ${fmtGluU(70)}` : ""}</span>${ints}</li>`;
@@ -6745,7 +6748,7 @@ import { nearActivity, activitySkip, countNearActivity, breakfastByActivity, act
       if (currentUser) await saveStateCloud(true);
       diag.log("info", "backup", `Restored snapshot from ${when}: ${state.history.length} meals`);
       renderEverything();
-      await dialogs.alert(`Restored: ${state.history.length} meals, ${state.library.length} foods.`, { title: "Backup restored" });
+      await dialogs.alert(`Restored: ${entryCountText(state.history)}, ${state.library.length} foods.`, { title: "Backup restored" });
     } catch (e) {
       diag.log("error", "backup", "Restore failed: " + ((e && e.message) || e));
       await dialogs.alert("That snapshot couldn't be read, so nothing was changed.", { title: "Restore failed" });
@@ -6845,7 +6848,7 @@ import { nearActivity, activitySkip, countNearActivity, breakfastByActivity, act
     } else if (cloudSyncPending) {
       rows.push(statusRow("Cloud Sync", "warn", `Offline — changes saved on this device, will sync automatically.`));
     } else {
-      rows.push(statusRow("Cloud Sync", "ok", `Signed in as ${escapeHtml(currentUser.email || "")}${cloudLoadStatus.at ? " · checked " + timeAgo(cloudLoadStatus.at) : ""}<br>Account ID: ${escapeHtml(currentUser.id || "unknown")}<br>${state.history.length} meal${state.history.length === 1 ? "" : "s"} loaded · ${state.library.length} food${state.library.length === 1 ? "" : "s"} in library`));
+      rows.push(statusRow("Cloud Sync", "ok", `Signed in as ${escapeHtml(currentUser.email || "")}${cloudLoadStatus.at ? " · checked " + timeAgo(cloudLoadStatus.at) : ""}<br>Account ID: ${escapeHtml(currentUser.id || "unknown")}<br>${entryCountText(state.history)} loaded · ${state.library.length} food${state.library.length === 1 ? "" : "s"} in library`));
     }
 
     // Nightscout -- read and write tracked separately, reflecting the most

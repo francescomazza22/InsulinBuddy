@@ -94,6 +94,10 @@ const screens = [
     await dev.tab("calculator");
     await dev.eval(`(() => { const p = document.getElementById("cc-live-glucose"); p.className = "glucose-pill glucose-pill--${kind}"; p.textContent = ${JSON.stringify(text)}; p.hidden = false; })()`);
   }]),
+  // 2.77.2: two things only seen after a tap, which the audit (it skips hidden text) never reached: the hint under
+  // "Log Meal" when it can't log yet, and an "i" button once opened (white on light grey at night).
+  ["calculator, log hint", async dev => { await dev.tab("calculator"); await dev.eval(`(() => { const w = document.getElementById("cc-log-why"); w.textContent = "Add a food or a correction to log"; w.hidden = false; })()`); }],
+  ["insights trends, an i button open", async dev => { await dev.tab("history"); await dev.click('#history-segmented [data-seg="trends"]'); await sleep(400); await dev.eval(`(() => { const b = document.querySelector(".info-btn"); if (b) b.click(); })()`); await sleep(150); }],
   ["insights meals", async dev => { await dev.tab("history"); await dev.click('#history-segmented [data-seg="log"]'); }],
   ["insights trends", async dev => { await dev.tab("history"); await dev.click('#history-segmented [data-seg="trends"]'); await sleep(400); }],
   ["settings dosing", async dev => { await dev.tab("settings"); await dev.click('#settings-segmented [data-seg="ratios"]'); }],

@@ -18,6 +18,17 @@ export const isBasalEntry = e => !!e && e.entryType === "basal";
 /** Not a meal or a bolus: a basal dose or a logged activity (2.65.0). Everything that counts meals, carbs or bolus insulin skips these. */
 export const isNonMealEntry = e => isBasalEntry(e) || isActivityEntry(e);
 
+/** "42 meals · 28 basal doses · 5 activities" for the whole log (2.77.2: the plain entry count was called "meals"). */
+export function entryCountText(history) {
+  let meals = 0, basal = 0, acts = 0;
+  for (const e of history || []) { if (isBasalEntry(e)) basal++; else if (isActivityEntry(e)) acts++; else if (e) meals++; }
+  const n = (k, one, many) => `${k} ${k === 1 ? one : many}`;
+  const parts = [n(meals, "meal", "meals")];
+  if (basal) parts.push(n(basal, "basal dose", "basal doses"));
+  if (acts) parts.push(n(acts, "activity", "activities"));
+  return meals || (!basal && !acts) ? parts.join(" \u00b7 ") : parts.slice(1).join(" \u00b7 ");
+}
+
 /** "am" before 14:00 local, "pm" from 14:00 (the midpoint of a typical morning/evening pair). It is
  * only a label and a prefill hint; the person can always flip it. */
 export function basalSlotForTime(ts) {
