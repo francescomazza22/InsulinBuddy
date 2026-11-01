@@ -45,9 +45,10 @@
 
   <div class="clinic-report-overlay" id="clinic-report-overlay" hidden>
     <div class="clinic-report-toolbar no-print">
+      <!-- same order as the doctor report's bar: Close, Save PDF, Print (2.77.2) -->
+      <button class="dashed-btn" id="clinic-report-close" type="button">Close</button>
       <button class="btn btn--primary" id="clinic-report-save" type="button">Save PDF</button>
       <button class="dashed-btn" id="clinic-report-print" type="button">Print</button>
-      <button class="dashed-btn" id="clinic-report-close" type="button">Close</button>
     </div>
     <div class="clinic-report-content" id="clinic-report-content"></div>
   </div>
@@ -262,9 +263,9 @@
         <div class="food-pick-list" id="cc-food-list"></div>
         <div class="pick-extra" id="cc-pick-extra" hidden></div>
       </div>
-      <div class="sticky-log-spacer"></div>
-
       <p class="disclaimer">Uses the ratios you've set in Settings. Always use your own judgment and your care team's guidance — this isn't medical advice.</p>
+      <!-- the spacer comes last so the line above can scroll clear of the Log Meal bar (2.77.2: it sat behind it) -->
+      <div class="sticky-log-spacer"></div>
       </div>
     </section>
 
@@ -579,7 +580,7 @@
         </div>
 
         <div class="panel-card" id="learned-abs-card">
-          <div class="aiog-head"><h3 style="margin:0 0 4px;">Learn from my readings</h3><button type="button" class="info-btn" aria-expanded="false" aria-label="How are learned times worked out?">i</button></div>
+          <div class="aiog-head"><h2 class="panel-card__title" style="margin:0;">Learn from my readings</h2><button type="button" class="info-btn" aria-expanded="false" aria-label="How are learned times worked out?">i</button></div>
           <div class="info-panel" hidden>
             <p>For each past meal eaten on its own (at least 15 g, no other carbs 4 hours either side, readings throughout), the app adds back the glucose the insulin removed. What is left is the rise from the carbs alone. It measures how long that rise took to reach 90% of its peak, which gives that meal's absorption time.</p>
             <p>The time for each GI group is the middle value (median) of its meals, and only shown once there are 3 such meals. With the switch on, these replace the fixed times everywhere carbs on board is worked out. Basal insulin, exercise and sensor error aren't modelled, so treat them as a guide.</p>

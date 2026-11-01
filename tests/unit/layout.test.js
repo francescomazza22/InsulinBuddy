@@ -24,7 +24,7 @@ test("the responsive block exists, sits before the print rules, and the old part
 
 test("the Calculator wrappers wrap the right things in the right order (phone order is the original order)", () => {
   const view = html.slice(html.indexOf('id="view-calculator"'), html.indexOf('id="view-library"'));
-  const order = ['class="calc-side"', 'class="dose-card"', 'id="active-panel"', 'id="cc-ratio-picker"', 'id="cc-sticky-log-bar"', 'class="calc-main"', 'id="cc-food-section"', 'class="sticky-log-spacer"', 'class="disclaimer"'];
+  const order = ['class="calc-side"', 'class="dose-card"', 'id="active-panel"', 'id="cc-ratio-picker"', 'id="cc-sticky-log-bar"', 'class="calc-main"', 'id="cc-food-section"', 'class="disclaimer"', 'class="sticky-log-spacer"'];   // spacer last since 2.77.2, so the disclaimer clears the Log bar
   const at = order.map(k => view.indexOf(k));
   assert.ok(at.every(i => i >= 0), "something is missing: " + JSON.stringify(at));
   assert.deepEqual([...at].sort((a, b) => a - b), at, "elements are out of order");

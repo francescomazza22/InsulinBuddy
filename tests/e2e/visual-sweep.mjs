@@ -65,7 +65,7 @@ for (const [dname, w, h, mobile] of DEVICES) for (const dark of [false, true]) {
     await click("#btn-log-basal"); await sleep(600); await dev.shot(`${OUT}/${tag}--04-sheet-basal.png`); await click("#basal-cancel"); await sleep(300);
     await click("#btn-log-activity"); await sleep(600); await dev.shot(`${OUT}/${tag}--05-sheet-activity.png`);
     await dev.eval(`(() => { const b = [...document.querySelectorAll(".sheet:not([hidden]) button, [role=dialog]:not([hidden]) button")].find(x => /cancel|close/i.test(x.textContent)); if (b) b.click(); })()`); await sleep(300);
-    await click(".history-item, .history-row, .log-entry, [data-entry-id]"); await sleep(700); await dev.shot(`${OUT}/${tag}--06-meal-detail.png`);
+    await dev.eval(`(() => { const r = [...document.querySelectorAll(".history-entry")].find(e => !/--basal|--activity/.test(e.className)); if (r) { r.scrollIntoView({ block: "center" }); r.click(); } })()`); await sleep(700); await dev.shot(`${OUT}/${tag}--06-meal-detail.png`);
     await dev.eval(`document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }))`); await sleep(300);
     await dev.tab("settings"); await sleep(400);
     for (const seg of ["ratios", "library", "sync", "data", "general"]) { await click(`#settings-segmented [data-seg="${seg}"]`); await sleep(500); await shot(`07-settings-${seg}`); }

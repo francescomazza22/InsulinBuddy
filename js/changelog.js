@@ -2,6 +2,20 @@
 // summary can never drift. Bump CHANGELOG[0].version here (and CACHE_VERSION in sw.js) on every release.
 export const CHANGELOG = [
   {
+    version: "2.77.2",
+    summary: "Fixes from a full check of the app: sharper charts on iPad and desktop, easier reading at night, and tidier details.",
+    changes: [
+      "On an iPad or computer the Daily pattern and Glucose after meals charts were stretched, with labels twice the normal size; they are now drawn to fit, with normal-size text",
+      "At night an opened \u201ci\u201d button was white on light grey, and the hint under Log Meal was dim; both are now easy to read",
+      "A glucose change that rounds to zero now shows as 0, not \u22120 (Insights > Activity and glucose, Overnight)",
+      "Settings > Sync and restored backups now count meals, basal doses and activities separately, instead of calling every entry a meal",
+      "At the bottom of the Calculator, the last line no longer hides behind the Log Meal bar",
+      "Basal doses in the log are written like meal doses (\u201c10 u\u201d); the clinic report\u2019s buttons are in the same order as the doctor report\u2019s; the Learn from my readings heading matches the other cards; the activity durations fit on one row",
+      "The Nightscout URL box is now as wide as the rest of the form",
+      "The self-check page (diagnose.html) no longer reports a file as old or broken when it is fine"
+    ]
+  },
+  {
     version: "2.77.1",
     summary: "The clinic report now follows dark mode on screen, like the doctor report.",
     changes: [

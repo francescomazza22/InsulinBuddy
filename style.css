@@ -1439,6 +1439,8 @@ html[data-theme="dark"] .basal-activity .basal-activity__head { color: #5FC4CC; 
 #aiog-content > .panel-card__hint:first-child { margin-top: var(--space-s); }
 .aiog-head { display: flex; align-items: center; gap: var(--space-xs); margin-bottom: var(--space-3xs); }
 .aiog-head .aiog-h { margin: 0; }
+/* 2.77.2: the Learn-from-my-readings card heading, sized and spaced like every other card title (it was a bare h3) */
+#learned-abs-card .aiog-head { margin-bottom: 14px; }
 .info-btn { width: 20px; height: 20px; flex: none; border-radius: 50%; border: 1.5px solid var(--ink-soft); background: transparent; color: var(--ink-soft); font: italic 700 var(--fs-xs)/1 Georgia, serif; padding: 0; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
 .info-btn[aria-expanded="true"] { background: var(--ink-soft); color: var(--paper); }   /* 2.77.2: was white, unreadable on the light grey it gets at night */
 .info-panel { font-size: var(--fs-s); color: var(--ink-soft); background: rgba(127,127,127,.1); border-radius: var(--radius-s); padding: var(--space-xs) var(--space-m); margin: var(--space-3xs) 0 var(--space-s); }
@@ -1954,6 +1956,10 @@ input.ingredient-row__input.is-invalid { border-color: var(--brick); box-shadow:
 .portion__chips::-webkit-scrollbar { display: none; }
 .portion__chip { flex: 0 0 auto; }
 .portion__chips:empty { display: none; }
+/* 2.77.2: the activity sheet has only five durations; they overflowed a phone by a few pixels and the last one looked cut off.
+   Let them share the row (and wrap on a very narrow screen) instead of scrolling. */
+.portion__chips.activity-chips { flex-wrap: wrap; overflow-x: visible; }
+.portion__chips.activity-chips .portion__chip { flex: 1 0 auto; }
 .portion__chip {
   min-height: 32px; padding: 0 var(--space-s); border-radius: var(--radius-pill); border: 1.5px solid var(--line);
   background: var(--surface); color: var(--ink); font: 600 var(--fs-s) var(--font-ui); font-variant-numeric: tabular-nums; cursor: pointer;

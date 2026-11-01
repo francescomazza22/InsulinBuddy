@@ -2051,7 +2051,7 @@ import { nearActivity, activitySkip, countNearActivity, breakfastByActivity, act
         </div>
       </div>
       <div class="history-entry__stats">
-        <span class="dose-pill dose-pill--basal"><svg viewBox="0 0 24 24" fill="none"><path d="M12 2C12 2 5 10.5 5 15.5C5 19.6 8.13 22 12 22C15.87 22 19 19.6 19 15.5C19 10.5 12 2 12 2Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>${units}u</span>
+        <span class="dose-pill dose-pill--basal"><svg viewBox="0 0 24 24" fill="none"><path d="M12 2C12 2 5 10.5 5 15.5C5 19.6 8.13 22 12 22C15.87 22 19 19.6 19 15.5C19 10.5 12 2 12 2Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>${units} u</span>
       </div>
     `;
     return row;
