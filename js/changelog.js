@@ -2,6 +2,13 @@
 // summary can never drift. Bump CHANGELOG[0].version here (and CACHE_VERSION in sw.js) on every release.
 export const CHANGELOG = [
   {
+    version: "2.77.3",
+    summary: "The black Home Screen icon is back.",
+    changes: [
+      "The Home Screen icon is the orange on black again. To see it, remove Insulin Buddy from the Home Screen and add it again from Safari (iOS keeps the icon it was added with)"
+    ]
+  },
+  {
     version: "2.77.2",
     summary: "Fixes from a full check of the app: sharper charts on iPad and desktop, easier reading at night, and tidier details.",
     changes: [
