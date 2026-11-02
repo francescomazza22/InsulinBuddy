@@ -523,7 +523,7 @@ await scenario("Clinic report: opens from either Glucose view, shows real stats,
   t.check("overlay now visible", !(await dev.eval(`document.getElementById("clinic-report-overlay").hidden`)));
   const text = await dev.text("#clinic-report-content");
   t.check("includes a glucose section", /Average glucose/.test(text));
-  t.check("includes a time in range breakdown", /Time in Range breakdown/.test(text));
+  t.check("includes a time in range breakdown", /Time in range breakdown/.test(text));
   t.check("includes dosing summary reflecting real logged meals", /Meals logged/.test(text) && /8 over 8 days/.test(text), text);
   t.check("includes the most frequently logged food", /Pasta/.test(text));
   t.check("includes the clinical disclaimer", /not a substitute for clinical judgment/.test(text));

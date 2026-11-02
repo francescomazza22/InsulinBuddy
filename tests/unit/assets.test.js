@@ -19,7 +19,7 @@ test("no image is loose in the main folder or in js/: they all live in assets/",
 
 test("assets/ has the icons and the pattern artwork, each icon exactly the size its name says", () => {
   const dims = f => { const b = fs.readFileSync(path.join(ROOT, f)); assert.deepEqual([...b.subarray(0, 8)], [137, 80, 78, 71, 13, 10, 26, 10], `${f} isn't a PNG`); return [b.readUInt32BE(16), b.readUInt32BE(20)]; };
-  const expected = { "favicon-16.png": 16, "favicon-32.png": 32, "apple-touch-icon.png": 180, "icon-192.png": 192, "icon-512.png": 512 };
+  const expected = { "favicon-16.png": 16, "favicon-32.png": 32, "apple-touch-icon.png": 180, "apple-touch-icon-dark.png": 180 /* the earlier black icon, kept (2.77.2) */, "icon-192.png": 192, "icon-512.png": 512 };
   for (const [name, px] of Object.entries(expected)) assert.deepEqual(dims("assets/icons/" + name), [px, px], `assets/icons/${name} should be ${px}x${px}`);
   for (const v of ["light", "dark"]) assert.ok(fs.existsSync(path.join(ROOT, `assets/patterns/pattern-abstract-${v}.svg`)), `assets/patterns/pattern-abstract-${v}.svg is missing`);
   const unexpected = fs.readdirSync(path.join(ROOT, "assets/icons")).filter(n => !(n in expected));

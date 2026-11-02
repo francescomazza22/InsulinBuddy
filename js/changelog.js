@@ -11,6 +11,10 @@ export const CHANGELOG = [
       "Settings > Sync and restored backups now count meals, basal doses and activities separately, instead of calling every entry a meal",
       "At the bottom of the Calculator, the last line no longer hides behind the Log Meal bar",
       "Basal doses in the log are written like meal doses (\u201c10 u\u201d); the clinic report\u2019s buttons are in the same order as the doctor report\u2019s; the Learn from my readings heading matches the other cards; the activity durations fit on one row",
+      "The two report buttons have matching names: \u201cGenerate short report\u201d (the one-page summary) and \u201cGenerate full report\u201d (adds the Patterns section), and the reports carry the same names",
+      "Card, sheet and setting titles now all use sentence case (\u201cTime-based ratios\u201d, \u201cColor theme\u201d, \u201cEdit meal\u201d), like most of the app already did",
+      "Settings > Sync: the \u201cSend each meal as\u201d choices are shorter, so they are no longer cut off on a phone; the Nightscout entry types are named underneath",
+      "New Home Screen icon: the orange on a light cream background. To get it on your iPhone, remove Insulin Buddy from the Home Screen and add it again from Safari (iOS keeps the icon it was added with)",
       "The Nightscout URL box is now as wide as the rest of the form",
       "The self-check page (diagnose.html) no longer reports a file as old or broken when it is fine"
     ]
