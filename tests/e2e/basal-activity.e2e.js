@@ -55,7 +55,7 @@ t.section("BASAL SHEET: a hard run 30 min before the dose");
 await open();
 t.check("suggestion shown", await cardShown());
 const c = await card();
-t.check("names the activity and when it ended", /Run · 45 min · Hard, finished (29|30) min before this dose/.test(c), c);
+t.check("names the activity and when it ended", /Active until (29|30) min before this dose\s*Run · 45 min · Hard/.test(c), c);
 t.check("suggests 8u instead of 10u", /suggests 8u instead of 10u/.test(c), c);
 t.check("note mentions his rule", /from your own rule in Settings > Dosing \(20% less\)/.test(await dev.text(".basal-note")), await dev.text(".basal-note"));
 t.check("nothing changed until he taps", (await units()) === "10");
@@ -98,7 +98,7 @@ await dev.go(); await sleep(500);
 await open();
 const c2 = await card();
 t.check("suggestion shown for the joined workout", await cardShown(), c2);
-t.check("names both pieces and the total", /Other · 25 min · Hard, then Gym \/ weights · 26 min · Moderate \(51 min in all\), finished (29|30) min before this dose/.test(c2), c2);
+t.check("names both pieces and the total", /Active until (29|30) min before this dose\s*Other \+ Gym \/ weights · 51 min/.test(c2), c2);
 if (SHOTS) await dev.shot(`${SHOTS}/basal-activity-joined-${W}${DARK ? "-dark" : ""}.png`);
 await close();
 

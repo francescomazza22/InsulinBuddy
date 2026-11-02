@@ -2124,23 +2124,25 @@ import { nearActivity, activitySkip, countNearActivity, breakfastByActivity, act
       const acts = activitiesBeforeBasal(state.history, new Date(timeInput.value).getTime(), activityRule);
       if (!applied && !acts.length) { activityEl.hidden = true; activityEl.innerHTML = ""; return; }
       if (applied) {
-        activityEl.innerHTML = `<p>Using <b>${applied.units}u</b>: ${applied.pct}% less than ${applied.fromUnits}u, after activity.</p>
-          <button type="button" class="btn btn--ghost basal-activity__btn" data-activity="undo">Undo, back to ${applied.fromUnits}u</button>`;
+        activityEl.innerHTML = `<div class="basal-activity__row"><p>Using <b>${applied.units}u</b>: ${applied.pct}% less than ${applied.fromUnits}u, after activity.</p>
+          <button type="button" class="btn btn--ghost basal-activity__btn" data-activity="undo">Undo, back to ${applied.fromUnits}u</button></div>`;
         activityEl.hidden = false; return;
       }
       const a = acts[0];
-      const ago = a.minutesBefore === 0 ? "still going at this time" : `finished ${a.minutesBefore} min before this dose`;
+      // 2.77.4: the timing is the heading, so what was done fits one short line under it
+      const ago = a.minutesBefore === 0 ? "Active at the time of this dose" : `Active until ${a.minutesBefore} min before this dose`;
       const more = acts.length > 1 ? ` (and ${acts.length - 1} more)` : "";
+      // 2.77.4: one short line ("Elliptical + Gym / weights · 47 min"); each piece's own time and effort are in the log.
       const what = a.entries.length > 1
-        ? `${a.entries.map(x => escapeHtml(describeActivity(x))).join(", then ")} (${escapeHtml(formatMinutes(a.minutes))} in all)`
+        ? `${a.entries.map(x => escapeHtml(activityLabel(x))).join(" + ")} · ${escapeHtml(formatMinutes(a.minutes))}`
         : escapeHtml(describeActivity(a.entry));
-      const head = `<p class="basal-activity__head">Active before this dose</p><p>${what}, ${ago}${more}.</p>`;
+      const head = `<p class="basal-activity__head">${ago}</p><p class="basal-activity__what">${what}${more}</p>`;
       const s = basalActivitySuggestion(typed, activityRule, state.settings.rounding);
       let body;
       if (!s) body = `<p>Enter the dose to see it ${activityRule.reducePct}% lower.</p>`;
       else if (!s.changed) body = `<p>Your rule takes ${activityRule.reducePct}% off: ${s.fromUnits}u becomes ${s.exact}u, less than half a ${state.settings.rounding}-unit step, so the dose stays ${s.fromUnits}u.</p>`;
-      else body = `<p>Your rule (${activityRule.reducePct}% less) suggests <b>${s.units}u</b> instead of ${s.fromUnits}u${s.exact !== s.units ? ` (${s.exact}u, rounded to your ${state.settings.rounding}-unit step)` : ""}.</p>
-          <button type="button" class="btn btn--secondary basal-activity__btn" data-activity="use" data-units="${s.units}" data-from="${s.fromUnits}">Use ${s.units}u</button>`;
+      else body = `<div class="basal-activity__row"><p>Your rule suggests <b>${s.units}u</b> instead of ${s.fromUnits}u (${activityRule.reducePct}% less${s.exact !== s.units ? ` is ${s.exact}u, rounded` : ""}).</p>
+          <button type="button" class="btn btn--secondary basal-activity__btn" data-activity="use" data-units="${s.units}" data-from="${s.fromUnits}">Use ${s.units}u</button></div>`;
       activityEl.innerHTML = head + body;
       activityEl.hidden = false;
     };

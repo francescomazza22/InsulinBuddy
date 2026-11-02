@@ -2,6 +2,15 @@
 // summary can never drift. Bump CHANGELOG[0].version here (and CACHE_VERSION in sw.js) on every release.
 export const CHANGELOG = [
   {
+    version: "2.77.4",
+    summary: "A tidier basal sheet, especially with the keyboard up after activity.",
+    changes: [
+      "The activity card is shorter: when it ended is the heading, what you did is one line, and Use sits beside the suggestion instead of under the buttons",
+      "The dose box no longer draws a second ring around the number while you type (the same fix applies to the correction and grams boxes)",
+      "With the keyboard up, the sheet now reaches the keyboard bar, so the log no longer shows through the gap"
+    ]
+  },
+  {
     version: "2.77.3",
     summary: "The black Home Screen icon is back.",
     changes: [

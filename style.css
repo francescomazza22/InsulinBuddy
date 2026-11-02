@@ -482,6 +482,12 @@ html[data-theme="dark"] .cat-snacks, html[data-theme="dark"] .cat-other { filter
   background: var(--surface); box-shadow: 0 -1px 0 var(--line);
 }
 .kb-open .sheet .sheet-actions { bottom: -16px; margin-bottom: -16px; padding-bottom: var(--space-m); }    /* the keyboard covers the home-indicator area, so no extra room is needed */
+/* 2.77.4: on a phone, iOS's keyboard bar floats a little above the keys, and the sheet (which ends where the visible area
+   ends) left a strip of the screen behind showing through. A flat copy of the sheet's background, drawn below it, fills
+   that strip; the keyboard covers the rest. A shadow, so it never adds to what the sheet scrolls. */
+@media (max-width: 699px) {
+  .kb-open .sheet { box-shadow: inset 0 1px 0 var(--glass-edge, transparent), 0 240px 0 0 var(--glass-sheet, var(--surface)); }
+}
 @media (min-width: 700px) { .sheet .sheet-actions { bottom: -24px; margin: var(--space-s) -24px -24px; padding: var(--space-m) var(--space-xl) 14px; } }   /* the centred card on iPad and PC has 24px padding all round */
 .sheet-actions .btn { flex: 1; }
 .sheet-actions .btn--secondary { background: var(--surface); border: 1.5px solid var(--line); color: var(--ink); }
@@ -1357,6 +1363,14 @@ button.basal-usual-link { appearance: none; background: none; border: none; padd
 .basal-activity .basal-activity__head { font-weight: 700; color: #0E7C86; }
 html[data-theme="dark"] .basal-activity .basal-activity__head { color: #5FC4CC; }
 .basal-activity .basal-activity__btn { width: 100%; margin-top: var(--space-2xs); }
+/* 2.77.4: compact card (it ran to five lines and a full-width button): a heading with what was done, then the suggestion
+   with a small button beside it. */
+.basal-activity { padding: var(--space-xs) var(--space-s); line-height: 1.35; }
+.basal-activity .basal-activity__head { margin: 0; font-size: var(--fs-xs); text-transform: uppercase; letter-spacing: 0.04em; }
+.basal-activity .basal-activity__what { margin: 1px 0 0; color: var(--ink-soft); }
+.basal-activity__row { display: flex; align-items: center; gap: var(--space-s); margin-top: var(--space-2xs); }
+.basal-activity__row p { flex: 1; min-width: 0; margin: 0; }
+.basal-activity .basal-activity__row .basal-activity__btn { width: auto; flex: none; margin: 0; min-height: 36px; padding: 0 var(--space-m); font-size: var(--fs-m); white-space: nowrap; }
 .ns-badge {
   display: inline-block; margin-left: var(--space-2xs); padding: 1px 7px; border-radius: var(--radius-pill); border: 1px solid var(--line);
   background: none; font: 600 var(--fs-2xs) var(--font-ui); vertical-align: 1px; cursor: pointer; color: var(--ink-soft);
@@ -1887,7 +1901,11 @@ input.has-clear--compact { padding-left: 28px !important; padding-right: 28px !i
 input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):focus-visible, select:focus-visible, textarea:focus-visible {
   outline: none; border-color: var(--acc-1); box-shadow: 0 0 0 3px rgba(var(--acc-1-rgb), 0.2);
 }
-.field__row input:focus-visible, .correction-row__input input:focus-visible, input.meal-item__grams-input:focus-visible { box-shadow: none; }
+/* 2.77.4: written with the same :not() chain as the rule above so it actually outranks it; at (0,2,1) it lost, and the
+   number inside a unit box (the basal dose, a correction, a meal's grams) drew a second ring inside the box's own. */
+.field__row input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):focus-visible,
+.correction-row__input input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):focus-visible,
+input.meal-item__grams-input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):focus-visible { box-shadow: none; }
 .field__row:focus-within { border-color: var(--acc-1); box-shadow: 0 0 0 3px rgba(var(--acc-1-rgb), 0.2); }
 
 /* Edit Meal (2.53.3): the "This entry is" switch fits four choices on one line, the time box is full width like every
