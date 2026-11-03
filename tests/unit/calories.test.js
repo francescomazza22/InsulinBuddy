@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { calorieRule, calorieSummary, restingKcal, activityKcal, watchKcal, extrasKcal, missingDetails, CALORIE_DEFAULTS } from "../../js/calories.js";
+import { todayCalories, calorieRule, calorieSummary, restingKcal, activityKcal, watchKcal, extrasKcal, missingDetails, CALORIE_DEFAULTS } from "../../js/calories.js";
 import { normalizeState } from "../../js/state.js";
 import { shiftDay } from "../../js/day-timeline.js";
 
@@ -116,4 +116,19 @@ test("eating out: an assumed kcal per meal counts the day in full (default 900);
   const none = calorieSummary(history, { calories: { ...me, eatingOutKcal: null } }, { days: 7, now: NOW });
   assert.equal(none.days[none.days.length - 2].food, 500); assert.equal(none.avg.daysUsed, 1); assert.equal(none.avg.daysEatingOut, 1);
   assert.equal(calorieRule({ eatingOutKcal: "1,5e9" }, NOW).eatingOutKcal, null);
+});
+
+test("today's bar: food + extras + the meal being built against today's target", () => {
+  const target = 1675 * 1.3 + 600;   // a 60 min moderate run today
+  const h = [meal(at(0, 9), 500), act(at(0, 7), 60, "run", "moderate")];
+  const t = todayCalories(h, { calories: me }, NOW, 400);
+  assert.equal(t.eaten, 500 + 348); assert.equal(t.draft, 400); assert.ok(Math.abs(t.target - target) < 1e-9);
+  assert.ok(Math.abs(t.fill - 848 / target) < 1e-9); assert.ok(Math.abs(t.draftFill - 400 / target) < 1e-9); assert.equal(t.over, false);
+  // nothing logged yet: extras count only once a meal is being built
+  assert.equal(todayCalories([], { calories: me }, NOW, 0).eaten, 0);
+  assert.equal(todayCalories([], { calories: me }, NOW, 300).eaten, 348);
+  // over the target: the bar is full, never past its end
+  const big = todayCalories([meal(at(0, 9), 3000)], { calories: me }, NOW, 500);
+  assert.equal(big.over, true); assert.equal(big.fill + big.draftFill, 1);
+  assert.equal(todayCalories(h, { calories: { extras: [] } }, NOW, 0), null);   // no details, no bar
 });

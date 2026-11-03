@@ -197,7 +197,10 @@ button.day-carbs {
   font-variant-numeric: tabular-nums; cursor: pointer; text-align: left; -webkit-tap-highlight-color: transparent;
 }
 button.day-carbs[hidden] { display: none; }
+button.day-carbs.day-carbs--kcal { margin-top: 2px; }   /* 2.79.0: the calories bar sits right under the carbs one */
+button.day-carbs[hidden] + button.day-carbs--kcal { margin-top: var(--space-s); }
 .day-carbs__today, .day-carbs__avg { white-space: nowrap; flex-shrink: 0; }
+.day-carbs__avg { text-align: right; }
 .day-carbs__today b { font-weight: 700; color: #fff; }
 .day-carbs__plus { color: #fff; }
 .day-carbs__bar { position: relative; flex: 1 1 auto; min-width: 40px; height: 6px; border-radius: 3px; background: rgba(255,255,255,0.24); overflow: hidden; }

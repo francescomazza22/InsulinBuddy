@@ -212,3 +212,20 @@ export function calorieSummary(history, settings, { days = 14, now = Date.now() 
   };
   return { days: out, avg, rule, resting: restingKcal(rule, now), extras };
 }
+
+/**
+ * Today so far, for the slim bar in the dose card (2.79.0): { eaten, draft, target, logged, fill, draftFill, over } or null
+ * when there is no target (body details missing). eaten = food logged today + extras (once a meal is logged, or while one is
+ * being built); target = resting x everyday moving + activity logged today. draftKcal = the meal being put together.
+ */
+export function todayCalories(history, settings, now = Date.now(), draftKcal = 0) {
+  const s = calorieSummary(history, settings, { days: 1, now });
+  const d = s.days[0];
+  if (!d || d.target == null || !(d.target > 0)) return null;
+  const draft = Math.max(0, Number(draftKcal) || 0);
+  const extras = d.logged || draft > 0 ? s.extras.total : 0;
+  const eaten = d.food + extras;
+  const fill = Math.min(1, eaten / d.target);
+  const withDraft = Math.min(1, (eaten + draft) / d.target);
+  return { eaten, draft, target: d.target, activity: d.activity, extras, logged: d.logged, fill, draftFill: withDraft - fill, over: eaten + draft > d.target };
+}

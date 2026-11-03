@@ -137,11 +137,49 @@ t.check("and the eating-out day is back to an outline with ?", s.partial === 1 &
 t.check("no JS errors", (await dev.eval("window.__errs.length")) === 0, JSON.stringify(await dev.eval("window.__errs")));
 dev.close();
 
+t.section("TODAY'S CALORIES BAR (2.79.0)");
+{
+  const todayHist = [meal("t1", Math.max(at(0, 0, 1), Date.now() - 60000), { totalKcal: 600 }), ...hist];
+  const blob = stateBlob({ history: todayHist, settings: { darkMode: dark, darkModeAuto: false, calories } });
+  dev = await openDevice(app, { width: W, height: 1000, mobile: W < 1000, dark, inject: `if (!localStorage.getItem("insulinBuddy.v2")) { ${seedLocal(blob)} }`, wait: 1500 });
+}
+await dev.tab("calculator"); await sleep(300);
+const kbar = () => dev.eval(`(() => { const b = document.getElementById("cc-day-kcal"), c = document.getElementById("cc-day-carbs"); if (!b || b.hidden) return { shown: false };
+  const bar = b.querySelector(".day-carbs__bar").getBoundingClientRect(), card = document.querySelector(".dose-card").getBoundingClientRect(), r = b.getBoundingClientRect();
+  return { shown: true, today: document.getElementById("cc-day-kcal-today").textContent.replace(/\\s+/g, " ").trim(), target: document.getElementById("cc-day-kcal-target").textContent,
+    fill: document.getElementById("cc-day-kcal-fill").getBoundingClientRect().width / bar.width, draft: document.getElementById("cc-day-kcal-draft").getBoundingClientRect().width / bar.width,
+    belowCarbs: !c.hidden && r.top >= c.getBoundingClientRect().bottom - 0.5, inCard: r.bottom <= card.bottom + 0.5, oneLine: r.height < 28, over: b.classList.contains("is-over"), label: b.getAttribute("aria-label") }; })()`);
+let k = await kbar();
+console.log("  ", JSON.stringify(k));
+// Today: 600 food + 348 extras = 948 against 2177.5 (no activity today).
+t.check("shown under the carbs bar, inside the dose card, on one line", k.shown && k.belowCarbs && k.inCard && k.oneLine, JSON.stringify(k));
+t.check("today 948 kcal (food + extras) against 2,178 needed", k.today === "Today 948 kcal" && k.target === "need 2,178" && Math.abs(k.fill - 948 / 2177.5) < 0.02, `${k.today} | ${k.target} | ${k.fill}`);
+t.check("screen readers hear it in words", /Calories today: about 948 so far including 348 of daily extras\. About 2,178 needed today: 1,230 left/.test(k.label), k.label);
+await dev.waitFor(`document.getElementById("cc-food-list").children.length > 1`, 6000);
+await dev.eval(`[...document.getElementById("cc-food-list").children].find(c => /Banana/.test(c.textContent)).click()`);
+await dev.eval(`(() => { const g = document.getElementById("cc-grams"); g.value = "200"; g.dispatchEvent(new Event("input", { bubbles: true })); })()`);
+await dev.click("#cc-add-btn"); await sleep(400);
+k = await kbar();
+t.check("the meal being built adds +178 kcal as a lighter piece", k.today === "Today 948 kcal +178" && Math.abs(k.draft - 178 / 2177.5) < 0.02, JSON.stringify(k));
+if (SHOTS) { await dev.eval(`document.querySelector(".dose-card").scrollIntoView({ block: "start" })`); await sleep(400); await dev.shot(`${SHOTS}/calories-bar-${W}${dark ? "-dark" : ""}.png`); }
+await dev.click("#cc-log-btn"); await sleep(600);
+k = await kbar();
+const align = await dev.eval(`(() => { const [a, b] = ["cc-day-carbs", "cc-day-kcal"].map(id => document.querySelector("#" + id + " .day-carbs__bar").getBoundingClientRect()); return { dl: Math.abs(a.left - b.left), dr: Math.abs(a.right - b.right) }; })()`);
+t.check("the carbs and calories bars line up", align.dl < 1.5 && align.dr < 1.5, JSON.stringify(align));
+t.check("once logged it counts: 1,126 kcal", k.today === "Today 1,126 kcal" && k.draft < 0.01, JSON.stringify(k));
+await dev.click("#cc-day-kcal"); await sleep(700);
+t.check("tapping it opens Trends", await dev.eval(`!document.getElementById("view-history").hidden && document.querySelector('#history-segmented [data-seg="trends"]').classList.contains("is-active")`));
+t.check("no sideways scroll, no JS errors", (await dev.eval(`document.documentElement.scrollWidth <= innerWidth + 1`)) && (await dev.eval("window.__errs.length")) === 0, JSON.stringify(await dev.eval("window.__errs")));
+dev.close();
+
 t.section("NOT SET UP");
 dev = await boot({});
 await openTrends(dev);
 s = await card(dev);
 t.check("without details the card still shows what was eaten and asks for details", s.shown && s.eaten >= 3 && s.under + s.over === 0 && /Add your details/.test(s.caption) && /Eaten/.test(s.legend), JSON.stringify(s));
+await dev.tab("calculator"); await sleep(300);
+t.check("without details there's no calories bar in the Calculator", await dev.eval(`document.getElementById("cc-day-kcal").hidden`));
+await openTrends(dev);
 t.check("the Watch ride still counts; the hand-logged run says it needs a weight", /1 activity isn't counted: add your weight/.test(s.how), s.how);
 t.check("no JS errors", (await dev.eval("window.__errs.length")) === 0, JSON.stringify(await dev.eval("window.__errs")));
 dev.close();

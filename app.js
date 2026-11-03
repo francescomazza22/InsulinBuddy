@@ -39,7 +39,7 @@ import { workoutsToActivities, awaitingIntensity, mayBeDoubleCounted, intensityU
 import { dayBounds, shiftDay, dayTimeline, readingNear, stackRows } from "./js/day-timeline.js";
 import { sessionLevel, primaryTotp, verifyCode, startTotpSetup, cancelTotpSetup, removeTotp, signOutOtherDevices, groupSecret, cleanTotpCode, validTotpCode } from "./js/mfa.js";
 import { nearActivity, activitySkip, countNearActivity, breakfastByActivity, activitySummary, ACTIVITY_FILTERS, NEAR_BEFORE_HOURS, NEAR_AFTER_HOURS } from "./js/activity-stats.js";
-import { calorieRule, calorieSummary, missingDetails, restingKcal, extrasKcal, cleanExtra, LIFE_FACTORS, CALORIE_DEFAULTS, CALORIE_LIMITS } from "./js/calories.js";
+import { todayCalories, calorieRule, calorieSummary, missingDetails, restingKcal, extrasKcal, cleanExtra, LIFE_FACTORS, CALORIE_DEFAULTS, CALORIE_LIMITS } from "./js/calories.js";
 
 
   const STORAGE_KEY = "insulinBuddy.v2";
@@ -2969,8 +2969,49 @@ import { calorieRule, calorieSummary, missingDetails, restingKcal, extrasKcal, c
   }
   bind("cc-day-carbs", "click", () => { showView("history"); const b = document.querySelector('#history-segmented [data-seg="trends"]'); if (b) b.click(); });
 
+  // Today's calories against today's target (2.79.0): the same slim bar, just under the carbs one. Hidden until the body
+  // details are set in Settings > Dosing > Calories (no target without them). The meal being built shows as the lighter piece.
+  function draftKcal() {
+    if (draft.eatingOutOn) { const r = calorieRule(state.settings.calories); return r.eatingOutKcal || 0; }
+    return draft.items.reduce((s, i) => s + (Number(i.kcal) > 0 ? Number(i.kcal) : 0), 0);
+  }
+  function renderDayKcal() {
+    const box = el("cc-day-kcal");
+    if (!box) return;
+    const t = todayCalories(state.history, state.settings, Date.now(), draftKcal());
+    if (!t) { box.hidden = true; alignDayBars(); return; }
+    box.hidden = false;
+    el("cc-day-kcal-today").innerHTML = `Today <b>${kcalText(t.eaten)} kcal</b>${t.draft > 0 ? ` <span class="day-carbs__plus">+${kcalText(t.draft)}</span>` : ""}`;
+    el("cc-day-kcal-target").textContent = `need ${kcalText(t.target)}`;
+    el("cc-day-kcal-fill").style.width = `${(t.fill * 100).toFixed(1)}%`;
+    const d = el("cc-day-kcal-draft");
+    d.style.left = `${(t.fill * 100).toFixed(1)}%`; d.style.width = `${(t.draftFill * 100).toFixed(1)}%`;
+    box.classList.toggle("is-over", t.over);
+    const left = t.target - t.eaten - t.draft;
+    box.setAttribute("aria-label", `Calories today: about ${kcalText(t.eaten)} so far${t.extras ? ` including ${kcalText(t.extras)} of daily extras` : ""}${t.draft > 0 ? `, plus ${kcalText(t.draft)} in this meal` : ""}. About ${kcalText(t.target)} needed today${t.activity > 0 ? `, including ${kcalText(t.activity)} for activity` : ""}: ${left >= 0 ? `${kcalText(left)} left` : `${kcalText(-left)} over`}. Estimates. Opens Trends.`);
+    alignDayBars();
+  }
+  // The carbs and calories bars line up: each side's label takes the width of the longer of the two.
+  function alignDayBars() {
+    const rows = ["cc-day-carbs", "cc-day-kcal"].map(el).filter(b => b && !b.hidden);
+    const sides = [".day-carbs__today", ".day-carbs__avg"];
+    rows.forEach(b => sides.forEach(q => { b.querySelector(q).style.minWidth = ""; }));
+    if (rows.length < 2) return;
+    sides.forEach(q => {
+      const w = Math.max(...rows.map(b => b.querySelector(q).getBoundingClientRect().width));
+      if (w > 0) rows.forEach(b => { b.querySelector(q).style.minWidth = `${Math.ceil(w)}px`; });
+    });
+  }
+  bind("cc-day-kcal", "click", () => {
+    showView("history");
+    const b = document.querySelector('#history-segmented [data-seg="trends"]'); if (b) b.click();
+    const c = el("trend-card-calories");
+    if (c) requestAnimationFrame(() => { if (!c.hidden) c.scrollIntoView({ block: "start", behavior: "smooth" }); });
+  });
+
   function renderActivePanel() {
     renderDayCarbs();
+    renderDayKcal();
     const panel = el("active-panel");
     const { iob, cob, iobClearAt, cobClearAt } = calcActiveInsulinAndCarbs();
     if (iob <= 0 && cob <= 0) { panel.hidden = true; return; }
@@ -2999,6 +3040,7 @@ import { calorieRule, calorieSummary, missingDetails, restingKcal, extrasKcal, c
     const carbs = draft.eatingOutOn ? 0 : totalCarbs();
     carbsPill.textContent = draft.eatingOutOn ? "Carbs not logged" : `${round1(carbs)}g Carbs`;
     renderDayCarbs();
+    renderDayKcal();
 
     const ratioEntry = activeRatioEntry();
     ratioValueLabel.textContent = ratioEntry ? `${ratioText(ratioEntry.ratio)}` : "—";
