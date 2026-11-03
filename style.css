@@ -314,6 +314,20 @@ html[data-theme="dark"] .dose-card button.day-carbs { color: #fff; }
    margins don't collapse away), which silently added 12px between the Active Insulin banner and
    whatever came next. Nothing in it means nothing to space. */
 .meal-items:empty { display: none; }
+/* 2.80.0: a long meal folds to one line while the food search / amount box has the keyboard up, so the search stays above it */
+.meal-fold {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--space-s); width: 100%;
+  min-height: 44px; margin-bottom: var(--space-m); padding: var(--space-xs) var(--space-m);
+  border: 1.5px solid var(--line); border-radius: var(--radius-s); background: var(--surface); color: var(--ink);
+  font: 600 var(--fs-s) var(--font-ui); text-align: left; cursor: pointer;
+}
+.meal-fold[hidden] { display: none; }
+.meal-fold__text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.meal-fold__show { flex: none; display: inline-flex; align-items: center; gap: var(--space-2xs); color: var(--acc-1); }
+.meal-fold__show svg { width: 14px; height: 14px; }
+#cc-food-section.is-folded #cc-meal-items,
+#cc-food-section.is-folded #recent-meals-header,
+#cc-food-section.is-folded #recent-meals-row { display: none; }
 .meal-item {
   position: relative; overflow: hidden; border-radius: var(--radius-s);
   border: 1.5px solid var(--line);

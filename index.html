@@ -235,6 +235,13 @@
           <span>Current meal</span>
           <span id="cc-gl-indicator" class="gl-indicator" hidden></span>
         </div>
+        <!-- 2.80.0: while the food search or amount box is in use (keyboard up), a long meal folds to this one line so the search stays in view -->
+        <button class="meal-fold" id="cc-meal-fold" type="button" hidden aria-controls="cc-meal-items" aria-expanded="false">
+          <span class="meal-fold__text" id="cc-meal-fold-text"></span>
+          <span class="meal-fold__show">Show
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </span>
+        </button>
         <div class="meal-items" id="cc-meal-items"></div>
 
         <div class="section-header" id="recent-meals-header" hidden>Recently logged</div>

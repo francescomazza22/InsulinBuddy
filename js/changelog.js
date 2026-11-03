@@ -2,6 +2,15 @@
 // summary can never drift. Bump CHANGELOG[0].version here (and CACHE_VERSION in sw.js) on every release.
 export const CHANGELOG = [
   {
+    version: "2.80.0",
+    summary: "With a long meal, the food search no longer hides under the keyboard.",
+    changes: [
+      "While you type in the food search or the amount box, a meal with two or more foods folds to one line (\u201c5 foods \u00b7 221g carbs\u201d) and the search moves up, with the matches above the keyboard",
+      "It opens again when the keyboard closes, or tap the line (Show) to see the foods",
+      "Picking a food from the list keeps it folded, so nothing jumps under your finger"
+    ]
+  },
+  {
     version: "2.79.3",
     summary: "Settings reorganised: Dosing, Library, Calories, Data, General.",
     changes: [

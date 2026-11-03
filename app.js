@@ -849,6 +849,69 @@ import { todayCalories, calorieRule, calorieSummary, missingDetails, restingKcal
     searchInput.focus();
   });
 
+  // ----- Fold a long meal while adding food (2.80.0) -----
+  // With several foods in the meal, the search box sat under the iPhone keyboard. While the search or the amount box
+  // has focus, the meal shrinks to one line ("3 foods · 52g carbs  Show") and the page scrolls the search up. It opens
+  // again once focus has left the add row for a moment (keyboard closed), or when the line is tapped. The wait matters:
+  // tapping a food in the list blurs the search before the amount box takes focus, and unfolding in between would move
+  // the list under the finger.
+  const MEAL_FOLD_MIN = 2;          // fewer foods than this never fold
+  const MEAL_UNFOLD_WAIT_MS = 400;
+  const foodSection = el("cc-food-section");
+  const mealFoldBtn = el("cc-meal-fold");
+  let mealFolded = false, mealUnfoldTimer = null;
+  function inAddArea(node) {
+    return !!(node && node.closest && node.closest(".add-row, #cc-portion, #cc-pick-extra, #cc-food-list"));
+  }
+  function mealFoldText() {
+    const n = draft.items.length;
+    return `${n} ${n === 1 ? "food" : "foods"} · ${round1(totalCarbs())}g carbs`;
+  }
+  function applyMealFold() {
+    const on = mealFolded && draft.items.length >= MEAL_FOLD_MIN;
+    foodSection.classList.toggle("is-folded", on);
+    mealFoldBtn.hidden = !on;
+    mealFoldBtn.setAttribute("aria-expanded", on ? "false" : "true");
+    if (on) {
+      el("cc-meal-fold-text").textContent = mealFoldText();
+      mealFoldBtn.setAttribute("aria-label", `Current meal: ${mealFoldText()}. Show all foods`);
+    }
+  }
+  // Brings the search near the top of what's visible, so the list of matches has room above the keyboard.
+  function keepSearchInView() {
+    if (!mealFolded) return;
+    const vv = window.visualViewport, viewH = vv ? vv.height : window.innerHeight;
+    const target = el("cc-current-meal-header").hidden ? searchInput : el("cc-current-meal-header");
+    const top = target.getBoundingClientRect().top - (vv ? vv.offsetTop : 0);
+    if (top < 8 || top > viewH * 0.35) window.scrollBy(0, top - 12);
+  }
+  function setMealFolded(on) {
+    clearTimeout(mealUnfoldTimer); mealUnfoldTimer = null;
+    if (mealFolded === on) return;
+    mealFolded = on;
+    applyMealFold();
+    if (on) requestAnimationFrame(keepSearchInView);
+  }
+  foodSection.addEventListener("focusin", e => {
+    if (!inAddArea(e.target)) return;
+    if (draft.items.length >= MEAL_FOLD_MIN) setMealFolded(true);
+    else clearTimeout(mealUnfoldTimer);
+  });
+  foodSection.addEventListener("focusout", () => {
+    if (!mealFolded) return;
+    clearTimeout(mealUnfoldTimer);
+    mealUnfoldTimer = setTimeout(() => {
+      mealUnfoldTimer = null;
+      if (!inAddArea(document.activeElement)) setMealFolded(false);
+    }, MEAL_UNFOLD_WAIT_MS);
+  });
+  mealFoldBtn.addEventListener("click", () => {
+    if (inAddArea(document.activeElement)) document.activeElement.blur();
+    setMealFolded(false);
+  });
+  // The keyboard arriving shrinks the visible area after the focus event; look again then.
+  if (window.visualViewport) window.visualViewport.addEventListener("resize", () => { if (mealFolded) keepSearchInView(); });
+
   // ----- Browse: the Library as a picker inside the Calculator -----
   let browseTab = null;   // remembered for the session: 'fav' | 'used' | 'recipes' | 'all'
   function openBrowseSheet() {
@@ -996,6 +1059,7 @@ import { todayCalories, calorieRule, calorieSummary, missingDetails, restingKcal
 
   function renderMealItems() {
     el("cc-current-meal-header").hidden = draft.items.length === 0;
+    applyMealFold();
     mealItemsBox.innerHTML = "";
     draft.items.forEach((item, idx) => {
       const row = document.createElement("div");
