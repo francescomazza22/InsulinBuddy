@@ -1223,6 +1223,25 @@ html[data-theme="dark"] .undo-toast { background: var(--surface); border: 1px so
 .cal-target { stroke: var(--ink); stroke-width: 2; stroke-linecap: round; }   /* what the day needed */
 .cal-unknown { fill: var(--ink-soft); font-size: var(--fs-xs); font-weight: 700; }
 .trend-chart.has-selection .cal-target { opacity: 0.35; }
+/* Calories balance (2.78.2): neutral colours, the same in every theme, so a day under or over never reads as an error */
+.cal-chart .cal-bar--over { fill: #FF9F0A; }
+.cal-chart .cal-bar--under { fill: #30B0C7; }
+.cal-chart .cal-bar--eaten { fill: #8E8E93; }
+.cal-chart .cal-bar--partial { fill-opacity: 0.12; stroke-width: 1.5; stroke-dasharray: 3 2; }
+.cal-chart .cal-bar--over.cal-bar--partial { stroke: #FF9F0A; }
+.cal-chart .cal-bar--under.cal-bar--partial { stroke: #30B0C7; }
+.cal-chart .cal-bar--eaten.cal-bar--partial { stroke: #8E8E93; }
+.cal-chart .trend-chart__grid.cal-zero { stroke: var(--ink-soft); stroke-dasharray: none; stroke-width: 1.2; }
+.cal-chart .cal-side { fill: var(--ink-soft); }
+.cal-dot--over { background: #FF9F0A; }
+.cal-dot--under { background: #30B0C7; }
+.cal-dot--eaten { background: #8E8E93; }
+.trend-stats.cal-stats { margin: 0 0 var(--space-s); }
+details.cal-how { margin-top: var(--space-xs); }
+details.cal-how > summary { cursor: pointer; color: var(--acc-1); font-size: var(--fs-s); font-weight: 600; list-style: none; padding: var(--space-2xs) 0; }
+details.cal-how > summary::-webkit-details-marker { display: none; }
+details.cal-how > summary::after { content: " \203A"; }
+details.cal-how[open] > summary::after { content: " \2039"; }
 .trend-chart__bar--today { opacity: 0.6; }
 .trend-chart.has-selection .trend-chart__bar:not(.is-selected) { opacity: 0.3; }
 .trend-chart__bar.is-selected { opacity: 1; }

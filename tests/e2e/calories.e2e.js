@@ -40,7 +40,9 @@ async function openTrends(dev) {
 }
 const card = dev => dev.eval(`(() => { const c = document.getElementById("trend-card-calories"); if (!c || c.hidden) return { shown: false };
   return { shown: true, readout: c.querySelector(".trend-readout").textContent, caption: c.querySelector(".trend-caption").textContent,
-    targets: c.querySelectorAll(".cal-target").length, extras: c.querySelectorAll(".trend-chart__bar--extras").length,
+    how: (c.querySelector(".cal-how") || {}).textContent || "", stats: [...c.querySelectorAll(".trend-stat-card")].map(x => [...x.children].map(c => c.textContent.trim()).join(" ")),
+    under: c.querySelectorAll(".cal-bar--under:not(.cal-bar--partial)").length, over: c.querySelectorAll(".cal-bar--over:not(.cal-bar--partial)").length,
+    partial: c.querySelectorAll(".cal-bar--partial").length, eaten: c.querySelectorAll(".cal-bar--eaten").length,
     unknown: c.querySelectorAll(".cal-unknown").length, legend: c.querySelector(".trend-legend").textContent }; })()`);
 
 t.section(`CALORIES CARD (${W}px${dark ? ", dark" : ""})`);
@@ -48,16 +50,16 @@ let dev = await boot({ calories });
 await openTrends(dev);
 let s = await card(dev);
 console.log("  ", JSON.stringify(s));
-t.check("shown in Trends with food, extras and needed marks", s.shown && s.targets >= 3 && s.extras >= 3 && /Food logged.*Extras.*Needed/.test(s.legend), JSON.stringify(s));
+t.check("shown in Trends as a balance: two full days under, the eating-out day as an outline", s.shown && s.under === 2 && s.over === 0 && s.partial === 1 && /more than needed.*less/.test(s.legend), JSON.stringify(s));
 // Averages: day 3 (1500+348 vs 2177.5) and yesterday (1948 vs 2859.5); the eating-out day is left out.
 const avgEaten = Math.round((1848 + 1948) / 2), avgNeeded = Math.round((2177.5 + 2859.5) / 2);
-t.check(`average ${avgEaten.toLocaleString()} eaten vs ${avgNeeded.toLocaleString()} needed`, s.readout.includes(`Avg ${avgEaten.toLocaleString()} kcal eaten vs ${avgNeeded.toLocaleString()} needed`), s.readout);
-t.check("the eating-out day is marked and left out of the averages", s.unknown === 1 && /1 day with an eating-out meal/.test(s.caption), s.caption);
-t.check("caption lists the extras", /2 tbsp olive oil, 1 cup flat white \(348 kcal\)/.test(s.caption), s.caption);
+t.check(`averages: ${avgEaten.toLocaleString()} eaten, ${avgNeeded.toLocaleString()} needed, 621 under`, s.stats.join("|") === `${avgEaten.toLocaleString()} Avg eaten|${avgNeeded.toLocaleString()} Avg needed|\u2212621 Avg balance` && /On average 621 under a day/.test(s.readout), s.stats.join("|") + " / " + s.readout);
+t.check("the eating-out day is marked and left out of the averages", s.unknown === 1 && /\? = eating out, calories not known \(1 day\)/.test(s.caption), s.caption);
+t.check("caption lists the extras", /extras of 348 kcal a day \(olive oil 2 tbsp, flat white 1 cup\)/.test(s.caption), s.caption);
 // Tap yesterday (index 5 of 7)
 await dev.eval(`document.querySelector('#trend-chart-calories .trend-chart__hit[data-idx="5"]').dispatchEvent(new MouseEvent("click", { bubbles: true }))`); await sleep(200);
 const ro = await dev.eval(`document.querySelector("#trend-chart-calories .trend-readout").textContent`);
-t.check("tapping yesterday shows food, extras, activity (Watch and estimate) and the gap", /ate 1,948 kcal \(food 1,600 \+ extras 348\)/.test(ro) && /needed 2,860/.test(ro) && /Run 600/.test(ro) && /Cycling 82 \(Watch\)/.test(ro) && /912 under/.test(ro), ro);
+t.check("tapping yesterday shows food, extras, activity (Watch and estimate) and the gap", /ate 1,948 \(food 1,600 \+ extras 348\)/.test(ro) && /needed 2,860/.test(ro) && /Run 600/.test(ro) && /Cycling 82 \(Watch\)/.test(ro) && /912 under/.test(ro), ro);
 t.check("the carbs chart highlights the same day", await dev.eval(`document.querySelector("#trend-chart-carbs svg").classList.contains("has-selection")`));
 t.check("no sideways scroll", await dev.eval(`document.documentElement.scrollWidth <= innerWidth + 1`));
 if (SHOTS) { await dev.eval(`document.getElementById("trend-card-calories").scrollIntoView({ block: "start" })`); await sleep(400); await dev.shot(`${SHOTS}/calories-trend-${W}${dark ? "-dark" : ""}.png`); }
@@ -117,8 +119,8 @@ t.section("NOT SET UP");
 dev = await boot({});
 await openTrends(dev);
 s = await card(dev);
-t.check("without details the card still shows what was eaten and asks for details", s.shown && s.targets === 0 && /Add your details/.test(s.caption) && !/Needed/.test(s.legend), JSON.stringify(s));
-t.check("the Watch ride still counts; the hand-logged run says it needs a weight", /1 activity not counted: add your weight/.test(s.caption), s.caption);
+t.check("without details the card still shows what was eaten and asks for details", s.shown && s.eaten >= 3 && s.under + s.over === 0 && /Add your details/.test(s.caption) && /Eaten/.test(s.legend), JSON.stringify(s));
+t.check("the Watch ride still counts; the hand-logged run says it needs a weight", /1 activity isn't counted: add your weight/.test(s.how), s.how);
 t.check("no JS errors", (await dev.eval("window.__errs.length")) === 0, JSON.stringify(await dev.eval("window.__errs")));
 dev.close();
 

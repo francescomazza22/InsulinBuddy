@@ -5482,31 +5482,80 @@ import { calorieRule, calorieSummary, missingDetails, restingKcal, extrasKcal, c
 
   // The "Daily basal insulin" card. Shown only when a basal dose was logged in the period; it joins the tap-a-day
   // selection shared by the other charts (see setTrendSelection) while it is showing.
-  // ---- Calories card (2.78.0) ----
+  // ---- Calories card (2.78.0; redrawn as a daily balance in 2.78.2) ----
+  // Each day's balance: eaten (food logged + daily extras) minus what the day needed (resting x everyday moving + logged
+  // activity). Bars rise for over and fall for under around the "needed" line, so the question "how did the day go" is read
+  // straight off the bar. Eating-out days (calories unknown) and today (still going) are outlines, never in the averages.
+  // Without body details there is no "needed", so it falls back to plain eaten bars. js/calories.js does the maths.
   function kcalText(v) { return Math.round(v).toLocaleString(); }   // a function declaration: usable however early Trends draws
-  // Per day: food logged + daily extras (stacked bars) against what the day needed (a dark mark: resting x everyday moving +
-  // logged activity). js/calories.js does the maths; everything is an estimate and the caption says so.
-  function buildCaloriesChartSvg(days, avgEaten, width) {
-    const g = trendGeometry(days.length, Math.max(1, ...days.map(d => Math.max(d.eaten, d.logged ? d.target || 0 : 0))), width);
-    const frame = trendFrameSvg(g, days, avgEaten, `avg ${kcalText(avgEaten)}`, "");
-    const base = g.padT + g.plotH;
+  const unitPlural = (unit, n) => (!unit || n <= 1 || /s$|^(tbsp|tsp|g|kg|ml|l|oz|kcal)$/i.test(unit) ? unit : unit + "s");
+  function calDayLabels(days, g) {
+    let under = "", over = "";
+    const step = days.length <= 14 ? 1 : 5;
+    days.forEach((d, i) => {
+      const dt = new Date(d.key), dow = dt.getDay();
+      if (dow === 0 || dow === 6) under += `<rect class="trend-chart__weekend" x="${g.xSlot(i).toFixed(1)}" y="${g.padT}" width="${g.slotW.toFixed(1)}" height="${g.plotH}"></rect>`;
+      if ((days.length - 1 - i) % step) return;
+      const cx = (g.xSlot(i) + g.slotW / 2).toFixed(1), cls = d.isToday ? " trend-chart__axis-label--today" : "";
+      over += `<text class="trend-chart__axis-label${cls}" x="${cx}" y="${g.H - 17}" text-anchor="middle">${dt.getDate()}</text>`;
+      if (days.length <= 14) over += `<text class="trend-chart__axis-label trend-chart__axis-label--dow${cls}" x="${cx}" y="${g.H - 6}" text-anchor="middle">${dt.toLocaleDateString(undefined, { weekday: "narrow" })}</text>`;
+    });
+    return { under, over };
+  }
+  function calHits(days, g) {
+    return days.map((d, i) => `<rect class="trend-chart__hit" data-idx="${i}" x="${g.xSlot(i).toFixed(1)}" y="${g.padT}" width="${g.slotW.toFixed(1)}" height="${g.plotH}"></rect>`).join("");
+  }
+  function calGeometry(n, width) {
+    const W = Math.max(width || 320, 220), H = 196, padL = 40, padR = 6, padT = 12, padB = 30;
+    const plotW = W - padL - padR, plotH = H - padT - padB, slotW = plotW / n;
+    return { W, H, padL, padR, padT, padB, plotW, plotH, slotW, barW: Math.min(26, Math.max(3, slotW * 0.62)),
+      xSlot: i => padL + i * slotW, xBar(i) { return padL + i * slotW + (slotW - this.barW) / 2; } };
+  }
+  // Balance chart: eaten - needed per day.
+  function buildCalorieBalanceSvg(days, avgDiff, width) {
+    const g = calGeometry(days.length, width);
+    const vals = days.filter(d => d.logged && d.target != null).map(d => Math.abs(d.eaten - d.target));
+    const { max, step } = niceScale(Math.max(200, ...vals), 3);
+    const mid = g.padT + g.plotH / 2;
+    const yFor = v => mid - (v / max) * (g.plotH / 2);
+    const sign = v => (v > 0 ? "+" : v < 0 ? "−" : "") + Math.abs(v).toLocaleString();
+    let grid = "";
+    for (let v = -max; v <= max + 1e-9; v += step) {
+      const y = yFor(v).toFixed(1);
+      grid += `<line class="trend-chart__grid${v === 0 ? " cal-zero" : ""}" x1="${g.padL}" y1="${y}" x2="${g.W - g.padR}" y2="${y}"></line>` +
+        `<text class="trend-chart__axis-label" x="${g.padL - 5}" y="${(+y + 3).toFixed(1)}" text-anchor="end">${v === 0 ? "0" : sign(v)}</text>`;
+    }
+    const lab = calDayLabels(days, g);
     const bars = days.map((d, i) => {
-      const todayCls = d.isToday ? " trend-chart__bar--today" : "";
-      const x = g.xBar(i), w = g.barW;
-      if (!d.logged) return `<rect class="trend-chart__bar trend-chart__bar--empty${todayCls}" data-idx="${i}" x="${x.toFixed(1)}" y="${(base - 1).toFixed(1)}" width="${w.toFixed(1)}" height="1" rx="2"></rect>`;
-      const hFood = d.food > 0 ? Math.max(2, (d.food / g.max) * g.plotH) : 0;
-      const hEx = d.extras > 0 ? Math.max(2, (d.extras / g.max) * g.plotH) : 0;
-      let out = "";
-      if (hFood > 0) out += `<rect class="trend-chart__bar${todayCls}" data-idx="${i}" x="${x.toFixed(1)}" y="${(base - hFood).toFixed(1)}" width="${w.toFixed(1)}" height="${hFood.toFixed(1)}" rx="${hEx > 0 ? 0 : 2}"></rect>`;
-      if (hEx > 0) out += `<rect class="trend-chart__bar trend-chart__bar--extras${todayCls}" data-idx="${i}" x="${x.toFixed(1)}" y="${(base - hFood - hEx).toFixed(1)}" width="${w.toFixed(1)}" height="${hEx.toFixed(1)}" rx="2"></rect>`;
-      if (d.target != null) {
-        const y = g.yFor(d.target).toFixed(1), over = Math.min(4, g.slotW * 0.12);
-        out += `<line class="cal-target" x1="${(x - over).toFixed(1)}" x2="${(x + w + over).toFixed(1)}" y1="${y}" y2="${y}"></line>`;
-      }
-      if (d.eatingOut > 0) out += `<text class="cal-unknown" x="${(x + w / 2).toFixed(1)}" y="${(base - hFood - hEx - 4).toFixed(1)}" text-anchor="middle">?</text>`;
+      if (!d.logged || d.target == null) return "";
+      const diff = d.eaten - d.target, x = g.xBar(i).toFixed(1), w = g.barW.toFixed(1);
+      const y0 = yFor(0), y1 = yFor(Math.max(-max, Math.min(max, diff)));
+      const top = Math.min(y0, y1), h = Math.max(2, Math.abs(y1 - y0));
+      const partial = d.isToday || d.eatingOut > 0;
+      const cls = `cal-bar ${diff >= 0 ? "cal-bar--over" : "cal-bar--under"}${partial ? " cal-bar--partial" : ""}`;
+      let out = `<rect class="trend-chart__bar ${cls}" data-idx="${i}" x="${x}" y="${top.toFixed(1)}" width="${w}" height="${h.toFixed(1)}" rx="2"></rect>`;
+      if (d.eatingOut > 0) out += `<text class="cal-unknown" x="${(g.xBar(i) + g.barW / 2).toFixed(1)}" y="${(diff >= 0 ? top - 4 : top + h + 11).toFixed(1)}" text-anchor="middle">?</text>`;
       return out;
     }).join("");
-    const unit = `<text class="trend-chart__axis-label cal-unit" x="${g.padL + 4}" y="${g.padT + 9}">kcal</text>`;
+    let avg = "";
+    if (avgDiff != null) {
+      const y = yFor(Math.max(-max, Math.min(max, avgDiff))).toFixed(1);
+      avg = `<line class="trend-chart__avg" x1="${g.padL}" y1="${y}" x2="${g.W - g.padR}" y2="${y}"></line>`;
+    }
+    const words = `<text class="trend-chart__axis-label cal-side" x="${g.padL + 4}" y="${g.padT + 9}">over</text><text class="trend-chart__axis-label cal-side" x="${g.padL + 4}" y="${g.padT + g.plotH - 4}">under</text>`;
+    return `<svg class="trend-chart cal-chart" viewBox="0 0 ${g.W} ${g.H}" style="width:100%;height:${g.H}px;display:block;" role="img" aria-label="Calories eaten compared with needed, per day">${lab.under}${grid}${words}${bars}${avg}${lab.over}${calHits(days, g)}</svg>`;
+  }
+  // Without body details: what was eaten per day (food + extras), nothing to compare with.
+  function buildCaloriesEatenSvg(days, width) {
+    const g = trendGeometry(days.length, Math.max(1, ...days.map(d => d.eaten)), width);
+    const frame = trendFrameSvg(g, days, 0, "", "");
+    const base = g.padT + g.plotH;
+    const bars = days.map((d, i) => {
+      if (!d.logged) return "";
+      const h = Math.max(2, (d.eaten / g.max) * g.plotH);
+      return `<rect class="trend-chart__bar cal-bar cal-bar--eaten${d.isToday || d.eatingOut ? " cal-bar--partial" : ""}" data-idx="${i}" x="${g.xBar(i).toFixed(1)}" y="${(base - h).toFixed(1)}" width="${g.barW.toFixed(1)}" height="${h.toFixed(1)}" rx="2"></rect>`;
+    }).join("");
+    const unit = `<text class="trend-chart__axis-label cal-side" x="${g.padL + 4}" y="${g.padT + 9}">kcal</text>`;
     return `<svg class="trend-chart cal-chart" viewBox="0 0 ${g.W} ${g.H}" style="width:100%;height:${g.H}px;display:block;">${frame.under}${unit}${bars}${frame.over}${trendHitAreas(g)}</svg>`;
   }
   function renderCalorieTrend(days, show, fallbackWidth) {
@@ -5517,41 +5566,52 @@ import { calorieRule, calorieSummary, missingDetails, restingKcal, extrasKcal, c
     const any = sum.days.some(d => d.logged);
     card.hidden = !show || !any;
     if (card.hidden) { box.innerHTML = ""; return; }
-    const r = sum.rule, a = sum.avg;
+    const r = sum.rule, a = sum.avg, hasTarget = !missingDetails(r).length;
     const fmtDay = ts => new Date(ts).toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" });
     const gap = diff => `${kcalText(Math.abs(diff))} ${diff >= 0 ? "over" : "under"}`;
-    const avgEaten = a.eaten != null ? a.eaten : (sum.days.find(d => d.isToday && d.logged) || { eaten: 0 }).eaten;
-    const defaultText = a.daysUsed === 0
-      ? "Tap a day for details"
-      : `Avg ${kcalText(a.eaten)} kcal eaten` + (a.target != null ? ` vs ${kcalText(a.target)} needed (${gap(a.diff)})` : "") + " · tap a day for details";
+    const defaultText = hasTarget
+      ? (a.daysUsed ? `On average ${gap(a.diff)} a day · tap a day for details` : "Tap a day for details")
+      : (a.daysUsed ? `Avg ${kcalText(a.eaten)} kcal eaten a day · tap a day for details` : "Tap a day for details");
     trendChartCtx["trend-chart-calories"] = {
       defaultText,
       describe: i => {
         const d = sum.days[i];
         if (!d.logged) return `${fmtDay(d.key)} · nothing logged`;
         const acts = d.activities.map(x => `${activityLabel(x.entry)} ${kcalText(x.kcal)}${x.from === "watch" ? " (Watch)" : ""}`);
-        let t = `${fmtDay(d.key)}${d.isToday ? " so far" : ""} · ate ${kcalText(d.eaten)} kcal (food ${kcalText(d.food)} + extras ${kcalText(d.extras)})`;
+        let t = `${fmtDay(d.key)}${d.isToday ? " so far" : ""} · ate ${kcalText(d.eaten)} (food ${kcalText(d.food)} + extras ${kcalText(d.extras)})`;
         if (d.target != null) t += ` · needed ${kcalText(d.target)} (everyday ${kcalText(d.life)}${acts.length ? " + " + acts.join(", ") : ""})` + (d.isToday ? "" : ` · ${gap(d.diff)}`);
-        if (d.eatingOut) t += ` · ${d.eatingOut} eating-out meal${d.eatingOut === 1 ? "" : "s"} not counted`;
+        if (d.eatingOut) t += ` · ${d.eatingOut} eating-out meal${d.eatingOut === 1 ? "" : "s"} not counted, so it was really more`;
         return t;
       }
     };
+    const stat = (value, label) => `<div class="trend-stat-card"><div class="trend-stat-card__value">${value}</div><div class="trend-stat-card__label">${label}</div></div>`;
+    const stats = a.daysUsed
+      ? `<div class="trend-stats cal-stats">${stat(kcalText(a.eaten), "Avg eaten")}${hasTarget ? stat(kcalText(a.target), "Avg needed") + stat((a.diff >= 0 ? "+" : "−") + kcalText(Math.abs(a.diff)), "Avg balance") : ""}</div>`
+      : "";
     const ex = sum.extras.items.filter(x => x.perDay > 0);
     const notes = [];
-    if (missingDetails(r).length) notes.push("Add your details in Settings to see what you need each day.");
-    else notes.push(`Needed = your resting needs × everyday moving (${r.lifeFactor}) + logged activity (Watch calories for Apple Health workouts, otherwise estimated).`);
-    notes.push(ex.length ? `Extras: ${ex.map(x => `${round1(x.perDay)} ${escapeHtml(x.unit || "")} ${escapeHtml(x.name.toLowerCase())}`.replace(/\s+/g, " ")).join(", ")} (${kcalText(sum.extras.total)} kcal), added on days with a meal logged.` : "No daily extras set (oil, coffees…).");
-    if (a.daysEatingOut) notes.push(`${a.daysEatingOut} day${a.daysEatingOut === 1 ? "" : "s"} with an eating-out meal (?) left out of the averages: their calories aren't known.`);
+    if (!hasTarget) notes.push("Add your details to compare each day with what you needed.");
+    notes.push(ex.length ? `Includes extras of ${kcalText(sum.extras.total)} kcal a day (${ex.map(x => escapeHtml(`${x.name.toLowerCase()} ${round1(x.perDay)} ${unitPlural(x.unit, x.perDay)}`.trim())).join(", ")}).` : "No daily extras set (oil, coffees…).");
+    const partial = [];
+    if (a.daysEatingOut) partial.push(`? = eating out, calories not known (${a.daysEatingOut} day${a.daysEatingOut === 1 ? "" : "s"})`);
+    partial.push("today is still going");
+    notes.push(`Outlines aren't in the averages: ${partial.join("; ")}.`);
+    const how = [];
+    how.push(hasTarget ? `Needed = resting needs from your sex, age, height and weight (Mifflin-St Jeor, about ${kcalText(sum.resting)} kcal) × everyday moving (${r.lifeFactor}) + logged activity: the Watch's calories for Apple Health workouts, otherwise estimated from type, minutes and intensity.` : "Needed would be resting needs from your details × everyday moving + logged activity.");
     const unest = sum.days.reduce((n, d) => n + d.unestimated, 0);
-    if (unest) notes.push(`${unest} activit${unest === 1 ? "y" : "ies"} not counted: add your weight to estimate them.`);
+    if (unest) how.push(`${unest} activit${unest === 1 ? "y isn't" : "ies aren't"} counted: add your weight to estimate ${unest === 1 ? "it" : "them"}.`);
     const missing = sum.days.reduce((n, d) => n + d.missingKcal, 0);
-    if (missing) notes.push(`${missing} food${missing === 1 ? "" : "s"} logged with carbs but no calorie figure count as 0.`);
-    notes.push("All estimates; today is still going and isn't in the averages.");
-    box.innerHTML =
+    if (missing) how.push(`${missing} food${missing === 1 ? "" : "s"} logged with carbs but no calorie figure count as 0 (add kcal to them in the Library).`);
+    how.push("All figures are estimates.");
+    const legend = hasTarget
+      ? `<span><span class="trend-legend__dot cal-dot--over"></span>Ate more than needed</span><span><span class="trend-legend__dot cal-dot--under"></span>Ate less</span>`
+      : `<span><span class="trend-legend__dot cal-dot--eaten"></span>Eaten (food + extras)</span>`;
+    box.innerHTML = stats +
       `<p class="trend-readout">${escapeHtml(defaultText)}</p>` +
-      buildCaloriesChartSvg(sum.days, avgEaten, box.clientWidth || fallbackWidth) +
-      `<div class="trend-legend"><span><span class="trend-legend__dot" style="background:var(--acc-1);"></span>Food logged</span><span><span class="trend-legend__dot trend-legend__dot--extras"></span>Extras</span>${missingDetails(r).length ? "" : `<span><span class="cal-legend-mark"></span>Needed</span>`}</div>` +
-      `<p class="trend-caption trend-caption--tight">${notes.join(" ")}</p>`;
+      (hasTarget ? buildCalorieBalanceSvg(sum.days, a.daysUsed ? a.diff : null, box.clientWidth || fallbackWidth) : buildCaloriesEatenSvg(sum.days, box.clientWidth || fallbackWidth)) +
+      `<div class="trend-legend">${legend}</div>` +
+      `<p class="trend-caption trend-caption--tight">${notes.join(" ")}</p>` +
+      `<details class="cal-how"><summary>How it's worked out</summary><p class="trend-caption trend-caption--tight">${how.join(" ")}</p></details>`;
   }
   bind("cal-open-settings", "click", () => {
     openSettingsPanel("ratios");

@@ -2,6 +2,16 @@
 // summary can never drift. Bump CHANGELOG[0].version here (and CACHE_VERSION in sw.js) on every release.
 export const CHANGELOG = [
   {
+    version: "2.78.2",
+    summary: "The Calories card now shows each day's balance at a glance.",
+    changes: [
+      "Each bar is what you ate minus what you needed: up (orange) when you ate more, down (teal) when you ate less, so you no longer compare bars against floating marks",
+      "Averages for eaten, needed and balance sit at the top. The colours are the same in every theme, so a red theme no longer makes every day look like a warning",
+      "Eating-out days (?) and today are drawn as dashed outlines, as their totals aren't complete, and stay out of the averages",
+      "Shorter notes under the chart, with the method under \u201cHow it's worked out\u201d"
+    ]
+  },
+  {
     version: "2.78.1",
     summary: "Daily extras boxes no longer stretch when you tap them.",
     changes: [
