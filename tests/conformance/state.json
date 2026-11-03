@@ -82,7 +82,8 @@
      "unknown": 180
     },
     "basalActivity": {},
-    "basalBaseline": {}
+    "basalBaseline": {},
+    "calories": {}
    },
    "settingsUpdatedAt": 0,
    "library": [],
@@ -220,7 +221,8 @@
      "unknown": 180
     },
     "basalActivity": {},
-    "basalBaseline": {}
+    "basalBaseline": {},
+    "calories": {}
    },
    "settingsUpdatedAt": 0,
    "library": [],
@@ -361,7 +363,8 @@
      "unknown": 180
     },
     "basalActivity": {},
-    "basalBaseline": {}
+    "basalBaseline": {},
+    "calories": {}
    },
    "settingsUpdatedAt": 0,
    "library": [],
@@ -686,7 +689,8 @@
      "unknown": 180
     },
     "basalActivity": {},
-    "basalBaseline": {}
+    "basalBaseline": {},
+    "calories": {}
    },
    "settingsUpdatedAt": 0,
    "library": [],
@@ -1043,7 +1047,8 @@
      "unknown": 180
     },
     "basalActivity": {},
-    "basalBaseline": {}
+    "basalBaseline": {},
+    "calories": {}
    },
    "settingsUpdatedAt": 0,
    "library": [],
@@ -1369,7 +1374,8 @@
      "unknown": 180
     },
     "basalActivity": {},
-    "basalBaseline": {}
+    "basalBaseline": {},
+    "calories": {}
    },
    "settingsUpdatedAt": 0,
    "library": [],
@@ -1630,7 +1636,8 @@
      "unknown": 180
     },
     "basalActivity": {},
-    "basalBaseline": {}
+    "basalBaseline": {},
+    "calories": {}
    },
    "settingsUpdatedAt": 0,
    "library": [],
@@ -1923,7 +1930,8 @@
      "unknown": 180
     },
     "basalActivity": {},
-    "basalBaseline": {}
+    "basalBaseline": {},
+    "calories": {}
    },
    "settingsUpdatedAt": 0,
    "library": [],
@@ -2146,7 +2154,8 @@
      "unknown": 180
     },
     "basalActivity": {},
-    "basalBaseline": {}
+    "basalBaseline": {},
+    "calories": {}
    },
    "settingsUpdatedAt": 900,
    "library": [],
@@ -2323,7 +2332,8 @@
      "unknown": 180
     },
     "basalActivity": {},
-    "basalBaseline": {}
+    "basalBaseline": {},
+    "calories": {}
    },
    "settingsUpdatedAt": 0,
    "library": [],
@@ -2567,7 +2577,8 @@
      "unknown": 180
     },
     "basalActivity": {},
-    "basalBaseline": {}
+    "basalBaseline": {},
+    "calories": {}
    },
    "settingsUpdatedAt": 0,
    "library": [
@@ -4076,7 +4087,8 @@
      "unknown": 180
     },
     "basalActivity": {},
-    "basalBaseline": {}
+    "basalBaseline": {},
+    "calories": {}
    },
    "settingsUpdatedAt": 2000,
    "library": [],

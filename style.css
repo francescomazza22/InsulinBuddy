@@ -1219,6 +1219,10 @@ html[data-theme="dark"] .undo-toast { background: var(--surface); border: 1px so
 .trend-chart__bar--basal-am { fill: #8DB9DE; }   /* morning dose: light, at the bottom of the stack */
 .trend-chart__bar--basal-pm { fill: #356E9C; }   /* evening dose: dark, on top (same blue as basal rows in History) */
 .trend-chart__bar--empty { fill: var(--line); }
+.trend-chart__bar--extras { fill: var(--acc-1); fill-opacity: 0.45; }   /* daily extras (oil, coffees): the same colour, lighter, on top of the food */
+.cal-target { stroke: var(--ink); stroke-width: 2; stroke-linecap: round; }   /* what the day needed */
+.cal-unknown { fill: var(--ink-soft); font-size: var(--fs-xs); font-weight: 700; }
+.trend-chart.has-selection .cal-target { opacity: 0.35; }
 .trend-chart__bar--today { opacity: 0.6; }
 .trend-chart.has-selection .trend-chart__bar:not(.is-selected) { opacity: 0.3; }
 .trend-chart__bar.is-selected { opacity: 1; }
@@ -1348,6 +1352,29 @@ button.basal-usual-link { appearance: none; background: none; border: none; padd
 .basal-usual-grid .field { margin-bottom: 0; }
 .panel-card__hint.basal-usual-status { margin: var(--space-s) 0 0; }
 .basal-usual-grid input { min-width: 0; }
+/* Calories (2.78.0) */
+.cal-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-m); margin-top: var(--space-xs); min-width: 0; }
+.cal-grid > * { min-width: 0; }
+.cal-grid .field { margin-bottom: 0; }
+.cal-grid input, .cal-grid select { min-width: 0; width: 100%; box-sizing: border-box; }
+#calories-card > .field { margin-top: var(--space-m); }
+#calories-card select { width: 100%; box-sizing: border-box; }
+.panel-card__hint.cal-status { margin: var(--space-s) 0 0; }
+.cal-subtitle { font-size: var(--fs-m); font-weight: 600; margin: var(--space-l) 0 var(--space-2xs); }
+.cal-extra { border-top: 1px solid var(--line); padding: var(--space-s) 0; }
+.cal-extra:first-child { border-top: none; }
+.cal-extra__top { display: flex; align-items: center; gap: var(--space-s); }
+input.cal-extra__name { flex: 1 1 auto; min-width: 0; font-weight: 600; }
+button.cal-extra__remove { flex: none; width: 36px; height: 36px; border-radius: var(--radius-s); border: none; background: transparent; color: var(--ink-soft); font-size: var(--fs-l); line-height: 1; cursor: pointer; }
+.cal-extra__nums { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: var(--space-s); margin-top: var(--space-xs); min-width: 0; }
+.cal-extra__cell { display: flex; flex-direction: column; gap: var(--space-3xs); min-width: 0; }
+.cal-extra__cell span { color: var(--ink-soft); font-size: var(--fs-xs); }
+.panel-card .cal-extra__cell input[type="text"] { width: 100%; min-width: 0; box-sizing: border-box; padding: 0 14px; }
+.panel-card input.cal-extra__name[type="text"] { padding: 0 14px; }
+.cal-extra__kcal { flex: none; font-size: var(--fs-s); font-weight: 600; color: var(--ink-soft); }
+.cal-settings-btn { margin-top: var(--space-s); }
+.trend-legend__dot--extras { background: var(--acc-1); opacity: 0.45; }
+.cal-legend-mark { display: inline-block; width: 12px; height: 2px; border-radius: 1px; background: var(--ink); vertical-align: middle; margin-right: 5px; }
 .basal-error { font-size: var(--fs-m); font-weight: 600; color: var(--brick); margin: var(--space-2xs) 0 0; }
 .basal-note { font-size: var(--fs-xs); color: var(--ink-soft); margin: 0 0 var(--space-m); }
 /* With the keyboard up there is little room, so a sheet drops the bottom safe-area padding (it is under the keyboard

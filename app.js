@@ -39,6 +39,7 @@ import { workoutsToActivities, awaitingIntensity, mayBeDoubleCounted, intensityU
 import { dayBounds, shiftDay, dayTimeline, readingNear, stackRows } from "./js/day-timeline.js";
 import { sessionLevel, primaryTotp, verifyCode, startTotpSetup, cancelTotpSetup, removeTotp, signOutOtherDevices, groupSecret, cleanTotpCode, validTotpCode } from "./js/mfa.js";
 import { nearActivity, activitySkip, countNearActivity, breakfastByActivity, activitySummary, ACTIVITY_FILTERS, NEAR_BEFORE_HOURS, NEAR_AFTER_HOURS } from "./js/activity-stats.js";
+import { calorieRule, calorieSummary, missingDetails, restingKcal, extrasKcal, cleanExtra, LIFE_FACTORS, CALORIE_DEFAULTS, CALORIE_LIMITS } from "./js/calories.js";
 
 
   const STORAGE_KEY = "insulinBuddy.v2";
@@ -131,6 +132,7 @@ import { nearActivity, activitySkip, countNearActivity, breakfastByActivity, act
         learnedAbsorption: null,       // last learned snapshot: { high:{minutes,n}|null, ..., counts, at }
         iobAwareCorrection: false,
         basalActivity: { ...BASAL_ACTIVITY_DEFAULTS },
+        calories: { ...CALORIE_DEFAULTS, extras: CALORIE_DEFAULTS.extras.map(x => ({ ...x })) },   // 2.78.0: body details, daily-life factor and daily extras for the Calories card in Trends
         basalBaseline: { ...BASAL_BASELINE_DEFAULTS },   // 2.77.0: his usual morning / evening basal; the basal sheet starts from it   // 2.72.0: suggest a lower basal after activity (his own % in Settings > Dosing; off until he turns it on)
         reduceBelowTarget: false,   // when glucose is below target, take insulin off the meal dose (off = a low reading changes nothing)
         nightscoutUrl: "",
@@ -5393,7 +5395,7 @@ import { nearActivity, activitySkip, countNearActivity, breakfastByActivity, act
       readout.textContent = trendChartCtx[id].describe(idx);
     });
   }
-  ["trend-chart-carbs", "trend-chart-dose", "trend-chart-basal"].forEach(id => {
+  ["trend-chart-carbs", "trend-chart-calories", "trend-chart-dose", "trend-chart-basal"].forEach(id => {
     const box = el(id);
     if (!box) return;
     box.addEventListener("click", e => {
@@ -5480,6 +5482,83 @@ import { nearActivity, activitySkip, countNearActivity, breakfastByActivity, act
 
   // The "Daily basal insulin" card. Shown only when a basal dose was logged in the period; it joins the tap-a-day
   // selection shared by the other charts (see setTrendSelection) while it is showing.
+  // ---- Calories card (2.78.0) ----
+  function kcalText(v) { return Math.round(v).toLocaleString(); }   // a function declaration: usable however early Trends draws
+  // Per day: food logged + daily extras (stacked bars) against what the day needed (a dark mark: resting x everyday moving +
+  // logged activity). js/calories.js does the maths; everything is an estimate and the caption says so.
+  function buildCaloriesChartSvg(days, avgEaten, width) {
+    const g = trendGeometry(days.length, Math.max(1, ...days.map(d => Math.max(d.eaten, d.logged ? d.target || 0 : 0))), width);
+    const frame = trendFrameSvg(g, days, avgEaten, `avg ${kcalText(avgEaten)}`, "");
+    const base = g.padT + g.plotH;
+    const bars = days.map((d, i) => {
+      const todayCls = d.isToday ? " trend-chart__bar--today" : "";
+      const x = g.xBar(i), w = g.barW;
+      if (!d.logged) return `<rect class="trend-chart__bar trend-chart__bar--empty${todayCls}" data-idx="${i}" x="${x.toFixed(1)}" y="${(base - 1).toFixed(1)}" width="${w.toFixed(1)}" height="1" rx="2"></rect>`;
+      const hFood = d.food > 0 ? Math.max(2, (d.food / g.max) * g.plotH) : 0;
+      const hEx = d.extras > 0 ? Math.max(2, (d.extras / g.max) * g.plotH) : 0;
+      let out = "";
+      if (hFood > 0) out += `<rect class="trend-chart__bar${todayCls}" data-idx="${i}" x="${x.toFixed(1)}" y="${(base - hFood).toFixed(1)}" width="${w.toFixed(1)}" height="${hFood.toFixed(1)}" rx="${hEx > 0 ? 0 : 2}"></rect>`;
+      if (hEx > 0) out += `<rect class="trend-chart__bar trend-chart__bar--extras${todayCls}" data-idx="${i}" x="${x.toFixed(1)}" y="${(base - hFood - hEx).toFixed(1)}" width="${w.toFixed(1)}" height="${hEx.toFixed(1)}" rx="2"></rect>`;
+      if (d.target != null) {
+        const y = g.yFor(d.target).toFixed(1), over = Math.min(4, g.slotW * 0.12);
+        out += `<line class="cal-target" x1="${(x - over).toFixed(1)}" x2="${(x + w + over).toFixed(1)}" y1="${y}" y2="${y}"></line>`;
+      }
+      if (d.eatingOut > 0) out += `<text class="cal-unknown" x="${(x + w / 2).toFixed(1)}" y="${(base - hFood - hEx - 4).toFixed(1)}" text-anchor="middle">?</text>`;
+      return out;
+    }).join("");
+    const unit = `<text class="trend-chart__axis-label cal-unit" x="${g.padL + 4}" y="${g.padT + 9}">kcal</text>`;
+    return `<svg class="trend-chart cal-chart" viewBox="0 0 ${g.W} ${g.H}" style="width:100%;height:${g.H}px;display:block;">${frame.under}${unit}${bars}${frame.over}${trendHitAreas(g)}</svg>`;
+  }
+  function renderCalorieTrend(days, show, fallbackWidth) {
+    const card = el("trend-card-calories"), box = el("trend-chart-calories");
+    if (!card || !box) return;
+    delete trendChartCtx["trend-chart-calories"];
+    const sum = calorieSummary(state.history, state.settings, { days });
+    const any = sum.days.some(d => d.logged);
+    card.hidden = !show || !any;
+    if (card.hidden) { box.innerHTML = ""; return; }
+    const r = sum.rule, a = sum.avg;
+    const fmtDay = ts => new Date(ts).toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" });
+    const gap = diff => `${kcalText(Math.abs(diff))} ${diff >= 0 ? "over" : "under"}`;
+    const avgEaten = a.eaten != null ? a.eaten : (sum.days.find(d => d.isToday && d.logged) || { eaten: 0 }).eaten;
+    const defaultText = a.daysUsed === 0
+      ? "Tap a day for details"
+      : `Avg ${kcalText(a.eaten)} kcal eaten` + (a.target != null ? ` vs ${kcalText(a.target)} needed (${gap(a.diff)})` : "") + " · tap a day for details";
+    trendChartCtx["trend-chart-calories"] = {
+      defaultText,
+      describe: i => {
+        const d = sum.days[i];
+        if (!d.logged) return `${fmtDay(d.key)} · nothing logged`;
+        const acts = d.activities.map(x => `${activityLabel(x.entry)} ${kcalText(x.kcal)}${x.from === "watch" ? " (Watch)" : ""}`);
+        let t = `${fmtDay(d.key)}${d.isToday ? " so far" : ""} · ate ${kcalText(d.eaten)} kcal (food ${kcalText(d.food)} + extras ${kcalText(d.extras)})`;
+        if (d.target != null) t += ` · needed ${kcalText(d.target)} (everyday ${kcalText(d.life)}${acts.length ? " + " + acts.join(", ") : ""})` + (d.isToday ? "" : ` · ${gap(d.diff)}`);
+        if (d.eatingOut) t += ` · ${d.eatingOut} eating-out meal${d.eatingOut === 1 ? "" : "s"} not counted`;
+        return t;
+      }
+    };
+    const ex = sum.extras.items.filter(x => x.perDay > 0);
+    const notes = [];
+    if (missingDetails(r).length) notes.push("Add your details in Settings to see what you need each day.");
+    else notes.push(`Needed = your resting needs × everyday moving (${r.lifeFactor}) + logged activity (Watch calories for Apple Health workouts, otherwise estimated).`);
+    notes.push(ex.length ? `Extras: ${ex.map(x => `${round1(x.perDay)} ${escapeHtml(x.unit || "")} ${escapeHtml(x.name.toLowerCase())}`.replace(/\s+/g, " ")).join(", ")} (${kcalText(sum.extras.total)} kcal), added on days with a meal logged.` : "No daily extras set (oil, coffees…).");
+    if (a.daysEatingOut) notes.push(`${a.daysEatingOut} day${a.daysEatingOut === 1 ? "" : "s"} with an eating-out meal (?) left out of the averages: their calories aren't known.`);
+    const unest = sum.days.reduce((n, d) => n + d.unestimated, 0);
+    if (unest) notes.push(`${unest} activit${unest === 1 ? "y" : "ies"} not counted: add your weight to estimate them.`);
+    const missing = sum.days.reduce((n, d) => n + d.missingKcal, 0);
+    if (missing) notes.push(`${missing} food${missing === 1 ? "" : "s"} logged with carbs but no calorie figure count as 0.`);
+    notes.push("All estimates; today is still going and isn't in the averages.");
+    box.innerHTML =
+      `<p class="trend-readout">${escapeHtml(defaultText)}</p>` +
+      buildCaloriesChartSvg(sum.days, avgEaten, box.clientWidth || fallbackWidth) +
+      `<div class="trend-legend"><span><span class="trend-legend__dot" style="background:var(--acc-1);"></span>Food logged</span><span><span class="trend-legend__dot trend-legend__dot--extras"></span>Extras</span>${missingDetails(r).length ? "" : `<span><span class="cal-legend-mark"></span>Needed</span>`}</div>` +
+      `<p class="trend-caption trend-caption--tight">${notes.join(" ")}</p>`;
+  }
+  bind("cal-open-settings", "click", () => {
+    openSettingsPanel("ratios");
+    const c = el("calories-card");
+    if (c) requestAnimationFrame(() => c.scrollIntoView({ block: "start", behavior: "smooth" }));
+  });
+
   function renderBasalTrend(buckets, sum, fallbackWidth) {
     const card = el("trend-card-basal"), box = el("trend-chart-basal"), panel = el("history-trends-panel");
     if (!card || !box) return;
@@ -5562,6 +5641,7 @@ import { nearActivity, activitySkip, countNearActivity, breakfastByActivity, act
       // No meals in this period, but basal doses are still worth charting, so only call it empty if there's neither.
       emptyBox.hidden = basalSummary.hasData;
       renderBasalTrend(buckets, basalSummary, 320);
+      renderCalorieTrend(days, false, 320);
       if (ratioCard) ratioCard.hidden = true;
       if (el("trend-card-ideal")) el("trend-card-ideal").hidden = true;
       renderRatioTime(days);   // a ratio changed in Settings in this period is still worth showing
@@ -5643,6 +5723,7 @@ import { nearActivity, activitySkip, countNearActivity, breakfastByActivity, act
       (totalIns > 0 ? `<p class="trend-caption trend-caption--tight">Corrections were ${corrPct}% of logged insulin (${round1(totalCorrIns)} of ${round1(totalIns)} u).</p>` : "");
 
     renderBasalTrend(buckets, basalSummary, width);
+    renderCalorieTrend(days, true, width);
     renderTrendMealBreakdown(inRange);
     renderRatioTrend(inRange);
     renderRatioTime(days);
@@ -6925,6 +7006,7 @@ import { nearActivity, activitySkip, countNearActivity, breakfastByActivity, act
     el("reduce-below-target-toggle").checked = !!state.settings.reduceBelowTarget;
     renderBasalUsualSettings();
     renderBasalActivitySettings();
+    renderCalorieSettings();
     el("use-learned-abs-toggle").checked = !!state.settings.useLearnedAbsorption;
     const L = state.settings.learnedAbsorption;
     const names = { high: "High GI", medium: "Medium GI", low: "Low GI", unknown: "No GI data" };
@@ -7005,6 +7087,131 @@ import { nearActivity, activitySkip, countNearActivity, breakfastByActivity, act
     const s = basalActivitySuggestion(base, rule, state.settings.rounding);
     status.textContent = `Example: after ${rule.minMinutes} min or more of moderate or hard activity in the ${rule.lookbackMin} min before a dose, ${s.fromUnits}u would be suggested as ${s.units}u (${rule.reducePct}% less, rounded to your ${state.settings.rounding}-unit step).`;
   }
+  // ---- Calories (2.78.0) ----
+  // Body details, everyday-moving factor and the daily extras (never logged, no carbs) for the Trends Calories card.
+  // js/calories.js cleans every value; fields are updated in place (never a list rebuild from a field's own handler, 2.62.1),
+  // and a value that doesn't read as a valid one keeps what is saved.
+  const calRule = () => calorieRule(state.settings.calories);
+  function saveCalories(patch) {
+    const before = calRule();
+    const next = calorieRule({ ...before, ...patch });
+    if (JSON.stringify(next) !== JSON.stringify(before)) { state.settings.calories = next; saveState(); }
+    return next;
+  }
+  function renderCalorieStatus() {
+    const r = calRule();
+    const status = el("cal-status"), tot = el("cal-extras-total");
+    const miss = missingDetails(r);
+    const rest = restingKcal(r);
+    if (status) status.textContent = miss.length
+      ? `Add your ${miss.join(", ").replace(/, ([^,]*)$/, " and $1")} to estimate what you need each day.`
+      : `Resting about ${kcalText(rest)} kcal a day; with everyday moving (×${r.lifeFactor}) about ${kcalText(rest * r.lifeFactor)} kcal, before any logged activity. An estimate (Mifflin-St Jeor).`;
+    const ex = extrasKcal(r);
+    if (tot) tot.textContent = r.extras.length ? `Extras: ${kcalText(ex.total)} kcal a day.` : "No extras.";
+    r.extras.forEach(x => {
+      const out = document.querySelector(`#cal-extras [data-xid="${CSS.escape(x.id)}"] .cal-extra__kcal`);
+      if (out) out.textContent = `${kcalText(x.kcalPerUnit * x.perDay)} kcal`;
+    });
+  }
+  function renderCalorieExtras() {
+    const box = el("cal-extras");
+    if (!box) return;
+    const r = calRule();
+    // Same items in the same order (a redraw after a sync or a save): update the values in place, never under the finger.
+    const rows = [...box.querySelectorAll("[data-xid]")];
+    if (rows.length === r.extras.length && rows.every((row, i) => row.dataset.xid === r.extras[i].id)) {
+      rows.forEach((row, i) => row.querySelectorAll("[data-xfield]").forEach(f => {
+        if (f !== document.activeElement) f.value = String(r.extras[i][f.dataset.xfield]);
+      }));
+      renderCalorieStatus();
+      return;
+    }
+    box.innerHTML = r.extras.map(x => `<div class="cal-extra" data-xid="${escapeAttr(x.id)}">
+      <div class="cal-extra__top">
+        <input type="text" class="cal-extra__name" data-xfield="name" value="${escapeAttr(x.name)}" maxlength="${CALORIE_LIMITS.nameMax}" aria-label="Item name" autocomplete="off">
+        <span class="cal-extra__kcal"></span>
+        <button type="button" class="cal-extra__remove" data-xremove aria-label="Remove ${escapeAttr(x.name)}">\u00d7</button>
+      </div>
+      <div class="cal-extra__nums">
+        <label class="cal-extra__cell"><span>A day</span><input type="text" name="cal-extra-per-day" data-xfield="perDay" value="${x.perDay}" inputmode="decimal" autocomplete="off"></label>
+        <label class="cal-extra__cell"><span>Unit</span><input type="text" name="cal-extra-unit" data-xfield="unit" value="${escapeAttr(x.unit)}" maxlength="${CALORIE_LIMITS.unitMax}" placeholder="e.g. cup" autocomplete="off"></label>
+        <label class="cal-extra__cell"><span>kcal each</span><input type="text" name="cal-extra-kcal" data-xfield="kcalPerUnit" value="${x.kcalPerUnit}" inputmode="decimal" autocomplete="off"></label>
+      </div>
+    </div>`).join("");
+    renderCalorieStatus();
+  }
+  function renderCalorieSettings() {
+    const r = calRule();
+    const life = el("cal-life");
+    if (!life) return;
+    const known = LIFE_FACTORS.some(f => f.value === r.lifeFactor);
+    life.innerHTML = LIFE_FACTORS.map(f => `<option value="${f.value}">${escapeHtml(f.label)} (×${f.value})</option>`).join("") +
+      (known ? "" : `<option value="${r.lifeFactor}">Your own (×${r.lifeFactor})</option>`);
+    life.value = String(r.lifeFactor);
+    el("cal-sex").value = r.sex || "";
+    el("cal-birth-year").value = r.birthYear == null ? "" : String(r.birthYear);
+    el("cal-height").value = r.heightCm == null ? "" : String(r.heightCm);
+    el("cal-weight").value = r.weightKg == null ? "" : String(r.weightKg);
+    renderCalorieExtras();
+  }
+  // Empty clears a detail; anything else that isn't valid keeps what is saved.
+  const saveCalDetail = (id, key, read) => bind(id, "change", e => {
+    const raw = e.target.value.trim();
+    const cur = calRule();
+    if (raw === "") saveCalories({ [key]: null });
+    else {
+      const next = calorieRule({ ...cur, [key]: read(raw) });
+      if (next[key] != null) saveCalories({ [key]: next[key] });
+    }
+    const r = calRule();
+    e.target.value = r[key] == null ? "" : String(r[key]);
+    renderCalorieStatus();
+  });
+  saveCalDetail("cal-birth-year", "birthYear", raw => Number(raw));
+  saveCalDetail("cal-height", "heightCm", raw => parseDecimalInput(raw));
+  saveCalDetail("cal-weight", "weightKg", raw => parseDecimalInput(raw));
+  bind("cal-sex", "change", e => { saveCalories({ sex: e.target.value || null }); renderCalorieStatus(); });
+  bind("cal-life", "change", e => { saveCalories({ lifeFactor: Number(e.target.value) }); renderCalorieStatus(); });
+  bind("cal-extras", "change", e => {
+    const f = e.target.closest("[data-xfield]"), row = e.target.closest("[data-xid]");
+    if (!f || !row) return;
+    const r = calRule();
+    const i = r.extras.findIndex(x => x.id === row.dataset.xid);
+    if (i < 0) return;
+    const key = f.dataset.xfield, raw = f.value.trim();
+    const cur = r.extras[i];
+    let v = raw;
+    if (key === "perDay" || key === "kcalPerUnit") {
+      const n = raw === "" ? NaN : parseDecimalInput(raw);
+      const lim = CALORIE_LIMITS[key];
+      v = Number.isFinite(n) && n >= lim[0] && n <= lim[1] ? n : cur[key];
+    } else if (key === "name" && !raw) v = cur.name;   // a name is needed: keep the old one
+    const extras = r.extras.map((x, j) => (j === i ? { ...x, [key]: v } : x));
+    const saved = saveCalories({ extras }).extras.find(x => x.id === cur.id) || cur;
+    f.value = String(saved[key]);   // show what is saved (e.g. 0,5 -> 0.5)
+    renderCalorieStatus();
+  });
+  bind("cal-extras", "click", async e => {
+    const btn = e.target.closest("[data-xremove]"), row = e.target.closest("[data-xid]");
+    if (!btn || !row) return;
+    const r = calRule();
+    const x = r.extras.find(y => y.id === row.dataset.xid);
+    if (!x) return;
+    const ok = await dialogs.confirm(`Remove ${x.name} from your daily extras?`, { title: "Remove extra", confirmText: "Remove", danger: true });
+    if (!ok) return;
+    saveCalories({ extras: r.extras.filter(y => y.id !== x.id) });
+    renderCalorieExtras();
+  });
+  bind("cal-add-extra", "click", () => {
+    const r = calRule();
+    if (r.extras.length >= CALORIE_LIMITS.extrasMax) { dialogs.alert(`Up to ${CALORIE_LIMITS.extrasMax} extras.`, { title: "Daily extras" }); return; }
+    const id = makeId("extra");
+    saveCalories({ extras: [...r.extras, { id, name: "New item", unit: "", kcalPerUnit: 0, perDay: 1 }] });
+    renderCalorieExtras();
+    const name = document.querySelector(`#cal-extras [data-xid="${CSS.escape(id)}"] .cal-extra__name`);
+    if (name) { name.focus(); name.setSelectionRange(name.value.length, name.value.length); }
+  });
+
   function saveBasalActivity(patch) {
     const before = basalActivityRule(state.settings.basalActivity);
     const next = basalActivityRule({ ...before, ...patch });

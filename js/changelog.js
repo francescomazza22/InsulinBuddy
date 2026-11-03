@@ -2,6 +2,16 @@
 // summary can never drift. Bump CHANGELOG[0].version here (and CACHE_VERSION in sw.js) on every release.
 export const CHANGELOG = [
   {
+    version: "2.78.0",
+    summary: "A Calories card in Insights > Trends: what you ate each day against what you needed.",
+    changes: [
+      "Each day shows the calories of the food you logged, plus your daily extras on top, against an estimate of what the day needed (the dark mark). Tap a day for the breakdown",
+      "Needed = resting needs from your sex, age, height and weight (Mifflin-St Jeor) \u00d7 how much you move in a normal day + your logged activity: the Watch's own calories for Apple Health workouts, otherwise estimated from the type, minutes and intensity",
+      "Daily extras are the things with no carbs you never log: olive oil and flat whites to start with, each with its own kcal, and you can add more. They count on days you logged a meal",
+      "Set your details and extras in Settings > Dosing > Calories, or from the card. Days with an eating-out meal are marked ? and left out of the averages. Never used for a dose"
+    ]
+  },
+  {
     version: "2.77.4",
     summary: "A tidier basal sheet, especially with the keyboard up after activity.",
     changes: [

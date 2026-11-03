@@ -324,6 +324,11 @@
           <h2 class="panel-card__title">Daily carbs</h2>
           <div id="trend-chart-carbs"></div>
         </div>
+        <div class="panel-card" id="trend-card-calories" hidden>
+          <h2 class="panel-card__title">Calories</h2>
+          <div id="trend-chart-calories"></div>
+          <button class="dashed-btn cal-settings-btn" id="cal-open-settings" type="button">Change details and extras</button>
+        </div>
         <div class="panel-card" id="trend-card-dose">
           <h2 class="panel-card__title">Daily insulin dose</h2>
           <div id="trend-chart-dose"></div>
@@ -661,6 +666,39 @@
             </div>
             <p class="panel-card__hint basal-activity-status" id="basal-activity-status"></p>
           </div>
+        </div>
+
+        <div class="panel-card" id="calories-card">
+          <h2 class="panel-card__title">Calories</h2>
+          <p class="panel-card__hint">For the Calories card in Insights &gt; Trends: what you ate each day against an estimate of what you needed. Never used for a dose.</p>
+          <div class="field-grid cal-grid">
+            <div class="field">
+              <label for="cal-sex">Sex</label>
+              <select id="cal-sex"><option value="">Not set</option><option value="male">Male</option><option value="female">Female</option></select>
+            </div>
+            <div class="field">
+              <label for="cal-birth-year">Year of birth</label>
+              <div class="field__row"><input type="text" id="cal-birth-year" inputmode="numeric" autocomplete="off" placeholder="Not set"></div>
+            </div>
+            <div class="field">
+              <label for="cal-height">Height</label>
+              <div class="field__row"><input type="text" id="cal-height" inputmode="decimal" autocomplete="off" placeholder="Not set"><span class="field__unit">cm</span></div>
+            </div>
+            <div class="field">
+              <label for="cal-weight">Weight</label>
+              <div class="field__row"><input type="text" id="cal-weight" inputmode="decimal" autocomplete="off" placeholder="Not set"><span class="field__unit">kg</span></div>
+            </div>
+          </div>
+          <div class="field">
+            <label for="cal-life">Everyday moving (not counting logged activity)</label>
+            <select id="cal-life"></select>
+          </div>
+          <p class="panel-card__hint cal-status" id="cal-status" role="status"></p>
+          <h3 class="cal-subtitle">Daily extras</h3>
+          <p class="panel-card__hint">Things you have most days but don't log, like the oil you cook with or milky coffees. Each is added to every day you logged a meal.</p>
+          <div id="cal-extras"></div>
+          <button class="dashed-btn" id="cal-add-extra" type="button">+ Add an item</button>
+          <p class="panel-card__hint cal-status" id="cal-extras-total" role="status"></p>
         </div>
 
         <div class="panel-card">
