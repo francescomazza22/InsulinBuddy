@@ -118,16 +118,18 @@ test("eating out: an assumed kcal per meal counts the day in full (default 900);
   assert.equal(calorieRule({ eatingOutKcal: "1,5e9" }, NOW).eatingOutKcal, null);
 });
 
-test("today's bar: food + extras + the meal being built against today's target", () => {
-  const target = 1675 * 1.3 + 600;   // a 60 min moderate run today
+test("today's bar: food logged against what is left for food once the day's extras are set aside (2.79.1)", () => {
+  const needed = 1675 * 1.3 + 600;   // a 60 min moderate run today
   const h = [meal(at(0, 9), 500), act(at(0, 7), 60, "run", "moderate")];
   const t = todayCalories(h, { calories: me }, NOW, 400);
-  assert.equal(t.eaten, 500 + 348); assert.equal(t.draft, 400); assert.ok(Math.abs(t.target - target) < 1e-9);
-  assert.ok(Math.abs(t.fill - 848 / target) < 1e-9); assert.ok(Math.abs(t.draftFill - 400 / target) < 1e-9); assert.equal(t.over, false);
-  // nothing logged yet: extras count only once a meal is being built
+  assert.equal(t.eaten, 500); assert.equal(t.draft, 400); assert.equal(t.extras, 348);
+  assert.ok(Math.abs(t.needed - needed) < 1e-9); assert.ok(Math.abs(t.target - (needed - 348)) < 1e-9);
+  assert.ok(Math.abs(t.fill - 500 / (needed - 348)) < 1e-9); assert.ok(Math.abs(t.draftFill - 400 / (needed - 348)) < 1e-9); assert.equal(t.over, false);
+  // His 3 Nov morning: 243 + 632 food, 886 of extras. The bar says 875, not 1,761.
+  const fr = { ...me, lifeFactor: 1.2, extras: [{ name: "Olive oil", kcalPerUnit: 119, perDay: 4 }, { name: "Flat white", kcalPerUnit: 110, perDay: 3 }, { name: "Chocolate", kcalPerUnit: 80, perDay: 1 }] };
+  const day = todayCalories([meal(at(0, 7), 243), meal(at(0, 12), 632)], { calories: fr }, NOW, 0);
+  assert.equal(day.eaten, 875); assert.equal(day.extras, 886); assert.ok(Math.abs(day.target - (1675 * 1.2 - 886)) < 1e-9);
   assert.equal(todayCalories([], { calories: me }, NOW, 0).eaten, 0);
-  assert.equal(todayCalories([], { calories: me }, NOW, 300).eaten, 348);
-  // over the target: the bar is full, never past its end
   const big = todayCalories([meal(at(0, 9), 3000)], { calories: me }, NOW, 500);
   assert.equal(big.over, true); assert.equal(big.fill + big.draftFill, 1);
   assert.equal(todayCalories(h, { calories: { extras: [] } }, NOW, 0), null);   // no details, no bar

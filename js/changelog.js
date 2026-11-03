@@ -2,6 +2,15 @@
 // summary can never drift. Bump CHANGELOG[0].version here (and CACHE_VERSION in sw.js) on every release.
 export const CHANGELOG = [
   {
+    version: "2.79.1",
+    summary: "The calories bar now counts only the food you've logged today.",
+    changes: [
+      "It used to add the whole day's extras (oil, coffees, chocolate) from the first meal, so at lunch it showed 1,761 kcal when you'd logged 875",
+      "Now it shows the food you've logged against what's left for food once the day's extras are set aside: today 875 kcal, need 1,733 (2,619 for the day less 886 of extras)",
+      "The Trends Calories card is unchanged: full days still include the extras"
+    ]
+  },
+  {
     version: "2.79.0",
     summary: "A slim calories bar in the dose card, under the carbs one.",
     changes: [

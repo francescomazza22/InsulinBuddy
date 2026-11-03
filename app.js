@@ -2988,7 +2988,8 @@ import { todayCalories, calorieRule, calorieSummary, missingDetails, restingKcal
     d.style.left = `${(t.fill * 100).toFixed(1)}%`; d.style.width = `${(t.draftFill * 100).toFixed(1)}%`;
     box.classList.toggle("is-over", t.over);
     const left = t.target - t.eaten - t.draft;
-    box.setAttribute("aria-label", `Calories today: about ${kcalText(t.eaten)} so far${t.extras ? ` including ${kcalText(t.extras)} of daily extras` : ""}${t.draft > 0 ? `, plus ${kcalText(t.draft)} in this meal` : ""}. About ${kcalText(t.target)} needed today${t.activity > 0 ? `, including ${kcalText(t.activity)} for activity` : ""}: ${left >= 0 ? `${kcalText(left)} left` : `${kcalText(-left)} over`}. Estimates. Opens Trends.`);
+    box.setAttribute("aria-label", `Food today: about ${kcalText(t.eaten)} kcal logged${t.draft > 0 ? `, plus ${kcalText(t.draft)} in this meal` : ""}. About ${kcalText(t.needed)} needed today${t.activity > 0 ? ` including ${kcalText(t.activity)} for activity` : ""}${t.extras > 0 ? `, ${kcalText(t.extras)} of it set aside for your daily extras, so ${kcalText(t.target)} for food` : ""}: ${left >= 0 ? `${kcalText(left)} left` : `${kcalText(-left)} over`}. Estimates. Opens Trends.`);
+    box.title = t.extras > 0 ? `Need ${kcalText(t.target)} for food: ${kcalText(t.needed)} for the day less ${kcalText(t.extras)} of daily extras` : "";
     alignDayBars();
   }
   // The carbs and calories bars line up: each side's label takes the width of the longer of the two.
