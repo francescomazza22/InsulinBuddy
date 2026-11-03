@@ -65,7 +65,7 @@ test("day totals: food + extras eaten against resting x factor + activity", () =
 
 test("days with nothing logged get no extras and no average; today and eating-out days are left out of averages", () => {
   const history = [meal(at(2, 13), 600), meal(at(1, 13), 500), meal(at(1, 20), 0, { carbsUnknown: true, items: [] }), meal(at(0, 9), 300)];
-  const s = calorieSummary(history, { calories: me }, { days: 7, now: NOW });
+  const s = calorieSummary(history, { calories: { ...me, eatingOutKcal: null } }, { days: 7, now: NOW });
   const empty = s.days[0];
   assert.equal(empty.logged, false); assert.equal(empty.extras, 0); assert.equal(empty.diff, null);
   assert.equal(s.days[s.days.length - 2].eatingOut, 1);
@@ -104,4 +104,16 @@ test("state merge keeps calorie settings key by key", () => {
   assert.equal(st.settings.calories.weightKg, 75);
   assert.equal(st.settings.calories.lifeFactor, 1.3);
   assert.equal(st.settings.calories.extras.length, 2);
+});
+
+test("eating out: an assumed kcal per meal counts the day in full (default 900); none set leaves it out", () => {
+  const history = [meal(at(2, 13), 600), meal(at(1, 13), 500), meal(at(1, 20), 0, { carbsUnknown: true, items: [] }), meal(at(1, 21), 0, { carbsUnknown: true, items: [] })];
+  assert.equal(calorieRule({}, NOW).eatingOutKcal, 900);
+  const s = calorieSummary(history, { calories: { ...me, eatingOutKcal: 1100 } }, { days: 7, now: NOW });
+  const y = s.days[s.days.length - 2];
+  assert.equal(y.food, 500 + 2 * 1100); assert.equal(y.assumedKcal, 2200); assert.equal(y.unknownMeals, 0); assert.equal(y.eatingOut, 2);
+  assert.equal(s.avg.daysUsed, 2); assert.equal(s.avg.daysAssumed, 1); assert.equal(s.avg.daysEatingOut, 0);
+  const none = calorieSummary(history, { calories: { ...me, eatingOutKcal: null } }, { days: 7, now: NOW });
+  assert.equal(none.days[none.days.length - 2].food, 500); assert.equal(none.avg.daysUsed, 1); assert.equal(none.avg.daysEatingOut, 1);
+  assert.equal(calorieRule({ eatingOutKcal: "1,5e9" }, NOW).eatingOutKcal, null);
 });

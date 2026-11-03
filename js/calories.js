@@ -1,6 +1,7 @@
 // Calories per day (2.78.0): what was eaten against an estimate of what the day needed. Pure functions only; never feeds a dose.
 //
-// Eaten  = the kcal of every logged meal and treated low (their foods' own figures) + the person's daily extras, the things
+// Eaten  = the kcal of every logged meal and treated low (their foods' own figures), an assumed figure per eating-out meal
+//          (2.78.3, if set), + the person's daily extras, the things
 //          with no carbs that never get logged (olive oil, flat whites, ...), each "N a day" at a kcal they can change.
 // Needed = resting needs (Mifflin-St Jeor, from sex, age, height, weight) x a daily-life factor (everyday moving, NOT exercise)
 //          + the logged activities: the Watch's active calories for an Apple Health import, otherwise an estimate from
@@ -11,7 +12,7 @@ import { dayBounds, shiftDay } from "./day-timeline.js";
 import { isNonMealEntry } from "./history.js";
 
 export const CALORIE_LIMITS = {
-  heightCm: [120, 230], weightKg: [30, 250], lifeFactor: [1.1, 1.8], kcalPerUnit: [0, 2000], perDay: [0, 50],
+  heightCm: [120, 230], weightKg: [30, 250], eatingOutKcal: [0, 5000], lifeFactor: [1.1, 1.8], kcalPerUnit: [0, 2000], perDay: [0, 50],
   minAge: 14, maxAge: 110, extrasMax: 12, nameMax: 40, unitMax: 12
 };
 export const LIFE_FACTORS = [
@@ -22,6 +23,7 @@ export const LIFE_FACTORS = [
 ];
 export const CALORIE_DEFAULTS = {
   sex: null, birthYear: null, heightCm: null, weightKg: null, lifeFactor: 1.3,
+  eatingOutKcal: 900,   // 2.78.3: assumed kcal for each eating-out meal (its foods aren't logged); null = don't count them
   extras: [
     { id: "olive-oil", name: "Olive oil", unit: "tbsp", kcalPerUnit: 119, perDay: 0 },
     { id: "flat-white", name: "Flat white", unit: "cup", kcalPerUnit: 110, perDay: 0 }
@@ -78,6 +80,7 @@ export function calorieRule(c, now = Date.now()) {
     extras.push(e);
   });
   const lf = inRange(o.lifeFactor, CALORIE_LIMITS.lifeFactor);
+  const eo = "eatingOutKcal" in o ? inRange(o.eatingOutKcal, CALORIE_LIMITS.eatingOutKcal) : CALORIE_DEFAULTS.eatingOutKcal;
   const h = inRange(o.heightCm, CALORIE_LIMITS.heightCm), w = inRange(o.weightKg, CALORIE_LIMITS.weightKg);
   return {
     sex: o.sex === "male" || o.sex === "female" ? o.sex : null,
@@ -85,6 +88,7 @@ export function calorieRule(c, now = Date.now()) {
     heightCm: h == null ? null : Math.round(h * 10) / 10,
     weightKg: w == null ? null : Math.round(w * 10) / 10,
     lifeFactor: lf == null ? CALORIE_DEFAULTS.lifeFactor : Math.round(lf * 100) / 100,
+    eatingOutKcal: eo == null ? null : Math.round(eo),
     extras
   };
 }
@@ -147,7 +151,7 @@ export function calorieSummary(history, settings, { days = 14, now = Date.now() 
   const out = [];
   for (let i = days - 1; i >= 0; i--) {
     const start = shiftDay(now, -i), end = shiftDay(start, 1);
-    out.push({ key: start, end, isToday: start === todayStart, food: 0, meals: 0, eatingOut: 0, missingKcal: 0, activity: 0, activities: [], unestimated: 0 });
+    out.push({ key: start, end, isToday: start === todayStart, food: 0, meals: 0, eatingOut: 0, unknownMeals: 0, assumedKcal: 0, missingKcal: 0, activity: 0, activities: [], unestimated: 0 });
   }
   const from = out[0].key, to = out[out.length - 1].end;
   const dayOf = ts => out.find(d => ts >= d.key && ts < d.end);
@@ -176,7 +180,12 @@ export function calorieSummary(history, settings, { days = 14, now = Date.now() 
     const d = dayOf(ts);
     if (!d) continue;
     d.meals += 1;
-    if (e.carbsUnknown) { d.eatingOut += 1; continue; }
+    if (e.carbsUnknown) {
+      // Eating out: its foods aren't logged. Count the assumed kcal when one is set, else the day's total is unknown.
+      d.eatingOut += 1;
+      if (rule.eatingOutKcal != null) { d.food += rule.eatingOutKcal; d.assumedKcal += rule.eatingOutKcal; } else d.unknownMeals += 1;
+      continue;
+    }
     d.food += foodKcal(e);
     d.missingKcal += kcalMissing(e);
   }
@@ -190,12 +199,13 @@ export function calorieSummary(history, settings, { days = 14, now = Date.now() 
     d.target = d.life == null ? null : d.life + d.activity;
     d.diff = d.target == null || !d.logged ? null : d.eaten - d.target;
   }
-  const used = out.filter(d => d.logged && !d.isToday && d.eatingOut === 0);
+  const used = out.filter(d => d.logged && !d.isToday && d.unknownMeals === 0);
   const mean = f => (used.length ? used.reduce((s, d) => s + f(d), 0) / used.length : null);
   const hasTarget = used.length > 0 && used.every(d => d.target != null);
   const avg = {
     daysUsed: used.length,
-    daysEatingOut: out.filter(d => d.logged && !d.isToday && d.eatingOut > 0).length,
+    daysEatingOut: out.filter(d => d.logged && !d.isToday && d.unknownMeals > 0).length,   // left out: eating out with no assumption
+    daysAssumed: used.filter(d => d.eatingOut > 0).length,   // counted with the assumed eating-out kcal
     eaten: mean(d => d.eaten), food: mean(d => d.food), extras: mean(d => d.extras), activity: mean(d => d.activity),
     target: hasTarget ? mean(d => d.target) : null,
     diff: hasTarget ? mean(d => d.diff) : null

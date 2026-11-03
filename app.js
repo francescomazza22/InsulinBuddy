@@ -5531,10 +5531,10 @@ import { calorieRule, calorieSummary, missingDetails, restingKcal, extrasKcal, c
       const diff = d.eaten - d.target, x = g.xBar(i).toFixed(1), w = g.barW.toFixed(1);
       const y0 = yFor(0), y1 = yFor(Math.max(-max, Math.min(max, diff)));
       const top = Math.min(y0, y1), h = Math.max(2, Math.abs(y1 - y0));
-      const partial = d.isToday || d.eatingOut > 0;
+      const partial = d.isToday || d.unknownMeals > 0;
       const cls = `cal-bar ${diff >= 0 ? "cal-bar--over" : "cal-bar--under"}${partial ? " cal-bar--partial" : ""}`;
       let out = `<rect class="trend-chart__bar ${cls}" data-idx="${i}" x="${x}" y="${top.toFixed(1)}" width="${w}" height="${h.toFixed(1)}" rx="2"></rect>`;
-      if (d.eatingOut > 0) out += `<text class="cal-unknown" x="${(g.xBar(i) + g.barW / 2).toFixed(1)}" y="${(diff >= 0 ? top - 4 : top + h + 11).toFixed(1)}" text-anchor="middle">?</text>`;
+      if (d.unknownMeals > 0) out += `<text class="cal-unknown" x="${(g.xBar(i) + g.barW / 2).toFixed(1)}" y="${(diff >= 0 ? top - 4 : top + h + 11).toFixed(1)}" text-anchor="middle">?</text>`;
       return out;
     }).join("");
     let avg = "";
@@ -5553,7 +5553,7 @@ import { calorieRule, calorieSummary, missingDetails, restingKcal, extrasKcal, c
     const bars = days.map((d, i) => {
       if (!d.logged) return "";
       const h = Math.max(2, (d.eaten / g.max) * g.plotH);
-      return `<rect class="trend-chart__bar cal-bar cal-bar--eaten${d.isToday || d.eatingOut ? " cal-bar--partial" : ""}" data-idx="${i}" x="${g.xBar(i).toFixed(1)}" y="${(base - h).toFixed(1)}" width="${g.barW.toFixed(1)}" height="${h.toFixed(1)}" rx="2"></rect>`;
+      return `<rect class="trend-chart__bar cal-bar cal-bar--eaten${d.isToday || d.unknownMeals ? " cal-bar--partial" : ""}" data-idx="${i}" x="${g.xBar(i).toFixed(1)}" y="${(base - h).toFixed(1)}" width="${g.barW.toFixed(1)}" height="${h.toFixed(1)}" rx="2"></rect>`;
     }).join("");
     const unit = `<text class="trend-chart__axis-label cal-side" x="${g.padL + 4}" y="${g.padT + 9}">kcal</text>`;
     return `<svg class="trend-chart cal-chart" viewBox="0 0 ${g.W} ${g.H}" style="width:100%;height:${g.H}px;display:block;">${frame.under}${unit}${bars}${frame.over}${trendHitAreas(g)}</svg>`;
@@ -5580,7 +5580,8 @@ import { calorieRule, calorieSummary, missingDetails, restingKcal, extrasKcal, c
         const acts = d.activities.map(x => `${activityLabel(x.entry)} ${kcalText(x.kcal)}${x.from === "watch" ? " (Watch)" : ""}`);
         let t = `${fmtDay(d.key)}${d.isToday ? " so far" : ""} · ate ${kcalText(d.eaten)} (food ${kcalText(d.food)} + extras ${kcalText(d.extras)})`;
         if (d.target != null) t += ` · needed ${kcalText(d.target)} (everyday ${kcalText(d.life)}${acts.length ? " + " + acts.join(", ") : ""})` + (d.isToday ? "" : ` · ${gap(d.diff)}`);
-        if (d.eatingOut) t += ` · ${d.eatingOut} eating-out meal${d.eatingOut === 1 ? "" : "s"} not counted, so it was really more`;
+        if (d.assumedKcal) t += ` · includes ${d.eatingOut} eating-out meal${d.eatingOut === 1 ? "" : "s"} at ${kcalText(r.eatingOutKcal)} kcal (assumed)`;
+        if (d.unknownMeals) t += ` · ${d.unknownMeals} eating-out meal${d.unknownMeals === 1 ? "" : "s"} not counted, so it was really more`;
         return t;
       }
     };
@@ -5592,6 +5593,7 @@ import { calorieRule, calorieSummary, missingDetails, restingKcal, extrasKcal, c
     const notes = [];
     if (!hasTarget) notes.push("Add your details to compare each day with what you needed.");
     notes.push(ex.length ? `Includes extras of ${kcalText(sum.extras.total)} kcal a day (${ex.map(x => escapeHtml(`${x.name.toLowerCase()} ${round1(x.perDay)} ${unitPlural(x.unit, x.perDay)}`.trim())).join(", ")}).` : "No daily extras set (oil, coffees…).");
+    if (r.eatingOutKcal != null && sum.days.some(d => d.eatingOut > 0)) notes.push(`Eating out counted as ${kcalText(r.eatingOutKcal)} kcal a meal.`);
     const partial = [];
     if (a.daysEatingOut) partial.push(`? = eating out, calories not known (${a.daysEatingOut} day${a.daysEatingOut === 1 ? "" : "s"})`);
     partial.push("today is still going");
@@ -7212,6 +7214,7 @@ import { calorieRule, calorieSummary, missingDetails, restingKcal, extrasKcal, c
     el("cal-birth-year").value = r.birthYear == null ? "" : String(r.birthYear);
     el("cal-height").value = r.heightCm == null ? "" : String(r.heightCm);
     el("cal-weight").value = r.weightKg == null ? "" : String(r.weightKg);
+    el("cal-eating-out").value = r.eatingOutKcal == null ? "" : String(r.eatingOutKcal);
     renderCalorieExtras();
   }
   // Empty clears a detail; anything else that isn't valid keeps what is saved.
@@ -7230,6 +7233,7 @@ import { calorieRule, calorieSummary, missingDetails, restingKcal, extrasKcal, c
   saveCalDetail("cal-birth-year", "birthYear", raw => Number(raw));
   saveCalDetail("cal-height", "heightCm", raw => parseDecimalInput(raw));
   saveCalDetail("cal-weight", "weightKg", raw => parseDecimalInput(raw));
+  saveCalDetail("cal-eating-out", "eatingOutKcal", raw => parseDecimalInput(raw));   // 2.78.3: empty = don't count eating out
   bind("cal-sex", "change", e => { saveCalories({ sex: e.target.value || null }); renderCalorieStatus(); });
   bind("cal-life", "change", e => { saveCalories({ lifeFactor: Number(e.target.value) }); renderCalorieStatus(); });
   bind("cal-extras", "change", e => {

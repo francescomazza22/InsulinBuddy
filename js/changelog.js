@@ -2,6 +2,15 @@
 // summary can never drift. Bump CHANGELOG[0].version here (and CACHE_VERSION in sw.js) on every release.
 export const CHANGELOG = [
   {
+    version: "2.78.3",
+    summary: "Eating-out meals now count towards your calories, at a figure you set.",
+    changes: [
+      "Settings > Dosing > Calories has \u201cEating out, assumed per meal\u201d, starting at 900 kcal. Each eating-out meal counts that much, so those days are full bars and join the averages",
+      "Tap a day to see how many eating-out meals it includes at the assumed figure",
+      "Empty the box to go back to leaving eating-out days out (shown as dashed outlines with ?)"
+    ]
+  },
+  {
     version: "2.78.2",
     summary: "The Calories card now shows each day's balance at a glance.",
     changes: [

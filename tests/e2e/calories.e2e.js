@@ -22,7 +22,7 @@ const hist = [
   meal("e1", at(2, 20), { carbsUnknown: true, totalKcal: 0, items: [], mealDose: 3 }), meal("e2", at(2, 9), { totalKcal: 400 }),
   { id: "bs", ts: at(1, 22), entryType: "basal", mealType: "basal", basalDose: 12, items: [], totalCarbs: 0, totalKcal: 0, mealDose: 0, correctionDose: 0 }
 ].sort((a, b) => b.ts - a.ts);
-const calories = { sex: "male", birthYear: year - 41, heightCm: 180, weightKg: 75, lifeFactor: 1.3, extras: [
+const calories = { sex: "male", birthYear: year - 41, heightCm: 180, weightKg: 75, lifeFactor: 1.3, eatingOutKcal: null, extras: [
   { id: "olive-oil", name: "Olive oil", unit: "tbsp", kcalPerUnit: 119, perDay: 2 },
   { id: "flat-white", name: "Flat white", unit: "cup", kcalPerUnit: 110, perDay: 1 }
 ] };
@@ -112,6 +112,28 @@ t.check("removing asks first, then removes it", (await saved()).extras.length ==
 await dev.eval(`(() => { const s = document.getElementById("cal-life"); s.value = "1.4"; s.dispatchEvent(new Event("change", { bubbles: true })); })()`); await sleep(200);
 t.check("everyday moving is saved", (await saved()).lifeFactor === 1.4);
 t.check("no sideways scroll in Settings", await dev.eval(`document.documentElement.scrollWidth <= innerWidth + 1`));
+t.check("no JS errors", (await dev.eval("window.__errs.length")) === 0, JSON.stringify(await dev.eval("window.__errs")));
+dev.close();
+
+t.section("EATING OUT ASSUMED (2.78.3)");
+{ const { eatingOutKcal, ...rest } = calories; dev = await boot({ calories: rest }); }   // saved before 2.78.3: gets the default 900
+await openTrends(dev);
+s = await card(dev);
+// Two days ago: 400 + 900 assumed + 348 extras = 1648 vs 2177.5. Averages over three days now.
+t.check("by default an eating-out meal counts 900 kcal: the day is a full bar and in the averages", s.partial === 0 && s.under === 3 && s.unknown === 0 &&
+  s.stats.join("|") === "1,815 Avg eaten|2,405 Avg needed|\u2212590 Avg balance" && /Eating out counted as 900 kcal a meal/.test(s.caption), JSON.stringify(s));
+await dev.eval(`document.querySelector('#trend-chart-calories .trend-chart__hit[data-idx="4"]').dispatchEvent(new MouseEvent("click", { bubbles: true }))`); await sleep(200);
+const ro2 = await dev.eval(`document.querySelector("#trend-chart-calories .trend-readout").textContent`);
+t.check("tapping that day says the eating-out meal was assumed", /ate 1,648 \(food 1,300/.test(ro2) && /includes 1 eating-out meal at 900 kcal \(assumed\)/.test(ro2), ro2);
+await dev.click("#cal-open-settings"); await sleep(800);
+t.check("Settings shows the assumption", (await dev.eval(`document.getElementById("cal-eating-out").value`)) === "900");
+await setField("#cal-eating-out", "1200");
+t.check("a new figure is saved", (await saved()).eatingOutKcal === 1200);
+await setField("#cal-eating-out", "");
+t.check("emptying it stops counting eating out", (await saved()).eatingOutKcal === null && (await dev.eval(`document.getElementById("cal-eating-out").value`)) === "");
+await openTrends(dev);
+s = await card(dev);
+t.check("and the eating-out day is back to an outline with ?", s.partial === 1 && s.unknown === 1, JSON.stringify(s));
 t.check("no JS errors", (await dev.eval("window.__errs.length")) === 0, JSON.stringify(await dev.eval("window.__errs")));
 dev.close();
 
