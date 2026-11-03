@@ -1367,7 +1367,7 @@ button.basal-usual-link { appearance: none; background: none; border: none; padd
 input.cal-extra__name { flex: 1 1 auto; min-width: 0; font-weight: 600; }
 button.cal-extra__remove { flex: none; width: 36px; height: 36px; border-radius: var(--radius-s); border: none; background: transparent; color: var(--ink-soft); font-size: var(--fs-l); line-height: 1; cursor: pointer; }
 .cal-extra__nums { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: var(--space-s); margin-top: var(--space-xs); min-width: 0; }
-.cal-extra__cell { display: flex; flex-direction: column; gap: var(--space-3xs); min-width: 0; }
+.cal-extra__cell { display: grid; grid-template-columns: minmax(0, 1fr); align-content: start; gap: var(--space-3xs); min-width: 0; }   /* grid, not a flex column: the clear X sets an inline flex width, which a column would read as a height (2.78.1) */
 .cal-extra__cell span { color: var(--ink-soft); font-size: var(--fs-xs); }
 .panel-card .cal-extra__cell input[type="text"] { width: 100%; min-width: 0; box-sizing: border-box; padding: 0 14px; }
 .panel-card input.cal-extra__name[type="text"] { padding: 0 14px; }

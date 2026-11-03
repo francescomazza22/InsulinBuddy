@@ -2,6 +2,14 @@
 // summary can never drift. Bump CHANGELOG[0].version here (and CACHE_VERSION in sw.js) on every release.
 export const CHANGELOG = [
   {
+    version: "2.78.1",
+    summary: "Daily extras boxes no longer stretch when you tap them.",
+    changes: [
+      "In Settings > Dosing > Calories, tapping a filled box in a daily extra (A day, Unit, kcal each) made it twice as tall once the clear \u00d7 appeared. It now stays the same size",
+      "Each extra's kcal total now updates as you type, not only after you leave the box"
+    ]
+  },
+  {
     version: "2.78.0",
     summary: "A Calories card in Insights > Trends: what you ate each day against what you needed.",
     changes: [

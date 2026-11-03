@@ -7191,6 +7191,14 @@ import { calorieRule, calorieSummary, missingDetails, restingKcal, extrasKcal, c
     f.value = String(saved[key]);   // show what is saved (e.g. 0,5 -> 0.5)
     renderCalorieStatus();
   });
+  // While typing, the row's kcal follows the boxes (saved on change, as before).
+  bind("cal-extras", "input", e => {
+    const row = e.target.closest("[data-xid]");
+    if (!row || !e.target.matches('[data-xfield="perDay"], [data-xfield="kcalPerUnit"]')) return;
+    const num = k => { const n = parseDecimalInput(row.querySelector(`[data-xfield="${k}"]`).value); return Number.isFinite(n) && n >= 0 ? n : 0; };
+    const out = row.querySelector(".cal-extra__kcal");
+    if (out) out.textContent = `${kcalText(num("perDay") * num("kcalPerUnit"))} kcal`;
+  });
   bind("cal-extras", "click", async e => {
     const btn = e.target.closest("[data-xremove]"), row = e.target.closest("[data-xid]");
     if (!btn || !row) return;

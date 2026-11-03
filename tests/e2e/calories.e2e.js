@@ -81,6 +81,17 @@ let c = await saved();
 t.check("olive oil 1,5 a day is saved as 1.5 and the totals update in place", c.extras[0].perDay === 1.5 && /Extras: 289 kcal a day/.test(await status()) &&
   (await dev.eval(`document.querySelector('#cal-extras [data-xid="olive-oil"] .cal-extra__kcal').textContent`)) === "179 kcal", JSON.stringify(c.extras));
 t.check("the field stays connected and focused after the change", await dev.eval(`document.activeElement && document.activeElement.isConnected && document.activeElement.dataset.xfield === "perDay"`));
+// 2.78.1: focusing a filled box shows the clear X, which used to make the box as tall as it is wide.
+const boxH = () => dev.eval(`(() => { const f = document.querySelector('#cal-extras [data-xid="flat-white"] [data-xfield="perDay"]'); return Math.round(f.getBoundingClientRect().height); })()`);
+const hBefore = await boxH();
+await dev.eval(`(() => { const f = document.querySelector('#cal-extras [data-xid="flat-white"] [data-xfield="perDay"]'); f.focus(); f.dispatchEvent(new FocusEvent("focusin", { bubbles: true })); })()`); await sleep(300);
+const hFocus = await boxH(), xShown = await dev.eval(`!!document.querySelector(".clear-x:not([hidden]), [class*='clear'][class*='btn']:not([hidden])")`);
+t.check("an extra's box keeps its height when focused with the clear X", hBefore > 0 && Math.abs(hFocus - hBefore) <= 1, `${hBefore} -> ${hFocus} (X shown: ${xShown})`);
+if (SHOTS) await dev.shot(`${SHOTS}/calories-focus-${W}${dark ? "-dark" : ""}.png`);
+await dev.eval(`(() => { const f = document.activeElement; f.value = "3"; f.dispatchEvent(new Event("input", { bubbles: true })); })()`); await sleep(100);
+t.check("the row's kcal follows what you type", (await dev.eval(`document.querySelector('#cal-extras [data-xid="flat-white"] .cal-extra__kcal').textContent`)) === "330 kcal");
+await dev.eval(`(() => { const f = document.activeElement; f.value = "1"; f.dispatchEvent(new Event("input", { bubbles: true })); f.dispatchEvent(new Event("change", { bubbles: true })); })()`);
+await dev.eval(`document.activeElement.blur()`); await sleep(150);
 await setField('#cal-extras [data-xid="flat-white"] [data-xfield="name"]', "");
 t.check("an empty name keeps the old one", (await saved()).extras[1].name === "Flat white");
 await dev.click("#cal-add-extra"); await sleep(300);
