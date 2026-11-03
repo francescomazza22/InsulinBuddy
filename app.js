@@ -15,7 +15,8 @@ import { fillMissingFoodDetails, stillBlank, applyPublishedGi } from "./js/food-
 import { fieldSvg } from "./js/doodle-field.js";
 import { abstractSvg } from "./js/abstract-field.js";
 import { recordRatioChange, ratioTimeline, ratioChanges } from "./js/ratio-history.js";
-import { dailyCarbsSummary, dailyCarbsBar } from "./js/daily-carbs.js";
+import { dailyCarbsSummary, overBar } from "./js/daily-carbs.js";
+import { modeChipLabel, logButtonLabel } from "./js/calc-labels.js";
 import { solveSwap, carbsForGrams, canAdjust, setGrams } from "./js/swap.js";
 import { glucoseAxisTicks, percentile, dailyPatternBuckets, daysSpanned, estimatedA1c, extendedGlucoseStats, dailyStats, glucoseSummaryStats, timeInRangeBreakdown, glucoseGuideRows, TIME_IN_RANGE_BANDS, preferLiveReadings, preferLiveEntries } from "./js/glucose-stats.js";
 import { randomBytes, toB64, fromB64, deriveKey, encryptString, decryptString, isEncryptedPayload, exportKeyRaw, importKeyRaw } from "./js/crypto.js";
@@ -722,6 +723,7 @@ import { todayCalories, calorieRule, calorieSummary, missingDetails, restingKcal
   const clearAllBtn = el("cc-clear-all-btn");
 
   let selectedPickId = null; // id of highlighted item in the pick list (format "food:ID" or "recipe:ID")
+  let modeOpen = false, modeWasOn = false;   // 2.81.0: whether the Correction / Low / Eating out row under the mode chip is open
 
 
   function recipeTotals(recipe) { return recipeTotalsWith(recipe, state.library); }
@@ -810,6 +812,19 @@ import { todayCalories, calorieRule, calorieSummary, missingDetails, restingKcal
       `;
       foodListBox.appendChild(row);
     });
+    syncPickState();
+  }
+  // 2.81.0: until a food is picked the search runs full width with Browse beside it; once one is picked, Grams and +
+  // take Browse's place and the list makes way for the amount (and the portion chips / last times under it).
+  function syncPickState() {
+    const picked = !!selectedPickId;
+    const browse = el("cc-browse-btn");
+    if (browse) browse.hidden = picked;
+    gramsInput.hidden = !picked;
+    addBtn.hidden = !picked;
+    foodListBox.hidden = picked;
+    const hint = el("cc-food-order");
+    if (hint && picked) hint.hidden = true;
   }
 
   foodListBox.addEventListener("click", e => {
@@ -3021,13 +3036,11 @@ import { todayCalories, calorieRule, calorieSummary, missingDetails, restingKcal
     const { today, avg, daysUsed } = dailyCarbsSummary(state.history, Date.now());   // one pass over the log: well under a millisecond
     if (avg == null || !(avg > 0)) { box.hidden = true; return; }
     const draftCarbs = draft.eatingOutOn ? 0 : Math.max(0, totalCarbs());
-    const bar = dailyCarbsBar({ today, draft: draftCarbs, avg });
+    const bar = overBar({ logged: today, draft: draftCarbs, target: avg });
     box.hidden = false;
     el("cc-day-carbs-today").innerHTML = `Today <b>${Math.round(today)} g</b>${draftCarbs > 0 ? ` <span class="day-carbs__plus">+${Math.round(draftCarbs)}</span>` : ""}`;
     el("cc-day-carbs-avg").textContent = `avg ${Math.round(avg)} g`;
-    el("cc-day-carbs-fill").style.width = `${(bar.logged * 100).toFixed(1)}%`;
-    const d = el("cc-day-carbs-draft");
-    d.style.left = `${(bar.logged * 100).toFixed(1)}%`; d.style.width = `${(bar.draft * 100).toFixed(1)}%`;
+    paintDayBar("cc-day-carbs", bar);
     box.classList.toggle("is-over", bar.over);
     box.setAttribute("aria-label", `Carbs today: ${Math.round(today)} grams logged${draftCarbs > 0 ? `, plus ${Math.round(draftCarbs)} in this meal` : ""}. Your average day over the last ${daysUsed} day${daysUsed === 1 ? "" : "s"} with meals: ${Math.round(avg)} grams. Opens Trends.`);
   }
@@ -3049,14 +3062,24 @@ import { todayCalories, calorieRule, calorieSummary, missingDetails, restingKcal
     // 2.79.2: the right side is what's left (or over), not the allowance: "need" read as either.
     const rest = t.target - t.eaten - t.draft;
     el("cc-day-kcal-target").textContent = rest >= 0 ? `${kcalText(rest)} left` : `${kcalText(-rest)} over`;
-    el("cc-day-kcal-fill").style.width = `${(t.fill * 100).toFixed(1)}%`;
-    const d = el("cc-day-kcal-draft");
-    d.style.left = `${(t.fill * 100).toFixed(1)}%`; d.style.width = `${(t.draftFill * 100).toFixed(1)}%`;
+    paintDayBar("cc-day-kcal", overBar({ logged: t.eaten, draft: t.draft, target: t.target }));
     box.classList.toggle("is-over", t.over);
     const left = rest;
     box.setAttribute("aria-label", `Food today: about ${kcalText(t.eaten)} kcal logged${t.draft > 0 ? `, plus ${kcalText(t.draft)} in this meal` : ""}. About ${kcalText(t.needed)} needed today${t.activity > 0 ? ` including ${kcalText(t.activity)} for activity` : ""}${t.extras > 0 ? `, ${kcalText(t.extras)} of it set aside for your daily extras, so ${kcalText(t.target)} for food` : ""}: ${left >= 0 ? `${kcalText(left)} left` : `${kcalText(-left)} over`}. Estimates. Opens Trends.`);
     box.title = `${kcalText(t.target)} for food today${t.extras > 0 ? ` (${kcalText(t.needed)} for the day less ${kcalText(t.extras)} of daily extras)` : ""}, minus ${kcalText(t.eaten)} logged${t.draft > 0 ? ` and ${kcalText(t.draft)} in this meal` : ""}`;
     alignDayBars();
+  }
+  // 2.81.0: up to the target the bar fills as before; past it a white mark shows where the target is and the part past it
+  // turns orange (lighter for the meal being built), so "over" no longer looks like a bar that is merely full.
+  const DAY_BAR_OVER = "#FF9F0A";
+  function paintDayBar(prefix, g) {
+    const pct = x => `${(x * 100).toFixed(1)}%`;
+    const fill = el(`${prefix}-fill`), d = el(`${prefix}-draft`), tick = el(`${prefix}-tick`);
+    fill.style.width = pct(g.fill);
+    fill.style.background = g.fillOverFrom != null ? `linear-gradient(to right, rgba(255,255,255,0.92) ${pct(g.fillOverFrom)}, ${DAY_BAR_OVER} ${pct(g.fillOverFrom)})` : "";
+    d.style.left = pct(g.fill); d.style.width = pct(g.draft);
+    d.style.background = g.draftOverFrom != null ? `linear-gradient(to right, rgba(255,255,255,0.5) ${pct(g.draftOverFrom)}, rgba(255,159,10,0.6) ${pct(g.draftOverFrom)})` : "";
+    if (tick) { tick.hidden = g.tick == null; tick.style.left = g.tick == null ? "" : pct(g.tick); }
   }
   // The carbs and calories bars line up: each side's label takes the width of the longer of the two.
   function alignDayBars() {
@@ -3101,11 +3124,29 @@ import { todayCalories, calorieRule, calorieSummary, missingDetails, restingKcal
     el(inputId).setAttribute("aria-invalid", unreadable ? "true" : "false");
   }
 
+  // 2.81.0: one chip for Correction / Treating a low / Eating out. Its row opens by itself when any of them comes on (a
+  // restored draft too), and closes on a fresh meal; the chip's words say what is on even while the row is closed.
+  function renderModeChip() {
+    const on = !!(draft.correctionOn || draft.noInsulinOn || draft.eatingOutOn);   // !!: classList.toggle(x, undefined) flips instead of clearing
+    if (on && !modeWasOn) modeOpen = true;
+    modeWasOn = on;
+    const chip = el("cc-mode-btn");
+    if (!chip) return;
+    const label = modeChipLabel({ correctionOn: draft.correctionOn, noInsulinOn: draft.noInsulinOn, eatingOutOn: draft.eatingOutOn, hasFood: draft.items.length > 0 });
+    el("cc-mode-label").textContent = label;
+    chip.classList.toggle("is-on", on);
+    chip.setAttribute("aria-expanded", modeOpen ? "true" : "false");
+    chip.setAttribute("aria-label", `${label}. ${modeOpen ? "Hide" : "Show"} Correction, Treating a low and Eating out`);
+    el("cc-mode-controls").hidden = !modeOpen;
+  }
+  bind("cc-mode-btn", "click", () => { modeOpen = !modeOpen; renderModeChip(); });
+
   function recompute() {
     // Eating Out: carbs aren't being tracked for this entry at all, so the carbs pill and the
     // ratio-based formula are both bypassed in favor of the insulin dose entered directly.
     const carbs = draft.eatingOutOn ? 0 : totalCarbs();
     carbsPill.textContent = draft.eatingOutOn ? "Carbs not logged" : `${round1(carbs)}g Carbs`;
+    carbsPill.hidden = !draft.eatingOutOn && !(carbs > 0);   // 2.81.0: nothing to say until there is food
     renderDayCarbs();
     renderDayKcal();
 
@@ -3184,6 +3225,12 @@ import { todayCalories, calorieRule, calorieSummary, missingDetails, restingKcal
 
     const hasSomethingToLog = plan.hasDose;
     logBtn.disabled = !hasSomethingToLog;
+    // 2.81.0: the button says what it will log (the same figure as the big number), and the empty card says what to do.
+    const emptyDraft = draft.items.length === 0 && !draft.correctionOn && !draft.noInsulinOn && !draft.eatingOutOn;
+    logBtn.textContent = logButtonLabel({ hasDose: hasSomethingToLog, empty: emptyDraft, noInsulinOn: draft.noInsulinOn, eatingOutOn: draft.eatingOutOn, finalDose, carbs });
+    doseNumber.closest(".dose-card").classList.toggle("is-empty", emptyDraft);
+    el("cc-dose-hint").hidden = !emptyDraft;
+    renderModeChip();
     // When Log is off, say why, in words, so a greyed-out button is never a mystery.
     const whyEl = el("cc-log-why");
     let why = "";
@@ -3471,6 +3518,7 @@ import { todayCalories, calorieRule, calorieSummary, missingDetails, restingKcal
     el("cc-food-section").hidden = false;
     ratioPicker.hidden = true;
     selectedPickId = null;
+    modeOpen = false;
     clearDraftLocal();
     renderFoodPickList();
     renderMealItems();
@@ -3659,7 +3707,8 @@ import { todayCalories, calorieRule, calorieSummary, missingDetails, restingKcal
     const item = selectedPickId ? pickableItems().find(i => i.id === selectedPickId) : null;
     const typed = gramsInput.value.trim();
     if (item && item.unitBased) { renderQuantityChips(item, typed); return; }
-    if (!item || item.refType !== "recipe") { chips.innerHTML = ""; portionMessage(""); box.hidden = true; return; }
+    if (item && item.refType !== "recipe") { renderLastAmountChip(item, typed); return; }
+    if (!item) { chips.innerHTML = ""; portionMessage(""); box.hidden = true; return; }
     const ctx = portionContext(item);
     const slice = item.slices ? [1, 2].filter(n => n <= item.slices).map(n => ({ text: slicesLabel(n), title: `${slicesLabel(n)} of ${item.slices}` })) : [];
     const options = [{ text: WHOLE_CHIP, title: "The whole dish" }, ...FRACTION_CHIPS.map(([n, d]) => ({ text: fractionLabel(n, d), title: `${fractionLabel(n, d)} of the dish` })), ...slice];
@@ -3670,6 +3719,17 @@ import { todayCalories, calorieRule, calorieSummary, missingDetails, restingKcal
     if (!p.ok) { portionMessage(p.error); return; }
     const carbs = Math.round(item.carbsPer100g * (ctx.dishWeight === item.dishWeight ? 1 : item.dishWeight / ctx.dishWeight) * p.grams) / 100;
     portionMessage(p.kind === "grams" ? `${p.grams} g · ${round1(carbs)} g carbs` : `${p.share === 1 ? "The whole dish" : p.label + " of the dish"} (${Math.round(ctx.dishWeight)} g) = ${p.grams} g · ${round1(carbs)} g carbs`, false);
+  }
+  // 2.81.0: a food weighed in grams offers the amount you had last time as one tap.
+  function renderLastAmountChip(item, typed) {
+    const box = el("cc-portion"), chips = el("cc-portion-chips");
+    const last = lastTimesFor(state.history, cachedReadings(), { refId: item.refId, name: item.name }, 3).find(l => l.quantity == null && l.grams > 0);
+    const g = last ? Math.round(last.grams * 10) / 10 : null;
+    if (!(g > 0)) { chips.innerHTML = ""; portionMessage(""); box.hidden = true; return; }
+    const val = String(g), on = typed === val;
+    chips.innerHTML = `<button type="button" class="portion__chip${on ? " is-active" : ""}" data-portion="${escapeAttr(val)}" title="The amount you had last time" aria-pressed="${on}">Last time: ${escapeHtml(val)} g</button>`;
+    box.hidden = false;
+    portionMessage("");
   }
   // Carbs and kcal for the amount a list row is labelled with: one unit for a quantity food, else 100 g.
   function perUnitFigures(item) {
@@ -6401,7 +6461,7 @@ import { todayCalories, calorieRule, calorieSummary, missingDetails, restingKcal
     el("cc-no-insulin-toggle").classList.remove("is-active"); el("cc-no-insulin-note").hidden = true; el("quick-carb-row").hidden = true;
     el("cc-eating-out-toggle").classList.remove("is-active"); el("cc-eating-out-note").hidden = true;
     el("cc-eating-out-row").hidden = true; el("cc-eating-out-dose").value = ""; el("cc-food-section").hidden = false;
-    ratioPicker.hidden = true; selectedPickId = null;
+    ratioPicker.hidden = true; selectedPickId = null; modeOpen = false;
     renderFoodPickList(); renderMealItems(); recompute();
     showView("calculator");
     if (previous) showUndoToast("Calculator replaced", () => { resetDraft(); restoreDraftSnapshot(previous); });

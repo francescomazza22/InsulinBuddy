@@ -2,6 +2,18 @@
 // summary can never drift. Bump CHANGELOG[0].version here (and CACHE_VERSION in sw.js) on every release.
 export const CHANGELOG = [
   {
+    version: "2.81.0",
+    summary: "A tidier Calculator: more of the food list on screen, and the Log button says what it will log.",
+    changes: [
+      "Correction, Treating a low and Eating out now sit behind one chip next to the ratio (it reads \u201cMeal\u201d, or what is on). It opens by itself when one of them is on",
+      "Active insulin and carbs are a line inside the dose card instead of a separate card",
+      "The carbs pill shows only once there is food, and an empty card says \u201cAdd food to see a dose\u201d",
+      "The carbs and calories bars mark the average (or your allowance) once today goes past it, and the part past it turns orange",
+      "The food search is full width with Browse beside it; Grams and + appear once you pick a food, with a \u201cLast time\u201d amount you can tap",
+      "The Log button shows the dose and carbs it will log, e.g. \u201cLog 2.5 u \u00b7 37.5g carbs\u201d. The dose maths is unchanged"
+    ]
+  },
+  {
     version: "2.80.0",
     summary: "With a long meal, the food search no longer hides under the keyboard.",
     changes: [

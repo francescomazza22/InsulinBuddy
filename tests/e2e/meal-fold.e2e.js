@@ -61,19 +61,21 @@ if (SHOTS) await dev.shot(`${SHOTS}/meal-fold-${W}${DARK ? "-dark" : ""}.png`);
 
 t.section("MEAL FOLD: tapping a food keeps it folded and steady");
 await typeSearch("Pane"); await sleep(150);
-const rowTop = await dev.eval(`document.querySelector("#cc-food-list .food-pick-item").getBoundingClientRect().top`);
+const rowTop = await dev.eval(`document.getElementById("cc-search").getBoundingClientRect().top`);
 await tap("#cc-food-list .food-pick-item"); await sleep(700);
 v = await look();
 t.check("the amount box takes focus", v.active === "cc-grams", v.active);
 t.check("still folded after the search lost focus to the amount box", v.folded && !v.itemsShown, JSON.stringify(v));
-const rowTop2 = await dev.eval(`document.querySelector("#cc-food-list .food-pick-item").getBoundingClientRect().top`);
-t.check("the list didn't move under the finger", Math.abs(rowTop2 - rowTop) < 2, `${Math.round(rowTop)} → ${Math.round(rowTop2)}`);
+// 2.81.0: once a food is picked the list makes way for the amount; what must stay put is the search row itself.
+const rowTop2 = await dev.eval(`document.getElementById("cc-search").getBoundingClientRect().top`);
+t.check("the search row didn't move under the finger", Math.abs(rowTop2 - rowTop) < 2, `${Math.round(rowTop)} → ${Math.round(rowTop2)}`);
 await dev.eval(`(() => { const g = document.getElementById("cc-grams"); g.value = "40"; g.dispatchEvent(new Event("input", { bubbles: true })); })()`);
 await tap("#cc-add-btn"); await sleep(150);
 v = await look();
 t.check("the new food is counted on the line", /^6 foods/.test(v.text) || !v.folded, v.text);
 
 t.section("MEAL FOLD: it opens again");
+await tap("#cc-search"); await sleep(150);   // 2.81.0: + hides once the food is added, so go back to the search first
 await blurAll(); await sleep(150);
 t.check("not straight away (no jump mid-tap)", (await look()).folded, "");
 await sleep(500);

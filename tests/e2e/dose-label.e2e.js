@@ -23,7 +23,7 @@ const dev = await openDevice(app, { width: W, height: 900, mobile: W < 1000, dar
 await dev.tab("calculator");
 await dev.waitFor(`(() => { const p = document.getElementById("cc-live-glucose"); return !!p && !p.hidden && /\\d/.test(p.textContent); })()`, 60000, 300);
 // A long carbs figure, so the row is as full as it gets in normal use.
-await dev.eval(`(() => { const p = document.getElementById("cc-carbs-pill"); p.textContent = "152.5g carbs"; return true; })()`);
+await dev.eval(`(() => { const p = document.getElementById("cc-carbs-pill"); p.hidden = false; p.textContent = "152.5g carbs";   /* 2.81.0: hidden while the meal is empty */ return true; })()`);
 await sleep(200);
 
 t.section(`DOSE LABEL (${W}px${dark ? ", dark" : ""}): the "Insulin dose" heading is big enough and the top row fits`);

@@ -2080,3 +2080,49 @@ html[data-theme="dark"] .hs-actions__use { color: #000; }             /* white o
 /* Settings > Dosing group headings (2.79.3): meal and correction, basal, reminders */
 h2.settings-group { font-size: var(--fs-s); font-weight: 600; color: var(--ink-soft); margin: var(--space-l) var(--space-2xs) var(--space-xs); }
 .settings-panel > h2.settings-group:first-child { margin-top: var(--space-2xs); }
+
+/* ================= CALCULATOR REVAMP (2.81.0) =================
+   One chip for the dose modes, active insulin inside the dose card, a mark at the average on the day bars (orange past it),
+   and the food search full width until a food is picked. */
+.dose-card__value-col { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.dose-card__empty-hint { margin: 0; font-size: var(--fs-xs); color: rgba(255,255,255,0.9); }
+html[data-theme="dark"] .dose-card .dose-card__empty-hint { color: #fff; }
+.dose-card.is-empty #cc-dose-number { opacity: 0.6; }
+html[data-theme="dark"] .dose-card.is-empty #cc-dose-number { opacity: 0.8; }   /* keeps 3:1 on the darkest night cards */
+.dose-card__pills { display: flex; flex-direction: column; align-items: flex-end; gap: var(--space-2xs); flex-shrink: 0; }
+.dose-card .mode-chip svg { width: 12px; height: 12px; transition: transform 0.2s ease-out; }
+.dose-card .mode-chip[aria-expanded="true"] svg { transform: rotate(180deg); }
+.dose-card .carbs-pill.carbs-pill--ratio.mode-chip.is-on,
+html[data-theme="dark"] .dose-card .carbs-pill.carbs-pill--ratio.mode-chip.is-on { background: #fff; color: var(--card-1); }
+.dose-card__controls { margin-top: var(--space-2xs); }
+@media (prefers-reduced-motion: reduce) { .dose-card .mode-chip svg { transition: none; } }
+
+/* Active insulin and carbs: one quiet inset inside the dose card (it was a separate card under it). */
+.dose-card button.active-panel {
+  margin: var(--space-s) 0 0; padding: 7px var(--space-s); border: none; border-radius: var(--radius-s);
+  background: rgba(0,0,0,0.16); box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; color: #fff;
+}
+.dose-card button.active-panel:active { background: rgba(0,0,0,0.26); }
+.dose-card .active-panel__value { color: #fff; font-size: var(--fs-m); }
+.dose-card .active-panel__sub, .dose-card .active-panel__clear { color: rgba(255,255,255,0.9); }
+.dose-card .active-panel__stat svg, .dose-card .active-panel__chevron { color: #fff; }
+.dose-card .active-panel__divider { background: rgba(255,255,255,0.32); }
+.dose-card .active-panel__clear { text-align: left; margin-top: 2px; }
+html[data-theme="dark"] .dose-card button.active-panel { background: rgba(0,0,0,0.22); }
+html[data-theme="dark"] .dose-card .active-panel__sub, html[data-theme="dark"] .dose-card .active-panel__clear { color: #fff; }
+
+/* The day bars: a mark at the average (carbs) or the food allowance (kcal) once today goes past it. */
+.dose-card .day-carbs__bar { overflow: visible; }
+.dose-card .day-carbs__draft { border-radius: 0 3px 3px 0; }
+.day-carbs__tick { position: absolute; top: -3px; bottom: -3px; width: 2px; margin-left: -1px; border-radius: 1px; background: #fff; }
+
+/* Food search: Browse beside it; Grams and + only once a food is picked (and the list makes way for the amount). */
+.add-row__browse {
+  width: 44px; min-height: 44px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; cursor: pointer;
+  border: 1.5px solid var(--line); border-radius: var(--radius-m); background: var(--surface); color: var(--acc-1);
+}
+.add-row__browse svg { width: 20px; height: 20px; }
+.add-row__browse:active { transform: scale(0.97); }
+@supports ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+  .add-row__browse { background: var(--glass-bg); border-width: 1px; border-color: var(--glass-line); box-shadow: inset 0 1px 0 var(--glass-edge), 0 4px 14px rgba(27,42,58,0.05); }
+}

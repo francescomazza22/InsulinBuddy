@@ -39,3 +39,22 @@ export function dailyCarbsBar({ today, draft = 0, avg }) {
 }
 
 function round1(x) { return Math.round(x * 10) / 10; }
+
+/**
+ * 2.81.0: the same bar with a mark at the target (average day, or the food allowance) once today goes past it.
+ * logged/draft/target in the same unit. Under the target the bar is 0 → target, as before. Past it the bar grows to fit
+ * (up to maxScale × target), the mark moves in from the end, and the part past it is coloured.
+ * Returns fractions of the bar: fill (logged), draft (meal being built, after fill), tick (null when not past),
+ * fillOverFrom / draftOverFrom (where, within that piece, the part past the target starts; null when none), over.
+ */
+export function overBar({ logged = 0, draft = 0, target, maxScale = 2 }) {
+  const none = { fill: 0, draft: 0, tick: null, fillOverFrom: null, draftOverFrom: null, over: false, scale: 1 };
+  if (!(target > 0)) return none;
+  const L = Math.max(0, Number(logged) || 0) / target, T = L + Math.max(0, Number(draft) || 0) / target;
+  const scale = Math.min(maxScale, Math.max(1, T));
+  const fill = Math.min(L, scale) / scale, total = Math.min(T, scale) / scale, d = total - fill;
+  const over = T > 1, tick = over ? 1 / scale : null;
+  const fillOverFrom = L > 1 && fill > 0 ? tick / fill : null;
+  const draftOverFrom = over && d > 1e-9 ? Math.min(1, Math.max(0, (tick - fill) / d)) : null;
+  return { fill, draft: d, tick, fillOverFrom, draftOverFrom, over, scale };
+}
