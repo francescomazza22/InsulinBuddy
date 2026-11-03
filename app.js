@@ -2982,14 +2982,16 @@ import { todayCalories, calorieRule, calorieSummary, missingDetails, restingKcal
     if (!t) { box.hidden = true; alignDayBars(); return; }
     box.hidden = false;
     el("cc-day-kcal-today").innerHTML = `Today <b>${kcalText(t.eaten)} kcal</b>${t.draft > 0 ? ` <span class="day-carbs__plus">+${kcalText(t.draft)}</span>` : ""}`;
-    el("cc-day-kcal-target").textContent = `need ${kcalText(t.target)}`;
+    // 2.79.2: the right side is what's left (or over), not the allowance: "need" read as either.
+    const rest = t.target - t.eaten - t.draft;
+    el("cc-day-kcal-target").textContent = rest >= 0 ? `${kcalText(rest)} left` : `${kcalText(-rest)} over`;
     el("cc-day-kcal-fill").style.width = `${(t.fill * 100).toFixed(1)}%`;
     const d = el("cc-day-kcal-draft");
     d.style.left = `${(t.fill * 100).toFixed(1)}%`; d.style.width = `${(t.draftFill * 100).toFixed(1)}%`;
     box.classList.toggle("is-over", t.over);
-    const left = t.target - t.eaten - t.draft;
+    const left = rest;
     box.setAttribute("aria-label", `Food today: about ${kcalText(t.eaten)} kcal logged${t.draft > 0 ? `, plus ${kcalText(t.draft)} in this meal` : ""}. About ${kcalText(t.needed)} needed today${t.activity > 0 ? ` including ${kcalText(t.activity)} for activity` : ""}${t.extras > 0 ? `, ${kcalText(t.extras)} of it set aside for your daily extras, so ${kcalText(t.target)} for food` : ""}: ${left >= 0 ? `${kcalText(left)} left` : `${kcalText(-left)} over`}. Estimates. Opens Trends.`);
-    box.title = t.extras > 0 ? `Need ${kcalText(t.target)} for food: ${kcalText(t.needed)} for the day less ${kcalText(t.extras)} of daily extras` : "";
+    box.title = `${kcalText(t.target)} for food today${t.extras > 0 ? ` (${kcalText(t.needed)} for the day less ${kcalText(t.extras)} of daily extras)` : ""}, minus ${kcalText(t.eaten)} logged${t.draft > 0 ? ` and ${kcalText(t.draft)} in this meal` : ""}`;
     alignDayBars();
   }
   // The carbs and calories bars line up: each side's label takes the width of the longer of the two.

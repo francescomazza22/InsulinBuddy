@@ -153,20 +153,20 @@ let k = await kbar();
 console.log("  ", JSON.stringify(k));
 // Today: 600 food against 2177.5 - 348 extras = 1829.5 left for food (no activity today). 2.79.1: extras are set aside, not added.
 t.check("shown under the carbs bar, inside the dose card, on one line", k.shown && k.belowCarbs && k.inCard && k.oneLine, JSON.stringify(k));
-t.check("today 600 kcal of food against 1,830 left for food once extras are set aside", k.today === "Today 600 kcal" && k.target === "need 1,830" && Math.abs(k.fill - 600 / 1829.5) < 0.02, `${k.today} | ${k.target} | ${k.fill}`);
+t.check("today 600 kcal of food, 1,230 left of the 1,830 for food once extras are set aside", k.today === "Today 600 kcal" && k.target === "1,230 left" && Math.abs(k.fill - 600 / 1829.5) < 0.02, `${k.today} | ${k.target} | ${k.fill}`);
 t.check("screen readers hear it in words", /Food today: about 600 kcal logged\. About 2,178 needed today, 348 of it set aside for your daily extras, so 1,830 for food: 1,230 left/.test(k.label), k.label);
 await dev.waitFor(`document.getElementById("cc-food-list").children.length > 1`, 6000);
 await dev.eval(`[...document.getElementById("cc-food-list").children].find(c => /Banana/.test(c.textContent)).click()`);
 await dev.eval(`(() => { const g = document.getElementById("cc-grams"); g.value = "200"; g.dispatchEvent(new Event("input", { bubbles: true })); })()`);
 await dev.click("#cc-add-btn"); await sleep(400);
 k = await kbar();
-t.check("the meal being built adds +178 kcal as a lighter piece", k.today === "Today 600 kcal +178" && Math.abs(k.draft - 178 / 1829.5) < 0.02, JSON.stringify(k));
+t.check("the meal being built adds +178 kcal as a lighter piece", k.today === "Today 600 kcal +178" && k.target === "1,052 left" && Math.abs(k.draft - 178 / 1829.5) < 0.02, JSON.stringify(k));
 if (SHOTS) { await dev.eval(`document.querySelector(".dose-card").scrollIntoView({ block: "start" })`); await sleep(400); await dev.shot(`${SHOTS}/calories-bar-${W}${dark ? "-dark" : ""}.png`); }
 await dev.click("#cc-log-btn"); await sleep(600);
 k = await kbar();
 const align = await dev.eval(`(() => { const [a, b] = ["cc-day-carbs", "cc-day-kcal"].map(id => document.querySelector("#" + id + " .day-carbs__bar").getBoundingClientRect()); return { dl: Math.abs(a.left - b.left), dr: Math.abs(a.right - b.right) }; })()`);
 t.check("the carbs and calories bars line up", align.dl < 1.5 && align.dr < 1.5, JSON.stringify(align));
-t.check("once logged it counts: 778 kcal", k.today === "Today 778 kcal" && k.draft < 0.01, JSON.stringify(k));
+t.check("once logged it counts: 778 kcal, 1,052 left", k.today === "Today 778 kcal" && k.target === "1,052 left" && k.draft < 0.01, JSON.stringify(k));
 await dev.click("#cc-day-kcal"); await sleep(700);
 t.check("tapping it opens Trends", await dev.eval(`!document.getElementById("view-history").hidden && document.querySelector('#history-segmented [data-seg="trends"]').classList.contains("is-active")`));
 t.check("no sideways scroll, no JS errors", (await dev.eval(`document.documentElement.scrollWidth <= innerWidth + 1`)) && (await dev.eval("window.__errs.length")) === 0, JSON.stringify(await dev.eval("window.__errs")));

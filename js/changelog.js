@@ -2,6 +2,14 @@
 // summary can never drift. Bump CHANGELOG[0].version here (and CACHE_VERSION in sw.js) on every release.
 export const CHANGELOG = [
   {
+    version: "2.79.2",
+    summary: "The calories bar says what's left, instead of \u201cneed\u201d.",
+    changes: [
+      "The right side now shows the calories left for food today (e.g. \u201c858 left\u201d), or how far over you are. It counts the meal you're building too",
+      "What's left = what you need for the day, less your daily extras, less the food you've logged"
+    ]
+  },
+  {
     version: "2.79.1",
     summary: "The calories bar now counts only the food you've logged today.",
     changes: [
