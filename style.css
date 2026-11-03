@@ -2062,3 +2062,7 @@ html[data-theme="dark"] .gl-indicator--high { color: #FF9C93; border-color: #6B2
 html[data-theme="dark"] .btn--danger-solid { background: #D70015; }   /* the night red is too bright for white text */
 html[data-theme="dark"] .hs-actions__use { color: #000; }             /* white on the bright night green was 2:1 */
 .timeline__seg--dark-text { text-shadow: none; }
+
+/* Settings > Dosing group headings (2.79.3): meal and correction, basal, reminders */
+h2.settings-group { font-size: var(--fs-s); font-weight: 600; color: var(--ink-soft); margin: var(--space-l) var(--space-2xs) var(--space-xs); }
+.settings-panel > h2.settings-group:first-child { margin-top: var(--space-2xs); }

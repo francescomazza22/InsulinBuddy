@@ -104,7 +104,7 @@ const screens = [
   ["settings general", async dev => { await dev.tab("settings"); await dev.click('#settings-segmented [data-seg="general"]'); }],
   ["settings library", async dev => { await dev.tab("settings"); await dev.click('#settings-segmented [data-seg="library"]'); }],
   ["settings sync", async dev => { await dev.tab("settings"); await dev.click('#settings-segmented [data-seg="sync"]'); }],
-  ["settings data", async dev => { await dev.tab("settings"); await dev.click('#settings-segmented [data-seg="data"]'); }],
+  ["settings data", async dev => { await dev.tab("settings"); await dev.click('#settings-segmented [data-seg="sync"]'); }],
   ["insights glucose stats", async dev => { await dev.tab("history"); await dev.click('#history-segmented [data-seg="glucose"]'); await dev.click('[data-glview="stats"]'); await sleep(400); }],
   ["insights glucose day", async dev => { await dev.tab("history"); await dev.click('#history-segmented [data-seg="glucose"]'); await dev.click('[data-glview="day"]'); await sleep(500); }],
   ["swap foods sheet", async dev => { await dev.tab("history"); await dev.click('#history-segmented [data-seg="log"]'); await dev.eval(`document.querySelector('[data-swap="m1"]').click()`); await sleep(400); await dev.eval(`document.querySelector('[data-adjust="0"]').click()`); await sleep(200); }],

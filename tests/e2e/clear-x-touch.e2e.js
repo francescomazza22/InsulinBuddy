@@ -74,7 +74,7 @@ if (await opened()) { await probe(".sheet-backdrop", "Edit Meal sheet"); await c
 await dev.eval(`document.getElementById("btn-log-basal").click()`); await sleep(450);
 if (await opened()) { await probe(".sheet-backdrop", "Basal sheet"); await closeSheet(); }
 await dev.tab("settings"); await sleep(300);
-for (const seg of ["ratios", "library", "sync", "data", "general"]) {
+for (const seg of ["ratios", "library", "calories", "sync", "general"]) {
   await dev.eval(`document.querySelector('#settings-segmented [data-seg="${seg}"]').click()`); await sleep(350);
   if (seg === "library") {
     for (const l of ["foods", "recipes"]) {

@@ -1,4 +1,4 @@
-// Calories (2.78.0): Trends card (food + daily extras against what the day needed) and the Settings > Dosing card.
+// Calories (2.78.0): Trends card (food + daily extras against what the day needed) and the Settings > Calories tab (2.79.3; it was the bottom of Dosing).
 // CAL_WIDTH (default 390), CAL_DARK=1, SHOTS=<dir>.
 import { startApp, openDevice, makeChecker, seedLocal } from "./harness.js";
 import { FOODS_JS, stateBlob, meal } from "./helpers.js";
@@ -66,7 +66,8 @@ if (SHOTS) { await dev.eval(`document.getElementById("trend-card-calories").scro
 
 t.section("SETTINGS CARD");
 await dev.click("#cal-open-settings"); await sleep(800);
-t.check("the button opens Settings > Dosing at the Calories card", await dev.eval(`!document.getElementById("view-settings").hidden && !document.getElementById("calories-card").closest(".settings-panel").hidden`));
+t.check("the button opens the Settings > Calories tab", await dev.eval(`!document.getElementById("view-settings").hidden && !document.getElementById("panel-calories").hidden && document.querySelector('#settings-segmented [data-seg="calories"]').classList.contains("is-active") && document.getElementById("panel-ratios").hidden`));
+t.check("Calories is no longer in Dosing, which keeps only insulin settings in three groups", await dev.eval(`!document.querySelector("#panel-ratios #calories-card") && [...document.querySelectorAll("#panel-ratios .settings-group")].map(h => h.textContent).join("|") === "Meal and correction insulin|Basal insulin|Reminders"`));
 const status = () => dev.eval(`document.getElementById("cal-status").textContent + " | " + document.getElementById("cal-extras-total").textContent`);
 t.check("shows resting and everyday needs and the extras total", /Resting about 1,675 kcal.*about 2,178 kcal.*Extras: 348 kcal a day/.test(await status()), await status());
 const setField = (sel, v) => dev.eval(`(() => { const f = document.querySelector(${JSON.stringify(sel)}); f.focus(); f.value = ${JSON.stringify(v)}; f.dispatchEvent(new Event("input", { bubbles: true })); f.dispatchEvent(new Event("change", { bubbles: true })); return f.value; })()`);

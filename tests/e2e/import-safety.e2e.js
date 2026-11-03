@@ -17,7 +17,7 @@ const file = {
 };
 
 t.section("IMPORT SAFETY: a crafted library file");
-await dev.tab("settings"); await dev.click('#settings-segmented [data-seg="data"]'); await sleep(200);
+await dev.tab("settings"); await dev.click('#settings-segmented [data-seg="sync"]'); await sleep(200);
 await dev.eval(`(() => { const inp = document.getElementById("import-file-input"); const dt = new DataTransfer(); dt.items.add(new File([${JSON.stringify(JSON.stringify(file))}], "shared.json", { type: "application/json" })); inp.files = dt.files; inp.dispatchEvent(new Event("change", { bubbles: true })); })()`);
 await sleep(800);
 // Close the "Import complete" message (an in-app dialog, so it never freezes the page).

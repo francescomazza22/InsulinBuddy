@@ -649,7 +649,7 @@ import { todayCalories, calorieRule, calorieSummary, missingDetails, restingKcal
       if (["pattern", "tir", "stats", "day"].includes(sub.glucoseView)) { glucoseView = sub.glucoseView; preset("glucose-view-segmented", "data-glview", glucoseView); }
       pressSeg("history-segmented", "data-seg", sub.history);
     }
-    if (sub && p.view === "settings") pressSeg("settings-segmented", "data-seg", sub.settings);
+    if (sub && p.view === "settings") pressSeg("settings-segmented", "data-seg", sub.settings === "data" ? "sync" : sub.settings);   // "data" merged into "sync" in 2.79.3
     // Only a position saved for this exact sub-tab is used; an older saved place (no sub-tab) opens at the top.
     const y = sub ? ((p.scroll && p.scroll[spotKey(p.view, sub)]) || 0) : 0;
     if (!(y > 0)) { setTimeout(() => { restoringPlace = false; }, 150); return true; }
@@ -2970,7 +2970,7 @@ import { todayCalories, calorieRule, calorieSummary, missingDetails, restingKcal
   bind("cc-day-carbs", "click", () => { showView("history"); const b = document.querySelector('#history-segmented [data-seg="trends"]'); if (b) b.click(); });
 
   // Today's calories against today's target (2.79.0): the same slim bar, just under the carbs one. Hidden until the body
-  // details are set in Settings > Dosing > Calories (no target without them). The meal being built shows as the lighter piece.
+  // details are set in Settings > Calories (no target without them). The meal being built shows as the lighter piece.
   function draftKcal() {
     if (draft.eatingOutOn) { const r = calorieRule(state.settings.calories); return r.eatingOutKcal || 0; }
     return draft.items.reduce((s, i) => s + (Number(i.kcal) > 0 ? Number(i.kcal) : 0), 0);
@@ -5660,11 +5660,7 @@ import { todayCalories, calorieRule, calorieSummary, missingDetails, restingKcal
       `<p class="trend-caption trend-caption--tight">${notes.join(" ")}</p>` +
       `<details class="cal-how"><summary>How it's worked out</summary><p class="trend-caption trend-caption--tight">${how.join(" ")}</p></details>`;
   }
-  bind("cal-open-settings", "click", () => {
-    openSettingsPanel("ratios");
-    const c = el("calories-card");
-    if (c) requestAnimationFrame(() => c.scrollIntoView({ block: "start", behavior: "smooth" }));
-  });
+  bind("cal-open-settings", "click", () => openSettingsPanel("calories"));
 
   function renderBasalTrend(buckets, sum, fallbackWidth) {
     const card = el("trend-card-basal"), box = el("trend-chart-basal"), panel = el("history-trends-panel");
@@ -6833,6 +6829,7 @@ import { todayCalories, calorieRule, calorieSummary, missingDetails, restingKcal
   const panelSync = el("panel-sync");
   const panelData = el("panel-data");
   const panelGeneral = el("panel-general");
+  const panelCalories = el("panel-calories");   // 2.79.3: its own tab (was the bottom of Dosing)
 
   settingsSegmented.addEventListener("click", e => {
     const btn = e.target.closest(".segmented__btn");
@@ -6856,8 +6853,9 @@ import { todayCalories, calorieRule, calorieSummary, missingDetails, restingKcal
     panelRatios.hidden = settingsSeg !== "ratios";
     panelLibrary.hidden = settingsSeg !== "library";
     panelSync.hidden = settingsSeg !== "sync";
-    panelData.hidden = settingsSeg !== "data";
+    panelData.hidden = settingsSeg !== "sync";   // 2.79.3: one "Data" tab shows sync, then backups
     panelGeneral.hidden = settingsSeg !== "general";
+    if (panelCalories) panelCalories.hidden = settingsSeg !== "calories";
   }
 
   function renderSettings() {

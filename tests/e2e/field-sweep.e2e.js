@@ -109,7 +109,7 @@ await dev.click("#btn-log-basal").catch(() => {}); await sleep(450);
 await probe(".sheet-backdrop", "Basal sheet"); await closeSheet();
 
 await dev.tab("settings"); await sleep(300);
-for (const seg of ["ratios", "library", "sync", "data", "general"]) {
+for (const seg of ["ratios", "library", "calories", "sync", "general"]) {
   await dev.click(`#settings-segmented [data-seg="${seg}"]`); await sleep(350);
   if (seg === "ratios") { await dev.eval(`document.querySelectorAll("#time-ratio-list [data-toggle]").forEach(x => x.click())`); await sleep(150); }
   await probe(`#panel-${seg}`, "Settings · " + seg);

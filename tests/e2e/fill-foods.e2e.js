@@ -11,7 +11,7 @@ const library = [F("a", "Croissant"), F("b", "Banana", { gi: 62, salt: 0.5 }), F
 const dev = await openDevice(app, { height: 1000, inject: seedLocal(stateBlob({ library, schemaVersion: 2 })) });
 const lib = async () => Object.fromEntries((await localState(dev)).library.map(f => [f.id, f]));
 
-await dev.tab("settings"); await dev.click('[data-seg="data"]'); await sleep(300);
+await dev.tab("settings"); await dev.click('[data-seg="sync"]'); await sleep(300);
 await dev.eval(`document.getElementById("btn-fill-foods").click()`); await sleep(400);
 const msg = await dev.text(".dialog");
 t.check("it explains what it will do and that these are typical values", /typical values/.test(msg) && /Nothing you already entered is changed/.test(msg), msg.slice(0, 200));
@@ -32,7 +32,7 @@ await dev.click("#undo-toast-btn"); await sleep(400);
 L = await lib();
 t.check("Undo restores every food exactly", L.a.gi == null && !L.a.estimated && L.c.protein == null);
 
-await dev.click('[data-seg="data"]'); await dev.eval(`document.getElementById("btn-fill-foods").click()`); await sleep(300);
+await dev.click('[data-seg="sync"]'); await dev.eval(`document.getElementById("btn-fill-foods").click()`); await sleep(300);
 await dev.eval(`[...document.querySelectorAll(".dialog__btn")].find(b => /Fill them in/.test(b.textContent)).click()`); await sleep(400);
 await dev.eval(`document.getElementById("btn-fill-foods").click()`); await sleep(400);
 t.check("running it again says there is nothing left to fill", /Nothing to fill/.test(await dev.text(".dialog")), await dev.text(".dialog"));

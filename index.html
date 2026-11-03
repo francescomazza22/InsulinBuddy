@@ -425,8 +425,8 @@
       <div class="segmented" id="settings-segmented">
         <button class="segmented__btn is-active" data-seg="ratios" type="button">Dosing</button>
         <button class="segmented__btn" data-seg="library" type="button">Library</button>
-        <button class="segmented__btn" data-seg="sync" type="button">Sync</button>
-        <button class="segmented__btn" data-seg="data" type="button">Data</button>
+        <button class="segmented__btn" data-seg="calories" type="button">Calories</button>
+        <button class="segmented__btn" data-seg="sync" type="button">Data</button>
         <button class="segmented__btn" data-seg="general" type="button">General</button>
       </div>
 
@@ -482,8 +482,54 @@
       </div>
       </div>
 
+      <!-- Calories (2.79.3: its own tab; it was at the bottom of Dosing) -->
+      <div class="settings-panel" id="panel-calories" hidden>
+        <div class="panel-card" id="calories-card">
+          <h2 class="panel-card__title">Your details</h2>
+          <p class="panel-card__hint">Used for the calories bar in the Calculator and the Calories card in Insights &gt; Trends: what you ate each day against an estimate of what you needed. Never used for a dose.</p>
+          <div class="field-grid cal-grid">
+            <div class="field">
+              <label for="cal-sex">Sex</label>
+              <select id="cal-sex"><option value="">Not set</option><option value="male">Male</option><option value="female">Female</option></select>
+            </div>
+            <div class="field">
+              <label for="cal-birth-year">Year of birth</label>
+              <div class="field__row"><input type="text" id="cal-birth-year" inputmode="numeric" autocomplete="off" placeholder="Not set"></div>
+            </div>
+            <div class="field">
+              <label for="cal-height">Height</label>
+              <div class="field__row"><input type="text" id="cal-height" inputmode="decimal" autocomplete="off" placeholder="Not set"><span class="field__unit">cm</span></div>
+            </div>
+            <div class="field">
+              <label for="cal-weight">Weight</label>
+              <div class="field__row"><input type="text" id="cal-weight" inputmode="decimal" autocomplete="off" placeholder="Not set"><span class="field__unit">kg</span></div>
+            </div>
+          </div>
+          <div class="field">
+            <label for="cal-life">Everyday moving (not counting logged activity)</label>
+            <select id="cal-life"></select>
+          </div>
+          <p class="panel-card__hint cal-status" id="cal-status" role="status"></p>
+          <div class="field cal-eatout">
+            <label for="cal-eating-out">Eating out, assumed per meal</label>
+            <div class="field__row"><input type="text" id="cal-eating-out" inputmode="numeric" autocomplete="off" placeholder="Not counted"><span class="field__unit">kcal</span></div>
+          </div>
+          <p class="panel-card__hint">Eating-out meals have no foods logged, so this figure stands in for each one. A restaurant main with a drink is often 800 to 1,200 kcal. Leave it empty to leave those days out of the averages instead.</p>
+        </div>
+
+        <div class="panel-card" id="calories-extras-card">
+          <h2 class="panel-card__title">Daily extras</h2>
+          <p class="panel-card__hint">Things you have most days but don't log, like the oil you cook with or milky coffees. Each is added to every day you logged a meal.</p>
+          <div id="cal-extras"></div>
+          <button class="dashed-btn" id="cal-add-extra" type="button">+ Add an item</button>
+          <p class="panel-card__hint cal-status" id="cal-extras-total" role="status"></p>
+        </div>
+
+      </div>
+
       <!-- Insulin Ratios -->
       <div class="settings-panel" id="panel-ratios">
+        <h2 class="settings-group">Meal and correction insulin</h2>
         <div class="panel-card">
           <h2 class="panel-card__title"><svg viewBox="0 0 24 24" fill="none" class="icon-inline"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.6"/><path d="M12 7v5l3 2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg> Time-based ratios</h2>
           <div class="timeline" id="timeline-bar"></div>
@@ -631,6 +677,7 @@
           <p class="panel-card__hint" style="margin-top:6px;">Like the one above, this changes your suggested dose. When on, a reading below your target takes insulin off the meal dose: (reading − target) ÷ correction factor, so 55 against a target of 100 and a factor of 50 takes off about 1 unit. It never takes the dose below zero. When off, a low reading adds nothing and takes nothing off. If you're actually low, treating the low comes first.</p>
         </div>
 
+        <h2 class="settings-group">Basal insulin</h2>
         <div class="panel-card" id="basal-usual-card">
           <h2 class="panel-card__title">Usual basal doses</h2>
           <p class="panel-card__hint">Your normal long-acting doses. When you log basal, the dose starts from these, and you're told when what you enter is different. Leave one empty to start from your last dose instead. Change them only as agreed with your diabetes team.</p>
@@ -673,44 +720,7 @@
           </div>
         </div>
 
-        <div class="panel-card" id="calories-card">
-          <h2 class="panel-card__title">Calories</h2>
-          <p class="panel-card__hint">For the Calories card in Insights &gt; Trends: what you ate each day against an estimate of what you needed. Never used for a dose.</p>
-          <div class="field-grid cal-grid">
-            <div class="field">
-              <label for="cal-sex">Sex</label>
-              <select id="cal-sex"><option value="">Not set</option><option value="male">Male</option><option value="female">Female</option></select>
-            </div>
-            <div class="field">
-              <label for="cal-birth-year">Year of birth</label>
-              <div class="field__row"><input type="text" id="cal-birth-year" inputmode="numeric" autocomplete="off" placeholder="Not set"></div>
-            </div>
-            <div class="field">
-              <label for="cal-height">Height</label>
-              <div class="field__row"><input type="text" id="cal-height" inputmode="decimal" autocomplete="off" placeholder="Not set"><span class="field__unit">cm</span></div>
-            </div>
-            <div class="field">
-              <label for="cal-weight">Weight</label>
-              <div class="field__row"><input type="text" id="cal-weight" inputmode="decimal" autocomplete="off" placeholder="Not set"><span class="field__unit">kg</span></div>
-            </div>
-          </div>
-          <div class="field">
-            <label for="cal-life">Everyday moving (not counting logged activity)</label>
-            <select id="cal-life"></select>
-          </div>
-          <p class="panel-card__hint cal-status" id="cal-status" role="status"></p>
-          <div class="field cal-eatout">
-            <label for="cal-eating-out">Eating out, assumed per meal</label>
-            <div class="field__row"><input type="text" id="cal-eating-out" inputmode="numeric" autocomplete="off" placeholder="Not counted"><span class="field__unit">kcal</span></div>
-          </div>
-          <p class="panel-card__hint">Eating-out meals have no foods logged, so this figure stands in for each one. A restaurant main with a drink is often 800 to 1,200 kcal. Leave it empty to leave those days out of the averages instead.</p>
-          <h3 class="cal-subtitle">Daily extras</h3>
-          <p class="panel-card__hint">Things you have most days but don't log, like the oil you cook with or milky coffees. Each is added to every day you logged a meal.</p>
-          <div id="cal-extras"></div>
-          <button class="dashed-btn" id="cal-add-extra" type="button">+ Add an item</button>
-          <p class="panel-card__hint cal-status" id="cal-extras-total" role="status"></p>
-        </div>
-
+        <h2 class="settings-group">Reminders</h2>
         <div class="panel-card">
           <h2 class="panel-card__title">After-meal glucose check</h2>
           <p class="panel-card__hint">After you log a meal with insulin, show a reminder on the calculator for when to check your glucose, with an “Add to calendar” button (your phone's Calendar then alerts you even when the app is closed).</p>
@@ -728,7 +738,9 @@
       </div>
 
       <!-- Sync -->
+      <!-- 2.79.3: Sync and Data are one "Data" tab (data-seg "sync" kept so saved places and tests still work); both panels show under it -->
       <div class="settings-panel" id="panel-sync" hidden>
+        <h2 class="settings-group">Sync and account</h2>
         <div class="panel-card">
           <div style="display:flex; align-items:center; justify-content:space-between;">
             <h2 class="panel-card__title">System status</h2>
@@ -786,6 +798,7 @@
 
       <!-- Data -->
       <div class="settings-panel" id="panel-data" hidden>
+        <h2 class="settings-group">Backups and files</h2>
         <div class="panel-card">
           <h2 class="panel-card__title">Import / export library</h2>
           <button class="data-row" id="btn-export-library" type="button">

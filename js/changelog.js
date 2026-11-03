@@ -2,6 +2,16 @@
 // summary can never drift. Bump CHANGELOG[0].version here (and CACHE_VERSION in sw.js) on every release.
 export const CHANGELOG = [
   {
+    version: "2.79.3",
+    summary: "Settings reorganised: Dosing, Library, Calories, Data, General.",
+    changes: [
+      "Calories has its own tab next to Library, with two cards: Your details (body, everyday moving, eating out) and Daily extras",
+      "Dosing now holds only insulin settings, in three groups: Meal and correction insulin, Basal insulin, Reminders",
+      "Sync and Data are one Data tab: sync and account first, then backups and files. Five tabs fit on the screen again",
+      "Nothing in any setting changed, only where it lives"
+    ]
+  },
+  {
     version: "2.79.2",
     summary: "The calories bar says what's left, instead of \u201cneed\u201d.",
     changes: [
