@@ -3070,15 +3070,16 @@ import { todayCalories, calorieRule, calorieSummary, missingDetails, restingKcal
     alignDayBars();
   }
   // 2.81.0: up to the target the bar fills as before; past it a white mark shows where the target is and the part past it
-  // turns orange (lighter for the meal being built), so "over" no longer looks like a bar that is merely full.
-  const DAY_BAR_OVER = "#FF9F0A";
+  // turns solid white (lighter for the meal being built), so "over" no longer looks like a bar that is merely full.
+  // 2.81.1: monochrome so it suits every theme: soft white up to the mark, solid white past it.
+  const DAY_BAR_OVER = "#FFFFFF";
   function paintDayBar(prefix, g) {
     const pct = x => `${(x * 100).toFixed(1)}%`;
     const fill = el(`${prefix}-fill`), d = el(`${prefix}-draft`), tick = el(`${prefix}-tick`);
     fill.style.width = pct(g.fill);
-    fill.style.background = g.fillOverFrom != null ? `linear-gradient(to right, rgba(255,255,255,0.92) ${pct(g.fillOverFrom)}, ${DAY_BAR_OVER} ${pct(g.fillOverFrom)})` : "";
+    fill.style.background = g.fillOverFrom != null ? `linear-gradient(to right, rgba(255,255,255,0.55) ${pct(g.fillOverFrom)}, ${DAY_BAR_OVER} ${pct(g.fillOverFrom)})` : "";
     d.style.left = pct(g.fill); d.style.width = pct(g.draft);
-    d.style.background = g.draftOverFrom != null ? `linear-gradient(to right, rgba(255,255,255,0.5) ${pct(g.draftOverFrom)}, rgba(255,159,10,0.6) ${pct(g.draftOverFrom)})` : "";
+    d.style.background = g.draftOverFrom != null ? `linear-gradient(to right, rgba(255,255,255,0.3) ${pct(g.draftOverFrom)}, rgba(255,255,255,0.7) ${pct(g.draftOverFrom)})` : "";
     if (tick) { tick.hidden = g.tick == null; tick.style.left = g.tick == null ? "" : pct(g.tick); }
   }
   // The carbs and calories bars line up: each side's label takes the width of the longer of the two.

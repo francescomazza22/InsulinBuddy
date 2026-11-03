@@ -2,6 +2,16 @@
 // summary can never drift. Bump CHANGELOG[0].version here (and CACHE_VERSION in sw.js) on every release.
 export const CHANGELOG = [
   {
+    version: "2.81.1",
+    summary: "A calmer dose card with a bigger dose.",
+    changes: [
+      "The dose number is much larger",
+      "The Meal and Ratio chips are outlined instead of dark glassy pills",
+      "Active insulin is plain text under a thin line, not a box inside the card",
+      "The day bars are thinner and white only: soft up to your average (or allowance), solid past the mark, so they suit every theme"
+    ]
+  },
+  {
     version: "2.81.0",
     summary: "A tidier Calculator: more of the food list on screen, and the Log button says what it will log.",
     changes: [

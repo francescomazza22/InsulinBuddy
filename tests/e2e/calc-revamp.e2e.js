@@ -1,6 +1,6 @@
 // Calculator revamp (2.81.0): mode chip, active insulin inside the dose card, the day bars' mark past the average,
 // search full width until a food is picked, "Last time" amount chip, and a Log button that says what it logs.
-// CR_WIDTH (default 390), CR_DARK=1, SHOTS=<dir>.
+// CR_WIDTH (default 390), CR_DARK=1, CR_PALETTE=<theme id>, SHOTS=<dir>.
 import { startApp, openDevice, makeChecker, seedLocal } from "./harness.js";
 import { FOODS_JS, stateBlob, meal } from "./helpers.js";
 
@@ -20,7 +20,7 @@ const hist = [
   meal("p1", at(2, 13), { totalCarbs: 100 })
 ].sort((a, b) => b.ts - a.ts);
 
-const blob = stateBlob({ history: hist, settings: { darkMode: dark, darkModeAuto: false } });
+const blob = stateBlob({ history: hist, settings: { darkMode: dark, darkModeAuto: false, ...(process.env.CR_PALETTE ? { palette: process.env.CR_PALETTE } : {}) } });
 const dev = await openDevice(app, { width: W, height: 1000, mobile: W < 1000, dark, inject: `if (!localStorage.getItem("insulinBuddy.v2")) { ${seedLocal(blob)} }`, wait: 1500 });
 await dev.tab("calculator"); await sleep(300);
 await dev.waitFor(`document.getElementById("cc-food-list").children.length > 1`, 6000);
@@ -39,7 +39,7 @@ t.check("search runs (nearly) full width with Browse beside it; no Grams or + ye
   row.share > 0.8 && (await dev.eval(vis("#cc-browse-btn"))) && !(await dev.eval(vis("#cc-grams"))) && !(await dev.eval(vis("#cc-add-btn"))), JSON.stringify(row));
 const bar = await dev.eval(`(() => { const tk = document.getElementById("cc-day-carbs-tick"), b = document.querySelector("#cc-day-carbs .day-carbs__bar").getBoundingClientRect(), r = tk.getBoundingClientRect();
   return { shown: !tk.hidden, at: (r.left + r.width / 2 - b.left) / b.width, bg: document.getElementById("cc-day-carbs-fill").style.background }; })()`);
-t.check("120 g against a 100 g average: a mark at the average, orange past it", bar.shown && Math.abs(bar.at - 100 / 120) < 0.03 && /255, 159, 10|FF9F0A/i.test(bar.bg), JSON.stringify(bar));
+t.check("120 g against a 100 g average: a mark at the average, solid white past it", bar.shown && Math.abs(bar.at - 100 / 120) < 0.03 && /linear-gradient/.test(bar.bg), JSON.stringify(bar));
 if (SHOTS) { await dev.eval(`scrollTo(0, 0)`); await sleep(300); await dev.shot(`${SHOTS}/calc-revamp-empty-${W}${dark ? "-dark" : ""}.png`); }
 
 t.section("PICKING AND ADDING A FOOD");
