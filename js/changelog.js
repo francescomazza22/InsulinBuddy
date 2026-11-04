@@ -2,6 +2,16 @@
 // summary can never drift. Bump CHANGELOG[0].version here (and CACHE_VERSION in sw.js) on every release.
 export const CHANGELOG = [
   {
+    version: "2.82.0",
+    summary: "Eating-out calories are now worked out from the insulin you took.",
+    changes: [
+      "Units \u00d7 that meal's ratio gives the carbs. Any corrections logged in the next 4 hours (until your next meal) are added at the same ratio. Each gram of carbs is 4 kcal, \u00d7 2 for the fat and protein in restaurant food. Your 4 Nov lunch: (14u + 3u) \u00d7 7.5 = 128 g \u2192 510 kcal \u2192 1,020 kcal",
+      "Change the multiplier in Settings > Calories > Eating out, which works through your last eating-out meal as an example. The fixed figure (900 kcal) is now only for eating out with no insulin logged",
+      "Tap a day in the Calories card to see the working. While you type an eating-out dose, the Calculator's calories bar shows its estimate",
+      "Fixed: a correction logged while Eating Out was still switched on no longer counts as a whole extra meal"
+    ]
+  },
+  {
     version: "2.81.1",
     summary: "A calmer dose card with a bigger dose.",
     changes: [

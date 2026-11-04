@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { todayCalories, calorieRule, calorieSummary, restingKcal, activityKcal, watchKcal, extrasKcal, missingDetails, CALORIE_DEFAULTS } from "../../js/calories.js";
+import { eatingOutEstimates, eatingOutKcalFromInsulin, isCorrectionOnly, todayCalories, calorieRule, calorieSummary, restingKcal, activityKcal, watchKcal, extrasKcal, missingDetails, CALORIE_DEFAULTS } from "../../js/calories.js";
 import { normalizeState } from "../../js/state.js";
 import { shiftDay } from "../../js/day-timeline.js";
 
@@ -133,4 +133,68 @@ test("today's bar: food logged against what is left for food once the day's extr
   const big = todayCalories([meal(at(0, 9), 3000)], { calories: me }, NOW, 500);
   assert.equal(big.over, true); assert.equal(big.fill + big.draftFill, 1);
   assert.equal(todayCalories(h, { calories: { extras: [] } }, NOW, 0), null);   // no details, no bar
+});
+
+// 2.82.0: eating out worked out from the insulin.
+const eatOut = (id, ts, units, ratio, extra = {}) => ({ id, ts, mealType: "lunch", carbsUnknown: true, items: [], totalCarbs: 0, totalKcal: 0, mealDose: units, correctionDose: 0, ratioValue: ratio, ...extra });
+const corr = (id, ts, units, extra = {}) => ({ id, ts, mealType: "correction", items: [], totalCarbs: 0, totalKcal: 0, mealDose: 0, correctionDose: units, ratioValue: 9, ...extra });
+
+test("eating out from insulin: his 4 Nov lunch, 14u at 1u:7.5g plus a 3u correction 81 min later = 1,020 kcal", () => {
+  const rule = calorieRule({ ...me }, NOW);
+  assert.equal(rule.eatingOutMultiplier, 2);   // the default
+  const h = [eatOut("l", at(1, 12, 31), 14, 7.5), corr("c", at(1, 13, 52), 3, { ratioValue: 7.5, glucose: 302.7 })];
+  const est = eatingOutEstimates(h, rule).get("l");
+  assert.deepEqual({ units: est.units, corrUnits: est.corrUnits, corrections: est.corrections, ratio: est.ratio, carbs: est.carbs, kcal: est.kcal, from: est.from },
+    { units: 14, corrUnits: 3, corrections: 1, ratio: 7.5, carbs: 127.5, kcal: 1020, from: "insulin" });
+  const y = calorieSummary([...h, meal(at(1, 8), 300)], { calories: me }, { days: 3, now: NOW }).days[1];
+  assert.equal(y.food, 300 + 1020); assert.equal(y.assumedKcal, 1020); assert.equal(y.unknownMeals, 0);
+  assert.equal(eatingOutKcalFromInsulin(14, 7.5, 2), 840);
+  assert.equal(eatingOutKcalFromInsulin(0, 7.5, 2), null);
+});
+
+test("corrections count only within 4 h and until the next meal; each goes to the latest eating-out meal", () => {
+  const rule = calorieRule({ ...me }, NOW);
+  // 27 Oct: lunch 13u at 9, corrections after 1.5 h and 2.3 h -> both count.
+  let e = eatingOutEstimates([eatOut("l", at(1, 13, 6), 13, 9), corr("a", at(1, 14, 38), 1.5), corr("b", at(1, 15, 26), 2.5)], rule).get("l");
+  assert.equal(e.corrUnits, 4); assert.equal(e.kcal, 17 * 9 * 4 * 2);
+  // 24 Oct: dinner then a correction 4 h 20 later -> not counted.
+  e = eatingOutEstimates([eatOut("d", at(1, 18, 25), 12, 15), corr("x", at(1, 22, 45), 0.5)], rule).get("d");
+  assert.equal(e.corrUnits, 0); assert.equal(e.kcal, 12 * 15 * 8);
+  // A meal with its own foods in between takes the later correction.
+  e = eatingOutEstimates([eatOut("d", at(1, 12), 10, 9), meal(at(1, 13), 200), corr("y", at(1, 14), 2)], rule).get("d");
+  assert.equal(e.corrUnits, 0);
+  // 31 Oct: two eating-out entries an hour apart; a correction after both belongs to the later one only.
+  const two = eatingOutEstimates([eatOut("a", at(1, 20, 27), 12, 15), eatOut("b", at(1, 21, 38), 6, 15), corr("z", at(1, 22, 30), 2)], rule);
+  assert.equal(two.get("a").corrUnits, 0); assert.equal(two.get("b").corrUnits, 2);
+  // A correction BEFORE the meal (14 Oct 17:28) is not food for it.
+  e = eatingOutEstimates([corr("p", at(1, 17, 28), 2), eatOut("d", at(1, 19, 39), 9, 15)], rule).get("d");
+  assert.equal(e.corrUnits, 0);
+  // A correction made at the meal for a high reading isn't food; a reduction for a low one is insulin not taken.
+  assert.equal(eatingOutEstimates([eatOut("h", at(1, 12), 10, 9, { correctionDose: 2 })], rule).get("h").units, 10);
+  assert.equal(eatingOutEstimates([eatOut("h", at(1, 12), 10, 9, { correctionDose: -1 })], rule).get("h").units, 9);
+});
+
+test("a correction logged with Eating Out still on (14 Oct 20:50) is a correction, not a 900 kcal meal", () => {
+  const rule = calorieRule({ ...me }, NOW);
+  const odd = corr("odd", at(1, 20, 50), 4, { carbsUnknown: true, ratioValue: 15 });
+  assert.equal(isCorrectionOnly(odd), true);
+  const h = [eatOut("d", at(1, 19, 39), 9, 15), odd];
+  const est = eatingOutEstimates(h, rule);
+  assert.equal(est.has("odd"), false); assert.equal(est.get("d").corrUnits, 4); assert.equal(est.get("d").kcal, 13 * 15 * 8);
+  const y = calorieSummary(h, { calories: me }, { days: 3, now: NOW }).days[1];
+  assert.equal(y.eatingOut, 1); assert.equal(y.food, 13 * 15 * 8);
+  // Before 2.82.0 a lone correction like that added a whole fixed meal; now it adds nothing.
+  assert.equal(calorieSummary([odd], { calories: me }, { days: 3, now: NOW }).days[1].food, 0);
+});
+
+test("no insulin, no ratio or the multiplier switched off: the fixed figure (or unknown when that's empty too)", () => {
+  const h = [eatOut("n", at(1, 12), 0, 9), eatOut("r", at(1, 19), 8, null)];
+  let est = eatingOutEstimates(h, calorieRule({ ...me }, NOW));
+  assert.equal(est.get("n").from, "fixed"); assert.equal(est.get("n").kcal, 900); assert.equal(est.get("r").from, "fixed");
+  est = eatingOutEstimates([eatOut("m", at(1, 12), 10, 9)], calorieRule({ ...me, eatingOutMultiplier: null }, NOW));
+  assert.equal(est.get("m").from, "fixed");
+  est = eatingOutEstimates([eatOut("m", at(1, 12), 0, 9)], calorieRule({ ...me, eatingOutKcal: null }, NOW));
+  assert.equal(est.get("m").kcal, null);
+  assert.equal(calorieRule({ eatingOutMultiplier: "2,5" }, NOW).eatingOutMultiplier, 2.5);
+  assert.equal(calorieRule({ eatingOutMultiplier: 9 }, NOW).eatingOutMultiplier, null);
 });

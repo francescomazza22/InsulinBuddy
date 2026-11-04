@@ -12,7 +12,7 @@ import { dayBounds, shiftDay } from "./day-timeline.js";
 import { isNonMealEntry } from "./history.js";
 
 export const CALORIE_LIMITS = {
-  heightCm: [120, 230], weightKg: [30, 250], eatingOutKcal: [0, 5000], lifeFactor: [1.1, 1.8], kcalPerUnit: [0, 2000], perDay: [0, 50],
+  heightCm: [120, 230], weightKg: [30, 250], eatingOutKcal: [0, 5000], eatingOutMultiplier: [1, 5], lifeFactor: [1.1, 1.8], kcalPerUnit: [0, 2000], perDay: [0, 50],
   minAge: 14, maxAge: 110, extrasMax: 12, nameMax: 40, unitMax: 12
 };
 export const LIFE_FACTORS = [
@@ -23,7 +23,9 @@ export const LIFE_FACTORS = [
 ];
 export const CALORIE_DEFAULTS = {
   sex: null, birthYear: null, heightCm: null, weightKg: null, lifeFactor: 1.3,
-  eatingOutKcal: 900,   // 2.78.3: assumed kcal for each eating-out meal (its foods aren't logged); null = don't count them
+  eatingOutKcal: 900,   // 2.78.3: assumed kcal for each eating-out meal (its foods aren't logged); null = don't count them.
+                        // 2.82.0: only used when the meal has no insulin (or no ratio) to work it out from
+  eatingOutMultiplier: 2,   // 2.82.0: eating out kcal = carbs from the insulin x 4 kcal/g x this; null = always the fixed figure
   extras: [
     { id: "olive-oil", name: "Olive oil", unit: "tbsp", kcalPerUnit: 119, perDay: 0 },
     { id: "flat-white", name: "Flat white", unit: "cup", kcalPerUnit: 110, perDay: 0 }
@@ -81,6 +83,7 @@ export function calorieRule(c, now = Date.now()) {
   });
   const lf = inRange(o.lifeFactor, CALORIE_LIMITS.lifeFactor);
   const eo = "eatingOutKcal" in o ? inRange(o.eatingOutKcal, CALORIE_LIMITS.eatingOutKcal) : CALORIE_DEFAULTS.eatingOutKcal;
+  const em = "eatingOutMultiplier" in o ? inRange(o.eatingOutMultiplier, CALORIE_LIMITS.eatingOutMultiplier) : CALORIE_DEFAULTS.eatingOutMultiplier;
   const h = inRange(o.heightCm, CALORIE_LIMITS.heightCm), w = inRange(o.weightKg, CALORIE_LIMITS.weightKg);
   return {
     sex: o.sex === "male" || o.sex === "female" ? o.sex : null,
@@ -89,6 +92,7 @@ export function calorieRule(c, now = Date.now()) {
     weightKg: w == null ? null : Math.round(w * 10) / 10,
     lifeFactor: lf == null ? CALORIE_DEFAULTS.lifeFactor : Math.round(lf * 100) / 100,
     eatingOutKcal: eo == null ? null : Math.round(eo),
+    eatingOutMultiplier: em == null ? null : Math.round(em * 100) / 100,
     extras
   };
 }
@@ -139,6 +143,61 @@ const foodKcal = e => (Number.isFinite(Number(e.totalKcal)) ? Math.max(0, Number
 /** Foods with carbs but no calorie figure (they count 0 kcal, so the day reads low). */
 const kcalMissing = e => (Array.isArray(e.items) ? e.items : []).filter(i => i && !(Number(i.kcal) > 0) && Number(i.carbs) > 0).length;
 
+// ---- Eating out from the insulin (2.82.0) ----
+// An eating-out meal has no foods logged, but its insulin says roughly how many carbs it had: units x the meal's ratio
+// (grams per unit). Corrections logged in the next few hours (until the next meal) were usually for carbs the first dose
+// missed, so they are added at the same meal's ratio. Those carbs give 4 kcal per gram; restaurant food carries fat and
+// protein too, so the carb calories are multiplied (2 by default: half the calories from carbs). With no insulin or no
+// ratio saved, the fixed figure stands in. Never feeds a dose.
+export const KCAL_PER_G_CARB = 4;
+export const EATING_OUT_CORRECTION_HOURS = 4;
+
+/** A correction-only entry (no food): "correction" meals, including ones logged while Eating Out was still switched on. */
+export const isCorrectionOnly = e => !!e && !isNonMealEntry(e) && (e.mealType === "correction" || (!(Number(e.mealDose) > 0) && !(Number(e.totalCarbs) > 0) && Number(e.correctionDose) > 0));
+const isEatingOutMeal = e => !!e && !isNonMealEntry(e) && !!e.carbsUnknown && !isCorrectionOnly(e);
+
+/** kcal for an eating-out meal from its units and ratio; null when there's nothing to work it out from. */
+export function eatingOutKcalFromInsulin(units, ratio, multiplier) {
+  if (!(units > 0) || !(ratio > 0) || !(multiplier > 0)) return null;
+  return units * ratio * KCAL_PER_G_CARB * multiplier;
+}
+
+/**
+ * Map of eating-out meal id -> { kcal, from: "insulin" | "fixed" | null, units, corrUnits, corrections, ratio, carbs }.
+ * from null (kcal null) = not counted (no fixed figure set). Each correction belongs to at most one meal: the latest
+ * eating-out meal within EATING_OUT_CORRECTION_HOURS before it, with no other meal logged in between.
+ */
+export function eatingOutEstimates(history, rule) {
+  const list = (history || []).filter(e => e && typeof e === "object" && Number.isFinite(Number(e.ts)) && !isNonMealEntry(e))
+    .slice().sort((a, b) => Number(a.ts) - Number(b.ts));
+  const out = new Map();
+  let open = null;   // the eating-out meal corrections are still being added to
+  for (const e of list) {
+    const ts = Number(e.ts);
+    if (open && ts - open.ts > EATING_OUT_CORRECTION_HOURS * 3600000) open = null;
+    if (isCorrectionOnly(e)) {
+      if (open) { const c = Math.max(0, Number(e.correctionDose) || 0); open.est.corrUnits += c; if (c > 0) open.est.corrections += 1; }
+      continue;
+    }
+    if (isEatingOutMeal(e)) {
+      // A reduction for a low reading is meal insulin not taken; a correction for a high one at the time isn't food.
+      const units = Math.max(0, (Number(e.mealDose) || 0) + Math.min(0, Number(e.correctionDose) || 0));
+      const ratio = Number(e.ratioValue) > 0 ? Number(e.ratioValue) : null;
+      const est = { kcal: null, from: null, units, corrUnits: 0, corrections: 0, ratio, carbs: null };
+      out.set(e.id, est);
+      open = { ts, est };
+      continue;
+    }
+    open = null;   // a meal with its own foods: later corrections are for that one
+  }
+  for (const est of out.values()) {
+    const k = rule.eatingOutMultiplier != null ? eatingOutKcalFromInsulin(est.units + est.corrUnits, est.ratio, rule.eatingOutMultiplier) : null;
+    if (k != null) { est.kcal = k; est.from = "insulin"; est.carbs = (est.units + est.corrUnits) * est.ratio; }
+    else if (rule.eatingOutKcal != null) { est.kcal = rule.eatingOutKcal; est.from = "fixed"; }
+  }
+  return out;
+}
+
 /**
  * Per local day over the last `days` days (today last): eaten (food + extras) against needed (resting x factor + activity).
  * Returns { days: [...], avg, rule, resting, extras } -- see the fields below. Averages use complete days with a meal logged
@@ -151,10 +210,11 @@ export function calorieSummary(history, settings, { days = 14, now = Date.now() 
   const out = [];
   for (let i = days - 1; i >= 0; i--) {
     const start = shiftDay(now, -i), end = shiftDay(start, 1);
-    out.push({ key: start, end, isToday: start === todayStart, food: 0, meals: 0, eatingOut: 0, unknownMeals: 0, assumedKcal: 0, missingKcal: 0, activity: 0, activities: [], unestimated: 0 });
+    out.push({ key: start, end, isToday: start === todayStart, food: 0, meals: 0, eatingOut: 0, unknownMeals: 0, assumedKcal: 0, eatingOutMeals: [], missingKcal: 0, activity: 0, activities: [], unestimated: 0 });
   }
   const from = out[0].key, to = out[out.length - 1].end;
   const dayOf = ts => out.find(d => ts >= d.key && ts < d.end);
+  const eo = eatingOutEstimates(history, rule);
   for (const e of history || []) {
     if (!e || typeof e !== "object") continue;
     const ts = Number(e.ts);
@@ -180,10 +240,12 @@ export function calorieSummary(history, settings, { days = 14, now = Date.now() 
     const d = dayOf(ts);
     if (!d) continue;
     d.meals += 1;
+    if (isCorrectionOnly(e)) continue;   // no food (2.82.0: even one logged with Eating Out on, which used to add a whole meal)
     if (e.carbsUnknown) {
-      // Eating out: its foods aren't logged. Count the assumed kcal when one is set, else the day's total is unknown.
+      // Eating out: its foods aren't logged. Worked out from its insulin (2.82.0), else the fixed figure, else unknown.
       d.eatingOut += 1;
-      if (rule.eatingOutKcal != null) { d.food += rule.eatingOutKcal; d.assumedKcal += rule.eatingOutKcal; } else d.unknownMeals += 1;
+      const est = eo.get(e.id);
+      if (est && est.kcal != null) { d.food += est.kcal; d.assumedKcal += est.kcal; d.eatingOutMeals.push(est); } else d.unknownMeals += 1;
       continue;
     }
     d.food += foodKcal(e);

@@ -40,7 +40,7 @@ import { workoutsToActivities, awaitingIntensity, mayBeDoubleCounted, intensityU
 import { dayBounds, shiftDay, dayTimeline, readingNear, stackRows } from "./js/day-timeline.js";
 import { sessionLevel, primaryTotp, verifyCode, startTotpSetup, cancelTotpSetup, removeTotp, signOutOtherDevices, groupSecret, cleanTotpCode, validTotpCode } from "./js/mfa.js";
 import { nearActivity, activitySkip, countNearActivity, breakfastByActivity, activitySummary, ACTIVITY_FILTERS, NEAR_BEFORE_HOURS, NEAR_AFTER_HOURS } from "./js/activity-stats.js";
-import { todayCalories, calorieRule, calorieSummary, missingDetails, restingKcal, extrasKcal, cleanExtra, LIFE_FACTORS, CALORIE_DEFAULTS, CALORIE_LIMITS } from "./js/calories.js";
+import { eatingOutEstimates, eatingOutKcalFromInsulin, EATING_OUT_CORRECTION_HOURS, KCAL_PER_G_CARB, todayCalories, calorieRule, calorieSummary, missingDetails, restingKcal, extrasKcal, cleanExtra, LIFE_FACTORS, CALORIE_DEFAULTS, CALORIE_LIMITS } from "./js/calories.js";
 
 
   const STORAGE_KEY = "insulinBuddy.v2";
@@ -3049,7 +3049,14 @@ import { todayCalories, calorieRule, calorieSummary, missingDetails, restingKcal
   // Today's calories against today's target (2.79.0): the same slim bar, just under the carbs one. Hidden until the body
   // details are set in Settings > Calories (no target without them). The meal being built shows as the lighter piece.
   function draftKcal() {
-    if (draft.eatingOutOn) { const r = calorieRule(state.settings.calories); return r.eatingOutKcal || 0; }
+    if (draft.eatingOutOn) {
+      // 2.82.0: from the typed dose at the meal's ratio, like the logged meal will be; the fixed figure with no dose yet.
+      const r = calorieRule(state.settings.calories);
+      const c = draft._computed || {};
+      const ratio = c.ratioEntry && Number(c.ratioEntry.ratio) > 0 ? Number(c.ratioEntry.ratio) : null;
+      const k = r.eatingOutMultiplier != null ? eatingOutKcalFromInsulin(Number(c.mealDose) || 0, ratio, r.eatingOutMultiplier) : null;
+      return k != null ? k : (r.eatingOutKcal || 0);
+    }
     return draft.items.reduce((s, i) => s + (Number(i.kcal) > 0 ? Number(i.kcal) : 0), 0);
   }
   function renderDayKcal() {
@@ -3265,6 +3272,7 @@ import { todayCalories, calorieRule, calorieSummary, missingDetails, restingKcal
     }
 
     draft._computed = { carbs, mealDose: loggedMealDose, correctionDose: loggedCorrectionDose, finalDose, ratioEntry, requested: plan.requested, capped: plan.capped };
+    if (draft.eatingOutOn) renderDayKcal();   // 2.82.0: the eating-out estimate needs this dose (the bar was drawn before it was known)
   }
 
   // The history boiled down once and reused until it changes (length or newest/oldest entry), so keystrokes never rescan it.
@@ -5750,7 +5758,9 @@ import { todayCalories, calorieRule, calorieSummary, missingDetails, restingKcal
         const acts = d.activities.map(x => `${activityLabel(x.entry)} ${kcalText(x.kcal)}${x.from === "watch" ? " (Watch)" : ""}`);
         let t = `${fmtDay(d.key)}${d.isToday ? " so far" : ""} · ate ${kcalText(d.eaten)} (food ${kcalText(d.food)} + extras ${kcalText(d.extras)})`;
         if (d.target != null) t += ` · needed ${kcalText(d.target)} (everyday ${kcalText(d.life)}${acts.length ? " + " + acts.join(", ") : ""})` + (d.isToday ? "" : ` · ${gap(d.diff)}`);
-        if (d.assumedKcal) t += ` · includes ${d.eatingOut} eating-out meal${d.eatingOut === 1 ? "" : "s"} at ${kcalText(r.eatingOutKcal)} kcal (assumed)`;
+        for (const x of d.eatingOutMeals) t += x.from === "insulin"
+          ? ` · eating out \u2248${kcalText(x.kcal)} kcal (${round1(x.units + x.corrUnits)}u${x.corrUnits ? `, incl. ${round1(x.corrUnits)}u correction` : ""} at ${ratioText(round1(x.ratio))} \u2192 ${Math.round(x.carbs)} g carbs \u00d7${KCAL_PER_G_CARB}\u00d7${r.eatingOutMultiplier})`
+          : ` · eating out ${kcalText(x.kcal)} kcal (fixed figure)`;
         if (d.unknownMeals) t += ` · ${d.unknownMeals} eating-out meal${d.unknownMeals === 1 ? "" : "s"} not counted, so it was really more`;
         return t;
       }
@@ -5763,7 +5773,9 @@ import { todayCalories, calorieRule, calorieSummary, missingDetails, restingKcal
     const notes = [];
     if (!hasTarget) notes.push("Add your details to compare each day with what you needed.");
     notes.push(ex.length ? `Includes extras of ${kcalText(sum.extras.total)} kcal a day (${ex.map(x => escapeHtml(`${x.name.toLowerCase()} ${round1(x.perDay)} ${unitPlural(x.unit, x.perDay)}`.trim())).join(", ")}).` : "No daily extras set (oil, coffees…).");
-    if (r.eatingOutKcal != null && sum.days.some(d => d.eatingOut > 0)) notes.push(`Eating out counted as ${kcalText(r.eatingOutKcal)} kcal a meal.`);
+    if (sum.days.some(d => d.eatingOutMeals.length)) notes.push(r.eatingOutMultiplier != null
+      ? `Eating out worked out from its insulin and later corrections (carbs \u00d7 ${KCAL_PER_G_CARB} kcal \u00d7 ${r.eatingOutMultiplier}).`
+      : `Eating out counted as ${kcalText(r.eatingOutKcal)} kcal a meal.`);
     const partial = [];
     if (a.daysEatingOut) partial.push(`? = eating out, calories not known (${a.daysEatingOut} day${a.daysEatingOut === 1 ? "" : "s"})`);
     partial.push("today is still going");
@@ -7330,6 +7342,7 @@ import { todayCalories, calorieRule, calorieSummary, missingDetails, restingKcal
   }
   function renderCalorieStatus() {
     const r = calRule();
+    renderEatingOutExample(r);
     const status = el("cal-status"), tot = el("cal-extras-total");
     const miss = missingDetails(r);
     const rest = restingKcal(r);
@@ -7342,6 +7355,27 @@ import { todayCalories, calorieRule, calorieSummary, missingDetails, restingKcal
       const out = document.querySelector(`#cal-extras [data-xid="${CSS.escape(x.id)}"] .cal-extra__kcal`);
       if (out) out.textContent = `${kcalText(x.kcalPerUnit * x.perDay)} kcal`;
     });
+  }
+  // A worked example from the latest eating-out meal in the log (else a made-up one), so the multiplier means something.
+  function renderEatingOutExample(r) {
+    const box = el("cal-eating-out-example");
+    if (!box) return;
+    if (r.eatingOutMultiplier == null) {
+      box.textContent = r.eatingOutKcal == null ? "Eating-out meals aren't counted: those days are left out of the averages." : `Every eating-out meal counts ${kcalText(r.eatingOutKcal)} kcal.`;
+      return;
+    }
+    const est = eatingOutEstimates(state.history, r);
+    const lastId = [...est.entries()].filter(([, v]) => v.from === "insulin").map(([id]) => id).pop();
+    const e = lastId && state.history.find(x => x.id === lastId);
+    const v = e && est.get(lastId);
+    const fmtU = u => `${round1(u)}u`;
+    if (v) {
+      const when = new Date(e.ts).toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" });
+      box.textContent = `Your last one (${when}): ${fmtU(v.units)}${v.corrUnits ? ` + ${fmtU(v.corrUnits)} of correction${v.corrections === 1 ? "" : "s"}` : ""} at ${ratioText(round1(v.ratio))} = ${Math.round(v.carbs)} g carbs \u00d7 ${KCAL_PER_G_CARB} kcal = ${kcalText(v.carbs * KCAL_PER_G_CARB)} kcal, \u00d7 ${r.eatingOutMultiplier} = ${kcalText(v.kcal)} kcal.`;
+    } else {
+      const k = eatingOutKcalFromInsulin(10, 9, r.eatingOutMultiplier);
+      box.textContent = `For example, 10u at ${ratioText(9)} = 90 g carbs \u00d7 ${KCAL_PER_G_CARB} kcal = 360 kcal, \u00d7 ${r.eatingOutMultiplier} = ${kcalText(k)} kcal.`;
+    }
   }
   function renderCalorieExtras() {
     const box = el("cal-extras");
@@ -7383,6 +7417,7 @@ import { todayCalories, calorieRule, calorieSummary, missingDetails, restingKcal
     el("cal-height").value = r.heightCm == null ? "" : String(r.heightCm);
     el("cal-weight").value = r.weightKg == null ? "" : String(r.weightKg);
     el("cal-eating-out").value = r.eatingOutKcal == null ? "" : String(r.eatingOutKcal);
+    el("cal-eating-out-mult").value = r.eatingOutMultiplier == null ? "" : String(r.eatingOutMultiplier);
     renderCalorieExtras();
   }
   // Empty clears a detail; anything else that isn't valid keeps what is saved.
@@ -7401,7 +7436,8 @@ import { todayCalories, calorieRule, calorieSummary, missingDetails, restingKcal
   saveCalDetail("cal-birth-year", "birthYear", raw => Number(raw));
   saveCalDetail("cal-height", "heightCm", raw => parseDecimalInput(raw));
   saveCalDetail("cal-weight", "weightKg", raw => parseDecimalInput(raw));
-  saveCalDetail("cal-eating-out", "eatingOutKcal", raw => parseDecimalInput(raw));   // 2.78.3: empty = don't count eating out
+  saveCalDetail("cal-eating-out", "eatingOutKcal", raw => parseDecimalInput(raw));   // 2.78.3: empty = don't count eating out with no insulin
+  saveCalDetail("cal-eating-out-mult", "eatingOutMultiplier", raw => parseDecimalInput(raw));   // 2.82.0: empty = always the fixed figure
   bind("cal-sex", "change", e => { saveCalories({ sex: e.target.value || null }); renderCalorieStatus(); });
   bind("cal-life", "change", e => { saveCalories({ lifeFactor: Number(e.target.value) }); renderCalorieStatus(); });
   bind("cal-extras", "change", e => {
