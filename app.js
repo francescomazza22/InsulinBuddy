@@ -5314,7 +5314,7 @@ import { eatingOutEstimates, eatingOutKcalFromInsulin, EATING_OUT_CORRECTION_HOU
         if (isActivityEntry(entry)) { groupEl.appendChild(wrapSwipe(buildActivityRow(entry), entry.id)); return; }
         const meal = MEAL_TYPES[entry.mealType] || MEAL_TYPES.snack;
         const row = document.createElement("div");
-        row.className = "history-entry";
+        row.className = "history-entry history-entry--meal";
         row.style.borderLeftColor = meal.color;
         row.dataset.id = entry.id;
         const badge = doseBadge(entry);
@@ -5331,7 +5331,7 @@ import { eatingOutEstimates, eatingOutKcalFromInsulin, EATING_OUT_CORRECTION_HOU
               ${entry.items.map(i => {
                 const isUnit = i.quantity != null && i.unitLabel;
                 const qtyLabel = isUnit ? `${i.portion ? escapeHtml(i.portion) : formatQty(i.quantity)} ${escapeHtml(i.unitLabel)}${i.quantity > 1 ? "s" : ""}` : (i.grams ? escapeHtml(i.grams) + "g" : "");
-                return `<div class="history-entry__item"><span class="history-entry__item-name">${escapeHtml(i.name)}</span><span class="history-entry__item-amt"><span class="history-entry__item-qty">${qtyLabel}</span><span class="history-entry__item-carbs">${round1(i.carbs)}g<span class="history-entry__item-unit"> carbs</span></span></span></div>`;
+                return `<div class="history-entry__item"><span class="history-entry__item-name">${escapeHtml(i.name)}</span><span class="history-entry__item-amt"><span class="history-entry__item-qty">${qtyLabel}</span><span class="history-entry__item-carbs">${round1(i.carbs)}g<span class="history-entry__item-unit"> carbs</span></span>${Number(i.kcal) > 0 ? `<span class="history-entry__item-kcal">${kcalText(Number(i.kcal))}<span class="history-entry__item-unit"> kcal</span></span>` : `<span class="history-entry__item-kcal" aria-hidden="true"></span>`}</span></div>`;
               }).join("")}
               ${ratioWasApplied(entry) ? `<p class="history-entry__ratio">Ratio used: ${escapeHtml(entry.ratioLabel || "")} ${ratioText(round1(entry.ratioValue))}</p>` : ""}
               ${entry.cappedFrom ? `<p class="history-entry__cap">Capped at your maximum dose (calculated ${entry.cappedFrom}u)</p>` : ""}
@@ -6426,6 +6426,7 @@ import { eatingOutEstimates, eatingOutKcalFromInsulin, EATING_OUT_CORRECTION_HOU
     const summary = row.querySelector(".history-entry__foods");
     detail.hidden = !detail.hidden;
     summary.hidden = !detail.hidden;
+    row.classList.toggle("is-expanded", !detail.hidden);   // 2.82.1: an opened meal moves its totals to the top right
     if (!detail.hidden && row.classList.contains("history-entry--activity")) {
       const entry = state.history.find(h => h.id === row.dataset.id);
       if (entry) fillActivityGlucose(row, entry);

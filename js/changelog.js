@@ -2,6 +2,15 @@
 // summary can never drift. Bump CHANGELOG[0].version here (and CACHE_VERSION in sw.js) on every release.
 export const CHANGELOG = [
   {
+    version: "2.82.1",
+    summary: "An opened meal in the log shows each food's calories.",
+    changes: [
+      "When you open a meal, the dose, carbs and kcal move to the top right, beside the meal name",
+      "The food lines then use the full width, with each food's kcal in its own column (blank when a food has no kcal on record)",
+      "A closed meal looks the same as before"
+    ]
+  },
+  {
     version: "2.82.0",
     summary: "Eating-out calories are now worked out from the insulin you took.",
     changes: [

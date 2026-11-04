@@ -2148,3 +2148,20 @@ html[data-theme="dark"] .dose-card button.active-panel {
 .dose-card .day-carbs__fill { background: rgba(255,255,255,0.55); border-radius: 2px; }
 .dose-card .day-carbs__draft { background: rgba(255,255,255,0.3); border-radius: 0 2px 2px 0; }
 .dose-card .day-carbs__tick { top: -4px; bottom: -4px; }
+
+/* ================= OPENED MEAL IN THE LOG (2.82.1) =================
+   Francesco: once a meal is opened, the dose, carbs and kcal go to the top right, beside the title, and the food lines use
+   the full width underneath, with each food's kcal in its own column. The closed row is unchanged. */
+.history-entry.history-entry--meal.is-expanded {
+  display: grid; grid-template-columns: auto minmax(0, 1fr) auto; column-gap: var(--space-m); row-gap: 0; align-items: start;
+}
+.history-entry--meal.is-expanded .history-entry__main { display: contents; }
+.history-entry--meal.is-expanded .history-entry__icon { grid-column: 1; grid-row: 1; align-self: start; }
+.history-entry--meal.is-expanded .history-entry__title { grid-column: 2; grid-row: 1; align-self: start; }
+.history-entry--meal.is-expanded .history-entry__stats { grid-column: 3; grid-row: 1; align-self: start; }
+.history-entry--meal.is-expanded .history-entry__detail { grid-column: 2 / -1; grid-row: 2; }
+.history-entry__item-kcal { display: none; }
+.history-entry--meal.is-expanded .history-entry__item-kcal {
+  display: inline-block; min-width: 4.6em; text-align: right; color: var(--ink-soft); font-size: var(--fs-s); font-variant-numeric: tabular-nums;
+}
+.history-entry--meal.is-expanded .history-entry__item-carbs { min-width: 4.6em; }
