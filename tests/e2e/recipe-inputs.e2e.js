@@ -69,6 +69,9 @@ await typeInto("#fs-kcal", "350,5");
 await dev.click("#fs-save"); await sleep(500);
 const far = (await localState(dev)).library.find(x => x.id === "f-far");
 t.check("a food's carbs typed as 12,5 save as 12.5 per 100 g (not 125)", far.carbs === 12.5 && far.kcal === 350.5, JSON.stringify([far.carbs, far.kcal]));
+// 2.86.0: Farina is in the recipe above, so changing its figures asks whether to update the recipe too. Not now here.
+t.check("changing a food used in a recipe asks whether to update the recipe", await dev.eval(`/Update recipes too\\?/.test((document.querySelector(".dialog") || {}).textContent || "")`));
+await dev.eval(`document.querySelector(".dialog__btn--ghost").click()`); await sleep(300);
 await dev.eval(`document.querySelector('[data-act="edit"][data-id="f-far"]').click()`); await sleep(500);
 await typeInto("#fs-fat", "abc");
 await dev.click("#fs-save"); await sleep(300);

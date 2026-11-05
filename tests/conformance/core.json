@@ -480,6 +480,36 @@
   ]
  },
  {
+  "name": "validateFood: source from a label",
+  "fn": "validateFood",
+  "args": [
+   {
+    "name": "Farina",
+    "carbs": 78,
+    "source": "label"
+   }
+  ],
+  "expect": []
+ },
+ {
+  "name": "validateFood: unknown source",
+  "fn": "validateFood",
+  "args": [
+   {
+    "name": "Farina",
+    "carbs": 78,
+    "source": "guess"
+   }
+  ],
+  "expect": [
+   {
+    "path": "food.source",
+    "severity": "warn",
+    "message": "should be label, estimate or empty"
+   }
+  ]
+ },
+ {
   "name": "validateRecipe: sound",
   "fn": "validateRecipe",
   "args": [

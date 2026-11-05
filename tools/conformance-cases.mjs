@@ -213,6 +213,7 @@ for (const [n, e] of [["no id", { ...goodEntry, id: "" }], ["no time", { ...good
   add("core", `validateEntry: ${n}`, "validateEntry", e);
 add("core", "validateFood: sound", "validateFood", { name: "Rice", carbs: 28, kcal: 130, gi: 70 });
 for (const [n, f] of [["blank name", { name: " ", carbs: 5 }], ["no carbs", { name: "x" }], ["unit food without grams", { name: "Biscuit", carbs: 50, unitBased: true }]]) add("core", `validateFood: ${n}`, "validateFood", f);
+for (const [n, f] of [["source from a label", { name: "Farina", carbs: 78, source: "label" }], ["unknown source", { name: "Farina", carbs: 78, source: "guess" }]]) add("core", `validateFood: ${n}`, "validateFood", f);   // 2.86.0
 add("core", "validateRecipe: sound", "validateRecipe", { name: "Bowl", finalWeight: 300, items: [{ grams: 100, carbsPer100g: 10 }] });
 add("core", "validateRecipe: bad grams and no list", "validateRecipe", { name: "Bowl", items: [{ grams: "x" }] });
 add("core", "validateRecipe: no items", "validateRecipe", { name: "Bowl" });

@@ -1,5 +1,6 @@
 // Food library and recipe logic: CSV in and out, recipe totals, and merging an imported file into a library.
 // Pure functions: they take data and return data (mergeLibrary changes the lists it is given, nothing else).
+import { foodSource } from "./food-fields.js";
 export const truthy = v => /^(true|1|yes|y|vero|si|sì)$/i.test(String(v ?? "").trim());
 
 export function toCsv(rows, headers) {
@@ -119,7 +120,9 @@ export function parseLibraryFile(name, text) {
         favorite: truthy(r.is_favorite), usageCount: parseInt(r.usage_count, 10) || 0,
         unitBased: truthy(r.unit_based) || (!!r.unit_label && parseFloat(r.grams_per_unit) > 0), unitLabel: r.unit_label || null,
         gramsPerUnit: parseFloat(r.grams_per_unit) || null,
-        gi: parseFloat(r.glycemic_index) || null
+        gi: parseFloat(r.glycemic_index) || null,
+        // 2.86.0: only a file with a source column says where figures come from; an older file leaves it as it was
+        ...(r.source !== undefined ? { source: foodSource(r.source) } : {})
       }));
     }
   }

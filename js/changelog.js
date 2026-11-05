@@ -2,6 +2,19 @@
 // summary can never drift. Bump CHANGELOG[0].version here (and CACHE_VERSION in sw.js) on every release.
 export const CHANGELOG = [
   {
+    version: "2.86.0",
+    summary: "Recipes now tell you when a food in them has changed in your Library, and offer to update.",
+    changes: [
+      "A recipe keeps its own copy of each ingredient's carbs and kcal. Until now, correcting a food in the Library left the recipes made with it on the old figures without saying so (your Banana Bread still had Farina at 90 g carbs per 100 g)",
+      "Recipes that differ from your Library say so in Settings > Library > Recipes, and the recipe itself shows what changed and what it does to the whole dish, with a button to use the Library figures",
+      "Editing a food's carbs or kcal asks whether to update the recipes that use it too, with Undo. Meals already logged always keep what they had",
+      "Ingredients that weren't linked to a Library food (older imports, the ready-made recipes) are linked to the food of exactly the same name, so they can be checked too. Their figures don't change on their own",
+      "Foods can say where their figures come from: pack label or estimate. Estimates show an Estimate badge in the Library",
+      "A unit name typed as \"1 bag\" is saved as \"bag\" (it used to read \"50 1 bags\")",
+      "A new device no longer starts with the old food list from the first version of the app: your library arrives with sign-in, so deleted foods can't come back"
+    ]
+  },
+  {
     version: "2.85.0",
     summary: "\u2212 and + beside the dose: change it by hand in one tap.",
     changes: [

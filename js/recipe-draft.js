@@ -48,7 +48,8 @@ export function recipeFingerprint(r) {
   if (!r) return "";
   return JSON.stringify({
     name: r.name || "", category: r.category || "other", notes: r.notes || "", favorite: !!r.favorite,
-    items: (r.items || []).map(i => [i.foodId || "", i.name || "", Number(i.grams) || 0]),
+    // 2.86.0: the per-100 g figures count too, so updating an ingredient to the Library's figures is saved (and undoable).
+    items: (r.items || []).map(i => [i.foodId || "", i.name || "", Number(i.grams) || 0, i.carbsPer100g ?? null, i.kcalPer100g ?? null]),
     rawWeight: r.rawWeight || null, slices: r.slices || null, finalWeight: Number(r.finalWeight) || 0
   });
 }

@@ -109,7 +109,10 @@ const screens = [
   ["insights glucose day", async dev => { await dev.tab("history"); await dev.click('#history-segmented [data-seg="glucose"]'); await dev.click('[data-glview="day"]'); await sleep(500); }],
   ["swap foods sheet", async dev => { await dev.tab("history"); await dev.click('#history-segmented [data-seg="log"]'); await dev.eval(`document.querySelector('[data-swap="m1"]').click()`); await sleep(400); await dev.eval(`document.querySelector('[data-adjust="0"]').click()`); await sleep(200); }],
   ["swap foods sheet, over", async dev => { await dev.eval(`(() => { const s = document.getElementById("sw-search"); s.value = "pane"; s.dispatchEvent(new Event("input", { bubbles: true })); })()`); await sleep(150); await dev.eval(`document.querySelector(".swap-result").click()`); await sleep(150); await dev.eval(`(() => { const i = document.querySelector('.swap-row__grams[data-idx="1"]'); i.value = "200"; i.dispatchEvent(new Event("input", { bubbles: true })); })()`); await sleep(150); }],
-  ["edit meal sheet", async dev => { await dev.eval(`document.getElementById("sw-cancel") && document.getElementById("sw-cancel").click()`); await sleep(400); await dev.tab("history"); await dev.click('#history-segmented [data-seg="log"]'); await dev.eval(`document.querySelector('[data-edit="m1"]').click()`); await sleep(500); }]
+  ["edit meal sheet", async dev => { await dev.eval(`document.getElementById("sw-cancel") && document.getElementById("sw-cancel").click()`); await sleep(400); await dev.tab("history"); await dev.click('#history-segmented [data-seg="log"]'); await dev.eval(`document.querySelector('[data-edit="m1"]').click()`); await sleep(500); }],
+  // 2.86.0: a recipe whose food changed in the Library since it was saved (list line and the sheet's notice).
+  ["recipes list, food changed", async dev => { await dev.eval(`document.querySelectorAll(".sheet-backdrop").forEach(b => b.remove())`); await sleep(200); await dev.tab("settings"); await dev.click('#settings-segmented [data-seg="library"]'); await dev.eval(`document.querySelector("[data-seg=recipes]").click()`); await sleep(300); }],
+  ["recipe sheet, food changed", async dev => { await dev.eval(`document.querySelector("[data-act=edit][data-id=rc1]").click()`); await sleep(500); }]
 ];
 
 const now = Date.now();
@@ -119,6 +122,8 @@ let total = 0;
 for (const palette of PALETTES) for (const mode of MODES) {
   const dark = mode === "dark";
   const blob = stateBlob({ history: hist, settings: { palette, darkMode: dark, darkModeAuto: false } });
+  blob.recipes = [{ id: "rc1", name: "Banana Bread", category: "snacks", notes: "", favorite: false, usageCount: 1, rawWeight: null, finalWeight: 400,
+    items: [{ foodId: "s1", name: "Pane comune", grams: 90, carbsPer100g: 70, kcalPer100g: 300 }, { foodId: "s2", name: "Banana", grams: 300, carbsPer100g: 23, kcalPer100g: 89 }] }];
   const live = `localStorage.setItem("insulinBuddy.liveGlucose", JSON.stringify({ mgdl: 130, direction: "Flat", at: Date.now() }));`;
   // Twelve Chrome starts in one run: retry a start that stalls (a known quirk of the test sandbox).
   let dev = null;

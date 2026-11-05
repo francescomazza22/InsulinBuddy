@@ -80,8 +80,8 @@ ABOUT "CONTENT CREDENTIALS"
 NOT IN THIS ZIP (yours; leave them in your repo untouched)
   manifest.json     foods_data.js
 Both sit in the repo ROOT next to index.html. I do not have your real copies.
-IMPORTANT: if you ever come across a foods_data.js that is only a few bytes long
-("var SEED_FOODS = [];"), it is an empty placeholder. Never upload it over yours.
+Since 2.86.0 foods_data.js is deliberately empty ("var SEED_FOODS = [];"): your food library
+comes from your account when you sign in, so a new device starts with nothing to bring back.
 Uploading this zip does not touch either file.
 
 SUPABASE (separate from GitHub)

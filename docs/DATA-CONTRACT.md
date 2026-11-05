@@ -27,7 +27,7 @@ only changes how glucose is shown and typed.
 | `id`, `ts` | text, number | Required. |
 | `mealType` | text | `breakfast`, `lunch`, `dinner`, `snack` or `correction`. |
 | `periodName` | text | The time-of-day bracket in force, lower case (`morning`). May be empty. |
-| `items` | list | Empty for Eating Out. Each: `refType` (`food`/`recipe`), `refId`, `name`, `grams`, `carbs`, `kcal`, `carbsPer100g`, `kcalPer100g`, optional `quantity`, `unitLabel`, `gramsPerUnit`, `gi`. |
+| `items` | list | Empty for Eating Out. Each: `refType` (`food`, `recipe`, or `quick` for the Fast carbs chips, whose `refId` is null), `refId`, `name`, `grams`, `carbs`, `kcal`, `carbsPer100g`, `kcalPer100g`, optional `quantity`, `unitLabel`, `gramsPerUnit`, `gi`. |
 | `totalCarbs`, `totalKcal` | number | 0 when carbs were not counted. |
 | `carbsUnknown` | boolean | True for Eating Out. |
 | `glycemicLoad` | object or null | From the items' GI. |
@@ -52,11 +52,14 @@ never feeds a dose, active insulin, carbs on board, trends or meal stats. Nights
 
 ## Food
 `name` (required), `carbs` per 100 g (required, ≥ 0), optional `kcal`, `protein`, `fat`, `salt`, `gi`, `category`, `notes`,
-`favorite`, `usageCount`. Per-unit foods (a biscuit, a pint) set `unitBased: true`, `unitLabel` and `gramsPerUnit` (> 0).
+`favorite`, `usageCount`. Per-unit foods (a biscuit, a pint) set `unitBased: true`, `unitLabel` (a name such as `bag`, never an
+amount such as `1 bag`) and `gramsPerUnit` (> 0). Optional `source` (2.86.0): `label` (from the pack) or `estimate` (a typical
+value); absent or null = not said. `estimated` lists fields filled from typical values by "Fill in missing details".
 
 ## Recipe
 `name` (required), `items` (each `foodId`, `name`, `grams` > 0, `carbsPer100g`, `kcalPer100g`; the rates are a snapshot so the
-recipe survives its foods changing), `finalWeight` (g, total cooked weight), `rawWeight`, `category`, `notes`, `favorite`, `usageCount`.
+recipe survives its foods changing; since 2.86.0 the app shows when a linked food's figures differ and updates them only
+when asked), `finalWeight` (g, total cooked weight), `rawWeight`, `category`, `notes`, `favorite`, `usageCount`.
 
 ## Settings
 Required: `isf` (mg/dL per unit), `target` (mg/dL), `maxDose` (units), `units` (`mgdl`/`mmol`), `timeRatios` (at least one

@@ -1761,6 +1761,12 @@ html[data-theme="dark"] { --glass-sheet: rgba(30,36,43,0.90); }
 .ingredient-total.is-warn { border-color: var(--acc-1); }
 .ingredient-total__note { margin: var(--space-2xs) 0 0; font-size: var(--fs-s, 13px); color: var(--ink-soft); }
 .ingredient-total__fix { margin-top: var(--space-xs); background: none; border: 1.5px solid var(--acc-1); color: var(--acc-1); border-radius: var(--radius-s); padding: 8px 12px; font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; }
+.recipe-stale { margin: 0 0 var(--space-m); padding: var(--space-s) var(--space-m); border: 1.5px solid var(--acc-1); border-radius: var(--radius-s); background: var(--surface); }
+.recipe-stale__title { margin: 0 0 var(--space-2xs); font-size: var(--fs-m); font-weight: 600; color: var(--ink); }
+.recipe-stale__row { margin: var(--space-3xs) 0 0; font-size: var(--fs-s); color: var(--ink); font-variant-numeric: tabular-nums; }
+.recipe-stale__effect { margin: var(--space-2xs) 0 0; font-size: var(--fs-s); color: var(--ink-soft); }
+.recipe-stale__btn { margin-top: var(--space-xs); background: none; border: 1.5px solid var(--acc-1); color: var(--acc-1); border-radius: var(--radius-s); padding: var(--space-xs) var(--space-s); font: inherit; font-size: var(--fs-s); font-weight: 600; cursor: pointer; min-height: 44px; }
+.lib-item__stale { font-size: var(--fs-xs); color: var(--acc-1); font-weight: 600; margin: var(--space-3xs) 0 0; }
 
 /* Day-of-week chips on a time-of-day ratio: lit = the range applies that day; all lit = every day. */
 .day-chips { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; flex-basis: 100%; margin-top: var(--space-s); }

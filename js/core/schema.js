@@ -75,6 +75,7 @@ export function validateFood(f, path = "food") {
   numberField(out, f, path, "carbs", { required: true, min: 0 });          // per 100 g
   for (const k of ["kcal", "protein", "fat", "salt", "gi", "gramsPerUnit"]) numberField(out, f, path, k, { nullable: true, min: 0 });
   if (f.unitBased && !(isNum(f.gramsPerUnit) && f.gramsPerUnit > 0)) out.push(problem(`${path}.gramsPerUnit`, "warn", "a per-unit food needs grams per unit"));
+  if (f.source != null && !["label", "estimate"].includes(f.source)) out.push(problem(`${path}.source`, "warn", "should be label, estimate or empty"));
   return out;
 }
 

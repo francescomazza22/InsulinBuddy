@@ -32,6 +32,8 @@ import { toMinutes, inRange, ratioAt, ratioMatch, bracketDays, daysLabel, DAY_NA
 import { readRecipeForm, recipeFingerprint, formHasContent, parseRecipeDraft, RECIPE_DRAFT_KEY, RECIPE_AUTOSAVE_MS } from "./js/recipe-draft.js";
 import { toCsv, parseCsv, recipeTotals as recipeTotalsWith, parseLibraryFile, mergeLibrary, repairRecipe } from "./js/core/library.js";
 import { buildMealEntry, adjustUsage } from "./js/core/meal-entry.js";
+import { FOOD_SOURCES, foodSource, cleanUnitLabel } from "./js/core/food-fields.js";
+import { linkIngredients, staleIngredients, refreshIngredients, refreshEffect, recipesUsingFood, staleText } from "./js/recipe-check.js";
 import { validateState, validateEntry, validateFood, validateRecipe, hasErrors, summarizeProblems } from "./js/core/schema.js";
 import { createCloudSync, supabaseCloudTarget } from "./js/core/cloud-sync.js";
 import { groupEvents, logHealth, isSyncStuck } from "./js/core/problems.js";
@@ -4853,6 +4855,7 @@ import { extrasForDay, setDayExtra, dayKeyOf, eatingOutEstimates, eatingOutKcalF
           <p class="lib-item__name">${escapeHtml(f.name)}</p>
           <div class="lib-item__badges">
             ${categoryBadge(f.category)}
+            ${f.source === "estimate" ? `<span class="lib-item__badge cat-other" title="Figures are an estimate, not from a label">Estimate</span>` : ""}
             ${f.gi != null ? `<span class="lib-item__badge cat-other"${(f.estimated || []).includes("gi") ? ` title="Filled from a typical value"` : ""}>GI ${(f.estimated || []).includes("gi") ? "~" : ""}${f.gi}</span>` : ""}
           </div>
           <p class="lib-item__meta"><span class="c-carbs">${f.carbs}g carbs</span>${f.kcal ? ` · <span class="c-kcal">~${f.kcal} kcal</span>` : ""} /100g</p>
@@ -4980,6 +4983,12 @@ import { extrasForDay, setDayExtra, dayKeyOf, eatingOutEstimates, eatingOutKcalF
           <label>Glycemic Index <span class="field__optional">(optional)</span></label>
           <input type="text" inputmode="decimal" autocomplete="off" spellcheck="false" id="fs-gi" value="${f.gi ?? ""}" placeholder="e.g., 55">
         </div>
+        <div class="field">
+          <label for="fs-source">Where these figures come from <span class="field__optional">(optional)</span></label>
+          <select id="fs-source">
+            ${FOOD_SOURCES.map(o => `<option value="${escapeAttr(o.id)}" ${o.id === (f.source || "") ? "selected" : ""}>${escapeHtml(o.label)}</option>`).join("")}
+          </select>
+        </div>
         ${Array.isArray(f.estimated) && f.estimated.length ? `<p class="panel-card__hint" style="margin:-4px 0 12px;">Filled from typical values: ${f.estimated.map(k => ({ gi: "GI", fat: "fat", protein: "protein", salt: "salt", kcal: "calories" }[k] || k)).join(", ")}. Change any you know better.</p>` : ""}
 
         <div class="checkbox-row" style="margin-top:18px;">
@@ -5025,7 +5034,8 @@ import { extrasForDay, setDayExtra, dayKeyOf, eatingOutEstimates, eatingOutKcalF
       const unreadable = Object.entries(optional).filter(([, v]) => v != null && isNaN(v)).map(([k]) => ({ kcal: "Calories", fat: "Fat", protein: "Protein", salt: "Salt", gi: "GI" })[k]);
       if (unreadable.length) { dialogs.alert(`${unreadable.join(", ")}: that isn't a number I can read. Try something like 1.5 or 1,5, or leave it empty.`); return; }
       const unitBased = backdrop.querySelector("#fs-unit-based").checked;
-      const unitLabel = backdrop.querySelector("#fs-unit-label").value.trim();
+      // 2.86.0: the unit is a name ("bag"), not an amount: "1 bag" read as "50 1 bags" wherever a quantity is shown.
+      const unitLabel = cleanUnitLabel(backdrop.querySelector("#fs-unit-label").value);
       const gramsPerUnit = num("#fs-grams-per-unit");
       if (unitBased && (!unitLabel || !gramsPerUnit || gramsPerUnit <= 0)) {
         dialogs.alert("For a quantity-based food, please give it a unit name and a weight per unit greater than 0.");
@@ -5044,8 +5054,10 @@ import { extrasForDay, setDayExtra, dayKeyOf, eatingOutEstimates, eatingOutKcalF
         favorite: backdrop.querySelector("#fs-fav").checked,
         unitBased,
         unitLabel: unitBased ? unitLabel : null,
-        gramsPerUnit: unitBased ? gramsPerUnit : null
+        gramsPerUnit: unitBased ? gramsPerUnit : null,
+        source: foodSource(backdrop.querySelector("#fs-source").value)
       };
+      const figuresChanged = isEdit && (payload.carbs !== f.carbs || (payload.kcal || null) !== (f.kcal || null));
       if (isEdit) {
         // a value you changed is yours now, no longer an estimate
         if (Array.isArray(f.estimated)) { const keep = f.estimated.filter(k => payload[k] === f[k]); if (keep.length) payload.estimated = keep; else delete f.estimated; }
@@ -5054,9 +5066,31 @@ import { extrasForDay, setDayExtra, dayKeyOf, eatingOutEstimates, eatingOutKcalF
       saveState();
       renderFoodsLibrary();
       closeSheet(backdrop);
+      if (figuresChanged) offerRecipeUpdate(f);
     });
   }
 
+
+  // 2.86.0: after a food's carbs or kcal change, offer to bring the recipes made with it up to date (never done silently:
+  // a recipe's figures decide future doses). One Undo puts every updated recipe back.
+  async function offerRecipeUpdate(food) {
+    const affected = recipesUsingFood(state.recipes, food.id)
+      .map(r => ({ r, stale: staleIngredients(r, state.library).filter(s => r.items[s.idx].foodId === food.id) }))
+      .filter(x => x.stale.length);
+    if (!affected.length) return;
+    const names = affected.map(x => `"${x.r.name}"`);
+    const list = names.length === 1 ? names[0] : `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
+    const ok = await dialogs.confirm(`${food.name} is in ${affected.length === 1 ? "a recipe" : `${affected.length} recipes`}: ${list}. Update ${affected.length === 1 ? "it" : "them"} to the new figures? Meals already logged keep what they had.`,
+      { title: "Update recipes too?", confirmText: affected.length === 1 ? "Update recipe" : "Update recipes", cancelText: "Not now" });
+    if (!ok) return;
+    const before = affected.map(x => ({ r: x.r, items: JSON.parse(JSON.stringify(x.r.items)) }));
+    affected.forEach(x => { x.r.items = refreshIngredients(x.r.items, x.stale); });
+    saveState(); renderRecipesLibrary();
+    showUndoToast(`Updated ${affected.length === 1 ? `"${affected[0].r.name}"` : `${affected.length} recipes`}`, () => {
+      before.forEach(b => { b.r.items = b.items; });
+      saveState(); renderRecipesLibrary();
+    });
+  }
 
   function renderRecipesLibrary() {
     const q = libSearch.value.trim().toLowerCase();
@@ -5067,6 +5101,7 @@ import { extrasForDay, setDayExtra, dayKeyOf, eatingOutEstimates, eatingOutKcalF
     libEmpty.hidden = items.length > 0;
     items.forEach(r => {
       const t = recipeTotals(r);
+      const stale = staleIngredients(r, state.library);
       const row = document.createElement("div");
       row.className = "lib-item";
       const perG = t.carbsPer100g != null
@@ -5080,6 +5115,7 @@ import { extrasForDay, setDayExtra, dayKeyOf, eatingOutEstimates, eatingOutKcalF
           <p class="lib-item__name">${escapeHtml(r.name)}</p>
           <div class="lib-item__badges">${categoryBadge(r.category || "other")}</div>
           <p class="lib-item__meta">${perG}</p>
+          ${stale.length ? `<p class="lib-item__stale" data-stale-recipe="${escapeAttr(r.id)}">Changed in your Library since saved: ${escapeHtml(stale.map(s => s.foodName).join(", "))}. Edit to update.</p>` : ""}
           <p class="lib-item__note">${r.items.map(it => {
             const name = it.name || (state.library.find(x => x.id === it.foodId) || {}).name;
             return name ? `${escapeHtml(name)} (${escapeHtml(it.grams)}g)` : "";
@@ -5168,6 +5204,7 @@ import { extrasForDay, setDayExtra, dayKeyOf, eatingOutEstimates, eatingOutKcalF
           </div>
         </div>
 
+        <div class="recipe-stale" id="rs-stale" role="status" hidden></div>
         <label class="block-label">Ingredients</label>
         <div class="ingredient-box">
           <div class="ingredient-search-wrap">
@@ -5236,8 +5273,33 @@ import { extrasForDay, setDayExtra, dayKeyOf, eatingOutEstimates, eatingOutKcalF
     backdrop.querySelector("#rs-raw-weight").addEventListener("input", renderTotal);
     backdrop.querySelector("#rs-final-weight").addEventListener("input", renderTotal);
 
+    // 2.86.0: ingredients whose food has different figures in the Library now. The recipe keeps its own copy until updated here.
+    function renderStale() {
+      const box = backdrop.querySelector("#rs-stale");
+      const stale = staleIngredients({ items }, state.library);
+      if (!stale.length) { box.hidden = true; box.innerHTML = ""; return; }
+      const fin = parseDecimalInput(backdrop.querySelector("#rs-final-weight").value);
+      const { before, after } = refreshEffect({ items, finalWeight: fin > 0 ? fin : null }, stale, state.library);
+      const effect = before.totalCarbs !== after.totalCarbs
+        ? `Whole dish ${before.totalCarbs} → ${after.totalCarbs} g carbs${before.carbsPer100g != null ? ` (${before.carbsPer100g} → ${after.carbsPer100g} g per 100 g)` : ""}.`
+        : "The carbs stay the same.";
+      box.hidden = false;
+      box.innerHTML = `<p class="recipe-stale__title">Your Library has different figures for ${stale.length === 1 ? "this ingredient" : "these ingredients"}</p>` +
+        stale.map(s => `<p class="recipe-stale__row">${escapeHtml(staleText(s))}</p>`).join("") +
+        `<p class="recipe-stale__effect">${escapeHtml(effect)} Meals already logged keep what they had.</p>` +
+        `<button type="button" class="recipe-stale__btn" data-stale="update">Use the Library figures</button>`;
+    }
+    backdrop.querySelector("#rs-stale").addEventListener("click", e => {
+      if (!e.target.closest('[data-stale="update"]')) return;
+      items = refreshIngredients(items, staleIngredients({ items }, state.library));
+      renderIngredientList();
+      autosaveNow();
+    });
+    backdrop.querySelector("#rs-final-weight").addEventListener("input", () => renderStale());
+
     function renderIngredientList() {
       renderTotal();
+      renderStale();
       const box = backdrop.querySelector("#rs-ing-list");
       if (items.length === 0) { box.innerHTML = ""; return; }
       box.innerHTML = items.map((it, idx) => {
@@ -8513,13 +8575,13 @@ import { extrasForDay, setDayExtra, dayKeyOf, eatingOutEstimates, eatingOutKcalF
   }
 
   bind("btn-export-library", "click", () => {
-    const foodHeaders = ["fat_per_100g", "usage_count", "is_favorite", "notes", "calories_per_100g", "salt_per_100g", "name", "carbs_per_100g", "category", "protein_per_100g", "unit_based", "unit_label", "grams_per_unit", "glycemic_index", "id"];
+    const foodHeaders = ["fat_per_100g", "usage_count", "is_favorite", "notes", "calories_per_100g", "salt_per_100g", "name", "carbs_per_100g", "category", "protein_per_100g", "unit_based", "unit_label", "grams_per_unit", "glycemic_index", "source", "id"];
     const foodRows = state.library.map(f => ({
       fat_per_100g: f.fat, usage_count: f.usageCount || 0, is_favorite: !!f.favorite,
       notes: f.notes, calories_per_100g: f.kcal, salt_per_100g: f.salt, name: f.name,
       carbs_per_100g: f.carbs, category: f.category, protein_per_100g: f.protein,
       unit_based: !!f.unitBased, unit_label: f.unitLabel || "", grams_per_unit: f.gramsPerUnit || "",
-      glycemic_index: f.gi || "", id: f.id
+      glycemic_index: f.gi || "", source: f.source || "", id: f.id
     }));
     downloadText("Food_export.csv", toCsv(foodRows, foodHeaders), "text/csv");
 
@@ -8753,6 +8815,15 @@ import { extrasForDay, setDayExtra, dayKeyOf, eatingOutEstimates, eatingOutKcalF
     return added.length;
   }
 
+  // 2.86.0: recipe ingredients saved without a working food link (older imports, the ready-made recipes) get the library
+  // food of exactly the same name, so a later change to that food can be offered to the recipe. Only the link changes,
+  // never a figure: the recipe's carbs stay exactly as saved until Francesco chooses to update them.
+  function linkRecipeFoods() {
+    const n = state.recipes.reduce((s, r) => s + linkIngredients(r, state.library), 0);
+    if (n) { diag.log("info", "library", `Linked ${n} recipe ingredient(s) to library foods by name`); saveState(); }
+    return n;
+  }
+
   function applyGiSeedPatch() {
     if (applyPublishedGi(state.library)) saveState();
   }
@@ -8825,6 +8896,7 @@ import { extrasForDay, setDayExtra, dayKeyOf, eatingOutEstimates, eatingOutKcalF
     applyGiSeedPatch();
     repairQuantityFoods();
     seedMealRecipes();
+    linkRecipeFoods();
     renderQuickUsual(); renderReminder();
     renderFoodPickList();
     renderMealItems();
@@ -8881,6 +8953,7 @@ import { extrasForDay, setDayExtra, dayKeyOf, eatingOutEstimates, eatingOutKcalF
     applyTheme();
     applyGiSeedPatch();
     seedMealRecipes();
+    linkRecipeFoods();
     draft = { items: [], correctionOn: false, correctionManual: false, noInsulinOn: false, eatingOutOn: false, glucose: "", glucoseUnit: null, manualRatioId: null };
     setExtraMode(false);   // the saved draft below puts it back if it was on
     renderFoodPickList(); renderMealItems(); recompute();
