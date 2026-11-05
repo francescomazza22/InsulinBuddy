@@ -2,6 +2,18 @@
 // summary can never drift. Bump CHANGELOG[0].version here (and CACHE_VERSION in sw.js) on every release.
 export const CHANGELOG = [
   {
+    version: "2.84.0",
+    summary: "Recipes save as you go, and you can add extra insulin on top of the calculated dose.",
+    changes: [
+      "Recipes: every change is saved a moment after you make it, without pressing anything. The button is now Done, and closing says what was saved, with Undo",
+      "A new recipe that isn't complete yet (no final weight, say) is kept on your phone as a draft, even if the app closes, and comes back when you tap + in Recipes",
+      "Undo changes puts a recipe back the way it was when you opened it",
+      "Calculator: a new Extra button (under the Meal chip) adds the units you choose on top of the calculated dose. The calculated part doesn't change; the line under the dose shows it apart (Meal 4.5 u + extra 1 u), and − / + step by your rounding",
+      "The extra is logged with the meal and shown in the log (4.5 meal + 1 extra). You can change or remove it in Edit meal. It counts in active insulin, Nightscout and Apple Health like any insulin, and the ideal ratio counts it as insulin that meal needed",
+      "Extra is off again for every new meal, and can't be used with Treating a low or Eating out"
+    ]
+  },
+  {
     version: "2.83.0",
     summary: "Change your daily extras day by day: tap the calories bar.",
     changes: [

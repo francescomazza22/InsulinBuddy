@@ -1,7 +1,7 @@
 import { saveReportPdf } from "./js/pdf-report.js";
 import { sanityPool, doseSanity } from "./js/dose-sanity.js";
 import { escapeHtml, escapeAttr, round1, formatQty, dayKeyFromTs, timeAgo, makeId, redact, parseDecimalInput, signedChange } from "./js/util.js";
-import { convertGlucose, convertDosingSetting, roundDose as roundDoseWith, roundSignedDose as roundSignedDoseWith, activeAt, compoundGiInfo, computeDose, checkDoseConsistency, planDose, planEditDose, capDoseParts, giBand, niceScale, buildTrendBuckets, summarizeTrends, mealTypeBreakdown, absorptionMinutesForEntry as absorptionForEntry, iobFraction, cobGrams, glucoseTrendArrow, glucoseRangeClass, glucoseRangeLabel, basalByDay, summarizeBasal, ratioWasApplied, ratioByBracket, idealRatioByBracket, BASAL_ACTIVITY_DEFAULTS, BASAL_ACTIVITY_LIMITS, basalActivityRule, activitiesBeforeBasal, basalActivitySuggestion } from "./js/calc.js";
+import { convertGlucose, convertDosingSetting, roundDose as roundDoseWith, roundSignedDose as roundSignedDoseWith, activeAt, compoundGiInfo, computeDose, checkDoseConsistency, planDose, planEditDose, capDoseParts, giBand, niceScale, buildTrendBuckets, summarizeTrends, mealTypeBreakdown, absorptionMinutesForEntry as absorptionForEntry, iobFraction, cobGrams, glucoseTrendArrow, glucoseRangeClass, glucoseRangeLabel, basalByDay, summarizeBasal, ratioWasApplied, ratioByBracket, idealRatioByBracket, cleanExtraUnits, EXTRA_MAX_UNITS, BASAL_ACTIVITY_DEFAULTS, BASAL_ACTIVITY_LIMITS, basalActivityRule, activitiesBeforeBasal, basalActivitySuggestion } from "./js/calc.js";
 import { SCHEMA_VERSION, normalizeState as normalizeStateWith, makeFingerprint, stampChanges, mergeStates, statesEquivalent, prepareRestoredState } from "./js/state.js";
 import { NightscoutClient, NsOutbox, nsToken, nsBaseUrl, nsConfigured, treatmentsForEntry, entriesToGlucoseRows } from "./js/nightscout.js";
 import { createDiag, hookGlobalErrors } from "./js/diag.js";
@@ -16,7 +16,7 @@ import { fieldSvg } from "./js/doodle-field.js";
 import { abstractSvg } from "./js/abstract-field.js";
 import { recordRatioChange, ratioTimeline, ratioChanges } from "./js/ratio-history.js";
 import { dailyCarbsSummary, overBar } from "./js/daily-carbs.js";
-import { modeChipLabel, logButtonLabel } from "./js/calc-labels.js";
+import { modeChipLabel, logButtonLabel, doseBreakdownText } from "./js/calc-labels.js";
 import { solveSwap, carbsForGrams, canAdjust, setGrams } from "./js/swap.js";
 import { glucoseAxisTicks, percentile, dailyPatternBuckets, daysSpanned, estimatedA1c, extendedGlucoseStats, dailyStats, glucoseSummaryStats, timeInRangeBreakdown, glucoseGuideRows, TIME_IN_RANGE_BANDS, preferLiveReadings, preferLiveEntries } from "./js/glucose-stats.js";
 import { randomBytes, toB64, fromB64, deriveKey, encryptString, decryptString, isEncryptedPayload, exportKeyRaw, importKeyRaw } from "./js/crypto.js";
@@ -29,6 +29,7 @@ import { swipeAxis, swipePos, swipeSettle, swipeVelocity, daySwipeResult, daySwi
 import { parsePortion, parseQuantity, QUANTITY_CHIPS, QUANTITY_WHOLE, FRACTION_CHIPS, WHOLE_CHIP, fractionLabel, slicesLabel } from "./js/portion.js";
 import { PALETTES, DEFAULT_PALETTE, paletteId, RATIO_COLOURS, refreshRatioColours } from "./js/palettes.js";
 import { toMinutes, inRange, ratioAt, ratioMatch, bracketDays, daysLabel, DAY_NAMES, autoMealType, formatDuration, clampNum, normalizeTime } from "./js/core/time.js";
+import { readRecipeForm, recipeFingerprint, formHasContent, parseRecipeDraft, RECIPE_DRAFT_KEY, RECIPE_AUTOSAVE_MS } from "./js/recipe-draft.js";
 import { toCsv, parseCsv, recipeTotals as recipeTotalsWith, parseLibraryFile, mergeLibrary, repairRecipe } from "./js/core/library.js";
 import { buildMealEntry, adjustUsage } from "./js/core/meal-entry.js";
 import { validateState, validateEntry, validateFood, validateRecipe, hasErrors, summarizeProblems } from "./js/core/schema.js";
@@ -3224,16 +3225,16 @@ import { extrasForDay, setDayExtra, dayKeyOf, eatingOutEstimates, eatingOutKcalF
   // 2.81.0: one chip for Correction / Treating a low / Eating out. Its row opens by itself when any of them comes on (a
   // restored draft too), and closes on a fresh meal; the chip's words say what is on even while the row is closed.
   function renderModeChip() {
-    const on = !!(draft.correctionOn || draft.noInsulinOn || draft.eatingOutOn);   // !!: classList.toggle(x, undefined) flips instead of clearing
+    const on = !!(draft.correctionOn || draft.noInsulinOn || draft.eatingOutOn || draft.extraOn);   // !!: classList.toggle(x, undefined) flips instead of clearing
     if (on && !modeWasOn) modeOpen = true;
     modeWasOn = on;
     const chip = el("cc-mode-btn");
     if (!chip) return;
-    const label = modeChipLabel({ correctionOn: draft.correctionOn, noInsulinOn: draft.noInsulinOn, eatingOutOn: draft.eatingOutOn, hasFood: draft.items.length > 0 });
+    const label = modeChipLabel({ correctionOn: draft.correctionOn, noInsulinOn: draft.noInsulinOn, eatingOutOn: draft.eatingOutOn, extraOn: !!draft.extraOn, hasFood: draft.items.length > 0 });
     el("cc-mode-label").textContent = label;
     chip.classList.toggle("is-on", on);
     chip.setAttribute("aria-expanded", modeOpen ? "true" : "false");
-    chip.setAttribute("aria-label", `${label}. ${modeOpen ? "Hide" : "Show"} Correction, Treating a low and Eating out`);
+    chip.setAttribute("aria-label", `${label}. ${modeOpen ? "Hide" : "Show"} Correction, Treating a low, Eating out and Extra`);
     el("cc-mode-controls").hidden = !modeOpen;
   }
   bind("cc-mode-btn", "click", () => { modeOpen = !modeOpen; renderModeChip(); });
@@ -3255,13 +3256,15 @@ import { extrasForDay, setDayExtra, dayKeyOf, eatingOutEstimates, eatingOutKcalF
     const correctionMode = draft.correctionOn ? (draft.correctionManual ? "manual" : "auto") : "off";
     showDoseEntryProblem("cc-eating-out-dose", "cc-eating-out-error", draft.eatingOutOn);
     showDoseEntryProblem("cc-correction-manual-input", "cc-correction-manual-error", draft.correctionOn && draft.correctionManual);
+    showDoseEntryProblem("cc-extra-dose", "cc-extra-error", !!draft.extraOn);
+    const extraUnits = draft.extraOn && !draft.noInsulinOn && !draft.eatingOutOn ? cleanExtraUnits(el("cc-extra-dose").value) : 0;
     const plan = planDose({
       carbs, ratio: ratioEntry ? ratioEntry.ratio : 0,
       mealUnits: draft.eatingOutOn ? (!isNaN(typedMeal) && typedMeal > 0 ? typedMeal : 0) : null,
       correction: correctionMode, glucose: glucoseInput.value, glucoseUnit: draft.glucoseUnit,
       correctionUnits: parseDecimalInput(el("cc-correction-manual-input").value) * (draft.correctionSign === -1 ? -1 : 1),   // typed as a size; Add or Subtract gives it its sign
       iob: correctionMode === "auto" && state.settings.iobAwareCorrection ? calcActiveInsulinAndCarbs().iob : 0,
-      noInsulin: draft.noInsulinOn, settings: state.settings
+      noInsulin: draft.noInsulinOn, extraUnits, settings: state.settings
     });
     const { mealPart, correctionPart, iobSubtracted } = plan;
     const rawCorrectionPart = plan.rawCorrection;
@@ -3295,13 +3298,10 @@ import { extrasForDay, setDayExtra, dayKeyOf, eatingOutEstimates, eatingOutKcalF
     doseNumber.textContent = finalDose.toFixed(1);
     // When a correction is part of the dose, show the two parts that make it up, so the sum can be checked at a glance.
     const breakdownEl = el("cc-dose-breakdown");
-    const showBreakdown = !draft.noInsulinOn && loggedCorrectionDose !== 0 && (loggedMealDose > 0 || loggedCorrectionDose < 0);
-    breakdownEl.hidden = !showBreakdown;
-    if (showBreakdown) {
-      breakdownEl.textContent = loggedCorrectionDose > 0
-        ? `Meal ${loggedMealDose} u + correction ${loggedCorrectionDose} u`
-        : `Meal ${loggedMealDose} u \u2212 ${Math.abs(loggedCorrectionDose)} u taken off`;
-    }
+    // 2.84.0: an extra is shown as its own part ("Meal 3 u + correction 1 u + extra 0.5 u"), never hidden inside the others.
+    const breakdown = doseBreakdownText({ mealDose: loggedMealDose, correctionDose: loggedCorrectionDose, extraDose: plan.extraDose, extraInMeal: plan.extraInMeal, noInsulin: draft.noInsulinOn });
+    breakdownEl.hidden = !breakdown;
+    if (breakdown) breakdownEl.textContent = breakdown;
     // Keep the Add / Subtract switch showing what the draft says (a reset or a restored draft changes it from elsewhere).
     el("cc-correction-sign").querySelectorAll(".correction-sign__btn").forEach(b => {
       const on = (draft.correctionSign === -1) === (b.dataset.sign === "-1");
@@ -3316,14 +3316,16 @@ import { extrasForDay, setDayExtra, dayKeyOf, eatingOutEstimates, eatingOutKcalF
     capNote.hidden = !showCapNote;
     if (showCapNote) {
       capNote.textContent = plan.capped
-        ? `Capped at your ${state.settings.maxDose} u maximum. The calculation came to ${plan.requested} u.`
+        ? (plan.extraDose > 0
+          ? `The calculated part was capped at your ${state.settings.maxDose} u maximum, then your ${plan.extraDose} u extra was added: ${finalDose} u. Check it is right.`
+          : `Capped at your ${state.settings.maxDose} u maximum. The calculation came to ${plan.requested} u.`)
         : `${finalDose} u is above your ${state.settings.maxDose} u maximum dose. You typed it, so it hasn't been changed. Check it is right.`;
     }
 
     const hasSomethingToLog = plan.hasDose;
     logBtn.disabled = !hasSomethingToLog;
     // 2.81.0: the button says what it will log (the same figure as the big number), and the empty card says what to do.
-    const emptyDraft = draft.items.length === 0 && !draft.correctionOn && !draft.noInsulinOn && !draft.eatingOutOn;
+    const emptyDraft = draft.items.length === 0 && !draft.correctionOn && !draft.noInsulinOn && !draft.eatingOutOn && !(plan.extraDose > 0);
     logBtn.textContent = logButtonLabel({ hasDose: hasSomethingToLog, empty: emptyDraft, noInsulinOn: draft.noInsulinOn, eatingOutOn: draft.eatingOutOn, finalDose, carbs });
     doseNumber.closest(".dose-card").classList.toggle("is-empty", emptyDraft);
     el("cc-dose-hint").hidden = !emptyDraft;
@@ -3345,7 +3347,7 @@ import { extrasForDay, setDayExtra, dayKeyOf, eatingOutEstimates, eatingOutKcalF
     logBtn.classList.toggle("btn--pulse", hasSomethingToLog);
     // Clear All is the one way to start over (the dose card's bin went in 2.60.0), so it shows whenever there is anything to
     // clear, not only when there is a dose: food with no insulin, a switched-on Correction or a typed glucose count too.
-    const hasAnythingToClear = draft.items.length > 0 || draft.correctionOn || draft.noInsulinOn || draft.eatingOutOn || glucoseInput.value.trim() !== "";
+    const hasAnythingToClear = draft.items.length > 0 || draft.correctionOn || draft.noInsulinOn || draft.eatingOutOn || !!draft.extraOn || glucoseInput.value.trim() !== "";
     clearAllBtn.hidden = !(hasSomethingToLog || hasAnythingToClear);
 
     const glIndicator = el("cc-gl-indicator");
@@ -3360,7 +3362,7 @@ import { extrasForDay, setDayExtra, dayKeyOf, eatingOutEstimates, eatingOutKcalF
       glIndicator.hidden = true;
     }
 
-    draft._computed = { carbs, mealDose: loggedMealDose, correctionDose: loggedCorrectionDose, finalDose, ratioEntry, requested: plan.requested, capped: plan.capped };
+    draft._computed = { carbs, mealDose: loggedMealDose, correctionDose: loggedCorrectionDose, extraDose: plan.extraDose, finalDose, ratioEntry, requested: plan.requested, capped: plan.capped };
     if (draft.eatingOutOn) renderDayKcal();   // 2.82.0: the eating-out estimate needs this dose (the bar was drawn before it was known)
   }
 
@@ -3433,6 +3435,7 @@ import { extrasForDay, setDayExtra, dayKeyOf, eatingOutEstimates, eatingOutKcalF
       correctionRow.hidden = true;
     }
     if (draft.noInsulinOn && draft.eatingOutOn) setEatingOutMode(false);
+    if (draft.noInsulinOn && draft.extraOn) setExtraMode(false);
     recompute();
     saveDraftLocal();
   });
@@ -3457,6 +3460,42 @@ import { extrasForDay, setDayExtra, dayKeyOf, eatingOutEstimates, eatingOutKcalF
       el("cc-no-insulin-note").hidden = true;
       el("quick-carb-row").hidden = true;
     }
+    if (draft.eatingOutOn && draft.extraOn) setExtraMode(false);   // the eating-out dose is typed whole: add to it there
+    recompute();
+    saveDraftLocal();
+  });
+
+  // Extra (2.84.0): units Francesco chooses to add on top of what the Calculator worked out (fat, protein, a hunch). It goes
+  // through planDose like everything else; it never changes the calculated part, and it is off again for every new meal.
+  function setExtraMode(on) {
+    draft.extraOn = !!on;
+    el("cc-extra-toggle").classList.toggle("is-active", !!on);
+    el("cc-extra-toggle").setAttribute("aria-pressed", on ? "true" : "false");
+    el("cc-extra-row").hidden = !on;
+    if (!on) el("cc-extra-dose").value = "";
+  }
+  bind("cc-extra-toggle", "click", () => {
+    setExtraMode(!draft.extraOn);
+    if (draft.extraOn && draft.noInsulinOn) {
+      draft.noInsulinOn = false;
+      el("cc-no-insulin-toggle").classList.remove("is-active");
+      el("cc-no-insulin-note").hidden = true;
+      el("quick-carb-row").hidden = true;
+    }
+    if (draft.extraOn && draft.eatingOutOn) setEatingOutMode(false);
+    if (draft.extraOn) { const f = el("cc-extra-dose"); f.focus(); }
+    recompute();
+    saveDraftLocal();
+  });
+  bind("cc-extra-dose", "input", () => { recompute(); saveDraftLocal(); });
+  // − / + step by the rounding step in Settings (0.5 u at most, so small top-ups are possible), never below 0.
+  el("cc-extra-row").addEventListener("click", e => {
+    const b = e.target.closest("[data-extra-step]");
+    if (!b) return;
+    const step = Math.min(0.5, state.settings.rounding > 0 ? state.settings.rounding : 0.5);
+    const now = cleanExtraUnits(el("cc-extra-dose").value);
+    const next = Math.round(Math.max(0, Math.min(EXTRA_MAX_UNITS, now + Number(b.dataset.extraStep) * step)) * 100) / 100;
+    el("cc-extra-dose").value = next > 0 ? String(next) : "";
     recompute();
     saveDraftLocal();
   });
@@ -3529,6 +3568,8 @@ import { extrasForDay, setDayExtra, dayKeyOf, eatingOutEstimates, eatingOutKcalF
         noInsulinOn: draft.noInsulinOn,
         eatingOutOn: draft.eatingOutOn,
         eatingOutValue: el("cc-eating-out-dose").value || "",
+        extraOn: !!draft.extraOn,
+        extraValue: el("cc-extra-dose").value || "",
         glucose: glucoseInput.value || "",
         glucoseUnit: draft.glucoseUnit,
         manualRatioId: draft.manualRatioId
@@ -3551,7 +3592,8 @@ import { extrasForDay, setDayExtra, dayKeyOf, eatingOutEstimates, eatingOutKcalF
     // A correction typed with no foods at all (a manual dose, or a glucose reading) is just as real an in-progress entry as an
     // Eating Out dose, and was being thrown away on reload because it has no items.
     const hasTypedCorrection = !!saved && !!saved.correctionOn && !!(saved.correctionManualValue || saved.glucose);
-    if (!saved || (!Array.isArray(saved.items) || saved.items.length === 0) && !saved.eatingOutOn && !hasTypedCorrection) return;
+    const hasTypedExtra = !!saved && !!saved.extraOn && !!saved.extraValue;
+    if (!saved || (!Array.isArray(saved.items) || saved.items.length === 0) && !saved.eatingOutOn && !hasTypedCorrection && !hasTypedExtra) return;
     draft.items = saved.items || [];
     draft.manualRatioId = saved.manualRatioId || null;
     draft.glucoseUnit = saved.glucoseUnit || state.settings.units;
@@ -3582,6 +3624,10 @@ import { extrasForDay, setDayExtra, dayKeyOf, eatingOutEstimates, eatingOutKcalF
       el("cc-eating-out-row").hidden = false;
       el("cc-food-section").hidden = true;
       if (saved.eatingOutValue) el("cc-eating-out-dose").value = saved.eatingOutValue;
+    }
+    if (saved.extraOn && !saved.noInsulinOn && !saved.eatingOutOn) {
+      setExtraMode(true);
+      if (saved.extraValue) el("cc-extra-dose").value = saved.extraValue;
     }
     renderMealItems();
     recompute();
@@ -3614,6 +3660,7 @@ import { extrasForDay, setDayExtra, dayKeyOf, eatingOutEstimates, eatingOutKcalF
     el("cc-eating-out-row").hidden = true;
     el("cc-eating-out-dose").value = "";
     el("cc-food-section").hidden = false;
+    setExtraMode(false);
     ratioPicker.hidden = true;
     selectedPickId = null;
     modeOpen = false;
@@ -3628,7 +3675,8 @@ import { extrasForDay, setDayExtra, dayKeyOf, eatingOutEstimates, eatingOutKcalF
   logBtn.addEventListener("click", () => {
     const hasCorrection = draft._computed && draft._computed.correctionDose > 0;
     const hasEatingOutDose = draft.eatingOutOn && draft._computed && draft._computed.mealDose > 0;
-    if (totalCarbs() <= 0 && !hasCorrection && !hasEatingOutDose) return;
+    const hasExtra = draft._computed && draft._computed.extraDose > 0;
+    if (totalCarbs() <= 0 && !hasCorrection && !hasEatingOutDose && !hasExtra) return;
     logMeal(totalCarbs() > 0 || hasEatingOutDose ? autoMealType(new Date()) : "correction");
   });
 
@@ -3728,7 +3776,7 @@ import { extrasForDay, setDayExtra, dayKeyOf, eatingOutEstimates, eatingOutKcalF
 
   // Snapshot / restore of the half-built meal, so "log" and "replace" can be undone without losing what was typed.
   function snapshotDraft() { saveDraftLocal(); try { return store.getItem(DRAFT_KEY); } catch (e) { return null; } }
-  function draftIsEmpty() { return !draft.items.length && !draft.correctionOn && !draft.eatingOutOn && !draft.noInsulinOn; }
+  function draftIsEmpty() { return !draft.items.length && !draft.correctionOn && !draft.eatingOutOn && !draft.noInsulinOn && !draft.extraOn; }
   function restoreDraftSnapshot(raw) {
     if (!raw || !draftIsEmpty()) return false;   // never mix a snapshot into something new the person has started since
     try { store.setItem(DRAFT_KEY, raw); } catch (e) { return false; }
@@ -5039,10 +5087,30 @@ import { extrasForDay, setDayExtra, dayKeyOf, eatingOutEstimates, eatingOutKcalF
     }
   });
 
+  // 2.84.0: the recipe sheet saves as you go (Francesco: "make sure recipes are autosaved when playing with the dosage even
+  // before pressing save recipe"). A complete recipe is written to the library a moment after each change; an incomplete one
+  // (no final weight yet, an empty amount) is kept on this device as a draft and comes back when the sheet is opened again.
+  // One draft per recipe ("new" for one not in the library yet), so an unfinished new recipe survives editing another one.
+  const recipeDraftKey = id => `${RECIPE_DRAFT_KEY}.${id || "new"}`;
+  function readRecipeDraft(id) {
+    try { const t = store.getItem(recipeDraftKey(id)); return t ? parseRecipeDraft(t) : null; } catch (e) { return null; }
+  }
+  function writeRecipeDraft(id, d) { try { store.setItem(recipeDraftKey(id), JSON.stringify(d)); } catch (e) { /* storage unavailable: the library copy still saves */ } }
+  function clearRecipeDraft(id) { try { store.removeItem(recipeDraftKey(id)); } catch (e) { /* nothing to clear */ } }
+
   function openRecipeSheet(recipe) {
+    // A draft left by an earlier visit: a new recipe that was never complete, or unfinished changes to this recipe.
+    const draftHere = readRecipeDraft(recipe ? recipe.id : null);
+    let saved = recipe || null;
     const isEdit = !!recipe;
+    const original = recipe ? JSON.parse(JSON.stringify(recipe)) : null;   // what Undo / Discard put back
     const r = recipe || { name: "", category: "other", notes: "", favorite: false, items: [], rawWeight: null, finalWeight: "" };
     let items = r.items.length ? r.items.map(it => ({ ...it })) : [];
+    const init = {
+      name: r.name, category: r.category || "other", notes: r.notes || "", favorite: !!r.favorite,
+      rawText: r.rawWeight ?? "", finalText: r.finalWeight ?? "", slicesText: r.slices > 0 ? r.slices : ""
+    };
+    if (draftHere) { Object.assign(init, draftHere.form); items = draftHere.items.map(it => ({ ...it })); }
     let ingredientSelection = null; // { foodId, name }
 
     const backdrop = document.createElement("div");
@@ -5063,9 +5131,9 @@ import { extrasForDay, setDayExtra, dayKeyOf, eatingOutEstimates, eatingOutKcalF
         </div>
 
         <div class="field-grid">
-          <div class="field"><label>Recipe Name</label><input type="text" id="rs-name" value="${escapeAttr(r.name)}" placeholder="e.g., Chocolate Cake" autocomplete="off" autocorrect="off"></div>
+          <div class="field"><label>Recipe Name</label><input type="text" id="rs-name" value="${escapeAttr(init.name)}" placeholder="e.g., Chocolate Cake" autocomplete="off" autocorrect="off"></div>
           <div class="field"><label>Category</label>
-            <select id="rs-cat">${CATEGORIES.map(c => `<option value="${escapeAttr(c.id)}" ${c.id === r.category ? "selected" : ""}>${c.label}</option>`).join("")}</select>
+            <select id="rs-cat">${CATEGORIES.map(c => `<option value="${escapeAttr(c.id)}" ${c.id === init.category ? "selected" : ""}>${c.label}</option>`).join("")}</select>
           </div>
         </div>
 
@@ -5087,25 +5155,26 @@ import { extrasForDay, setDayExtra, dayKeyOf, eatingOutEstimates, eatingOutKcalF
         </div>
 
         <div class="field-grid" style="margin-top:16px;">
-          <div class="field"><label>Raw Weight (g)</label><input type="text" inputmode="decimal" autocomplete="off" spellcheck="false" id="rs-raw-weight" value="${r.rawWeight ?? ""}" placeholder="Optional"></div>
-          <div class="field"><label>Final Weight (g) *</label><input type="text" inputmode="decimal" autocomplete="off" spellcheck="false" id="rs-final-weight" value="${r.finalWeight ?? ""}" placeholder="e.g., 800"></div>
+          <div class="field"><label>Raw Weight (g)</label><input type="text" inputmode="decimal" autocomplete="off" spellcheck="false" id="rs-raw-weight" value="${escapeAttr(init.rawText)}" placeholder="Optional"></div>
+          <div class="field"><label>Final Weight (g) *</label><input type="text" inputmode="decimal" autocomplete="off" spellcheck="false" id="rs-final-weight" value="${escapeAttr(init.finalText)}" placeholder="e.g., 800"></div>
         </div>
 
         <div class="field">
           <label for="rs-slices">Slices <span class="field__optional">(Optional)</span></label>
-          <input type="text" inputmode="numeric" autocomplete="off" id="rs-slices" value="${r.slices > 0 ? escapeAttr(r.slices) : ""}" placeholder="e.g., 12">
+          <input type="text" inputmode="numeric" autocomplete="off" id="rs-slices" value="${escapeAttr(init.slicesText)}" placeholder="e.g., 12">
           <p class="panel-card__hint" style="margin-top:6px;">How many slices the whole dish is cut into. On the Calculator you can then add "1 slice" or "2 slices" instead of grams.</p>
         </div>
 
         <div class="field">
           <label>Notes <span class="field__optional">(Optional)</span></label>
-          <textarea id="rs-notes" rows="2" placeholder="Cooking instructions, tips, etc&hellip;">${escapeHtml(r.notes || "")}</textarea>
+          <textarea id="rs-notes" rows="2" placeholder="Cooking instructions, tips, etc&hellip;">${escapeHtml(init.notes)}</textarea>
         </div>
-        <div class="checkbox-row"><label><input type="checkbox" id="rs-fav" ${r.favorite ? "checked" : ""}> Favorite</label></div>
+        <div class="checkbox-row"><label><input type="checkbox" id="rs-fav" ${init.favorite ? "checked" : ""}> Favorite</label></div>
 
-        <div class="sheet-actions">
-          <button class="btn btn--secondary" id="rs-cancel" type="button">Cancel</button>
-          <button class="btn btn--primary" id="rs-save" type="button">${isEdit ? "Save Changes" : "Save Recipe"}</button>
+        <div class="sheet-actions sheet-actions--status">
+          <p class="rs-autosave" id="rs-autosave" role="status" aria-live="polite">${draftHere ? "Picked up where you left off." : "Changes save as you go."}</p>
+          <button class="btn btn--secondary" id="rs-cancel" type="button">${isEdit ? "Undo changes" : "Discard"}</button>
+          <button class="btn btn--primary" id="rs-save" type="button">Done</button>
         </div>
       </div>
     `;
@@ -5220,6 +5289,7 @@ import { extrasForDay, setDayExtra, dayKeyOf, eatingOutEstimates, eatingOutKcalF
       backdrop.querySelector("#rs-ing-weight").value = "";
       hint("");
       renderIngredientList();
+      scheduleAutosave();
       backdrop.querySelector("#rs-ing-search").focus({ preventScroll: true });   // ready for the next ingredient
     }
     backdrop.querySelector("#rs-ing-add").addEventListener("click", addIngredient);
@@ -5232,46 +5302,112 @@ import { extrasForDay, setDayExtra, dayKeyOf, eatingOutEstimates, eatingOutKcalF
       if (items[+inp.dataset.gidx]) items[+inp.dataset.gidx].grams = g > 0 ? g : 0;
       inp.classList.toggle("is-invalid", inp.value.trim() !== "" && !(g >= 0));
       renderTotal();
+      scheduleAutosave();
     });
     backdrop.querySelector("#rs-ing-list").addEventListener("click", e => {
       const btn = e.target.closest("button[data-idx]");
       if (!btn) return;
       items.splice(parseInt(btn.dataset.idx, 10), 1);
       renderIngredientList();
+      scheduleAutosave();
     });
 
-    backdrop.addEventListener("click", e => {
-      if (e.target === backdrop || e.target.id === "rs-cancel" || e.target.closest("#rs-close") || e.target.closest("#rs-back")) closeSheet(backdrop);
+    // ---- Saving as you go ----
+    const formNow = () => ({
+      name: backdrop.querySelector("#rs-name").value,
+      category: backdrop.querySelector("#rs-cat").value,
+      notes: backdrop.querySelector("#rs-notes").value,
+      favorite: backdrop.querySelector("#rs-fav").checked,
+      rawText: backdrop.querySelector("#rs-raw-weight").value,
+      finalText: backdrop.querySelector("#rs-final-weight").value,
+      slicesText: backdrop.querySelector("#rs-slices").value
     });
-    backdrop.querySelector("#rs-save").addEventListener("click", () => {
-      const name = backdrop.querySelector("#rs-name").value.trim();
-      const finalWeight = parseDecimalInput(backdrop.querySelector("#rs-final-weight").value);
-      const rawText = backdrop.querySelector("#rs-raw-weight").value.trim();
-      const rawWeight = rawText ? parseDecimalInput(rawText) : null;
-      if (!name) { dialogs.alert("Give the recipe a name."); return; }
-      if (items.length === 0) { dialogs.alert("Add at least one ingredient."); return; }
-      if (items.some(i => !(i.grams > 0))) { dialogs.alert("Every ingredient needs an amount in grams (or remove it)."); return; }
-      const slicesText = backdrop.querySelector("#rs-slices").value.trim();
-      const slices = slicesText ? parseDecimalInput(slicesText) : null;
-      if (slicesText && !(Number.isInteger(slices) && slices >= 1 && slices <= 200)) { dialogs.alert("Slices should be a whole number, like 8 or 12 — or leave it empty."); return; }
-      if (rawText && !(rawWeight > 0)) { dialogs.alert("Raw Weight isn't a number I can read. Try something like 653 or 653,5, or leave it empty."); return; }
-      if (!finalWeight || finalWeight <= 0) { dialogs.alert("Final Weight is required — it's the total weight of the finished dish, used to work out carbs per 100g."); return; }
-      const payload = {
-        name,
-        category: backdrop.querySelector("#rs-cat").value,
-        notes: backdrop.querySelector("#rs-notes").value.trim(),
-        favorite: backdrop.querySelector("#rs-fav").checked,
-        items,
-        rawWeight: rawWeight || null,
-        slices: slices || null,
-        finalWeight
-      };
-      if (isEdit) Object.assign(r, payload);
-      else state.recipes.unshift({ id: "recipe-" + Date.now(), usageCount: 0, ...payload });
-      saveState();
-      renderRecipesLibrary();
+    const statusEl = backdrop.querySelector("#rs-autosave");
+    let createdHere = false;   // this sheet added the recipe to the library (Discard / Undo take it out again)
+    let timer = null;
+    function autosaveNow() {
+      clearTimeout(timer); timer = null;
+      const form = formNow();
+      const { payload, problem } = readRecipeForm(form, items);
+      if (payload) {
+        if (saved) {
+          if (recipeFingerprint(saved) !== recipeFingerprint(payload)) { Object.assign(saved, payload); saveState(); renderRecipesLibrary(); }
+        } else {
+          saved = { id: "recipe-" + Date.now(), usageCount: 0, ...payload };
+          state.recipes.unshift(saved); createdHere = true;
+          clearRecipeDraft(null);   // from now on it is a library recipe, with its own draft slot
+          saveState(); renderRecipesLibrary();
+        }
+        clearRecipeDraft(saved.id);
+        statusEl.textContent = "Saved.";
+        statusEl.classList.remove("is-pending");
+        return null;
+      }
+      if (formHasContent(form, items)) {
+        writeRecipeDraft(saved ? saved.id : null, { recipeId: saved ? saved.id : null, form, items, at: Date.now() });
+        statusEl.textContent = saved ? `Last complete version saved. Not saved yet: ${problem}` : `Kept as a draft on this device. To save it: ${problem.charAt(0).toLowerCase()}${problem.slice(1)}`;
+        statusEl.classList.add("is-pending");
+      } else {
+        clearRecipeDraft(saved ? saved.id : null);
+        statusEl.textContent = "Changes save as you go.";
+        statusEl.classList.remove("is-pending");
+      }
+      return problem;
+    }
+    function scheduleAutosave() { clearTimeout(timer); timer = setTimeout(autosaveNow, RECIPE_AUTOSAVE_MS); }
+    backdrop.querySelector(".sheet").addEventListener("input", e => { if (!e.target.closest("#rs-ing-search, #rs-ing-weight, #rs-ing-list")) scheduleAutosave(); });
+    backdrop.querySelector(".sheet").addEventListener("change", e => { if (!e.target.closest("#rs-ing-search, #rs-ing-weight, #rs-ing-list")) scheduleAutosave(); });
+    // iOS can close the app as soon as it goes to the background: save on the way out.
+    const onHide = () => { if (document.hidden) autosaveNow(); };
+    const onPageHide = () => autosaveNow();
+    document.addEventListener("visibilitychange", onHide);
+    window.addEventListener("pagehide", onPageHide);
+    const shut = () => {
+      clearTimeout(timer);
+      document.removeEventListener("visibilitychange", onHide);
+      window.removeEventListener("pagehide", onPageHide);
       closeSheet(backdrop);
+    };
+
+    function putBack() {
+      if (original && saved) { Object.keys(saved).forEach(k => { if (!(k in original)) delete saved[k]; }); Object.assign(saved, JSON.parse(JSON.stringify(original))); }
+      else if (createdHere && saved) { const i = state.recipes.indexOf(saved); if (i >= 0) state.recipes.splice(i, 1); }
+      saveState(); renderRecipesLibrary();
+    }
+
+    // Done (and tapping outside / X / back): everything is already saved; say what happened, with an Undo.
+    async function done() {
+      const problem = autosaveNow();
+      if (problem && saved && formHasContent(formNow(), items)) {
+        const close = await dialogs.confirm(`Your last change isn't saved: ${problem} The recipe keeps its last complete version, and the change waits as a draft for next time.`, { title: "Close the recipe?", confirmText: "Close", cancelText: "Keep editing" });
+        if (!close) return;
+      }
+      const changed = original ? recipeFingerprint(original) !== recipeFingerprint(saved) : createdHere;
+      shut();
+      if (changed && saved) {
+        const label = createdHere ? `Saved "${saved.name}"` : `Saved changes to "${saved.name}"`;
+        const id = saved.id;
+        showUndoToast(label, () => { putBack(); clearRecipeDraft(id); });
+      } else if (problem && !saved && formHasContent(formNow(), items)) {
+        showUndoToast("Recipe kept as a draft: tap + in Recipes to carry on", () => clearRecipeDraft(null));
+      }
+    }
+    async function discard() {
+      clearTimeout(timer);
+      const form = formNow();
+      const changed = (original ? recipeFingerprint(original) !== recipeFingerprint(saved) : createdHere) || !!readRecipeDraft(saved ? saved.id : null) || (formHasContent(form, items) && !original);
+      if (changed && !(await dialogs.confirm(isEdit ? "Put this recipe back the way it was when you opened it?" : "Throw away this recipe?", { title: isEdit ? "Undo changes" : "Discard recipe", confirmText: isEdit ? "Undo changes" : "Discard", danger: true }))) return;
+      putBack();
+      clearRecipeDraft(saved ? saved.id : null);
+      shut();
+    }
+
+    backdrop.addEventListener("click", e => {
+      if (e.target.id === "rs-cancel") { discard(); return; }
+      if (e.target === backdrop || e.target.closest("#rs-close") || e.target.closest("#rs-back")) done();
     });
+    backdrop.querySelector("#rs-save").addEventListener("click", done);
+    if (draftHere) scheduleAutosave();   // a restored draft may already be complete (or its recipe changed meanwhile)
   }
 
   libAddBtn.addEventListener("click", () => { if (libSeg === "foods") openFoodSheet(null); else openRecipeSheet(null); });
@@ -6250,7 +6386,9 @@ import { extrasForDay, setDayExtra, dayKeyOf, eatingOutEstimates, eatingOutKcalF
       if (res.lowsCounted) bits.push(`${plural(res.lowsCounted, "low", "lows")} treated (${round1(res.rescueCarbs)} g of carbs, added to the meal's carbs)`);
       if (res.correctionsCounted) bits.push(`${plural(res.correctionsCounted, "correction", "corrections")} (${round1(res.correctionUnits)} u, added to the meal's insulin)`);
       out.push(`Within ${w} h after a ratio-dosed meal: ${bits.join(" and ")}. Each is counted into the meal before it.`);
-    } else out.push(`No lows were treated and no corrections given within ${w} h after a meal in this period, so the ideal ratio equals the ratio used.`);
+    } else out.push(`No lows were treated and no corrections given within ${w} h after a meal in this period${res.rows.some(r => r.withExtra) ? "" : ", so the ideal ratio equals the ratio used"}.`);
+    const withExtra = res.rows.reduce((n, r) => n + (r.withExtra || 0), 0);
+    if (withExtra) out.push(`${plural(withExtra, "meal", "meals")} had extra insulin added by hand at the time, counted into that meal's insulin too.`);
     const left = [];
     if (res.lowsUnattached) left.push(plural(res.lowsUnattached, "low", "lows"));
     if (res.correctionsUnattached) left.push(plural(res.correctionsUnattached, "correction", "corrections"));
@@ -6564,6 +6702,7 @@ import { extrasForDay, setDayExtra, dayKeyOf, eatingOutEstimates, eatingOutKcalF
     el("cc-no-insulin-toggle").classList.remove("is-active"); el("cc-no-insulin-note").hidden = true; el("quick-carb-row").hidden = true;
     el("cc-eating-out-toggle").classList.remove("is-active"); el("cc-eating-out-note").hidden = true;
     el("cc-eating-out-row").hidden = true; el("cc-eating-out-dose").value = ""; el("cc-food-section").hidden = false;
+    setExtraMode(false);   // an extra is decided fresh each time, never copied from the old meal
     ratioPicker.hidden = true; selectedPickId = null; modeOpen = false;
     renderFoodPickList(); renderMealItems(); recompute();
     showView("calculator");
@@ -6647,6 +6786,10 @@ import { extrasForDay, setDayExtra, dayKeyOf, eatingOutEstimates, eatingOutKcalF
         <label class="block-label">Items</label>
         <div id="em-items" class="ingredient-list" style="margin-bottom:16px;"></div>
         </div>
+        <div class="field" id="em-extra-field">
+          <label for="em-extra-dose">Extra insulin <span class="field__optional">(added on top)</span></label>
+          <div class="field__row"><input type="text" id="em-extra-dose" inputmode="decimal" autocomplete="off" spellcheck="false" placeholder="0" value="${cleanExtraUnits(entry.extraDose) > 0 ? escapeAttr(cleanExtraUnits(entry.extraDose)) : ""}"><span class="field__unit">units</span></div>
+        </div>
         </div>
         ${entry.glucose != null ? `
           <div class="field">
@@ -6689,13 +6832,17 @@ import { extrasForDay, setDayExtra, dayKeyOf, eatingOutEstimates, eatingOutKcalF
     function eatOutUnits() { const v = parseDecimalInput(backdrop.querySelector("#em-eatout-dose").value); return isNaN(v) ? NaN : v; }
     function eatOutParts() {
       const glucoseEl = backdrop.querySelector("#em-glucose");
-      const plan = planEditDose({ entry: { ...entry, noInsulin: false, mealDose: Math.max(0, eatOutUnits() || 0) }, totalCarbs: 0, ratio: 0, glucoseText: glucoseEl ? glucoseEl.value : null, settings: state.settings });
+      const plan = planEditDose({ entry: { ...entry, noInsulin: false, extraDose: 0, mealDose: Math.max(0, eatOutUnits() || 0) }, totalCarbs: 0, ratio: 0, glucoseText: glucoseEl ? glucoseEl.value : null, settings: state.settings, extraUnits: 0 });
       return { meal: plan.mealDose, correction: plan.correctionDose, total: plan.finalDose, requested: plan.requested, capped: plan.capped, overMax: plan.overMax };
     }
+    // Extra insulin (2.84.0): only on a meal dose; the box is read like every dose box ("0,5" is 0.5).
+    const extraText = () => backdrop.querySelector("#em-extra-dose").value.trim();
+    const extraUnreadable = () => kind === "meal" && extraText() !== "" && !/^[.,]$/.test(extraText()) && !(parseDecimalInput(extraText()) >= 0);
+    const extraNow = () => (kind === "meal" ? cleanExtraUnits(extraText()) : 0);
     function editDoseParts(totalCarbs) {
       const glucoseEl = backdrop.querySelector("#em-glucose");
-      const plan = planEditDose({ entry: { ...entry, noInsulin: kind === "low" }, totalCarbs, ratio: selectedRatioValue, glucoseText: glucoseEl ? glucoseEl.value : null, settings: state.settings });
-      return { meal: plan.mealDose, correction: plan.correctionDose, total: plan.finalDose, requested: plan.requested, capped: plan.capped, overMax: plan.overMax };
+      const plan = planEditDose({ entry: { ...entry, noInsulin: kind === "low" }, totalCarbs, ratio: selectedRatioValue, glucoseText: glucoseEl ? glucoseEl.value : null, settings: state.settings, extraUnits: extraNow() });
+      return { meal: plan.mealDose, correction: plan.correctionDose, total: plan.finalDose, requested: plan.requested, capped: plan.capped, overMax: plan.overMax, extra: plan.extraDose };
     }
 
     const KIND_HINTS = {
@@ -6718,6 +6865,7 @@ import { extrasForDay, setDayExtra, dayKeyOf, eatingOutEstimates, eatingOutKcalF
         b.style.borderColor = on ? m.color : ""; b.style.fontWeight = on ? "700" : ""; b.style.background = on ? m.color + "1a" : "";
         b.hidden = b.dataset.meal === "correction";             // "Correction" is now picked above, not as a meal type
       });
+      backdrop.querySelector("#em-extra-field").hidden = kind !== "meal";
       const ratioLabel = backdrop.querySelector("#em-ratio-label"), ratioSel = backdrop.querySelector("#em-ratio");
       if (ratioLabel) ratioLabel.hidden = kind !== "meal"; ratioSel.hidden = kind !== "meal";
       updatePreview();
@@ -6742,6 +6890,7 @@ import { extrasForDay, setDayExtra, dayKeyOf, eatingOutEstimates, eatingOutKcalF
         backdrop.querySelector("#em-preview").textContent = `Saved as treating a low: ${c}g carbs, no insulin.`;
         return;
       }
+      if (extraUnreadable()) { backdrop.querySelector("#em-preview").textContent = "Extra insulin: that isn't a number I can read. Try something like 0.5 or 0,5"; return; }
       const totalCarbs = round1(items.reduce((s, i) => s + i.carbs, 0));
       // The dose comes from the exact carb total, as in the Calculator; only the shown/saved total is rounded (2.68.5:
       // rounding first made a meal logged at 2.0 u re-save as 2.5 u when its carbs sat on a rounding boundary).
@@ -6750,7 +6899,8 @@ import { extrasForDay, setDayExtra, dayKeyOf, eatingOutEstimates, eatingOutKcalF
         : parts.overMax ? ` — above your ${state.settings.maxDose} u maximum` : "";
       backdrop.querySelector("#em-preview").textContent =
         `New total: ${round1(totalCarbs)}g carbs → ${unitsText(parts.total)}` +
-        (selectedRatioValue ? ` (using ${selectedRatioLabel ? escapeHtml(selectedRatioLabel) + " " : ""}${ratioText(selectedRatioValue)})` : "") + capText;
+        (selectedRatioValue ? ` (using ${selectedRatioLabel ? escapeHtml(selectedRatioLabel) + " " : ""}${ratioText(selectedRatioValue)})` : "") +
+        (parts.extra > 0 ? `, including ${unitsText(parts.extra)} extra` : "") + capText;
     }
 
     backdrop.querySelector("#em-meal-types").addEventListener("click", e => {
@@ -6768,6 +6918,7 @@ import { extrasForDay, setDayExtra, dayKeyOf, eatingOutEstimates, eatingOutKcalF
     });
     backdrop.querySelector("#em-corr-dose").addEventListener("input", updatePreview);
     backdrop.querySelector("#em-eatout-dose").addEventListener("input", updatePreview);
+    backdrop.querySelector("#em-extra-dose").addEventListener("input", updatePreview);
     backdrop.querySelector("#em-items").addEventListener("input", e => {
       if (!e.target.classList.contains("em-grams-input")) return;
       const idx = parseInt(e.target.dataset.idx, 10);
@@ -6806,6 +6957,7 @@ import { extrasForDay, setDayExtra, dayKeyOf, eatingOutEstimates, eatingOutKcalF
     backdrop.addEventListener("click", e => { if (e.target === backdrop || e.target.id === "em-cancel" || e.target.closest("#em-close")) closeSheet(backdrop); });
     backdrop.querySelector("#em-save").addEventListener("click", async () => {
       if (kind === "eatout" && isNaN(eatOutUnits())) { dialogs.alert("Enter the insulin you took, in units (for example 1.5 or 1,5)."); return; }
+      if (extraUnreadable()) { dialogs.alert("Extra insulin isn't a number I can read. Try something like 0.5 or 0,5, or leave it empty."); return; }
       if (items.length === 0 && kind !== "correction" && kind !== "eatout") { dialogs.alert(kind === "low" ? "A treated low needs the food or drink you had — add an item, or delete the entry." : "A meal needs at least one item — delete it instead if you want it gone."); return; }
       let corrDose = 0;
       if (kind === "correction") {
@@ -6828,13 +6980,14 @@ import { extrasForDay, setDayExtra, dayKeyOf, eatingOutEstimates, eatingOutKcalF
         // insulin on its own: no food, no carbs, no ratio
         entry.items = []; entry.totalCarbs = 0; entry.totalKcal = 0;
         entry.mealDose = 0; entry.correctionDose = round1(corrDose);
+        delete entry.extraDose;   // the dose typed here is the whole correction
         delete entry.cappedFrom; delete entry.noInsulin; delete entry.carbsUnknown; delete entry.eatingOut;
         delete entry.ratioValue; delete entry.ratioLabel; delete entry.periodName; delete entry.glycemicLoad;
         entry.glucose = newGlucose;
       } else if (kind === "eatout") {
         // still Eating Out: no food list, carbs not counted, the typed insulin kept
         entry.items = []; entry.totalCarbs = 0; entry.totalKcal = 0; entry.glycemicLoad = null;
-        entry.carbsUnknown = true; delete entry.noInsulin;
+        entry.carbsUnknown = true; delete entry.noInsulin; delete entry.extraDose;
         entry.mealDose = mealDose; entry.correctionDose = correctionDose;
         if (parts.capped) entry.cappedFrom = parts.requested; else delete entry.cappedFrom;
         entry.glucose = newGlucose;
@@ -6845,6 +6998,7 @@ import { extrasForDay, setDayExtra, dayKeyOf, eatingOutEstimates, eatingOutKcalF
         entry.mealDose = mealDose;
         entry.correctionDose = correctionDose;
         if (kind === "low") entry.noInsulin = true; else delete entry.noInsulin;
+        if (kind === "meal" && parts.extra > 0) entry.extraDose = parts.extra; else delete entry.extraDose;
         if (parts.capped) entry.cappedFrom = parts.requested; else delete entry.cappedFrom;
         entry.glucose = newGlucose;
         entry.ratioValue = selectedRatioValue;
@@ -8697,6 +8851,7 @@ import { extrasForDay, setDayExtra, dayKeyOf, eatingOutEstimates, eatingOutKcalF
     applyGiSeedPatch();
     seedMealRecipes();
     draft = { items: [], correctionOn: false, correctionManual: false, noInsulinOn: false, eatingOutOn: false, glucose: "", glucoseUnit: null, manualRatioId: null };
+    setExtraMode(false);   // the saved draft below puts it back if it was on
     renderFoodPickList(); renderMealItems(); recompute();
     restoreDraftIfAny();
     renderActivePanel();

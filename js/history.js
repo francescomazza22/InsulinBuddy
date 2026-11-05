@@ -248,13 +248,18 @@ const fmtU = n => String(Math.round(n * 10) / 10);
 /** What a meal row's dose badge says. One clear number (the units actually injected) and, when the dose has two parts, a
  *  small line saying which is which. A treated low and a correction-only entry get their own look. */
 export function doseBadge(entry) {
-  const meal = Number(entry && entry.mealDose) || 0, corr = Number(entry && entry.correctionDose) || 0;
+  let meal = Number(entry && entry.mealDose) || 0, corr = Number(entry && entry.correctionDose) || 0;
   if (entry && entry.noInsulin) return { kind: "low", main: "Low treated", sub: "no insulin" };
   const total = Math.max(0, meal + corr);
-  if (entry && (entry.mealType === "correction" || (meal === 0 && corr > 0 && !(entry.items || []).length))) return { kind: "correction", main: `${fmtU(total)} u`, sub: "correction" };
-  if (corr > 0) return { kind: "meal", main: `${fmtU(total)} u`, sub: `${fmtU(meal)} meal + ${fmtU(corr)} corr.` };
-  if (corr < 0) return { kind: "meal", main: `${fmtU(total)} u`, sub: `${fmtU(meal)} meal \u2212 ${fmtU(-corr)} cut` };
-  return { kind: "meal", main: `${fmtU(total)} u`, sub: "" };
+  // 2.84.0: extra insulin chosen at the time is inside the meal dose (or the correction dose with no meal part): show it apart.
+  const x = Number(entry && entry.extraDose) > 0 ? Math.round(Number(entry.extraDose) * 100) / 100 : 0;
+  const xInMeal = x > 0 && meal >= x - 1e-9;
+  if (x > 0) { if (xInMeal) meal = Math.round((meal - x) * 100) / 100; else corr = Math.round((corr - x) * 100) / 100; }
+  const plusX = x > 0 ? ` + ${fmtU(x)} extra` : "";
+  if (entry && (entry.mealType === "correction" || (meal === 0 && corr + (xInMeal ? 0 : x) > 0 && !(entry.items || []).length))) return { kind: "correction", main: `${fmtU(total)} u`, sub: x > 0 && !xInMeal ? `${fmtU(corr)} corr.${plusX}` : "correction" };
+  if (corr > 0) return { kind: "meal", main: `${fmtU(total)} u`, sub: `${fmtU(meal)} meal + ${fmtU(corr)} corr.${plusX}` };
+  if (corr < 0) return { kind: "meal", main: `${fmtU(total)} u`, sub: `${fmtU(meal)} meal \u2212 ${fmtU(-corr)} cut${plusX}` };
+  return { kind: "meal", main: `${fmtU(total)} u`, sub: x > 0 ? `${fmtU(meal)} meal${plusX}` : "" };
 }
 
 // ---------------------------------------------------------------- food order by time slot

@@ -137,6 +137,10 @@
             <svg viewBox="0 0 24 24" fill="none"><path d="M7 3v7a2 2 0 002 2v9M7 3v9M9 3v9M17 3c-1.5 0-3 1.5-3 4v3h2v9" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
             Eating Out
           </button>
+          <button class="pill-btn" id="cc-extra-toggle" type="button" aria-controls="cc-extra-row">
+            <svg viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+            Extra
+          </button>
         </div>
 
         <p class="low-hint dose-card__no-insulin-note" id="cc-low-hint" role="status" hidden></p>
@@ -193,6 +197,20 @@
             <p class="correction-row__manual-note" id="cc-correction-manual-note">Entered directly — this skips the glucose/ISF calculation for this dose.</p>
             <button type="button" id="cc-correction-auto-link" class="correction-mode-link">Use glucose reading instead</button>
           </div>
+        </div>
+        <!-- 2.84.0: insulin chosen on top of the calculated dose -->
+        <div class="correction-row extra-row" id="cc-extra-row" hidden>
+          <label for="cc-extra-dose">Extra insulin</label>
+          <div class="extra-row__controls">
+            <button type="button" class="extra-row__step" data-extra-step="-1" aria-label="Less extra insulin">&minus;</button>
+            <div class="correction-row__input">
+              <input type="text" id="cc-extra-dose" inputmode="decimal" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="0">
+              <span class="correction-row__unit-label">units</span>
+            </div>
+            <button type="button" class="extra-row__step" data-extra-step="1" aria-label="More extra insulin">+</button>
+          </div>
+          <p class="correction-row__manual-error" id="cc-extra-error" role="alert" hidden>That isn't a number I can read. Try something like 1.5 or 1,5</p>
+          <p class="correction-row__manual-note" id="cc-extra-note">Your choice, added on top of the calculated dose. It is logged with this entry and shown as extra.</p>
         </div>
         <!-- 2.81.0: active insulin and carbs live inside the dose card as one line (opens the same sheet) -->
         <button class="active-panel" id="active-panel" type="button" hidden>

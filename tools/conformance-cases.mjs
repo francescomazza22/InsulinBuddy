@@ -62,6 +62,25 @@ for (const [name, input] of [
   ["treating a low ignores a reduction", { carbs: 20, ratio: 10, correction: "auto", glucose: "55", noInsulin: true, settings: S({ reduceBelowTarget: true }) }]
 ]) add("dose", `planDose: ${name}`, "planDose", input);
 add("dose", "planEditDose: a typed reduction is kept", "planEditDose", { entry: entry({ mealDose: 12, correctionDose: -1 }), totalCarbs: 120, ratio: 10, glucoseText: null, settings: S({ maxDose: 25 }) });
+// Extra insulin chosen on top of the calculated dose (2.84.0): added after rounding, cap and reduction, never altered.
+for (const [name, input] of [
+  ["extra 1 u on a 3 u meal", { carbs: 30, ratio: 10, extraUnits: 1, settings: S() }],
+  ["extra 0.25 u is kept exactly", { carbs: 30, ratio: 10, extraUnits: 0.25, settings: S() }],
+  ["extra typed with a decimal comma", { carbs: 30, ratio: 10, extraUnits: "0,5", settings: S() }],
+  ["extra with a correction from glucose", { carbs: 30, ratio: 10, correction: "auto", glucose: "200", extraUnits: 1, settings: S() }],
+  ["extra after a low-glucose reduction", { carbs: 120, ratio: 10, correction: "auto", glucose: "55", extraUnits: 1, settings: S({ maxDose: 25, reduceBelowTarget: true }) }],
+  ["extra on a capped meal: over the maximum, flagged", { carbs: 200, ratio: 10, extraUnits: 2, settings: S({ maxDose: 15 }) }],
+  ["extra on a correction with no food goes in the correction", { carbs: 0, ratio: 10, correction: "auto", glucose: "250", extraUnits: 1, settings: S() }],
+  ["extra alone, nothing calculated", { carbs: 0, ratio: 10, extraUnits: 1, settings: S() }],
+  ["extra ignored when treating a low", { carbs: 20, ratio: 10, extraUnits: 1, noInsulin: true, settings: S() }],
+  ["junk or negative extra is none", { carbs: 30, ratio: 10, extraUnits: -2, settings: S() }]
+]) add("dose", `planDose: ${name}`, "planDose", input);
+for (const [name, input] of [
+  ["a saved extra is kept", { entry: entry({ mealDose: 4, extraDose: 1 }), totalCarbs: 30, ratio: 10, glucoseText: null, settings: S() }],
+  ["a saved extra changed in the sheet", { entry: entry({ mealDose: 4, extraDose: 1 }), totalCarbs: 30, ratio: 10, glucoseText: null, extraUnits: 2, settings: S() }],
+  ["no ratio: the meal dose without its extra, then the extra", { entry: entry({ mealDose: 4.25, extraDose: 0.75 }), totalCarbs: 80, ratio: 0, glucoseText: null, settings: S() }],
+  ["extra saved in a correction with no food", { entry: entry({ mealDose: 0, correctionDose: 3, extraDose: 1, glucose: 200 }), totalCarbs: 0, ratio: 0, glucoseText: "200", settings: S() }]
+]) add("dose", `planEditDose: ${name}`, "planEditDose", input);
 for (const [v, step] of [[-0.9, "0.5"], [0.9, "0.5"], [-0.25, "0.5"], [0.25, "0.5"], [-0.24, "0.5"], [-0.75, "0.5"], [-1.04, "0.1"], [0, "0.5"], [-3.3, "1"]])
   add("dose", `roundSignedDose ${v} to ${step}`, "roundSignedDose", v, step);
 add("dose", "checkDoseConsistency with a reduction", "checkDoseConsistency", { mealDose: 12, correctionDose: -1, finalDose: 11, shownText: "11.0" });

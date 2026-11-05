@@ -160,9 +160,14 @@ const round2d = v => Math.round(v * 100) / 100;
  *   correctionTyped       default true for "manual"; false = still subject to the maximum-dose cap
  *   iob                   insulin on board, only subtracted when settings.iobAwareCorrection is on
  *   noInsulin             treating a low: carbs logged, zero insulin
+ *   extraUnits            (2.84.0) units the person chooses to add on top of the calculated dose. Used exactly as typed (to
+ *                         2 decimals), added AFTER the rounding, the cap and any low-glucose reduction, so it never changes
+ *                         how the calculated part is worked out. It is saved inside the meal dose (or the correction dose
+ *                         when there is no meal part), so everything that adds up insulin (insulin on board, Nightscout,
+ *                         Apple Health, totals) counts it with no change; `extraDose` says how much of it was extra.
  *   settings              { units, isf, target, rounding, maxDose, iobAwareCorrection }
  */
-export function planDose({ carbs = 0, ratio = 0, mealUnits = null, mealTyped, correctionTyped, correction = "off", glucose, glucoseUnit, correctionUnits, iob = 0, noInsulin = false, settings }) {
+export function planDose({ carbs = 0, ratio = 0, mealUnits = null, mealTyped, correctionTyped, correction = "off", glucose, glucoseUnit, correctionUnits, iob = 0, noInsulin = false, extraUnits = 0, settings }) {
   const mealIsManual = mealUnits != null;
   let mealPart = ratio && ratio > 0 ? carbs / ratio : 0;
   if (mealIsManual) mealPart = mealUnits > 0 ? mealUnits : 0;
@@ -205,13 +210,26 @@ export function planDose({ carbs = 0, ratio = 0, mealUnits = null, mealTyped, co
   if (reduction < 0) correctionDose = round2d(Math.max(reduction, -mealDose));
   let finalDose = Math.max(0, round2d(cap.total + (reduction < 0 ? correctionDose : 0)));
   let capped = cap.capped;
+  let requested = round2d(cap.requested + (reduction < 0 ? correctionDose : 0));
+  // The extra goes on last, on top of what was worked out, and is never capped or rounded (like any typed dose); a total
+  // over the maximum is flagged (overMax) instead.
+  const extraDose = !noInsulin ? cleanExtraUnits(extraUnits) : 0;
+  let extraInMeal = false;
+  if (extraDose > 0) {
+    extraInMeal = mealDose > 0 || carbs > 0;
+    if (extraInMeal) mealDose = round2d(mealDose + extraDose); else correctionDose = round2d(correctionDose + extraDose);
+    finalDose = round2d(finalDose + extraDose);
+    requested = round2d(requested + extraDose);
+  }
+  const overMax = !noInsulin && (cap.overMax || (extraDose > 0 && settings.maxDose > 0 && finalDose > settings.maxDose + 1e-9));
   if (noInsulin) { finalDose = 0; mealDose = 0; correctionDose = 0; capped = false; }
 
-  const hasDose = noInsulin ? carbs > 0 : (carbs > 0 || correctionPart > 0 || mealPart > 0);
+  const hasDose = noInsulin ? carbs > 0 : (carbs > 0 || correctionPart > 0 || mealPart > 0 || extraDose > 0);
   return {
     mealPart, rawCorrection, iobSubtracted, correctionPart, correctionApplied, correctionIsManual, mealIsManual, bgInSettingsUnit,
-    totalBeforeCap: mealPart + correctionPart, mealDose, correctionDose, finalDose, requested: noInsulin ? 0 : round2d(cap.requested + (reduction < 0 ? correctionDose : 0)), capped, overMax: cap.overMax && !noInsulin, hasDose,
-    reduced: !noInsulin && correctionDose < 0, reductionLimited: !noInsulin && reductionLimited
+    totalBeforeCap: mealPart + correctionPart, mealDose, correctionDose, finalDose, requested: noInsulin ? 0 : requested, capped, overMax, hasDose,
+    reduced: !noInsulin && correctionDose < 0, reductionLimited: !noInsulin && reductionLimited,
+    extraDose, extraInMeal
   };
 }
 
@@ -221,12 +239,29 @@ export function planDose({ carbs = 0, ratio = 0, mealUnits = null, mealTyped, co
  * no box means the correction was typed originally, so it is kept; "treating a low" entries never carry insulin; and with no
  * ratio chosen the saved meal dose is kept.
  */
-export function planEditDose({ entry, totalCarbs, ratio, glucoseText, settings }) {
-  const base = { settings: { ...settings, iobAwareCorrection: false }, noInsulin: !!entry.noInsulin, carbs: totalCarbs, ratio: ratio || 0 };
-  const meal = ratio ? {} : { mealUnits: entry.mealDose || 0, mealTyped: false };
+export function planEditDose({ entry, totalCarbs, ratio, glucoseText, settings, extraUnits }) {
+  // The saved extra (2.84.0) sits inside mealDose (or correctionDose when there was no meal part): take it out to get the
+  // calculated part back, then add the extra again, as typed in the sheet (extraUnits) or as saved.
+  const savedExtra = cleanExtraUnits(entry.extraDose);
+  // planDose puts it in the meal dose whenever there is a meal part, so a meal dose smaller than the extra means it went
+  // into the correction (a correction with nothing to eat).
+  const inMeal = savedExtra > 0 && (Number(entry.mealDose) || 0) >= savedExtra - 1e-9;
+  const baseMeal = round2d((Number(entry.mealDose) || 0) - (inMeal ? savedExtra : 0));
+  const baseCorr = round2d((Number(entry.correctionDose) || 0) - (savedExtra > 0 && !inMeal ? savedExtra : 0));
+  const extra = extraUnits === undefined ? savedExtra : extraUnits;
+  const base = { settings: { ...settings, iobAwareCorrection: false }, noInsulin: !!entry.noInsulin, carbs: totalCarbs, ratio: ratio || 0, extraUnits: extra };
+  const meal = ratio ? {} : { mealUnits: baseMeal, mealTyped: false };
   if (glucoseText != null) return planDose({ ...base, ...meal, correction: "auto", glucose: glucoseText, glucoseUnit: settings.units });
-  const kept = entry.correctionDose || 0;
+  const kept = baseCorr;
   return planDose({ ...base, ...meal, correction: kept !== 0 ? "manual" : "off", correctionUnits: kept, correctionTyped: kept !== 0 && entry.glucose == null });
+}
+
+/** Extra units as the dose maths takes them: a finite number above 0, to 2 decimals, at most EXTRA_MAX_UNITS; else 0. */
+export const EXTRA_MAX_UNITS = 50;
+export function cleanExtraUnits(v) {
+  const n = typeof v === "number" ? v : parseDecimalInput(v == null ? "" : String(v));
+  if (!Number.isFinite(n) || n <= 0) return 0;
+  return round2d(Math.min(n, EXTRA_MAX_UNITS));
 }
 
 export function computeDose({ carbs, ratio, correctionOn, glucose, glucoseUnit, settings, iob = 0, noInsulin = false }) {
@@ -507,10 +542,12 @@ export function idealRatioByBracket(entries, settings, windowHours = 3, { skip =
     // credited to the meal before them above, so leaving a meal out never moves its lows onto another one.
     if (!ratioWasApplied(e) || skip(e)) continue;
     const key = e.ratioLabel || "";
-    const r = rescue.get(e) || 0, u = extra.get(e) || 0;
+    // An extra chosen at the meal (2.84.0) is insulin it got beyond C/R, so it counts like a correction credited to it.
+    const own = (Number(e.mealDose) || 0) >= (Number(e.extraDose) || 0) ? cleanExtraUnits(e.extraDose) : 0;
+    const r = rescue.get(e) || 0, u = (extra.get(e) || 0) + own;
     const R = Number(e.ratioValue), C = Number(e.totalCarbs);
     if (!groups.has(key)) groups.set(key, []);
-    groups.get(key).push({ used: R, ideal: R * (C + r) / (C + R * u), hadLow: r > 0, hadCorrection: u > 0, r, u });
+    groups.get(key).push({ used: R, ideal: R * (C + r) / (C + R * u), hadLow: r > 0, hadCorrection: u - own > 0, hadExtra: own > 0, r, u });
   }
   const mean = (v, f) => v.reduce((s, x) => s + f(x), 0) / v.length;
   const rows = [], seen = new Set();
@@ -522,7 +559,7 @@ export function idealRatioByBracket(entries, settings, windowHours = 3, { skip =
       used: v.length ? mean(v, x => x.used) : null,
       ideal: v.length ? mean(v, x => x.ideal) : null,
       affected: v.filter(x => x.hadLow || x.hadCorrection).length,
-      withLows: v.filter(x => x.hadLow).length, withCorrections: v.filter(x => x.hadCorrection).length,
+      withLows: v.filter(x => x.hadLow).length, withCorrections: v.filter(x => x.hadCorrection).length, withExtra: v.filter(x => x.hadExtra).length,
       rescueCarbs: v.reduce((s, x) => s + x.r, 0),
       extraUnits: Math.round(v.reduce((s, x) => s + x.u, 0) * 100) / 100
     });

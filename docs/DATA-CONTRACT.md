@@ -33,6 +33,7 @@ only changes how glucose is shown and typed.
 | `glycemicLoad` | object or null | From the items' GI. |
 | `mealDose` | number ≥ 0 | Units. The saved dose is exactly what the calculator showed. |
 | `correctionDose` | number | Units; positive adds to the meal dose, negative (since 2.44.0) is a reduction taken off it. `mealDose + correctionDose` is the injected total and never goes below 0. |
+| `extraDose` | number, optional | (2.84.0) Units chosen by hand on top of the calculated dose, ≥ 0. Already INCLUDED in `mealDose` (or in `correctionDose` when the entry has no meal part, i.e. `mealDose` < `extraDose`), so totals never add it again. Absent when no extra was given. |
 | `cappedFrom` | number | Present only when the maximum-dose cap reduced the dose. |
 | `noInsulin` | boolean | Carbs logged with no insulin (treating a low). |
 | `glucose` | number or null | Reading used for the correction, in mg/dL. |
