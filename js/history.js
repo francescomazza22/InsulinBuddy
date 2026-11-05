@@ -251,15 +251,16 @@ export function doseBadge(entry) {
   let meal = Number(entry && entry.mealDose) || 0, corr = Number(entry && entry.correctionDose) || 0;
   if (entry && entry.noInsulin) return { kind: "low", main: "Low treated", sub: "no insulin" };
   const total = Math.max(0, meal + corr);
-  // 2.84.0: extra insulin chosen at the time is inside the meal dose (or the correction dose with no meal part): show it apart.
-  const x = Number(entry && entry.extraDose) > 0 ? Math.round(Number(entry.extraDose) * 100) / 100 : 0;
+  // 2.84.0/2.85.0: a dose changed by hand is shown apart. A positive extra sits in the meal dose (or the correction dose with no
+  // meal part); an amount taken off sits in the correction dose.
+  const x = Number.isFinite(Number(entry && entry.extraDose)) ? Math.round(Number(entry.extraDose) * 100) / 100 : 0;
   const xInMeal = x > 0 && meal >= x - 1e-9;
-  if (x > 0) { if (xInMeal) meal = Math.round((meal - x) * 100) / 100; else corr = Math.round((corr - x) * 100) / 100; }
-  const plusX = x > 0 ? ` + ${fmtU(x)} extra` : "";
-  if (entry && (entry.mealType === "correction" || (meal === 0 && corr + (xInMeal ? 0 : x) > 0 && !(entry.items || []).length))) return { kind: "correction", main: `${fmtU(total)} u`, sub: x > 0 && !xInMeal ? `${fmtU(corr)} corr.${plusX}` : "correction" };
+  if (x !== 0) { if (xInMeal) meal = Math.round((meal - x) * 100) / 100; else corr = Math.round((corr - x) * 100) / 100; }
+  const plusX = x > 0 ? ` + ${fmtU(x)} extra` : x < 0 ? ` \u2212 ${fmtU(-x)} less` : "";
+  if (entry && (entry.mealType === "correction" || (meal === 0 && corr + (xInMeal ? 0 : x) > 0 && !(entry.items || []).length))) return { kind: "correction", main: `${fmtU(total)} u`, sub: x !== 0 && !xInMeal ? `${fmtU(corr)} corr.${plusX}` : "correction" };
   if (corr > 0) return { kind: "meal", main: `${fmtU(total)} u`, sub: `${fmtU(meal)} meal + ${fmtU(corr)} corr.${plusX}` };
   if (corr < 0) return { kind: "meal", main: `${fmtU(total)} u`, sub: `${fmtU(meal)} meal \u2212 ${fmtU(-corr)} cut${plusX}` };
-  return { kind: "meal", main: `${fmtU(total)} u`, sub: x > 0 ? `${fmtU(meal)} meal${plusX}` : "" };
+  return { kind: "meal", main: `${fmtU(total)} u`, sub: x !== 0 ? `${fmtU(meal)} meal${plusX}` : "" };
 }
 
 // ---------------------------------------------------------------- food order by time slot

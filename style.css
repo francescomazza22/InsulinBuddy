@@ -2203,3 +2203,26 @@ html[data-theme="dark"] .dose-card .extra-row__step { background: rgba(0,0,0,0.3
 .sheet-actions .rs-autosave { flex: 1 0 100%; margin: 0; text-align: center; font-size: var(--fs-xs); color: var(--ink-soft); }
 .sheet-actions .rs-autosave.is-pending { color: var(--ink); }
 .extra-row__controls .correction-row__input input { min-width: 0; width: 100%; }
+
+/* ================= − / + BESIDE THE DOSE (2.85.0) ================= */
+/* In the free space between the number and the chips: two calm outlined circles, like the Meal and Ratio chips. */
+.dose-adjust { flex: 1 1 auto; display: flex; justify-content: center; gap: var(--space-xs); min-width: 0; }
+.dose-adjust[hidden] { display: none; }
+.dose-adjust__btn {
+  flex: none; width: 40px; height: 40px; border-radius: var(--radius-pill); cursor: pointer; position: relative;
+  border: 0; background: transparent; box-shadow: inset 0 0 0 1px rgba(255,255,255,0.42);
+  color: #fff; font: 600 var(--fs-l) var(--font-ui); line-height: 1;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.dose-adjust__btn:active { background: rgba(255,255,255,0.18); }
+.dose-adjust__btn::after { content: ""; position: absolute; inset: -2px; }   /* 44pt touch target around the 40px circle */
+.dose-adjust__btn:disabled { opacity: 0.4; cursor: default; }
+.dose-adjust__btn:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+.dose-adjust__btn { font-size: calc(1.45 * var(--rem)); font-weight: 500; }
+.dose-card__value-row > .dose-card__value-col { order: 1; }
+.dose-card__value-row > .dose-adjust { order: 2; }
+.dose-card__value-row > .dose-card__pills { order: 3; }
+/* When a long dose (12.5) or a narrow phone leaves no room between the number and the chips, the buttons get their own line
+   under the number (app.js fitDoseAdjust sets the class after measuring), rather than sitting on top of "units". */
+.dose-card__value-row.is-adjust-below { flex-wrap: wrap; }
+.dose-card__value-row.is-adjust-below > .dose-adjust { order: 4; flex-basis: 100%; justify-content: flex-start; margin-top: var(--space-2xs); }

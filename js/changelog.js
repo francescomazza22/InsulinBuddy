@@ -2,6 +2,17 @@
 // summary can never drift. Bump CHANGELOG[0].version here (and CACHE_VERSION in sw.js) on every release.
 export const CHANGELOG = [
   {
+    version: "2.85.0",
+    summary: "\u2212 and + beside the dose: change it by hand in one tap.",
+    changes: [
+      "When there's a dose, \u2212 and + sit between the number and the Meal chip. Each tap changes the dose by your rounding step (0.5 u at most)",
+      "+ adds on top of the calculated dose; \u2212 can also take insulin off it, never below 0. The line under the dose shows it apart (Meal 4.5 u \u2212 0.5 u less), and the Meal chip lights up",
+      "The Extra button under the Meal chip is now Adjust: the same amount, with a box to type an exact figure",
+      "Logged as before: an amount taken off shows in the log (4.5 meal \u2212 0.5 less) and can be changed in Edit meal (type -0.5 there to take off)",
+      "On a narrow screen, or with a long dose, \u2212 and + go just under the number instead of covering it"
+    ]
+  },
+  {
     version: "2.84.0",
     summary: "Recipes save as you go, and you can add extra insulin on top of the calculated dose.",
     changes: [

@@ -3038,13 +3038,13 @@
   }
  },
  {
-  "name": "planDose: junk or negative extra is none",
+  "name": "planDose: junk extra is none",
   "fn": "planDose",
   "args": [
    {
     "carbs": 30,
     "ratio": 10,
-    "extraUnits": -2,
+    "extraUnits": "abc",
     "settings": {
      "units": "mgdl",
      "isf": 50,
@@ -3072,6 +3072,172 @@
    "capped": false,
    "overMax": false,
    "hasDose": true,
+   "reduced": false,
+   "reductionLimited": false,
+   "extraDose": 0,
+   "extraInMeal": false
+  }
+ },
+ {
+  "name": "planDose: -1 takes 1 u off a 3 u meal (2.85.0)",
+  "fn": "planDose",
+  "args": [
+   {
+    "carbs": 30,
+    "ratio": 10,
+    "extraUnits": -1,
+    "settings": {
+     "units": "mgdl",
+     "isf": 50,
+     "target": 100,
+     "rounding": "0.5",
+     "maxDose": 15,
+     "iobAwareCorrection": false
+    }
+   }
+  ],
+  "expect": {
+   "mealPart": 3,
+   "rawCorrection": 0,
+   "iobSubtracted": 0,
+   "correctionPart": 0,
+   "correctionApplied": false,
+   "correctionIsManual": false,
+   "mealIsManual": false,
+   "bgInSettingsUnit": null,
+   "totalBeforeCap": 3,
+   "mealDose": 3,
+   "correctionDose": -1,
+   "finalDose": 2,
+   "requested": 2,
+   "capped": false,
+   "overMax": false,
+   "hasDose": true,
+   "reduced": true,
+   "reductionLimited": false,
+   "extraDose": -1,
+   "extraInMeal": false
+  }
+ },
+ {
+  "name": "planDose: taking off more than the dose stops at 0",
+  "fn": "planDose",
+  "args": [
+   {
+    "carbs": 30,
+    "ratio": 10,
+    "extraUnits": -5,
+    "settings": {
+     "units": "mgdl",
+     "isf": 50,
+     "target": 100,
+     "rounding": "0.5",
+     "maxDose": 15,
+     "iobAwareCorrection": false
+    }
+   }
+  ],
+  "expect": {
+   "mealPart": 3,
+   "rawCorrection": 0,
+   "iobSubtracted": 0,
+   "correctionPart": 0,
+   "correctionApplied": false,
+   "correctionIsManual": false,
+   "mealIsManual": false,
+   "bgInSettingsUnit": null,
+   "totalBeforeCap": 3,
+   "mealDose": 3,
+   "correctionDose": -3,
+   "finalDose": 0,
+   "requested": 0,
+   "capped": false,
+   "overMax": false,
+   "hasDose": true,
+   "reduced": true,
+   "reductionLimited": false,
+   "extraDose": -3,
+   "extraInMeal": false
+  }
+ },
+ {
+  "name": "planDose: taking off with a correction",
+  "fn": "planDose",
+  "args": [
+   {
+    "carbs": 30,
+    "ratio": 10,
+    "correction": "auto",
+    "glucose": "200",
+    "extraUnits": -1,
+    "settings": {
+     "units": "mgdl",
+     "isf": 50,
+     "target": 100,
+     "rounding": "0.5",
+     "maxDose": 15,
+     "iobAwareCorrection": false
+    }
+   }
+  ],
+  "expect": {
+   "mealPart": 3,
+   "rawCorrection": 2,
+   "iobSubtracted": 0,
+   "correctionPart": 2,
+   "correctionApplied": true,
+   "correctionIsManual": false,
+   "mealIsManual": false,
+   "bgInSettingsUnit": 200,
+   "totalBeforeCap": 5,
+   "mealDose": 3,
+   "correctionDose": 1,
+   "finalDose": 4,
+   "requested": 4,
+   "capped": false,
+   "overMax": false,
+   "hasDose": true,
+   "reduced": false,
+   "reductionLimited": false,
+   "extraDose": -1,
+   "extraInMeal": false
+  }
+ },
+ {
+  "name": "planDose: taking off with nothing calculated is nothing",
+  "fn": "planDose",
+  "args": [
+   {
+    "carbs": 0,
+    "ratio": 10,
+    "extraUnits": -1,
+    "settings": {
+     "units": "mgdl",
+     "isf": 50,
+     "target": 100,
+     "rounding": "0.5",
+     "maxDose": 15,
+     "iobAwareCorrection": false
+    }
+   }
+  ],
+  "expect": {
+   "mealPart": 0,
+   "rawCorrection": 0,
+   "iobSubtracted": 0,
+   "correctionPart": 0,
+   "correctionApplied": false,
+   "correctionIsManual": false,
+   "mealIsManual": false,
+   "bgInSettingsUnit": null,
+   "totalBeforeCap": 0,
+   "mealDose": 0,
+   "correctionDose": 0,
+   "finalDose": 0,
+   "requested": 0,
+   "capped": false,
+   "overMax": false,
+   "hasDose": false,
    "reduced": false,
    "reductionLimited": false,
    "extraDose": 0,
@@ -3268,6 +3434,54 @@
    "reduced": false,
    "reductionLimited": false,
    "extraDose": 1,
+   "extraInMeal": false
+  }
+ },
+ {
+  "name": "planEditDose: an amount taken off is kept on re-save",
+  "fn": "planEditDose",
+  "args": [
+   {
+    "entry": {
+     "noInsulin": false,
+     "mealDose": 3,
+     "correctionDose": -1,
+     "glucose": null,
+     "extraDose": -1
+    },
+    "totalCarbs": 30,
+    "ratio": 10,
+    "glucoseText": null,
+    "settings": {
+     "units": "mgdl",
+     "isf": 50,
+     "target": 100,
+     "rounding": "0.5",
+     "maxDose": 15,
+     "iobAwareCorrection": false
+    }
+   }
+  ],
+  "expect": {
+   "mealPart": 3,
+   "rawCorrection": 0,
+   "iobSubtracted": 0,
+   "correctionPart": 0,
+   "correctionApplied": false,
+   "correctionIsManual": false,
+   "mealIsManual": false,
+   "bgInSettingsUnit": null,
+   "totalBeforeCap": 3,
+   "mealDose": 3,
+   "correctionDose": -1,
+   "finalDose": 2,
+   "requested": 2,
+   "capped": false,
+   "overMax": false,
+   "hasDose": true,
+   "reduced": true,
+   "reductionLimited": false,
+   "extraDose": -1,
    "extraInMeal": false
   }
  },

@@ -4,10 +4,11 @@
 /** The chip that opens Correction / Treating a low / Eating out. */
 export function modeChipLabel({ correctionOn = false, noInsulinOn = false, eatingOutOn = false, extraOn = false, hasFood = false } = {}) {
   const base = noInsulinOn ? "Treating a low" : eatingOutOn ? "Eating out" : null;
-  // Extra (2.84.0) never combines with Treating a low or Eating out (the Calculator switches those off).
-  const extra = extraOn && !base ? " + extra" : "";
-  if (correctionOn) return (base ? `${base} + correction` : hasFood ? "Meal + correction" : "Correction") + extra;
-  return base || (extra ? (hasFood ? "Meal + extra" : "Extra") : "Meal");
+  // A dose changed by hand (2.84.0 extra, 2.85.0 − / +) doesn't change the words (the chip is lit and the line under the dose
+  // says it), so the chip keeps its width and the − / + beside the number don't get pushed onto another line.
+  void extraOn;
+  if (correctionOn) return base ? `${base} + correction` : hasFood ? "Meal + correction" : "Correction";
+  return base || "Meal";
 }
 
 const u2 = v => Math.round((Number(v) || 0) * 100) / 100;
@@ -19,17 +20,19 @@ const u2 = v => Math.round((Number(v) || 0) * 100) / 100;
  */
 export function doseBreakdownText({ mealDose = 0, correctionDose = 0, extraDose = 0, extraInMeal = true, noInsulin = false } = {}) {
   if (noInsulin) return null;
-  const extra = u2(extraDose) > 0 ? u2(extraDose) : 0;
-  const meal = u2(mealDose - (extra && extraInMeal ? extra : 0));
-  const corr = u2(correctionDose - (extra && !extraInMeal ? extra : 0));
+  const x = u2(extraDose);
+  // A positive extra is inside the meal dose (extraInMeal) or the correction dose; an amount taken off is always in the correction.
+  const meal = u2(mealDose - (x > 0 && extraInMeal ? x : 0));
+  const corr = u2(correctionDose - (x < 0 || (x > 0 && !extraInMeal) ? x : 0));
   const parts = [];
   if (meal > 0) parts.push(`Meal ${meal} u`);
   if (corr > 0) parts.push(parts.length ? `correction ${corr} u` : `Correction ${corr} u`);
   let text = parts.join(" + ");
   if (corr < 0) text += `${text ? " " : "Meal 0 u "}\u2212 ${Math.abs(corr)} u taken off`;
-  if (extra) text += text ? ` + extra ${extra} u` : `Extra ${extra} u`;
-  const pieces = (meal > 0) + (corr !== 0) + (extra > 0);
-  return pieces >= 2 || (corr < 0) ? text : null;
+  if (x > 0) text += text ? ` + ${x} u extra` : `${x} u extra`;
+  if (x < 0) text += `${text ? " " : ""}\u2212 ${Math.abs(x)} u less`;
+  const pieces = (meal > 0) + (corr !== 0) + (x !== 0);
+  return pieces >= 2 || corr < 0 ? text : null;
 }
 
 /** A dose as the big number would show it, but never hiding a second decimal (0.05 u rounding): 2.0, 2.5, 2.45. */

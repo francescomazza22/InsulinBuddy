@@ -60,7 +60,7 @@ export function validateEntry(e, path = "entry") {
   });
   for (const k of ["totalCarbs", "totalKcal", "mealDose"]) numberField(out, e, path, k, { min: 0 });
   numberField(out, e, path, "correctionDose", { min: -1000 });
-  numberField(out, e, path, "extraDose", { min: 0 });   // 2.84.0: the part of mealDose (or correctionDose) chosen as extra   // negative = insulin taken off the meal because glucose was low (or typed as a subtraction)
+  numberField(out, e, path, "extraDose", { min: -1000 });   // 2.84.0: units added by hand (inside mealDose, or correctionDose); 2.85.0: negative = taken off by hand (inside correctionDose)   // negative = insulin taken off the meal because glucose was low (or typed as a subtraction)
   for (const k of ["glucose", "ratioValue", "cappedFrom"]) numberField(out, e, path, k, { nullable: true });
   if (e.noInsulin != null && typeof e.noInsulin !== "boolean") out.push(problem(`${path}.noInsulin`, "warn", "should be true or false"));
   if (e.ns != null && !isObj(e.ns)) out.push(problem(`${path}.ns`, "warn", "should be an object"));

@@ -24,11 +24,30 @@ test("planDose: the extra goes on top and the calculated part is untouched", () 
 
 test("planDose: decimal comma, junk, zero and negatives", () => {
   assert.equal(planDose({ carbs: 30, ratio: 10, extraUnits: "0,5", settings: S() }).finalDose, 3.5);
-  for (const v of ["abc", "", "-1", -1, 0, NaN, null, undefined, "1e3x"]) {
+  for (const v of ["abc", "", "-", 0, NaN, null, undefined, "1e3x", "--1"]) {
     const p = planDose({ carbs: 30, ratio: 10, extraUnits: v, settings: S() });
     assert.equal(p.finalDose, 3, String(v)); assert.equal(p.extraDose, 0, String(v));
   }
   assert.equal(cleanExtraUnits(999), EXTRA_MAX_UNITS);
+  assert.equal(cleanExtraUnits(-999), -EXTRA_MAX_UNITS);
+  assert.equal(cleanExtraUnits("-0,5"), -0.5); assert.equal(cleanExtraUnits("\u22121"), -1);
+});
+
+test("planDose (2.85.0): a negative adjustment takes insulin off, never below 0, inside the correction dose", () => {
+  const p = planDose({ carbs: 37.5, ratio: 15, extraUnits: -0.5, settings: S() });   // 2.5 u meal
+  assert.deepEqual([p.mealDose, p.correctionDose, p.finalDose, p.extraDose, p.extraInMeal], [2.5, -0.5, 2, -0.5, false]);
+  assert.equal(p.mealDose + p.correctionDose, p.finalDose);
+  const all = planDose({ carbs: 30, ratio: 15, extraUnits: -5, settings: S() });      // only 2 u there
+  assert.deepEqual([all.finalDose, all.extraDose, all.correctionDose], [0, -2, -2]);
+  const corr = planDose({ carbs: 30, ratio: 15, correction: "auto", glucose: "200", extraUnits: -1, settings: S() });
+  assert.deepEqual([corr.mealDose, corr.correctionDose, corr.finalDose], [2, 1, 3]);
+  const none = planDose({ carbs: 0, ratio: 15, extraUnits: -1, settings: S() });
+  assert.deepEqual([none.finalDose, none.extraDose, none.hasDose], [0, 0, false], "nothing to take off: no entry to log");
+  // Re-saving in Edit meal keeps the same dose.
+  const e = { noInsulin: false, mealDose: p.mealDose, correctionDose: p.correctionDose, extraDose: p.extraDose, totalCarbs: 37.5, glucose: null };
+  const again = planEditDose({ entry: e, totalCarbs: 37.5, ratio: 15, glucoseText: null, settings: S() });
+  assert.deepEqual([again.finalDose, again.correctionDose, again.extraDose], [2, -0.5, -0.5]);
+  assert.equal(planEditDose({ entry: e, totalCarbs: 37.5, ratio: 15, glucoseText: null, settings: S(), extraUnits: 0 }).finalDose, 2.5);
 });
 
 test("planDose: never through a low treatment; with a correction and a reduction", () => {
@@ -74,9 +93,10 @@ test("the saved entry: extraDose sits inside mealDose, so every insulin total co
   assert.equal("extraDose" in plain, false);
 });
 
-test("schema refuses a negative extraDose", () => {
-  const e = { id: "h-1", ts: 1_700_000_000_000, mealType: "lunch", items: [], totalCarbs: 30, mealDose: 4, correctionDose: 0, extraDose: -1 };
-  assert.equal(hasErrors(validateEntry(e)), true);
+test("schema: a negative extraDose (taken off) is valid, a non-number isn't", () => {
+  const e = { id: "h-1", ts: 1_700_000_000_000, mealType: "lunch", items: [], totalCarbs: 30, mealDose: 3, correctionDose: -1, extraDose: -1 };
+  assert.equal(hasErrors(validateEntry(e)), false);
+  assert.equal(hasErrors(validateEntry({ ...e, extraDose: "x" })), true);
 });
 
 test("planEditDose: re-saving keeps the extra; changing it changes only the extra", () => {
@@ -102,14 +122,18 @@ test("ideal ratio: an extra chosen at the meal counts as insulin the meal needed
 });
 
 test("words: dose card breakdown, mode chip and log badge show the extra apart", () => {
-  assert.equal(doseBreakdownText({ mealDose: 4, correctionDose: 0, extraDose: 1 }), "Meal 3 u + extra 1 u");
-  assert.equal(doseBreakdownText({ mealDose: 4, correctionDose: 2, extraDose: 1 }), "Meal 3 u + correction 2 u + extra 1 u");
+  assert.equal(doseBreakdownText({ mealDose: 4, correctionDose: 0, extraDose: 1 }), "Meal 3 u + 1 u extra");
+  assert.equal(doseBreakdownText({ mealDose: 4, correctionDose: 2, extraDose: 1 }), "Meal 3 u + correction 2 u + 1 u extra");
+  assert.equal(doseBreakdownText({ mealDose: 2.5, correctionDose: -0.5, extraDose: -0.5, extraInMeal: false }), "Meal 2.5 u \u2212 0.5 u less");
+  assert.equal(doseBreakdownText({ mealDose: 2, correctionDose: 1, extraDose: -1, extraInMeal: false }), "Meal 2 u + correction 2 u \u2212 1 u less");
   assert.equal(doseBreakdownText({ mealDose: 3, correctionDose: 1 }), "Meal 3 u + correction 1 u", "unchanged without an extra");
   assert.equal(doseBreakdownText({ mealDose: 3 }), null);
-  assert.equal(doseBreakdownText({ mealDose: 0, correctionDose: 4, extraDose: 1, extraInMeal: false }), "Correction 3 u + extra 1 u");
-  assert.equal(modeChipLabel({ extraOn: true, hasFood: true }), "Meal + extra");
-  assert.equal(modeChipLabel({ extraOn: true, correctionOn: true, hasFood: true }), "Meal + correction + extra");
+  assert.equal(doseBreakdownText({ mealDose: 0, correctionDose: 4, extraDose: 1, extraInMeal: false }), "Correction 3 u + 1 u extra");
+  assert.equal(modeChipLabel({ extraOn: true, hasFood: true }), "Meal", "an adjustment lights the chip but keeps its words (and width)");
+  assert.equal(modeChipLabel({ extraOn: true, correctionOn: true, hasFood: true }), "Meal + correction");
   assert.equal(modeChipLabel({ extraOn: true, eatingOutOn: true }), "Eating out");
   assert.equal(doseBadge({ mealDose: 4, correctionDose: 0, extraDose: 1, items: [{}] }).sub, "3 meal + 1 extra");
   assert.equal(doseBadge({ mealDose: 4, correctionDose: 0, items: [{}] }).sub, "", "unchanged without an extra");
+  assert.equal(doseBadge({ mealDose: 2.5, correctionDose: -0.5, extraDose: -0.5, items: [{}] }).sub, "2.5 meal \u2212 0.5 less");
+  assert.equal(doseBadge({ mealDose: 2.5, correctionDose: -0.5, extraDose: -0.5, items: [{}] }).main, "2 u");
 });

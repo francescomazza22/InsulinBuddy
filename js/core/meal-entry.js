@@ -26,7 +26,7 @@ export function buildMealEntry({ now, mealType, periodEntry, ratioEntry, items, 
     correctionDose: computed.correctionDose,
     // 2.84.0: units chosen on top of the calculated dose. Already INSIDE mealDose (or correctionDose when there was no meal
     // part), so every insulin total stays mealDose + correctionDose; this only says how much of it was extra.
-    ...(computed.extraDose > 0 ? { extraDose: computed.extraDose } : {}),
+    ...(computed.extraDose ? { extraDose: computed.extraDose } : {}),   // 2.85.0: negative = taken off by hand (inside correctionDose)
     ...(computed.capped ? { cappedFrom: computed.requested } : {}),   // what it calculated before the cap
     noInsulin: !!noInsulin,
     glucose: glucoseVal,

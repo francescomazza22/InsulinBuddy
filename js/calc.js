@@ -160,7 +160,9 @@ const round2d = v => Math.round(v * 100) / 100;
  *   correctionTyped       default true for "manual"; false = still subject to the maximum-dose cap
  *   iob                   insulin on board, only subtracted when settings.iobAwareCorrection is on
  *   noInsulin             treating a low: carbs logged, zero insulin
- *   extraUnits            (2.84.0) units the person chooses to add on top of the calculated dose. Used exactly as typed (to
+ *   extraUnits            (2.84.0; signed since 2.85.0) units the person chooses to add to, or (negative) take off, the
+ *                         calculated dose. A negative one goes into the correction dose (like a typed subtraction) and is
+ *                         limited so the dose never goes below 0. A positive one is used exactly as typed (to
  *                         2 decimals), added AFTER the rounding, the cap and any low-glucose reduction, so it never changes
  *                         how the calculated part is worked out. It is saved inside the meal dose (or the correction dose
  *                         when there is no meal part), so everything that adds up insulin (insulin on board, Nightscout,
@@ -213,9 +215,17 @@ export function planDose({ carbs = 0, ratio = 0, mealUnits = null, mealTyped, co
   let requested = round2d(cap.requested + (reduction < 0 ? correctionDose : 0));
   // The extra goes on last, on top of what was worked out, and is never capped or rounded (like any typed dose); a total
   // over the maximum is flagged (overMax) instead.
-  const extraDose = !noInsulin ? cleanExtraUnits(extraUnits) : 0;
+  let extraDose = !noInsulin ? cleanExtraUnits(extraUnits) : 0;
   let extraInMeal = false;
-  if (extraDose > 0) {
+  if (extraDose < 0) {
+    // Taken off by hand (2.85.0): never more than the dose there is. It goes into the correction dose, which may then be
+    // negative: the same "taken off the meal" a low reading or a typed subtraction gives, so every total stays meal + correction.
+    const amount = round2d(Math.min(-extraDose, finalDose));
+    correctionDose = round2d(correctionDose - amount);
+    finalDose = round2d(finalDose - amount);
+    requested = round2d(requested - amount);
+    extraDose = amount > 0 ? -amount : 0;
+  } else if (extraDose > 0) {
     extraInMeal = mealDose > 0 || carbs > 0;
     if (extraInMeal) mealDose = round2d(mealDose + extraDose); else correctionDose = round2d(correctionDose + extraDose);
     finalDose = round2d(finalDose + extraDose);
@@ -247,7 +257,8 @@ export function planEditDose({ entry, totalCarbs, ratio, glucoseText, settings, 
   // into the correction (a correction with nothing to eat).
   const inMeal = savedExtra > 0 && (Number(entry.mealDose) || 0) >= savedExtra - 1e-9;
   const baseMeal = round2d((Number(entry.mealDose) || 0) - (inMeal ? savedExtra : 0));
-  const baseCorr = round2d((Number(entry.correctionDose) || 0) - (savedExtra > 0 && !inMeal ? savedExtra : 0));
+  // A positive extra outside the meal, or any amount taken off by hand, is inside the correction dose.
+  const baseCorr = round2d((Number(entry.correctionDose) || 0) - (savedExtra !== 0 && !inMeal ? savedExtra : 0));
   const extra = extraUnits === undefined ? savedExtra : extraUnits;
   const base = { settings: { ...settings, iobAwareCorrection: false }, noInsulin: !!entry.noInsulin, carbs: totalCarbs, ratio: ratio || 0, extraUnits: extra };
   const meal = ratio ? {} : { mealUnits: baseMeal, mealTyped: false };
@@ -259,9 +270,15 @@ export function planEditDose({ entry, totalCarbs, ratio, glucoseText, settings, 
 /** Extra units as the dose maths takes them: a finite number above 0, to 2 decimals, at most EXTRA_MAX_UNITS; else 0. */
 export const EXTRA_MAX_UNITS = 50;
 export function cleanExtraUnits(v) {
-  const n = typeof v === "number" ? v : parseDecimalInput(v == null ? "" : String(v));
-  if (!Number.isFinite(n) || n <= 0) return 0;
-  return round2d(Math.min(n, EXTRA_MAX_UNITS));
+  // Signed since 2.85.0: "-0.5" / "−0.5" take insulin off. Otherwise read like every dose box ("0,5" is 0.5).
+  let n = typeof v === "number" ? v : NaN;
+  if (typeof v === "string") {
+    const t = v.trim(), neg = /^[-\u2212]/.test(t);
+    const m = parseDecimalInput(t.replace(/^[-\u2212+]\s*/, ""));
+    n = neg ? -m : m;
+  }
+  if (!Number.isFinite(n) || n === 0) return 0;
+  return round2d(Math.max(-EXTRA_MAX_UNITS, Math.min(n, EXTRA_MAX_UNITS)));
 }
 
 export function computeDose({ carbs, ratio, correctionOn, glucose, glucoseUnit, settings, iob = 0, noInsulin = false }) {
@@ -543,11 +560,12 @@ export function idealRatioByBracket(entries, settings, windowHours = 3, { skip =
     if (!ratioWasApplied(e) || skip(e)) continue;
     const key = e.ratioLabel || "";
     // An extra chosen at the meal (2.84.0) is insulin it got beyond C/R, so it counts like a correction credited to it.
-    const own = (Number(e.mealDose) || 0) >= (Number(e.extraDose) || 0) ? cleanExtraUnits(e.extraDose) : 0;
+    const x = cleanExtraUnits(e.extraDose);
+    const own = x < 0 || (Number(e.mealDose) || 0) >= x ? x : 0;   // taken off by hand: the meal got that much less
     const r = rescue.get(e) || 0, u = (extra.get(e) || 0) + own;
     const R = Number(e.ratioValue), C = Number(e.totalCarbs);
     if (!groups.has(key)) groups.set(key, []);
-    groups.get(key).push({ used: R, ideal: R * (C + r) / (C + R * u), hadLow: r > 0, hadCorrection: u - own > 0, hadExtra: own > 0, r, u });
+    groups.get(key).push({ used: R, ideal: R * (C + r) / (C + R * u), hadLow: r > 0, hadCorrection: u - own > 0, hadExtra: own !== 0, r, u });
   }
   const mean = (v, f) => v.reduce((s, x) => s + f(x), 0) / v.length;
   const rows = [], seen = new Set();

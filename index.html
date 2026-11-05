@@ -114,6 +114,11 @@
             <div class="dose-card__value"><span id="cc-dose-number">0.0</span><span class="dose-card__unit">units</span></div>
             <p class="dose-card__empty-hint" id="cc-dose-hint" hidden>Add food to see a dose</p>
           </div>
+          <!-- 2.85.0: change the dose by hand, one rounding step a tap (same value as the Adjust row below) -->
+          <div class="dose-adjust" id="cc-dose-adjust" role="group" aria-label="Change the dose by hand" hidden>
+            <button type="button" class="dose-adjust__btn" data-extra-step="-1" id="cc-dose-minus" aria-label="Take 0.5 u off">&minus;</button>
+            <button type="button" class="dose-adjust__btn" data-extra-step="1" id="cc-dose-plus" aria-label="Add 0.5 u">+</button>
+          </div>
           <!-- 2.81.0: Correction / Treating a low / Eating out sit behind one chip; it opens by itself while any of them is on -->
           <div class="dose-card__pills">
             <button class="carbs-pill carbs-pill--ratio mode-chip" id="cc-mode-btn" type="button" aria-expanded="false" aria-controls="cc-mode-controls"><span id="cc-mode-label">Meal</span>
@@ -138,8 +143,8 @@
             Eating Out
           </button>
           <button class="pill-btn" id="cc-extra-toggle" type="button" aria-controls="cc-extra-row">
-            <svg viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-            Extra
+            <svg viewBox="0 0 24 24" fill="none"><path d="M5 12h14M12 5v14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+            Adjust
           </button>
         </div>
 
@@ -200,17 +205,17 @@
         </div>
         <!-- 2.84.0: insulin chosen on top of the calculated dose -->
         <div class="correction-row extra-row" id="cc-extra-row" hidden>
-          <label for="cc-extra-dose">Extra insulin</label>
+          <label for="cc-extra-dose">Adjust by hand</label>
           <div class="extra-row__controls">
-            <button type="button" class="extra-row__step" data-extra-step="-1" aria-label="Less extra insulin">&minus;</button>
+            <button type="button" class="extra-row__step" data-extra-step="-1" aria-label="Take 0.5 u off">&minus;</button>
             <div class="correction-row__input">
               <input type="text" id="cc-extra-dose" inputmode="decimal" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="0">
               <span class="correction-row__unit-label">units</span>
             </div>
-            <button type="button" class="extra-row__step" data-extra-step="1" aria-label="More extra insulin">+</button>
+            <button type="button" class="extra-row__step" data-extra-step="1" aria-label="Add 0.5 u">+</button>
           </div>
           <p class="correction-row__manual-error" id="cc-extra-error" role="alert" hidden>That isn't a number I can read. Try something like 1.5 or 1,5</p>
-          <p class="correction-row__manual-note" id="cc-extra-note">Your choice, added on top of the calculated dose. It is logged with this entry and shown as extra.</p>
+          <p class="correction-row__manual-note" id="cc-extra-note">Your choice: added to the calculated dose, or taken off it with − (never below 0). It is logged with this entry and shown apart.</p>
         </div>
         <!-- 2.81.0: active insulin and carbs live inside the dose card as one line (opens the same sheet) -->
         <button class="active-panel" id="active-panel" type="button" hidden>

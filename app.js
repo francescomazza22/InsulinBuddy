@@ -3225,17 +3225,20 @@ import { extrasForDay, setDayExtra, dayKeyOf, eatingOutEstimates, eatingOutKcalF
   // 2.81.0: one chip for Correction / Treating a low / Eating out. Its row opens by itself when any of them comes on (a
   // restored draft too), and closes on a fresh meal; the chip's words say what is on even while the row is closed.
   function renderModeChip() {
-    const on = !!(draft.correctionOn || draft.noInsulinOn || draft.eatingOutOn || draft.extraOn);   // !!: classList.toggle(x, undefined) flips instead of clearing
-    if (on && !modeWasOn) modeOpen = true;
-    modeWasOn = on;
+    // A dose changed with the − / + buttons lights the chip but doesn't open the row (2.85.0): that would push the card down on every tap.
+    const opener = !!(draft.correctionOn || draft.noInsulinOn || draft.eatingOutOn);   // !!: classList.toggle(x, undefined) flips instead of clearing
+    const on = opener || !!draft.extraOn;
+    if (opener && !modeWasOn) modeOpen = true;
+    modeWasOn = opener;
     const chip = el("cc-mode-btn");
     if (!chip) return;
     const label = modeChipLabel({ correctionOn: draft.correctionOn, noInsulinOn: draft.noInsulinOn, eatingOutOn: draft.eatingOutOn, extraOn: !!draft.extraOn, hasFood: draft.items.length > 0 });
     el("cc-mode-label").textContent = label;
     chip.classList.toggle("is-on", on);
     chip.setAttribute("aria-expanded", modeOpen ? "true" : "false");
-    chip.setAttribute("aria-label", `${label}. ${modeOpen ? "Hide" : "Show"} Correction, Treating a low, Eating out and Extra`);
+    chip.setAttribute("aria-label", `${label}. ${modeOpen ? "Hide" : "Show"} Correction, Treating a low, Eating out and Adjust`);
     el("cc-mode-controls").hidden = !modeOpen;
+    el("cc-extra-row").hidden = !(draft.extraOn && modeOpen);
   }
   bind("cc-mode-btn", "click", () => { modeOpen = !modeOpen; renderModeChip(); });
 
@@ -3256,7 +3259,11 @@ import { extrasForDay, setDayExtra, dayKeyOf, eatingOutEstimates, eatingOutKcalF
     const correctionMode = draft.correctionOn ? (draft.correctionManual ? "manual" : "auto") : "off";
     showDoseEntryProblem("cc-eating-out-dose", "cc-eating-out-error", draft.eatingOutOn);
     showDoseEntryProblem("cc-correction-manual-input", "cc-correction-manual-error", draft.correctionOn && draft.correctionManual);
-    showDoseEntryProblem("cc-extra-dose", "cc-extra-error", !!draft.extraOn);
+    { // the Adjust box takes a sign ("-0.5" from the − button), so it has its own check rather than showDoseEntryProblem
+      const t = el("cc-extra-dose").value.trim();
+      const bad = !!draft.extraOn && t !== "" && !/^[-\u2212+]?[.,]?$/.test(t) && !/^[-\u2212+]?0*([.,]0*)?$/.test(t) && cleanExtraUnits(t) === 0;
+      el("cc-extra-error").hidden = !bad; el("cc-extra-dose").setAttribute("aria-invalid", bad ? "true" : "false");
+    }
     const extraUnits = draft.extraOn && !draft.noInsulinOn && !draft.eatingOutOn ? cleanExtraUnits(el("cc-extra-dose").value) : 0;
     const plan = planDose({
       carbs, ratio: ratioEntry ? ratioEntry.ratio : 0,
@@ -3316,8 +3323,8 @@ import { extrasForDay, setDayExtra, dayKeyOf, eatingOutEstimates, eatingOutKcalF
     capNote.hidden = !showCapNote;
     if (showCapNote) {
       capNote.textContent = plan.capped
-        ? (plan.extraDose > 0
-          ? `The calculated part was capped at your ${state.settings.maxDose} u maximum, then your ${plan.extraDose} u extra was added: ${finalDose} u. Check it is right.`
+        ? (plan.extraDose !== 0
+          ? `The calculated part was capped at your ${state.settings.maxDose} u maximum, then you ${plan.extraDose > 0 ? `added ${plan.extraDose} u` : `took ${-plan.extraDose} u off`}: ${finalDose} u.${plan.extraDose > 0 ? " Check it is right." : ""}`
           : `Capped at your ${state.settings.maxDose} u maximum. The calculation came to ${plan.requested} u.`)
         : `${finalDose} u is above your ${state.settings.maxDose} u maximum dose. You typed it, so it hasn't been changed. Check it is right.`;
     }
@@ -3326,10 +3333,17 @@ import { extrasForDay, setDayExtra, dayKeyOf, eatingOutEstimates, eatingOutKcalF
     logBtn.disabled = !hasSomethingToLog;
     // 2.81.0: the button says what it will log (the same figure as the big number), and the empty card says what to do.
     const emptyDraft = draft.items.length === 0 && !draft.correctionOn && !draft.noInsulinOn && !draft.eatingOutOn && !(plan.extraDose > 0);
+    // − / + beside the number (2.85.0): there whenever there is a dose to change; − rests at 0 u.
+    const adjustBox = el("cc-dose-adjust");
+    adjustBox.hidden = draft.noInsulinOn || draft.eatingOutOn || (emptyDraft && !draft.extraOn);
+    el("cc-dose-minus").disabled = !(finalDose > 0);
+    const stepTxt = `${adjustStep()} u`;
+    el("cc-dose-minus").setAttribute("aria-label", `Take ${stepTxt} off`); el("cc-dose-plus").setAttribute("aria-label", `Add ${stepTxt}`);
     logBtn.textContent = logButtonLabel({ hasDose: hasSomethingToLog, empty: emptyDraft, noInsulinOn: draft.noInsulinOn, eatingOutOn: draft.eatingOutOn, finalDose, carbs });
     doseNumber.closest(".dose-card").classList.toggle("is-empty", emptyDraft);
     el("cc-dose-hint").hidden = !emptyDraft;
     renderModeChip();
+    fitDoseAdjust();   // after the chip's words are set: they change how much room is left
     // When Log is off, say why, in words, so a greyed-out button is never a mystery.
     const whyEl = el("cc-log-why");
     let why = "";
@@ -3471,11 +3485,24 @@ import { extrasForDay, setDayExtra, dayKeyOf, eatingOutEstimates, eatingOutKcalF
     draft.extraOn = !!on;
     el("cc-extra-toggle").classList.toggle("is-active", !!on);
     el("cc-extra-toggle").setAttribute("aria-pressed", on ? "true" : "false");
-    el("cc-extra-row").hidden = !on;
-    if (!on) el("cc-extra-dose").value = "";
+    if (!on) { el("cc-extra-row").hidden = true; el("cc-extra-dose").value = ""; }
   }
+  // Puts the − / + on their own line under the number when they wouldn't fit between it and the chips (long dose, narrow phone).
+  function fitDoseAdjust() {
+    const row = document.querySelector(".dose-card__value-row"), box = el("cc-dose-adjust");
+    if (!row || !box) return;
+    if (box.hidden) { row.classList.remove("is-adjust-below"); return; }
+    const value = row.querySelector(".dose-card__value"), pills = row.querySelector(".dose-card__pills");
+    const gap = parseFloat(getComputedStyle(row).columnGap) || 8;
+    const btns = [...box.children].reduce((w, b) => w + b.offsetWidth, 0) + (parseFloat(getComputedStyle(box).columnGap) || 0);
+    const need = value.scrollWidth + btns + pills.offsetWidth + 2 * gap;
+    row.classList.toggle("is-adjust-below", need > row.clientWidth);
+  }
+  window.addEventListener("resize", () => { try { fitDoseAdjust(); } catch (e) { /* before start-up */ } });
+  function adjustStep() { return Math.min(0.5, Number(state.settings.rounding) > 0 ? Number(state.settings.rounding) : 0.5); }
   bind("cc-extra-toggle", "click", () => {
     setExtraMode(!draft.extraOn);
+    modeOpen = true;   // the button lives in the open row; its box shows under it
     if (draft.extraOn && draft.noInsulinOn) {
       draft.noInsulinOn = false;
       el("cc-no-insulin-toggle").classList.remove("is-active");
@@ -3483,20 +3510,24 @@ import { extrasForDay, setDayExtra, dayKeyOf, eatingOutEstimates, eatingOutKcalF
       el("quick-carb-row").hidden = true;
     }
     if (draft.extraOn && draft.eatingOutOn) setEatingOutMode(false);
-    if (draft.extraOn) { const f = el("cc-extra-dose"); f.focus(); }
-    recompute();
+    recompute();   // shows the row (renderModeChip) before the box can take focus
+    if (draft.extraOn) el("cc-extra-dose").focus();
     saveDraftLocal();
   });
   bind("cc-extra-dose", "input", () => { recompute(); saveDraftLocal(); });
-  // − / + step by the rounding step in Settings (0.5 u at most, so small top-ups are possible), never below 0.
-  el("cc-extra-row").addEventListener("click", e => {
-    const b = e.target.closest("[data-extra-step]");
-    if (!b) return;
-    const step = Math.min(0.5, state.settings.rounding > 0 ? state.settings.rounding : 0.5);
-    const now = cleanExtraUnits(el("cc-extra-dose").value);
-    const next = Math.round(Math.max(0, Math.min(EXTRA_MAX_UNITS, now + Number(b.dataset.extraStep) * step)) * 100) / 100;
-    el("cc-extra-dose").value = next > 0 ? String(next) : "";
+  // − / + (in the Adjust row and, since 2.85.0, beside the dose number) step by the rounding step in Settings (0.5 u at most).
+  // Signed: below 0 takes insulin off, but never more than the dose there is (planDose limits it; the box follows).
+  document.addEventListener("click", e => {
+    const b = e.target.closest && e.target.closest("[data-extra-step]");
+    if (!b || !b.closest(".dose-card")) return;
+    const now = draft.extraOn ? cleanExtraUnits(el("cc-extra-dose").value) : 0;
+    const next = Math.round(Math.max(-EXTRA_MAX_UNITS, Math.min(EXTRA_MAX_UNITS, now + Number(b.dataset.extraStep) * adjustStep())) * 100) / 100;
+    if (!draft.extraOn && next !== 0) setExtraMode(true);
+    el("cc-extra-dose").value = next !== 0 ? String(next) : "";
     recompute();
+    const applied = draft._computed ? draft._computed.extraDose : 0;
+    if (next < 0 && applied !== next) { el("cc-extra-dose").value = applied !== 0 ? String(applied) : ""; recompute(); }
+    if (cleanExtraUnits(el("cc-extra-dose").value) === 0 && !(draft.extraOn && modeOpen)) { setExtraMode(false); recompute(); }
     saveDraftLocal();
   });
   bind("cc-eating-out-dose", "input", () => { recompute(); saveDraftLocal(); });
@@ -3675,7 +3706,7 @@ import { extrasForDay, setDayExtra, dayKeyOf, eatingOutEstimates, eatingOutKcalF
   logBtn.addEventListener("click", () => {
     const hasCorrection = draft._computed && draft._computed.correctionDose > 0;
     const hasEatingOutDose = draft.eatingOutOn && draft._computed && draft._computed.mealDose > 0;
-    const hasExtra = draft._computed && draft._computed.extraDose > 0;
+    const hasExtra = draft._computed && draft._computed.extraDose > 0;   // only an addition can be the whole dose
     if (totalCarbs() <= 0 && !hasCorrection && !hasEatingOutDose && !hasExtra) return;
     logMeal(totalCarbs() > 0 || hasEatingOutDose ? autoMealType(new Date()) : "correction");
   });
@@ -6388,7 +6419,7 @@ import { extrasForDay, setDayExtra, dayKeyOf, eatingOutEstimates, eatingOutKcalF
       out.push(`Within ${w} h after a ratio-dosed meal: ${bits.join(" and ")}. Each is counted into the meal before it.`);
     } else out.push(`No lows were treated and no corrections given within ${w} h after a meal in this period${res.rows.some(r => r.withExtra) ? "" : ", so the ideal ratio equals the ratio used"}.`);
     const withExtra = res.rows.reduce((n, r) => n + (r.withExtra || 0), 0);
-    if (withExtra) out.push(`${plural(withExtra, "meal", "meals")} had extra insulin added by hand at the time, counted into that meal's insulin too.`);
+    if (withExtra) out.push(`${plural(withExtra, "meal", "meals")} had insulin added or taken off by hand at the time, counted into that meal's insulin too.`);
     const left = [];
     if (res.lowsUnattached) left.push(plural(res.lowsUnattached, "low", "lows"));
     if (res.correctionsUnattached) left.push(plural(res.correctionsUnattached, "correction", "corrections"));
@@ -6787,8 +6818,8 @@ import { extrasForDay, setDayExtra, dayKeyOf, eatingOutEstimates, eatingOutKcalF
         <div id="em-items" class="ingredient-list" style="margin-bottom:16px;"></div>
         </div>
         <div class="field" id="em-extra-field">
-          <label for="em-extra-dose">Extra insulin <span class="field__optional">(added on top)</span></label>
-          <div class="field__row"><input type="text" id="em-extra-dose" inputmode="decimal" autocomplete="off" spellcheck="false" placeholder="0" value="${cleanExtraUnits(entry.extraDose) > 0 ? escapeAttr(cleanExtraUnits(entry.extraDose)) : ""}"><span class="field__unit">units</span></div>
+          <label for="em-extra-dose">Adjusted by hand <span class="field__optional">(− takes off)</span></label>
+          <div class="field__row"><input type="text" id="em-extra-dose" inputmode="text" autocomplete="off" spellcheck="false" placeholder="0" value="${cleanExtraUnits(entry.extraDose) !== 0 ? escapeAttr(cleanExtraUnits(entry.extraDose)) : ""}"><span class="field__unit">units</span></div>
         </div>
         </div>
         ${entry.glucose != null ? `
@@ -6837,7 +6868,7 @@ import { extrasForDay, setDayExtra, dayKeyOf, eatingOutEstimates, eatingOutKcalF
     }
     // Extra insulin (2.84.0): only on a meal dose; the box is read like every dose box ("0,5" is 0.5).
     const extraText = () => backdrop.querySelector("#em-extra-dose").value.trim();
-    const extraUnreadable = () => kind === "meal" && extraText() !== "" && !/^[.,]$/.test(extraText()) && !(parseDecimalInput(extraText()) >= 0);
+    const extraUnreadable = () => kind === "meal" && extraText() !== "" && !/^[-\u2212+]?[.,]?$/.test(extraText()) && !/^[-\u2212+]?0*([.,]0*)?$/.test(extraText()) && cleanExtraUnits(extraText()) === 0;
     const extraNow = () => (kind === "meal" ? cleanExtraUnits(extraText()) : 0);
     function editDoseParts(totalCarbs) {
       const glucoseEl = backdrop.querySelector("#em-glucose");
@@ -6890,7 +6921,7 @@ import { extrasForDay, setDayExtra, dayKeyOf, eatingOutEstimates, eatingOutKcalF
         backdrop.querySelector("#em-preview").textContent = `Saved as treating a low: ${c}g carbs, no insulin.`;
         return;
       }
-      if (extraUnreadable()) { backdrop.querySelector("#em-preview").textContent = "Extra insulin: that isn't a number I can read. Try something like 0.5 or 0,5"; return; }
+      if (extraUnreadable()) { backdrop.querySelector("#em-preview").textContent = "Adjusted by hand: that isn't a number I can read. Try something like 0.5, 0,5 or -0.5"; return; }
       const totalCarbs = round1(items.reduce((s, i) => s + i.carbs, 0));
       // The dose comes from the exact carb total, as in the Calculator; only the shown/saved total is rounded (2.68.5:
       // rounding first made a meal logged at 2.0 u re-save as 2.5 u when its carbs sat on a rounding boundary).
@@ -6900,7 +6931,7 @@ import { extrasForDay, setDayExtra, dayKeyOf, eatingOutEstimates, eatingOutKcalF
       backdrop.querySelector("#em-preview").textContent =
         `New total: ${round1(totalCarbs)}g carbs → ${unitsText(parts.total)}` +
         (selectedRatioValue ? ` (using ${selectedRatioLabel ? escapeHtml(selectedRatioLabel) + " " : ""}${ratioText(selectedRatioValue)})` : "") +
-        (parts.extra > 0 ? `, including ${unitsText(parts.extra)} extra` : "") + capText;
+        (parts.extra > 0 ? `, including ${unitsText(parts.extra)} extra` : parts.extra < 0 ? `, with ${unitsText(-parts.extra)} taken off by hand` : "") + capText;
     }
 
     backdrop.querySelector("#em-meal-types").addEventListener("click", e => {
@@ -6957,7 +6988,7 @@ import { extrasForDay, setDayExtra, dayKeyOf, eatingOutEstimates, eatingOutKcalF
     backdrop.addEventListener("click", e => { if (e.target === backdrop || e.target.id === "em-cancel" || e.target.closest("#em-close")) closeSheet(backdrop); });
     backdrop.querySelector("#em-save").addEventListener("click", async () => {
       if (kind === "eatout" && isNaN(eatOutUnits())) { dialogs.alert("Enter the insulin you took, in units (for example 1.5 or 1,5)."); return; }
-      if (extraUnreadable()) { dialogs.alert("Extra insulin isn't a number I can read. Try something like 0.5 or 0,5, or leave it empty."); return; }
+      if (extraUnreadable()) { dialogs.alert("Adjusted by hand isn't a number I can read. Try something like 0.5, 0,5 or -0.5, or leave it empty."); return; }
       if (items.length === 0 && kind !== "correction" && kind !== "eatout") { dialogs.alert(kind === "low" ? "A treated low needs the food or drink you had — add an item, or delete the entry." : "A meal needs at least one item — delete it instead if you want it gone."); return; }
       let corrDose = 0;
       if (kind === "correction") {
@@ -6998,7 +7029,7 @@ import { extrasForDay, setDayExtra, dayKeyOf, eatingOutEstimates, eatingOutKcalF
         entry.mealDose = mealDose;
         entry.correctionDose = correctionDose;
         if (kind === "low") entry.noInsulin = true; else delete entry.noInsulin;
-        if (kind === "meal" && parts.extra > 0) entry.extraDose = parts.extra; else delete entry.extraDose;
+        if (kind === "meal" && parts.extra !== 0) entry.extraDose = parts.extra; else delete entry.extraDose;
         if (parts.capped) entry.cappedFrom = parts.requested; else delete entry.cappedFrom;
         entry.glucose = newGlucose;
         entry.ratioValue = selectedRatioValue;
