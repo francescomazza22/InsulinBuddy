@@ -2,6 +2,15 @@
 // summary can never drift. Bump CHANGELOG[0].version here (and CACHE_VERSION in sw.js) on every release.
 export const CHANGELOG = [
   {
+    version: "2.83.0",
+    summary: "Change your daily extras day by day: tap the calories bar.",
+    changes: [
+      "Tapping the calories bar in the Calculator opens Today's extras. Each day starts at your usual amounts; use + and \u2212 to say what you actually had (say 2 flat whites today, no oil)",
+      "Changes are saved at once, for that day only, and the bar's \u201cleft\u201d updates straight away. Back to usual undoes them",
+      "Trends uses each day's own amounts, and tapping a day says when its extras were changed. Your usual amounts stay in Settings > Calories"
+    ]
+  },
+  {
     version: "2.82.1",
     summary: "An opened meal in the log shows each food's calories.",
     changes: [

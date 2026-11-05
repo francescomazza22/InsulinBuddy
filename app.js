@@ -40,7 +40,7 @@ import { workoutsToActivities, awaitingIntensity, mayBeDoubleCounted, intensityU
 import { dayBounds, shiftDay, dayTimeline, readingNear, stackRows } from "./js/day-timeline.js";
 import { sessionLevel, primaryTotp, verifyCode, startTotpSetup, cancelTotpSetup, removeTotp, signOutOtherDevices, groupSecret, cleanTotpCode, validTotpCode } from "./js/mfa.js";
 import { nearActivity, activitySkip, countNearActivity, breakfastByActivity, activitySummary, ACTIVITY_FILTERS, NEAR_BEFORE_HOURS, NEAR_AFTER_HOURS } from "./js/activity-stats.js";
-import { eatingOutEstimates, eatingOutKcalFromInsulin, EATING_OUT_CORRECTION_HOURS, KCAL_PER_G_CARB, todayCalories, calorieRule, calorieSummary, missingDetails, restingKcal, extrasKcal, cleanExtra, LIFE_FACTORS, CALORIE_DEFAULTS, CALORIE_LIMITS } from "./js/calories.js";
+import { extrasForDay, setDayExtra, dayKeyOf, eatingOutEstimates, eatingOutKcalFromInsulin, EATING_OUT_CORRECTION_HOURS, KCAL_PER_G_CARB, todayCalories, calorieRule, calorieSummary, missingDetails, restingKcal, extrasKcal, cleanExtra, LIFE_FACTORS, CALORIE_DEFAULTS, CALORIE_LIMITS } from "./js/calories.js";
 
 
   const STORAGE_KEY = "insulinBuddy.v2";
@@ -3072,7 +3072,7 @@ import { eatingOutEstimates, eatingOutKcalFromInsulin, EATING_OUT_CORRECTION_HOU
     paintDayBar("cc-day-kcal", overBar({ logged: t.eaten, draft: t.draft, target: t.target }));
     box.classList.toggle("is-over", t.over);
     const left = rest;
-    box.setAttribute("aria-label", `Food today: about ${kcalText(t.eaten)} kcal logged${t.draft > 0 ? `, plus ${kcalText(t.draft)} in this meal` : ""}. About ${kcalText(t.needed)} needed today${t.activity > 0 ? ` including ${kcalText(t.activity)} for activity` : ""}${t.extras > 0 ? `, ${kcalText(t.extras)} of it set aside for your daily extras, so ${kcalText(t.target)} for food` : ""}: ${left >= 0 ? `${kcalText(left)} left` : `${kcalText(-left)} over`}. Estimates. Opens Trends.`);
+    box.setAttribute("aria-label", `Food today: about ${kcalText(t.eaten)} kcal logged${t.draft > 0 ? `, plus ${kcalText(t.draft)} in this meal` : ""}. About ${kcalText(t.needed)} needed today${t.activity > 0 ? ` including ${kcalText(t.activity)} for activity` : ""}${t.extras > 0 ? `, ${kcalText(t.extras)} of it set aside for your daily extras, so ${kcalText(t.target)} for food` : ""}: ${left >= 0 ? `${kcalText(left)} left` : `${kcalText(-left)} over`}. Estimates. Tap to change today's extras.`);
     box.title = `${kcalText(t.target)} for food today${t.extras > 0 ? ` (${kcalText(t.needed)} for the day less ${kcalText(t.extras)} of daily extras)` : ""}, minus ${kcalText(t.eaten)} logged${t.draft > 0 ? ` and ${kcalText(t.draft)} in this meal` : ""}`;
     alignDayBars();
   }
@@ -3100,12 +3100,101 @@ import { eatingOutEstimates, eatingOutKcalFromInsulin, EATING_OUT_CORRECTION_HOU
       if (w > 0) rows.forEach(b => { b.querySelector(q).style.minWidth = `${Math.ceil(w)}px`; });
     });
   }
-  bind("cc-day-kcal", "click", () => {
+  function openCaloriesTrend() {
     showView("history");
     const b = document.querySelector('#history-segmented [data-seg="trends"]'); if (b) b.click();
     const c = el("trend-card-calories");
     if (c) requestAnimationFrame(() => { if (!c.hidden) c.scrollIntoView({ block: "start", behavior: "smooth" }); });
-  });
+  }
+  bind("cc-day-kcal", "click", () => openDayExtrasSheet());   // 2.83.0: today's extras (it used to open Trends)
+
+  // ---- Today's extras (2.83.0) ----
+  // Each day starts at the usual daily extras; here he says what he actually had today. Every tap is saved at once
+  // (a day set back to the usual follows the usual again). js/calories.js keeps the per-day counts.
+  function openDayExtrasSheet() {
+    const dayKey = dayKeyOf(Date.now());
+    const trigger = el("cc-day-kcal");
+    const backdrop = document.createElement("div");
+    backdrop.className = "sheet-backdrop";
+    backdrop.innerHTML = `
+      <div class="sheet day-extras-sheet" role="dialog" aria-modal="true" aria-labelledby="dx-title">
+        <div class="sheet-head">
+          <h2 id="dx-title">Today's extras</h2>
+          <button class="sheet-close" id="dx-close" type="button" aria-label="Close">
+            <svg viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+          </button>
+        </div>
+        <p class="panel-card__hint dx-hint">Each day starts at your usual amounts. Change them to what you had today.</p>
+        <div class="dx-list" id="dx-list"></div>
+        <p class="dx-total" id="dx-total" role="status"></p>
+        <div class="dx-actions">
+          <button class="btn btn--secondary" id="dx-reset" type="button">Back to usual</button>
+          <button class="btn btn--primary" id="dx-done" type="button">Done</button>
+        </div>
+        <div class="dx-links">
+          <button class="dashed-btn" id="dx-settings" type="button">Usual amounts</button>
+          <button class="dashed-btn" id="dx-trends" type="button">See in Trends</button>
+        </div>
+      </div>`;
+    const $ = sel => backdrop.querySelector(sel);
+    const fmtN = n => String(round1(n));
+    const unitOf = (x, n) => (x.unit ? ` ${unitPlural(x.unit, n)}` : "");
+    function draw(full) {
+      const r = calRule(), dx = extrasForDay(r, dayKey);
+      const list = $("#dx-list");
+      if (!dx.items.length) {
+        list.innerHTML = `<p class="panel-card__hint">No daily extras set yet.</p>`;
+        $("#dx-reset").hidden = true;
+        $("#dx-total").textContent = "";
+        return;
+      }
+      if (full || list.children.length !== dx.items.length) {
+        list.innerHTML = dx.items.map(x => `<div class="dx-row" data-xid="${escapeAttr(x.id)}">
+            <div class="dx-row__name"><span class="dx-row__title">${escapeHtml(x.name)}</span><span class="dx-row__sub"></span></div>
+            <div class="dx-step" role="group" aria-label="${escapeAttr(x.name)} today">
+              <button type="button" class="dx-step__btn" data-dx="-1" aria-label="One less ${escapeAttr(x.name)}">\u2212</button>
+              <span class="dx-step__count" aria-live="polite"></span>
+              <button type="button" class="dx-step__btn" data-dx="1" aria-label="One more ${escapeAttr(x.name)}">+</button>
+            </div>
+          </div>`).join("");
+      }
+      dx.items.forEach(x => {
+        const row = list.querySelector(`[data-xid="${CSS.escape(x.id)}"]`);
+        if (!row) return;
+        row.classList.toggle("is-changed", x.changed);
+        row.querySelector(".dx-step__count").textContent = fmtN(x.count);
+        row.querySelector(".dx-row__sub").textContent = `${fmtN(x.count)}${unitOf(x, x.count)} \u00b7 ${kcalText(x.kcal)} kcal${x.changed ? ` \u00b7 usual ${fmtN(x.usual)}` : ""}`;
+        row.querySelector('[data-dx="-1"]').disabled = !(x.count > 0);
+      });
+      const usual = extrasKcal(r).total;
+      $("#dx-total").innerHTML = `Today <b>${kcalText(dx.total)} kcal</b> of extras${dx.adjusted ? ` (usual ${kcalText(usual)})` : ""}`;
+      $("#dx-reset").hidden = !dx.adjusted;
+    }
+    const close = () => { closeSheet(backdrop); if (trigger && trigger.isConnected) trigger.focus({ preventScroll: true }); };
+    $("#dx-list").addEventListener("click", e => {
+      const b = e.target.closest("[data-dx]"), row = e.target.closest("[data-xid]");
+      if (!b || !row) return;
+      const r = calRule(), x = extrasForDay(r, dayKey).items.find(i => i.id === row.dataset.xid);
+      if (!x) return;
+      const next = Math.max(0, Math.round((x.count + Number(b.dataset.dx)) * 100) / 100);
+      saveCalories({ dayExtras: setDayExtra(r, dayKey, x.id, next) });
+      draw(false); renderDayKcal();
+    });
+    $("#dx-reset").addEventListener("click", () => {
+      const r = calRule(), all = { ...r.dayExtras }; delete all[dayKey];
+      saveCalories({ dayExtras: all });
+      draw(false); renderDayKcal();
+    });
+    $("#dx-done").addEventListener("click", close);
+    $("#dx-close").addEventListener("click", close);
+    $("#dx-settings").addEventListener("click", () => { close(); openSettingsPanel("calories"); });
+    $("#dx-trends").addEventListener("click", () => { close(); openCaloriesTrend(); });
+    backdrop.addEventListener("click", e => { if (e.target === backdrop) close(); });
+    backdrop.addEventListener("keydown", e => { if (e.key === "Escape") close(); });
+    draw(true);
+    openSheet(backdrop);
+    requestAnimationFrame(() => { const f = $("#dx-done"); if (f) f.focus({ preventScroll: true }); });
+  }
 
   function renderActivePanel() {
     renderDayCarbs();
@@ -5756,7 +5845,7 @@ import { eatingOutEstimates, eatingOutKcalFromInsulin, EATING_OUT_CORRECTION_HOU
         const d = sum.days[i];
         if (!d.logged) return `${fmtDay(d.key)} · nothing logged`;
         const acts = d.activities.map(x => `${activityLabel(x.entry)} ${kcalText(x.kcal)}${x.from === "watch" ? " (Watch)" : ""}`);
-        let t = `${fmtDay(d.key)}${d.isToday ? " so far" : ""} · ate ${kcalText(d.eaten)} (food ${kcalText(d.food)} + extras ${kcalText(d.extras)})`;
+        let t = `${fmtDay(d.key)}${d.isToday ? " so far" : ""} · ate ${kcalText(d.eaten)} (food ${kcalText(d.food)} + extras ${kcalText(d.extras)}${d.extrasAdjusted ? ", changed that day" : ""})`;
         if (d.target != null) t += ` · needed ${kcalText(d.target)} (everyday ${kcalText(d.life)}${acts.length ? " + " + acts.join(", ") : ""})` + (d.isToday ? "" : ` · ${gap(d.diff)}`);
         for (const x of d.eatingOutMeals) t += x.from === "insulin"
           ? ` · eating out \u2248${kcalText(x.kcal)} kcal (${round1(x.units + x.corrUnits)}u${x.corrUnits ? `, incl. ${round1(x.corrUnits)}u correction` : ""} at ${ratioText(round1(x.ratio))} \u2192 ${Math.round(x.carbs)} g carbs \u00d7${KCAL_PER_G_CARB}\u00d7${r.eatingOutMultiplier})`

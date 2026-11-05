@@ -93,8 +93,57 @@ export function calorieRule(c, now = Date.now()) {
     lifeFactor: lf == null ? CALORIE_DEFAULTS.lifeFactor : Math.round(lf * 100) / 100,
     eatingOutKcal: eo == null ? null : Math.round(eo),
     eatingOutMultiplier: em == null ? null : Math.round(em * 100) / 100,
-    extras
+    extras,
+    dayExtras: cleanDayExtras(o.dayExtras, extras)
   };
+}
+
+// ---- Daily extras adjusted per day (2.83.0) ----
+// Each day starts at the usual amounts (perDay); a day he changes keeps its own counts, stored by local date:
+// dayExtras = { "2026-11-05": { "flat-white": 2, ... } }. Only known extras, 0..50 each, the latest DAY_EXTRAS_KEEP days.
+export const DAY_EXTRAS_KEEP = 120;
+const DAY_KEY = /^\d{4}-\d{2}-\d{2}$/;
+/** Local calendar date of a time, as "YYYY-MM-DD". */
+export function dayKeyOf(ts) {
+  const d = new Date(ts), p = n => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+function cleanDayExtras(raw, extras) {
+  if (!raw || typeof raw !== "object") return {};
+  const ids = new Set(extras.map(x => x.id));
+  const days = Object.keys(raw).filter(k => DAY_KEY.test(k)).sort().slice(-DAY_EXTRAS_KEEP);
+  const out = {};
+  for (const k of days) {
+    const v = raw[k];
+    if (!v || typeof v !== "object") continue;
+    const day = {};
+    for (const [id, n] of Object.entries(v)) {
+      const c = inRange(n, CALORIE_LIMITS.perDay);
+      if (ids.has(id) && c != null) day[id] = Math.round(c * 100) / 100;
+    }
+    if (Object.keys(day).length) out[k] = day;
+  }
+  return out;
+}
+/** The extras for one day: [{ ...extra, count, usual, kcal, changed }], total and whether the day was adjusted. */
+export function extrasForDay(rule, dayKey) {
+  const own = (rule.dayExtras || {})[dayKey] || {};
+  const items = rule.extras.map(x => {
+    const count = Object.prototype.hasOwnProperty.call(own, x.id) ? own[x.id] : x.perDay;
+    return { ...x, usual: x.perDay, count, kcal: x.kcalPerUnit * count, changed: count !== x.perDay };
+  });
+  return { items, total: items.reduce((s, x) => s + x.kcal, 0), adjusted: items.some(x => x.changed) };
+}
+/** dayExtras with one count set for a day (a count equal to the usual drops it, so the day follows the usual again). */
+export function setDayExtra(rule, dayKey, id, count) {
+  const x = rule.extras.find(e => e.id === id);
+  const all = { ...(rule.dayExtras || {}) };
+  if (!x || !DAY_KEY.test(dayKey)) return all;
+  const day = { ...(all[dayKey] || {}) };
+  const c = Math.max(CALORIE_LIMITS.perDay[0], Math.min(CALORIE_LIMITS.perDay[1], Math.round(Number(count) * 100) / 100 || 0));
+  if (c === x.perDay) delete day[id]; else day[id] = c;
+  if (Object.keys(day).length) all[dayKey] = day; else delete all[dayKey];
+  return all;
 }
 
 /** What is still missing for a target: [] when everything is set. */
@@ -254,7 +303,12 @@ export function calorieSummary(history, settings, { days = 14, now = Date.now() 
   for (const d of out) {
     const rest = restingKcal(rule, d.key);
     d.logged = d.meals > 0;
-    d.extras = d.logged ? extras.total : 0;   // extras only on a day you were logging
+    // Extras on a day you were logging, at that day's own amounts when you changed them (2.83.0). A day you adjusted
+    // counts as logged even with no meal: you said what you had.
+    const dx = extrasForDay(rule, dayKeyOf(d.key));
+    d.extrasAdjusted = dx.adjusted;
+    if (dx.adjusted) d.logged = true;
+    d.extras = d.logged ? dx.total : 0;
     d.eaten = d.food + d.extras;
     d.resting = rest;
     d.life = rest == null ? null : rest * rule.lifeFactor;
@@ -288,7 +342,7 @@ export function todayCalories(history, settings, now = Date.now(), draftKcal = 0
   const d = s.days[0];
   if (!d || d.target == null || !(d.target > 0)) return null;
   const draft = Math.max(0, Number(draftKcal) || 0);
-  const extras = s.extras.total;
+  const extras = extrasForDay(s.rule, dayKeyOf(now)).total;   // 2.83.0: today's own amounts
   const target = Math.max(0, d.target - extras);
   const eaten = d.food;
   const fill = target > 0 ? Math.min(1, eaten / target) : (eaten > 0 ? 1 : 0);
