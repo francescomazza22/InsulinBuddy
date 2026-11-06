@@ -1,4 +1,4 @@
--- Settings guard and settings history (2.88.0, 6 Nov 2026). Applied as migration `settings_guard_and_history`.
+-- Settings guard and settings history (2.88.0). Applied 6 Nov 2026 as migration `settings_guard_and_history` (live).
 --
 -- Why: on 6 Nov 2026 a device signing in for the first time uploaded factory settings over the account's real ones
 -- (ratios, target, max dose, usual basal, Nightscout link). 2.87.0 fixed the app, but an older cached copy of the app on
@@ -86,10 +86,8 @@ end $$;
 
 revoke all on function private.guard_settings(), private.keep_settings_history(), private.is_factory_dosing(jsonb), private.dosing_part(jsonb) from public, anon, authenticated;
 
-drop trigger if exists a_guard_settings on public.app_state;
 create trigger a_guard_settings before update on public.app_state
   for each row execute function private.guard_settings();
 
-drop trigger if exists z_keep_settings_history on public.app_state;
 create trigger z_keep_settings_history after update on public.app_state
   for each row execute function private.keep_settings_history();
