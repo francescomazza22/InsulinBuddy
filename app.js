@@ -2,7 +2,7 @@ import { saveReportPdf } from "./js/pdf-report.js";
 import { sanityPool, doseSanity } from "./js/dose-sanity.js";
 import { escapeHtml, escapeAttr, round1, formatQty, dayKeyFromTs, timeAgo, makeId, redact, parseDecimalInput, signedChange } from "./js/util.js";
 import { convertGlucose, convertDosingSetting, roundDose as roundDoseWith, roundSignedDose as roundSignedDoseWith, activeAt, compoundGiInfo, computeDose, checkDoseConsistency, planDose, planEditDose, capDoseParts, giBand, niceScale, buildTrendBuckets, summarizeTrends, mealTypeBreakdown, absorptionMinutesForEntry as absorptionForEntry, iobFraction, cobGrams, glucoseTrendArrow, glucoseRangeClass, glucoseRangeLabel, basalByDay, summarizeBasal, ratioWasApplied, ratioByBracket, idealRatioByBracket, cleanExtraUnits, EXTRA_MAX_UNITS, BASAL_ACTIVITY_DEFAULTS, BASAL_ACTIVITY_LIMITS, basalActivityRule, activitiesBeforeBasal, basalActivitySuggestion } from "./js/calc.js";
-import { SCHEMA_VERSION, normalizeState as normalizeStateWith, makeFingerprint, stampChanges, mergeStates, statesEquivalent, prepareRestoredState } from "./js/state.js";
+import { SCHEMA_VERSION, normalizeState as normalizeStateWith, makeFingerprint, stampChanges, mergeStates, statesEquivalent, prepareRestoredState, neverSyncedHere } from "./js/state.js";
 import { NightscoutClient, NsOutbox, nsToken, nsBaseUrl, nsConfigured, treatmentsForEntry, entriesToGlucoseRows } from "./js/nightscout.js";
 import { createDiag, hookGlobalErrors } from "./js/diag.js";
 import { postMealCurves, outcomeByBracket, foodImpact, correctionEffectiveness, iobStacking, overnightStats, weekdayWeekend, lowTreatmentUsual, lastTimesFor, isfToMgdl, activityGlucose, activityImpact, ACTIVITY_AFTER_HOURS } from "./js/insights.js";
@@ -74,6 +74,10 @@ import { extrasForDay, setDayExtra, dayKeyOf, eatingOutEstimates, eatingOutKcalF
   // Everything device-specific (files, clipboard, scheduled notifications, Health, haptics) goes through this one object; see docs/PLATFORM.md.
   const platform = assertPlatform(window.__ibPlatform || createWebPlatform(window));
   const PENDING_SYNC_KEY = "insulinBuddy.pendingSync";
+  // Which account this device's settings belong to (2.87.0): set after every cloud load. A device without it for the
+  // signed-in account takes the account's settings at sign-in instead of letting its own (factory) ones win.
+  const SETTINGS_OWNER_KEY = "insulinBuddy.settingsOwner";
+  const markSettingsOwner = id => { try { store.setItem(SETTINGS_OWNER_KEY, id); } catch {} };
   let cloudSyncPending = store.getItem(PENDING_SYNC_KEY) === "1";
 
   const CATEGORIES = [
@@ -9160,7 +9164,9 @@ import { extrasForDay, setDayExtra, dayKeyOf, eatingOutEstimates, eatingOutKcalF
             } else {
               // Merge this device's edits (including any made offline) with the cloud's.
               snapshotNow("before-sign-in-merge", local);
-              state = mergeStates(local, result.state, defaultState);
+              const firstSync = neverSyncedHere(local, result.state, { ownerId: store.getItem(SETTINGS_OWNER_KEY), userId: currentUser.id });
+              if (firstSync) diag.log("info", "sync", "First sign-in on this device: using the account's settings");
+              state = mergeStates(local, result.state, defaultState, { preferRemoteSettings: firstSync });
               if (!statesEquivalent(state, result.state)) { stateFp = makeFingerprint(state); await saveStateCloud(); }
             }
           } else {
@@ -9173,6 +9179,7 @@ import { extrasForDay, setDayExtra, dayKeyOf, eatingOutEstimates, eatingOutKcalF
             await saveStateCloud();
           }
           stateFp = makeFingerprint(state);
+          if (result.ok) markSettingsOwner(currentUser.id);
           // Keep a local copy of what we just loaded/merged, so the app still shows
           // your data if it's next opened offline (and the copy is marked as current-schema).
           // Not awaited: this is just a local offline-cache backup of what was already

@@ -2,6 +2,16 @@
 // summary can never drift. Bump CHANGELOG[0].version here (and CACHE_VERSION in sw.js) on every release.
 export const CHANGELOG = [
   {
+    version: "2.87.0",
+    summary: "Signing in on a new device now brings in all your settings, Nightscout included, and can never reset them.",
+    changes: [
+      "On 6 Nov a device signing in for the first time replaced your settings in the cloud with its factory ones (ratios, target, max dose, usual basal, Nightscout link). Your real settings were put back the same afternoon",
+      "Cause: a new device recorded its factory ratios for Ratio over time on its first save, which marked its default settings as \"just changed\", newer than yours",
+      "Now a device that has never synced with your account always takes the account's settings when you sign in (password, then code). Meals it logged before signing in are still kept",
+      "Recording a ratio for Ratio over time no longer counts as changing your settings, and a new device's factory ratios never get added to that chart"
+    ]
+  },
+  {
     version: "2.86.0",
     summary: "Recipes now tell you when a food in them has changed in your Library, and offer to update.",
     changes: [

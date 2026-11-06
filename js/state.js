@@ -57,8 +57,18 @@ export function normalizeState(parsed, defaults) {
 const stripMeta = item => { const { updatedAt, ...rest } = item; return rest; };
 
 /** A snapshot of "what was saved last", used to notice what changed since. */
+// The settings part of a fingerprint. The record of ratio changes (ratioHistory) is left out: both devices' records are
+// always kept when merging, so adding one is not a settings edit. Before 2.87.0 a brand-new device recorded its factory
+// ratios on its first save, which stamped its default settings as "just edited" and let them replace the account's real
+// settings at sign-in (6 Nov 2026).
+export function settingsFingerprint(settings) {
+  if (!settings || typeof settings !== "object") return JSON.stringify(settings);
+  const { ratioHistory, ...rest } = settings;
+  return JSON.stringify(rest);
+}
+
 export function makeFingerprint(state) {
-  const fp = { settings: JSON.stringify(state.settings) };
+  const fp = { settings: settingsFingerprint(state.settings) };
   for (const k of COLLECTIONS) {
     const m = new Map();
     for (const it of state[k]) if (it && it.id != null) m.set(it.id, JSON.stringify(stripMeta(it)));
@@ -93,7 +103,7 @@ export function stampChanges(state, prevFp, now = Date.now()) {
     for (const id of prev.keys()) if (!cur.has(id)) state.deleted[k][id] = now;
     next[k] = cur;
   }
-  next.settings = JSON.stringify(state.settings);
+  next.settings = settingsFingerprint(state.settings);
   if (next.settings !== prevFp.settings) state.settingsUpdatedAt = now;
   pruneTombstones(state, now);
   return next;
@@ -124,7 +134,7 @@ function mergeCollection(local, remote, tombs) {
 
 /** Merge two states into a new one. Inputs are not mutated. Items that win from
  *  `local` keep their object identity (open editors stay valid). */
-export function mergeStates(local, remote, defaults) {
+export function mergeStates(local, remote, defaults, { preferRemoteSettings = false } = {}) {
   const L = normalizeState(local, defaults);
   if (!remote) return L;
   const R = normalizeState(remote, defaults);
@@ -134,11 +144,13 @@ export function mergeStates(local, remote, defaults) {
       for (const [id, t] of Object.entries(src)) deleted[k][id] = Math.max(deleted[k][id] || 0, t);
     }
   }
-  const useLocalSettings = L.settingsUpdatedAt > R.settingsUpdatedAt;
+  // preferRemoteSettings: this device has never synced with the account, so its settings are not the person's (factory
+  // values, or whatever was set signed out): the account's settings win whatever the stamps say (2.87.0).
+  const useLocalSettings = !preferRemoteSettings && L.settingsUpdatedAt > R.settingsUpdatedAt;
   const out = {
     schemaVersion: SCHEMA_VERSION,
     settings: useLocalSettings ? L.settings : R.settings,
-    settingsUpdatedAt: Math.max(L.settingsUpdatedAt, R.settingsUpdatedAt),
+    settingsUpdatedAt: preferRemoteSettings ? R.settingsUpdatedAt : Math.max(L.settingsUpdatedAt, R.settingsUpdatedAt),
     library: mergeCollection(L.library, R.library, deleted.library),
     recipes: mergeCollection(L.recipes, R.recipes, deleted.recipes),
     history: mergeCollection(L.history, R.history, deleted.history),
@@ -146,7 +158,7 @@ export function mergeStates(local, remote, defaults) {
   };
   out.history.sort((a, b) => b.ts - a.ts);
   // The record of ratio changes (2.76.0) lives in settings, which sync keeps whole from the newer side: keep both sides' records.
-  const lh = L.settings && L.settings.ratioHistory, rh = R.settings && R.settings.ratioHistory;
+  const lh = !preferRemoteSettings && L.settings && L.settings.ratioHistory, rh = R.settings && R.settings.ratioHistory;
   if (Array.isArray(lh) || Array.isArray(rh)) out.settings = { ...out.settings, ratioHistory: mergeRatioHistory(lh, rh) };
   return out;
 }
@@ -193,4 +205,17 @@ export function prepareRestoredState(snapshotState, currentState, defaults, now 
 export function unexplainedEmptying(state, knownCloudIds) {
   if (!knownCloudIds || knownCloudIds.size === 0 || state.history.length > 0) return [];
   return [...knownCloudIds].filter(id => !state.deleted || state.deleted.history[id] == null);
+}
+
+/**
+ * True when this device has never synced with the signed-in account (2.87.0): it hasn't recorded this account as the
+ * owner of its settings and holds none of the account's meals. Its settings are then factory values (or set signed out)
+ * and must not replace the account's real ratios, targets, Nightscout link... at sign-in.
+ * `ownerId` is the account this device last synced with (null if never); devices from before 2.87.0 have none, but
+ * already hold the account's meals, so they keep the ordinary newest-wins rule.
+ */
+export function neverSyncedHere(local, remote, { ownerId = null, userId = null } = {}) {
+  if (ownerId && userId && ownerId === userId) return false;
+  const cloudIds = new Set(((remote && remote.history) || []).map(h => h && h.id));
+  return !((local && local.history) || []).some(h => h && cloudIds.has(h.id));
 }

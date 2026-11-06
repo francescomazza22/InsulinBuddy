@@ -11,7 +11,7 @@ One JSON object, kept on the device (key `insulinBuddy.v2`), in the cloud (Supab
 |---|---|---|
 | `schemaVersion` | number | State layout version (now 2). Set by `normalizeState` in `js/state.js`. |
 | `settings` | object | Everything under *Settings* (below). |
-| `settingsUpdatedAt` | number (ms) | When settings last changed. The newer side wins when devices merge. |
+| `settingsUpdatedAt` | number (ms) | When settings last changed. The newer side wins when devices merge, except on a device's first sync with the account (it holds none of the account's meals and hasn't recorded the account as its settings' owner): the account's settings win (2.87.0). Adding a `ratioHistory` record alone does not change it. |
 | `library` | list of foods | The food library. |
 | `recipes` | list of recipes | Saved recipes. |
 | `history` | list of entries | Logged meals, corrections, basal doses and activities, newest first. |
