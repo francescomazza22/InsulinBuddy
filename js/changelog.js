@@ -2,6 +2,14 @@
 // summary can never drift. Bump CHANGELOG[0].version here (and CACHE_VERSION in sw.js) on every release.
 export const CHANGELOG = [
   {
+    version: "2.88.0",
+    summary: "Settings that decide a dose can no longer change behind your back.",
+    changes: [
+      "If another device changes a ratio, your target, correction factor, max dose, usual basal or the Nightscout link, this device tells you what changed the moment it syncs (for example \"Target: 165 \u2192 150 mg/dL\"), with a button to check Settings > Dosing",
+      "Changes you make on this device, and settings that don't affect a dose (theme, dark mode\u2026), don't trigger it"
+    ]
+  },
+  {
     version: "2.87.0",
     summary: "Signing in on a new device now brings in all your settings, Nightscout included, and can never reset them.",
     changes: [

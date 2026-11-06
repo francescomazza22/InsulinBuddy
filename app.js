@@ -2,6 +2,7 @@ import { saveReportPdf } from "./js/pdf-report.js";
 import { sanityPool, doseSanity } from "./js/dose-sanity.js";
 import { escapeHtml, escapeAttr, round1, formatQty, dayKeyFromTs, timeAgo, makeId, redact, parseDecimalInput, signedChange } from "./js/util.js";
 import { convertGlucose, convertDosingSetting, roundDose as roundDoseWith, roundSignedDose as roundSignedDoseWith, activeAt, compoundGiInfo, computeDose, checkDoseConsistency, planDose, planEditDose, capDoseParts, giBand, niceScale, buildTrendBuckets, summarizeTrends, mealTypeBreakdown, absorptionMinutesForEntry as absorptionForEntry, iobFraction, cobGrams, glucoseTrendArrow, glucoseRangeClass, glucoseRangeLabel, basalByDay, summarizeBasal, ratioWasApplied, ratioByBracket, idealRatioByBracket, cleanExtraUnits, EXTRA_MAX_UNITS, BASAL_ACTIVITY_DEFAULTS, BASAL_ACTIVITY_LIMITS, basalActivityRule, activitiesBeforeBasal, basalActivitySuggestion } from "./js/calc.js";
+import { dosingChanges } from "./js/dosing-changes.js";
 import { SCHEMA_VERSION, normalizeState as normalizeStateWith, makeFingerprint, stampChanges, mergeStates, statesEquivalent, prepareRestoredState, neverSyncedHere } from "./js/state.js";
 import { NightscoutClient, NsOutbox, nsToken, nsBaseUrl, nsConfigured, treatmentsForEntry, entriesToGlucoseRows } from "./js/nightscout.js";
 import { createDiag, hookGlobalErrors } from "./js/diag.js";
@@ -447,9 +448,28 @@ import { extrasForDay, setDayExtra, dayKeyOf, eatingOutEstimates, eatingOutKcalF
     return cloud.pull(reason);
   }
 
+  // 2.88.0: settings that decide a dose and arrive from another device are never changed silently. One notice lists what
+  // changed (a bad sync on 6 Nov 2026 swapped the real ratios for factory ones without a word).
+  let dosingNoticeOpen = false;
+  function noticeDosingChanges(before, after) {
+    let lines = [];
+    try { lines = dosingChanges(before, after, { glucoseUnit: unitLabel() }); } catch (e) { diag.log("warn", "sync", "Couldn't compare dosing settings: " + ((e && e.message) || e)); }
+    if (!lines.length) return;
+    diag.log("warn", "sync", "Dosing settings changed by another device: " + lines.join("; "));
+    if (dosingNoticeOpen) return;
+    dosingNoticeOpen = true;
+    setTimeout(async () => {
+      try {
+        const go = await dialogs.confirm(`Another device changed settings that decide your doses:\n\n${lines.slice(0, 12).join("\n")}${lines.length > 12 ? `\n…and ${lines.length - 12} more` : ""}\n\nIf you didn't change these, don't dose from them: check Settings > Dosing.`, { title: "Dosing settings changed", confirmText: "Check settings", cancelText: "OK" });
+        if (go) openSettingsPanel("ratios");
+      } finally { dosingNoticeOpen = false; }
+    }, 0);
+  }
+
   function applyRemoteState(remote, reason) {
     const merged = mergeStates(state, remote, defaultState);
     if (statesEquivalent(merged, state)) return false;
+    const settingsBefore = state.settings;
     snapshotNow("before-merge");
     state.settings = merged.settings;
     state.settingsUpdatedAt = merged.settingsUpdatedAt;
@@ -461,6 +481,7 @@ import { extrasForDay, setDayExtra, dayKeyOf, eatingOutEstimates, eatingOutKcalF
     saveStateRaw(state, encryptionKey).catch(e => console.error("Local save after merge failed:", e));
     diag.log("info", "sync", `Merged changes from another device (${reason}); ${state.history.length} meals`);
     renderAfterSync();
+    noticeDosingChanges(settingsBefore, state.settings);
     return true;
   }
 
@@ -9167,6 +9188,7 @@ import { extrasForDay, setDayExtra, dayKeyOf, eatingOutEstimates, eatingOutKcalF
               const firstSync = neverSyncedHere(local, result.state, { ownerId: store.getItem(SETTINGS_OWNER_KEY), userId: currentUser.id });
               if (firstSync) diag.log("info", "sync", "First sign-in on this device: using the account's settings");
               state = mergeStates(local, result.state, defaultState, { preferRemoteSettings: firstSync });
+              if (!firstSync) noticeDosingChanges(local.settings, state.settings);   // a new device taking the account's settings is expected
               if (!statesEquivalent(state, result.state)) { stateFp = makeFingerprint(state); await saveStateCloud(); }
             }
           } else {
