@@ -2,6 +2,15 @@
 // summary can never drift. Bump CHANGELOG[0].version here (and CACHE_VERSION in sw.js) on every release.
 export const CHANGELOG = [
   {
+    version: "2.89.0",
+    summary: "Add daily extras straight from your food library.",
+    changes: [
+      "Settings > Calories > Daily extras has a new \u201c+ From your library\u201d button. Search your foods and recipes, pick one and say how much one serving is (it suggests the amount you logged last time); the calories are filled in for you",
+      "A food you log by quantity (slices, pieces) is added as one of its units",
+      "The new extra starts at 1 a day and stays fully editable. Later changes in the Library don't change it"
+    ]
+  },
+  {
     version: "2.88.0",
     summary: "Settings that decide a dose can no longer change behind your back.",
     changes: [

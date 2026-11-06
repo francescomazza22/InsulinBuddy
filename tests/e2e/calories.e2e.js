@@ -113,6 +113,25 @@ await dev.eval(`(() => { const b = [...document.querySelectorAll(".dialog__btn--
 t.check("removing asks first, then removes it", (await saved()).extras.length === 2 && !(await dev.eval(`!!document.querySelector('#cal-extras [data-xid="${newId}"]')`)));
 await dev.eval(`(() => { const s = document.getElementById("cal-life"); s.value = "1.4"; s.dispatchEvent(new Event("change", { bubbles: true })); })()`); await sleep(200);
 t.check("everyday moving is saved", (await saved()).lifeFactor === 1.4);
+// 2.89.0: add a daily extra from the library.
+const nBefore = (await saved()).extras.length;
+await dev.click("#cal-add-from-library"); await sleep(400);
+const xl = () => dev.eval(`[...document.querySelectorAll(".xlib-sheet .xlib-row")].map(b => b.textContent.replace(/\\s+/g, " ").trim())`);
+let rows = await xl();
+t.check("From your library lists the foods with their kcal", rows.some(r => /^Pane comune ?300 kcal \/ 100 g$/.test(r)) && rows.some(r => /^Banana ?89 kcal \/ 100 g$/.test(r)), JSON.stringify(rows));
+await dev.eval(`(() => { const f = document.getElementById("xlib-search"); f.value = "pane"; f.dispatchEvent(new Event("input", { bubbles: true })); })()`); await sleep(150);
+rows = await xl();
+t.check("search narrows the list", rows.length === 1 && /^Pane comune/.test(rows[0]), JSON.stringify(rows));
+await dev.eval(`document.querySelector(".xlib-sheet .xlib-row").click()`); await sleep(200);
+const xk = () => dev.eval(`document.getElementById("xlib-kcal").textContent`);
+t.check("picking it suggests the grams you logged last time (60 g = 180 kcal)", (await dev.eval(`document.getElementById("xlib-grams").value`)) === "60" && /^60 g = 180 kcal\./.test(await xk()), await xk());
+await dev.eval(`(() => { const f = document.getElementById("xlib-grams"); f.value = "30"; f.dispatchEvent(new Event("input", { bubbles: true })); })()`); await sleep(100);
+t.check("changing the serving updates the kcal", /^30 g = 90 kcal\./.test(await xk()), await xk());
+if (SHOTS) await dev.shot(`${SHOTS}/xlib-${W}${dark ? "-dark" : ""}.png`);
+await dev.click("#xlib-add"); await sleep(500);
+const ex = (await saved()).extras;
+t.check("Add makes it a daily extra: Pane comune, 30 g, 90 kcal, 1 a day", ex.length === nBefore + 1 && JSON.stringify((({ name, unit, kcalPerUnit, perDay }) => ({ name, unit, kcalPerUnit, perDay }))(ex[ex.length - 1])) === JSON.stringify({ name: "Pane comune", unit: "30 g", kcalPerUnit: 90, perDay: 1 }) &&
+  !(await dev.eval(`!!document.querySelector(".xlib-sheet")`)) && (await dev.eval(`[...document.querySelectorAll("#cal-extras .cal-extra__name")].pop().value`)) === "Pane comune", JSON.stringify(ex));
 t.check("no sideways scroll in Settings", await dev.eval(`document.documentElement.scrollWidth <= innerWidth + 1`));
 t.check("no JS errors", (await dev.eval("window.__errs.length")) === 0, JSON.stringify(await dev.eval("window.__errs")));
 dev.close();

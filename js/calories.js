@@ -349,3 +349,21 @@ export function todayCalories(history, settings, now = Date.now(), draftKcal = 0
   const withDraft = target > 0 ? Math.min(1, (eaten + draft) / target) : (eaten + draft > 0 ? 1 : 0);
   return { eaten, draft, target, needed: d.target, extras, activity: d.activity, logged: d.logged, fill, draftFill: withDraft - fill, over: eaten + draft > target };
 }
+
+// ---- Daily extras from the food library (2.89.0) ----
+/**
+ * A daily extra made from a library food or recipe (as the Calculator's pick list describes it: kcalPer100g, unitBased,
+ * unitLabel, gramsPerUnit). A food logged by quantity becomes "1 <its unit>" at its kcal per unit; anything else becomes a
+ * serving of `grams` g ("15 g"). Returns { name, unit, kcalPerUnit, perDay: 1, noKcal } -- noKcal when the food has no
+ * calorie figure (the extra then counts 0 until one is typed).
+ */
+export function extraFromFood(item, grams) {
+  const name = clean(item && item.name, CALORIE_LIMITS.nameMax) || "Food";
+  const per100 = Number(item && item.kcalPer100g);
+  const noKcal = !(per100 > 0);
+  const byUnit = !!(item && item.unitBased && Number(item.gramsPerUnit) > 0);
+  const g = byUnit ? Number(item.gramsPerUnit) : Math.max(1, Math.min(2000, Number(grams) || 100));
+  const unit = byUnit ? clean(item.unitLabel || "unit", CALORIE_LIMITS.unitMax) : clean(`${Math.round(g * 10) / 10} g`, CALORIE_LIMITS.unitMax);
+  const kcal = noKcal ? 0 : Math.round(per100 * g / 100 * 10) / 10;
+  return { name, unit, kcalPerUnit: Math.min(CALORIE_LIMITS.kcalPerUnit[1], kcal), perDay: 1, noKcal, byUnit, grams: g };
+}

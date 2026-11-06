@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { extrasForDay, setDayExtra, dayKeyOf, eatingOutEstimates, eatingOutKcalFromInsulin, isCorrectionOnly, todayCalories, calorieRule, calorieSummary, restingKcal, activityKcal, watchKcal, extrasKcal, missingDetails, CALORIE_DEFAULTS } from "../../js/calories.js";
+import { extraFromFood, extrasForDay, setDayExtra, dayKeyOf, eatingOutEstimates, eatingOutKcalFromInsulin, isCorrectionOnly, todayCalories, calorieRule, calorieSummary, restingKcal, activityKcal, watchKcal, extrasKcal, missingDetails, CALORIE_DEFAULTS } from "../../js/calories.js";
 import { normalizeState } from "../../js/state.js";
 import { shiftDay } from "../../js/day-timeline.js";
 
@@ -233,4 +233,20 @@ test("day extras are cleaned: unknown items, bad dates and bad counts dropped; o
   assert.ok(Object.keys(r.dayExtras).length <= 120);
   assert.deepEqual(setDayExtra(r, "2026-11-03", "nope", 2), r.dayExtras);   // an unknown item changes nothing
   assert.equal(setDayExtra(r, "2026-11-04", "flat-white", 80)["2026-11-04"]["flat-white"], 50);
+});
+
+test("a daily extra from a library food (2.89.0): a serving in grams, or one unit for a quantity food", () => {
+  const oil = { name: "Olio extravergine", kcalPer100g: 884, unitBased: false };
+  assert.deepEqual((({ name, unit, kcalPerUnit, perDay, noKcal }) => ({ name, unit, kcalPerUnit, perDay, noKcal }))(extraFromFood(oil, 13.5)),
+    { name: "Olio extravergine", unit: "13.5 g", kcalPerUnit: 119.3, perDay: 1, noKcal: false });
+  const slice = { name: "Pane in cassetta", kcalPer100g: 270, unitBased: true, unitLabel: "slice", gramsPerUnit: 25 };
+  const s1 = extraFromFood(slice, 999);   // grams ignored: one slice
+  assert.equal(s1.unit, "slice"); assert.equal(s1.kcalPerUnit, 67.5); assert.equal(s1.byUnit, true);
+  const none = extraFromFood({ name: "Mystery", kcalPer100g: null }, 50);
+  assert.equal(none.kcalPerUnit, 0); assert.equal(none.noKcal, true); assert.equal(none.unit, "50 g");
+  assert.equal(extraFromFood({ name: "x".repeat(60), kcalPer100g: 100 }, 0).name.length, 40);
+  assert.equal(extraFromFood({ name: "Bread", kcalPer100g: 250 }, 0).unit, "100 g");   // no grams: 100 g
+  // and it survives the settings clean-up as a normal extra
+  const r = calorieRule({ ...me, extras: [...me.extras, { id: "extra-x", ...extraFromFood(oil, 13.5) }] }, NOW);
+  assert.deepEqual(r.extras[2], { id: "extra-x", name: "Olio extravergine", unit: "13.5 g", kcalPerUnit: 119.3, perDay: 1 });
 });

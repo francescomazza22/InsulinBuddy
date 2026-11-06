@@ -2232,3 +2232,14 @@ html[data-theme="dark"] .dose-card .extra-row__step { background: rgba(0,0,0,0.3
    under the number (app.js fitDoseAdjust sets the class after measuring), rather than sitting on top of "units". */
 .dose-card__value-row.is-adjust-below { flex-wrap: wrap; }
 .dose-card__value-row.is-adjust-below > .dose-adjust { order: 4; flex-basis: 100%; justify-content: flex-start; margin-top: var(--space-2xs); }
+
+/* Daily extras from the library (2.89.0) */
+.cal-add-row { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-s); }
+.xlib-list { display: flex; flex-direction: column; max-height: 52vh; overflow-y: auto; -webkit-overflow-scrolling: touch; margin-top: var(--space-xs); }
+button.xlib-row { display: flex; align-items: center; justify-content: space-between; gap: var(--space-s); width: 100%; min-height: var(--tap); padding: var(--space-s) var(--space-2xs); border: none; border-top: 1px solid var(--line); background: none; color: var(--ink); font: inherit; text-align: left; cursor: pointer; }
+button.xlib-row:first-child { border-top: none; }
+.xlib-row__name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+.xlib-row__kcal { flex: none; color: var(--ink-soft); font-size: var(--fs-s); font-variant-numeric: tabular-nums; }
+.xlib-food { font-weight: 700; font-size: var(--fs-l); margin: 0 0 var(--space-s); }
+.xlib-sheet .dx-actions { margin-top: var(--space-s); }
+.cal-extra.is-new { background: color-mix(in srgb, var(--acc-1) 12%, transparent); transition: background 1s; border-radius: var(--radius-s); }

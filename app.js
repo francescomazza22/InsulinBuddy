@@ -44,7 +44,7 @@ import { workoutsToActivities, awaitingIntensity, mayBeDoubleCounted, intensityU
 import { dayBounds, shiftDay, dayTimeline, readingNear, stackRows } from "./js/day-timeline.js";
 import { sessionLevel, primaryTotp, verifyCode, startTotpSetup, cancelTotpSetup, removeTotp, signOutOtherDevices, groupSecret, cleanTotpCode, validTotpCode } from "./js/mfa.js";
 import { nearActivity, activitySkip, countNearActivity, breakfastByActivity, activitySummary, ACTIVITY_FILTERS, NEAR_BEFORE_HOURS, NEAR_AFTER_HOURS } from "./js/activity-stats.js";
-import { extrasForDay, setDayExtra, dayKeyOf, eatingOutEstimates, eatingOutKcalFromInsulin, EATING_OUT_CORRECTION_HOURS, KCAL_PER_G_CARB, todayCalories, calorieRule, calorieSummary, missingDetails, restingKcal, extrasKcal, cleanExtra, LIFE_FACTORS, CALORIE_DEFAULTS, CALORIE_LIMITS } from "./js/calories.js";
+import { extraFromFood, extrasForDay, setDayExtra, dayKeyOf, eatingOutEstimates, eatingOutKcalFromInsulin, EATING_OUT_CORRECTION_HOURS, KCAL_PER_G_CARB, todayCalories, calorieRule, calorieSummary, missingDetails, restingKcal, extrasKcal, cleanExtra, LIFE_FACTORS, CALORIE_DEFAULTS, CALORIE_LIMITS } from "./js/calories.js";
 
 
   const STORAGE_KEY = "insulinBuddy.v2";
@@ -7849,6 +7849,109 @@ import { extrasForDay, setDayExtra, dayKeyOf, eatingOutEstimates, eatingOutKcalF
     const name = document.querySelector(`#cal-extras [data-xid="${CSS.escape(id)}"] .cal-extra__name`);
     if (name) { name.focus(); name.setSelectionRange(name.value.length, name.value.length); }
   });
+
+  // ---- Daily extras from the library (2.89.0) ----
+  // Pick a food or recipe, say how much one serving is (a food logged by quantity is one of its units), and it becomes a
+  // daily extra with its calories filled in. A snapshot: later Library edits don't change it, and every field stays editable.
+  function lastGramsFor(item) {
+    for (const e of state.history) {   // newest first
+      const it = (e.items || []).find(i => i && i.refId === item.refId && i.quantity == null && i.grams > 0);
+      if (it) return Math.round(it.grams * 10) / 10;
+    }
+    if (item.dishWeight > 0 && item.slices > 0) return Math.round(item.dishWeight / item.slices);
+    return null;
+  }
+  function openExtraFromLibrarySheet() {
+    const r0 = calRule();
+    if (r0.extras.length >= CALORIE_LIMITS.extrasMax) { dialogs.alert(`Up to ${CALORIE_LIMITS.extrasMax} extras.`, { title: "Daily extras" }); return; }
+    const trigger = el("cal-add-from-library");
+    const items = pickableItems().sort((a, b) => (b.usageCount || 0) - (a.usageCount || 0) || a.name.localeCompare(b.name));
+    let picked = null;
+    const backdrop = document.createElement("div");
+    backdrop.className = "sheet-backdrop";
+    backdrop.innerHTML = `
+      <div class="sheet xlib-sheet" role="dialog" aria-modal="true" aria-labelledby="xlib-title">
+        <div class="sheet-head">
+          <h2 id="xlib-title">Add from your library</h2>
+          <button class="sheet-close" id="xlib-close" type="button" aria-label="Close">
+            <svg viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+          </button>
+        </div>
+        <div id="xlib-pick">
+          <div class="field"><input type="text" id="xlib-search" placeholder="Search foods and recipes\u2026" autocomplete="off" aria-label="Search your library"></div>
+          <div class="xlib-list" id="xlib-list" role="list"></div>
+        </div>
+        <div id="xlib-serving" hidden>
+          <p class="xlib-food" id="xlib-food"></p>
+          <div class="field" id="xlib-grams-field">
+            <label for="xlib-grams">One serving</label>
+            <div class="field__row"><input type="text" id="xlib-grams" inputmode="decimal" autocomplete="off"><span class="field__unit">g</span></div>
+          </div>
+          <p class="panel-card__hint cal-status" id="xlib-kcal" role="status"></p>
+          <div class="dx-actions">
+            <button class="btn btn--secondary" id="xlib-back" type="button">Back</button>
+            <button class="btn btn--primary" id="xlib-add" type="button">Add</button>
+          </div>
+        </div>
+      </div>`;
+    const $ = sel => backdrop.querySelector(sel);
+    const per = it => {
+      const f = perUnitFigures(it);
+      return f.kcal > 0 ? `${kcalText(f.kcal)} kcal / ${it.unitBased && it.gramsPerUnit > 0 ? escapeHtml(it.unitLabel || "unit") : "100 g"}` : "no kcal";
+    };
+    function drawList() {
+      const q = $("#xlib-search").value.trim().toLowerCase();
+      const shown = items.filter(it => !q || it.name.toLowerCase().includes(q)).slice(0, 40);
+      $("#xlib-list").innerHTML = shown.length
+        ? shown.map(it => `<button type="button" class="xlib-row" role="listitem" data-xlib="${escapeAttr(it.id)}"><span class="xlib-row__name">${escapeHtml(it.name)}</span><span class="xlib-row__kcal">${per(it)}</span></button>`).join("")
+        : `<p class="panel-card__hint">Nothing in your library matches.</p>`;
+    }
+    function preview() {
+      const grams = parseDecimalInput($("#xlib-grams").value);
+      const x = extraFromFood(picked, grams);
+      $("#xlib-kcal").textContent = x.noKcal
+        ? "This food has no calorie figure, so it will count 0 kcal until you type one in."
+        : `${x.byUnit ? `One ${x.unit}` : x.unit} = ${kcalText(x.kcalPerUnit)} kcal. Added as 1 a day; change it in the list.`;
+      return x;
+    }
+    function pick(it) {
+      picked = it;
+      $("#xlib-pick").hidden = true; $("#xlib-serving").hidden = false;
+      $("#xlib-food").textContent = it.name;
+      const byUnit = it.unitBased && it.gramsPerUnit > 0;
+      $("#xlib-grams-field").hidden = byUnit;
+      if (!byUnit) $("#xlib-grams").value = String(lastGramsFor(it) || 100);
+      preview();
+    }
+    const close = () => { closeSheet(backdrop); if (trigger && trigger.isConnected) trigger.focus({ preventScroll: true }); };
+    $("#xlib-search").addEventListener("input", drawList);
+    $("#xlib-list").addEventListener("click", e => {
+      const b = e.target.closest("[data-xlib]");
+      const it = b && items.find(i => i.id === b.dataset.xlib);
+      if (it) pick(it);
+    });
+    $("#xlib-grams").addEventListener("input", preview);
+    $("#xlib-back").addEventListener("click", () => { picked = null; $("#xlib-serving").hidden = true; $("#xlib-pick").hidden = false; });
+    $("#xlib-add").addEventListener("click", () => {
+      if (!picked) return;
+      const g = parseDecimalInput($("#xlib-grams").value);
+      if (!(picked.unitBased && picked.gramsPerUnit > 0) && !(g > 0)) { $("#xlib-kcal").textContent = "Type how many grams one serving is."; return; }
+      const { name, unit, kcalPerUnit, perDay } = extraFromFood(picked, g);
+      const r = calRule();
+      const id = makeId("extra");
+      saveCalories({ extras: [...r.extras, { id, name, unit, kcalPerUnit, perDay }] });
+      close();
+      renderCalorieExtras();
+      const row = document.querySelector(`#cal-extras [data-xid="${CSS.escape(id)}"]`);
+      if (row) { row.scrollIntoView({ block: "center", behavior: "smooth" }); row.classList.add("is-new"); setTimeout(() => row.classList.remove("is-new"), 1600); }
+    });
+    $("#xlib-close").addEventListener("click", close);
+    backdrop.addEventListener("click", e => { if (e.target === backdrop) close(); });
+    backdrop.addEventListener("keydown", e => { if (e.key === "Escape") close(); });
+    drawList();
+    openSheet(backdrop);
+  }
+  bind("cal-add-from-library", "click", openExtraFromLibrarySheet);
 
   function saveBasalActivity(patch) {
     const before = basalActivityRule(state.settings.basalActivity);
