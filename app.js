@@ -44,7 +44,7 @@ import { workoutsToActivities, awaitingIntensity, mayBeDoubleCounted, intensityU
 import { dayBounds, shiftDay, dayTimeline, readingNear, stackRows } from "./js/day-timeline.js";
 import { sessionLevel, primaryTotp, verifyCode, startTotpSetup, cancelTotpSetup, removeTotp, signOutOtherDevices, groupSecret, cleanTotpCode, validTotpCode } from "./js/mfa.js";
 import { nearActivity, activitySkip, countNearActivity, breakfastByActivity, activitySummary, ACTIVITY_FILTERS, NEAR_BEFORE_HOURS, NEAR_AFTER_HOURS } from "./js/activity-stats.js";
-import { extraFromFood, extrasForDay, setDayExtra, dayKeyOf, eatingOutEstimates, eatingOutKcalFromInsulin, EATING_OUT_CORRECTION_HOURS, KCAL_PER_G_CARB, todayCalories, calorieRule, calorieSummary, missingDetails, restingKcal, extrasKcal, cleanExtra, LIFE_FACTORS, CALORIE_DEFAULTS, CALORIE_LIMITS } from "./js/calories.js";
+import { extraFromFood, extrasForDay, setDayExtra, setDayCount, resetDay, addDayOneOff, ONE_OFFS_MAX, dayKeyOf, eatingOutEstimates, eatingOutKcalFromInsulin, EATING_OUT_CORRECTION_HOURS, KCAL_PER_G_CARB, todayCalories, calorieRule, calorieSummary, missingDetails, restingKcal, extrasKcal, cleanExtra, LIFE_FACTORS, CALORIE_DEFAULTS, CALORIE_LIMITS } from "./js/calories.js";
 
 
   const STORAGE_KEY = "insulinBuddy.v2";
@@ -3136,24 +3136,30 @@ import { extraFromFood, extrasForDay, setDayExtra, dayKeyOf, eatingOutEstimates,
   }
   bind("cc-day-kcal", "click", () => openDayExtrasSheet());   // 2.83.0: today's extras (it used to open Trends)
 
-  // ---- Today's extras (2.83.0) ----
-  // Each day starts at the usual daily extras; here he says what he actually had today. Every tap is saved at once
-  // (a day set back to the usual follows the usual again). js/calories.js keeps the per-day counts.
-  function openDayExtrasSheet() {
-    const dayKey = dayKeyOf(Date.now());
-    const trigger = el("cc-day-kcal");
+  // ---- Today's extras (2.83.0; any day and one-off items 2.91.0) ----
+  // Each day starts at the usual daily extras; here he says what he actually had. Every tap is saved at once (a day set
+  // back to the usual follows the usual again). "+ Add something" puts a library food on that day only. Opened from the
+  // Calculator's calories bar (today) or from a day picked in the Trends Calories card (opts.dayKey, opts.onClose).
+  // js/calories.js keeps the per-day counts and one-offs.
+  function openDayExtrasSheet(opts = {}) {
+    const dayKey = opts.dayKey || dayKeyOf(Date.now());
+    const isToday = dayKey === dayKeyOf(Date.now());
+    const [yy, mm, dd] = dayKey.split("-").map(Number);
+    const dayName = new Date(yy, mm - 1, dd).toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" });
+    const trigger = opts.trigger || el("cc-day-kcal");
     const backdrop = document.createElement("div");
     backdrop.className = "sheet-backdrop";
     backdrop.innerHTML = `
       <div class="sheet day-extras-sheet" role="dialog" aria-modal="true" aria-labelledby="dx-title">
         <div class="sheet-head">
-          <h2 id="dx-title">Today's extras</h2>
+          <h2 id="dx-title">${isToday ? "Today's extras" : `Extras \u00b7 ${escapeHtml(dayName)}`}</h2>
           <button class="sheet-close" id="dx-close" type="button" aria-label="Close">
             <svg viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
           </button>
         </div>
-        <p class="panel-card__hint dx-hint">Each day starts at your usual amounts. Change them to what you had today.</p>
+        <p class="panel-card__hint dx-hint">Each day starts at your usual amounts. Change them to what you had ${isToday ? "today" : "that day"}, or add something you had just ${isToday ? "today" : "that day"}.</p>
         <div class="dx-list" id="dx-list"></div>
+        <button class="dashed-btn dx-add" id="dx-add" type="button">+ Add something ${isToday ? "today" : "that day"}</button>
         <p class="dx-total" id="dx-total" role="status"></p>
         <div class="dx-actions">
           <button class="btn btn--secondary" id="dx-reset" type="button">Back to usual</button>
@@ -3161,12 +3167,12 @@ import { extraFromFood, extrasForDay, setDayExtra, dayKeyOf, eatingOutEstimates,
         </div>
         <div class="dx-links">
           <button class="dashed-btn" id="dx-settings" type="button">Usual amounts</button>
-          <button class="dashed-btn" id="dx-trends" type="button">See in Trends</button>
+          ${opts.fromTrends ? "" : `<button class="dashed-btn" id="dx-trends" type="button">See in Trends</button>`}
         </div>
       </div>`;
     const $ = sel => backdrop.querySelector(sel);
     const fmtN = n => String(round1(n));
-    const unitOf = (x, n) => (x.unit ? ` ${unitPlural(x.unit, n)}` : "");
+    const unitOf = (x, n) => (!x.unit ? "" : /^\d/.test(x.unit) ? ` \u00d7 ${x.unit}` : ` ${unitPlural(x.unit, n)}`);   // "1 × 120 g", "3 cups"
     function draw(full) {
       const r = calRule(), dx = extrasForDay(r, dayKey);
       const list = $("#dx-list");
@@ -3176,10 +3182,12 @@ import { extraFromFood, extrasForDay, setDayExtra, dayKeyOf, eatingOutEstimates,
         $("#dx-total").textContent = "";
         return;
       }
-      if (full || list.children.length !== dx.items.length) {
+      const ids = dx.items.map(x => x.id).join("|");
+      if (full || list.dataset.ids !== ids) {
+        list.dataset.ids = ids;
         list.innerHTML = dx.items.map(x => `<div class="dx-row" data-xid="${escapeAttr(x.id)}">
             <div class="dx-row__name"><span class="dx-row__title">${escapeHtml(x.name)}</span><span class="dx-row__sub"></span></div>
-            <div class="dx-step" role="group" aria-label="${escapeAttr(x.name)} today">
+            <div class="dx-step" role="group" aria-label="${escapeAttr(x.name)} ${isToday ? "today" : escapeAttr(dayName)}">
               <button type="button" class="dx-step__btn" data-dx="-1" aria-label="One less ${escapeAttr(x.name)}">\u2212</button>
               <span class="dx-step__count" aria-live="polite"></span>
               <button type="button" class="dx-step__btn" data-dx="1" aria-label="One more ${escapeAttr(x.name)}">+</button>
@@ -3191,32 +3199,49 @@ import { extraFromFood, extrasForDay, setDayExtra, dayKeyOf, eatingOutEstimates,
         if (!row) return;
         row.classList.toggle("is-changed", x.changed);
         row.querySelector(".dx-step__count").textContent = fmtN(x.count);
-        row.querySelector(".dx-row__sub").textContent = `${fmtN(x.count)}${unitOf(x, x.count)} \u00b7 ${kcalText(x.kcal)} kcal${x.changed ? ` \u00b7 usual ${fmtN(x.usual)}` : ""}`;
+        row.classList.toggle("is-once", x.oneOff);
+        row.querySelector(".dx-row__sub").textContent = `${fmtN(x.count)}${unitOf(x, x.count)} \u00b7 ${kcalText(x.kcal)} kcal${x.oneOff ? ` \u00b7 ${isToday ? "today" : "that day"} only` : x.changed ? ` \u00b7 usual ${fmtN(x.usual)}` : ""}`;
+        row.querySelector('[data-dx="-1"]').setAttribute("aria-label", x.oneOff && x.count <= 1 ? `Remove ${x.name}` : `One less ${x.name}`);
         row.querySelector('[data-dx="-1"]').disabled = !(x.count > 0);
       });
       const usual = extrasKcal(r).total;
-      $("#dx-total").innerHTML = `Today <b>${kcalText(dx.total)} kcal</b> of extras${dx.adjusted ? ` (usual ${kcalText(usual)})` : ""}`;
+      $("#dx-total").innerHTML = `${isToday ? "Today" : escapeHtml(dayName)} <b>${kcalText(dx.total)} kcal</b> of extras${dx.adjusted ? ` (usual ${kcalText(usual)})` : ""}`;
       $("#dx-reset").hidden = !dx.adjusted;
     }
-    const close = () => { closeSheet(backdrop); if (trigger && trigger.isConnected) trigger.focus({ preventScroll: true }); };
+    let changed = false;
+    const close = () => {
+      closeSheet(backdrop);
+      if (trigger && trigger.isConnected) trigger.focus({ preventScroll: true });
+      if (typeof opts.onClose === "function") opts.onClose(changed);
+    };
     $("#dx-list").addEventListener("click", e => {
       const b = e.target.closest("[data-dx]"), row = e.target.closest("[data-xid]");
       if (!b || !row) return;
       const r = calRule(), x = extrasForDay(r, dayKey).items.find(i => i.id === row.dataset.xid);
       if (!x) return;
       const next = Math.max(0, Math.round((x.count + Number(b.dataset.dx)) * 100) / 100);
-      saveCalories({ dayExtras: setDayExtra(r, dayKey, x.id, next) });
-      draw(false); renderDayKcal();
+      saveCalories(setDayCount(r, dayKey, x.id, next));
+      changed = true; draw(false); renderDayKcal();
     });
     $("#dx-reset").addEventListener("click", () => {
-      const r = calRule(), all = { ...r.dayExtras }; delete all[dayKey];
-      saveCalories({ dayExtras: all });
-      draw(false); renderDayKcal();
+      saveCalories(resetDay(calRule(), dayKey));
+      changed = true; draw(false); renderDayKcal();
     });
+    $("#dx-add").addEventListener("click", () => openExtraFromLibrarySheet({
+      title: isToday ? "Add to today" : `Add to ${dayName}`,
+      perText: `Added for ${isToday ? "today" : "that day"} only.`,
+      trigger: $("#dx-add"),
+      onAdd: spec => {
+        const patch = addDayOneOff(calRule(), dayKey, spec, makeId("extra"));
+        if (!patch) { dialogs.alert(`Up to ${ONE_OFFS_MAX} items a day.`, { title: "Extras" }); return; }
+        saveCalories(patch);
+        changed = true; draw(false); renderDayKcal();
+      }
+    }));
     $("#dx-done").addEventListener("click", close);
     $("#dx-close").addEventListener("click", close);
     $("#dx-settings").addEventListener("click", () => { close(); openSettingsPanel("calories"); });
-    $("#dx-trends").addEventListener("click", () => { close(); openCaloriesTrend(); });
+    if ($("#dx-trends")) $("#dx-trends").addEventListener("click", () => { close(); openCaloriesTrend(); });
     backdrop.addEventListener("click", e => { if (e.target === backdrop) close(); });
     backdrop.addEventListener("keydown", e => { if (e.key === "Escape") close(); });
     draw(true);
@@ -5905,6 +5930,7 @@ import { extraFromFood, extrasForDay, setDayExtra, dayKeyOf, eatingOutEstimates,
       const svg = box && box.querySelector("svg");
       const readout = box && box.querySelector(".trend-readout");
       if (!svg || !readout) return;
+      if (typeof trendChartCtx[id].onSelect === "function") trendChartCtx[id].onSelect(idx);   // 2.91.0: the Calories card's day button
       box.querySelectorAll(".is-selected").forEach(n => n.classList.remove("is-selected"));
       if (idx == null) {
         svg.classList.remove("has-selection");
@@ -6083,6 +6109,7 @@ import { extraFromFood, extrasForDay, setDayExtra, dayKeyOf, eatingOutEstimates,
     const card = el("trend-card-calories"), box = el("trend-chart-calories");
     if (!card || !box) return;
     delete trendChartCtx["trend-chart-calories"];
+    if (el("cal-day-extras-btn")) el("cal-day-extras-btn").hidden = true;   // until a day is picked again
     const sum = calorieSummary(state.history, state.settings, { days });
     const any = sum.days.some(d => d.logged);
     card.hidden = !show || !any;
@@ -6095,6 +6122,16 @@ import { extraFromFood, extrasForDay, setDayExtra, dayKeyOf, eatingOutEstimates,
       : (a.daysUsed ? `Avg ${kcalText(a.eaten)} kcal eaten a day · tap a day for details` : "Tap a day for details");
     trendChartCtx["trend-chart-calories"] = {
       defaultText,
+      // 2.91.0: with a day picked, a button under the chart opens that day's extras (today included).
+      onSelect: i => {
+        const b = el("cal-day-extras-btn");
+        if (!b) return;
+        const d = i == null ? null : sum.days[i];
+        if (!d) { b.hidden = true; return; }
+        b.hidden = false;
+        b.dataset.day = dayKeyOf(d.key);
+        b.textContent = d.isToday ? "Change today's extras" : `Change extras for ${new Date(d.key).toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" })}`;
+      },
       describe: i => {
         const d = sum.days[i];
         if (!d.logged) return `${fmtDay(d.key)} · nothing logged`;
@@ -6141,6 +6178,16 @@ import { extraFromFood, extrasForDay, setDayExtra, dayKeyOf, eatingOutEstimates,
       `<details class="cal-how"><summary>How it's worked out</summary><p class="trend-caption trend-caption--tight">${how.join(" ")}</p></details>`;
   }
   bind("cal-open-settings", "click", () => openSettingsPanel("calories"));
+  bind("cal-day-extras-btn", "click", e => {
+    const day = e.currentTarget.dataset.day;
+    if (!day) return;
+    const keep = trendSelectedIdx;
+    openDayExtrasSheet({ dayKey: day, fromTrends: true, trigger: el("cal-day-extras-btn"), onClose: changed => {
+      if (!changed) return;
+      renderTrends(trendsRange);                      // the day's balance changed
+      if (keep != null) setTrendSelection(keep);      // keep the same day picked
+    } });
+  });
 
   function renderBasalTrend(buckets, sum, fallbackWidth) {
     const card = el("trend-card-basal"), box = el("trend-chart-basal"), panel = el("history-trends-panel");
@@ -7861,10 +7908,13 @@ import { extraFromFood, extrasForDay, setDayExtra, dayKeyOf, eatingOutEstimates,
     if (item.dishWeight > 0 && item.slices > 0) return Math.round(item.dishWeight / item.slices);
     return null;
   }
-  function openExtraFromLibrarySheet() {
+  // opts (2.91.0): { title, perText, trigger, onAdd(spec) } -- the Today's extras sheet uses it to add a one-off item for a
+  // single day; with no onAdd the item joins the usual list (Settings).
+  function openExtraFromLibrarySheet(opts = {}) {
+    const forDay = typeof opts.onAdd === "function";
     const r0 = calRule();
-    if (r0.extras.length >= CALORIE_LIMITS.extrasMax) { dialogs.alert(`Up to ${CALORIE_LIMITS.extrasMax} extras.`, { title: "Daily extras" }); return; }
-    const trigger = el("cal-add-from-library");
+    if (!forDay && r0.extras.length >= CALORIE_LIMITS.extrasMax) { dialogs.alert(`Up to ${CALORIE_LIMITS.extrasMax} extras.`, { title: "Daily extras" }); return; }
+    const trigger = opts.trigger || el("cal-add-from-library");
     const items = pickableItems().sort((a, b) => (b.usageCount || 0) - (a.usageCount || 0) || a.name.localeCompare(b.name));
     let picked = null;
     const backdrop = document.createElement("div");
@@ -7872,7 +7922,7 @@ import { extraFromFood, extrasForDay, setDayExtra, dayKeyOf, eatingOutEstimates,
     backdrop.innerHTML = `
       <div class="sheet xlib-sheet" role="dialog" aria-modal="true" aria-labelledby="xlib-title">
         <div class="sheet-head">
-          <h2 id="xlib-title">Add from your library</h2>
+          <h2 id="xlib-title">${escapeHtml(opts.title || "Add from your library")}</h2>
           <button class="sheet-close" id="xlib-close" type="button" aria-label="Close">
             <svg viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
           </button>
@@ -7911,7 +7961,7 @@ import { extraFromFood, extrasForDay, setDayExtra, dayKeyOf, eatingOutEstimates,
       const x = extraFromFood(picked, grams);
       $("#xlib-kcal").textContent = x.noKcal
         ? "This food has no calorie figure, so it will count 0 kcal until you type one in."
-        : `${x.byUnit ? `One ${x.unit}` : x.unit} = ${kcalText(x.kcalPerUnit)} kcal. Added as 1 a day; change it in the list.`;
+        : `${x.byUnit ? `One ${x.unit}` : x.unit} = ${kcalText(x.kcalPerUnit)} kcal. ${opts.perText || "Added as 1 a day; change it in the list."}`;
       return x;
     }
     function pick(it) {
@@ -7937,6 +7987,7 @@ import { extraFromFood, extrasForDay, setDayExtra, dayKeyOf, eatingOutEstimates,
       const g = parseDecimalInput($("#xlib-grams").value);
       if (!(picked.unitBased && picked.gramsPerUnit > 0) && !(g > 0)) { $("#xlib-kcal").textContent = "Type how many grams one serving is."; return; }
       const { name, unit, kcalPerUnit, perDay } = extraFromFood(picked, g);
+      if (forDay) { close(); opts.onAdd({ name, unit, kcalPerUnit, count: 1 }); return; }
       const r = calRule();
       const id = makeId("extra");
       saveCalories({ extras: [...r.extras, { id, name, unit, kcalPerUnit, perDay }] });
@@ -7951,7 +8002,7 @@ import { extraFromFood, extrasForDay, setDayExtra, dayKeyOf, eatingOutEstimates,
     drawList();
     openSheet(backdrop);
   }
-  bind("cal-add-from-library", "click", openExtraFromLibrarySheet);
+  bind("cal-add-from-library", "click", () => openExtraFromLibrarySheet());
 
   function saveBasalActivity(patch) {
     const before = basalActivityRule(state.settings.basalActivity);

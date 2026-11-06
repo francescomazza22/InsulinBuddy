@@ -2,6 +2,15 @@
 // summary can never drift. Bump CHANGELOG[0].version here (and CACHE_VERSION in sw.js) on every release.
 export const CHANGELOG = [
   {
+    version: "2.91.0",
+    summary: "Extras: add something just for one day, and fix past days from Trends.",
+    changes: [
+      "In Today's extras, \u201c+ Add something today\u201d picks a food from your library for that day only (say a biscuit), without adding it to your usual list. \u2212 at 1 removes it",
+      "In Insights > Trends > Calories, tap a day and then \u201cChange extras for \u2026\u201d to correct that day's extras if you forgot. The chart updates when you close it",
+      "Back to usual clears a day's changes and one-off items together"
+    ]
+  },
+  {
     version: "2.90.1",
     summary: "Today's extras are back.",
     changes: [

@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { extraFromFood, extrasForDay, setDayExtra, dayKeyOf, eatingOutEstimates, eatingOutKcalFromInsulin, isCorrectionOnly, todayCalories, calorieRule, calorieSummary, restingKcal, activityKcal, watchKcal, extrasKcal, missingDetails, CALORIE_DEFAULTS } from "../../js/calories.js";
+import { addDayOneOff, setDayCount, resetDay, ONE_OFFS_MAX, extraFromFood, extrasForDay, setDayExtra, dayKeyOf, eatingOutEstimates, eatingOutKcalFromInsulin, isCorrectionOnly, todayCalories, calorieRule, calorieSummary, restingKcal, activityKcal, watchKcal, extrasKcal, missingDetails, CALORIE_DEFAULTS } from "../../js/calories.js";
 import { normalizeState } from "../../js/state.js";
 import { shiftDay } from "../../js/day-timeline.js";
 
@@ -249,4 +249,34 @@ test("a daily extra from a library food (2.89.0): a serving in grams, or one uni
   // and it survives the settings clean-up as a normal extra
   const r = calorieRule({ ...me, extras: [...me.extras, { id: "extra-x", ...extraFromFood(oil, 13.5) }] }, NOW);
   assert.deepEqual(r.extras[2], { id: "extra-x", name: "Olio extravergine", unit: "13.5 g", kcalPerUnit: 119.3, perDay: 1 });
+});
+
+test("one-off items for a day (2.91.0): added for that day only, counted, removable, reset with the day", () => {
+  const rule = calorieRule(me, NOW);
+  const day = "2026-11-02";
+  let r = calorieRule({ ...me, ...addDayOneOff(rule, day, { name: "Biscotto", unit: "piece", kcalPerUnit: 45 }, "extra-b1") }, NOW);
+  let dx = extrasForDay(r, day);
+  assert.equal(dx.total, 348 + 45); assert.equal(dx.adjusted, true);
+  const b = dx.items[dx.items.length - 1];
+  assert.deepEqual([b.id, b.name, b.count, b.oneOff, b.usual], ["once-extra-b1", "Biscotto", 1, true, 0]);
+  assert.equal(extrasForDay(r, "2026-11-03").total, 348);   // other days untouched
+  // three biscuits, then a usual item changed too
+  r = calorieRule({ ...r, ...setDayCount(r, day, b.id, 3) }, NOW);
+  r = calorieRule({ ...r, ...setDayCount(r, day, "flat-white", 0) }, NOW);
+  assert.equal(extrasForDay(r, day).total, 238 + 135);
+  // the summary counts them on that day, even with no meal logged
+  const sum = calorieSummary([], { calories: r }, { days: 3, now: NOW });
+  assert.equal(sum.days[1].extras, 373); assert.equal(sum.days[1].logged, true);
+  // 0 removes a one-off; reset drops the whole day
+  const gone = calorieRule({ ...r, ...setDayCount(r, day, b.id, 0) }, NOW);
+  assert.equal(extrasForDay(gone, day).items.some(x => x.oneOff), false);
+  const back = calorieRule({ ...r, ...resetDay(r, day) }, NOW);
+  assert.equal(extrasForDay(back, day).total, 348); assert.equal(extrasForDay(back, day).adjusted, false);
+  // a day holds at most ONE_OFFS_MAX; bad days and nameless items are refused or dropped
+  let full = rule;
+  for (let i = 0; i < ONE_OFFS_MAX; i++) full = calorieRule({ ...me, ...full, ...addDayOneOff(full, day, { name: `x${i}`, kcalPerUnit: 1 }, `e${i}`) }, NOW);
+  assert.equal(addDayOneOff(full, day, { name: "one more", kcalPerUnit: 1 }, "e99"), null);
+  assert.equal(addDayOneOff(rule, "nope", { name: "x" }, "e"), null);
+  assert.deepEqual(calorieRule({ ...me, dayOneOffs: { [day]: [{ name: "" }, { name: "Ok", kcalPerUnit: 10, count: "1,5" }], bad: [{ name: "x" }] } }, NOW).dayOneOffs,
+    { [day]: [{ id: "once-extra-1", name: "Ok", unit: "", kcalPerUnit: 10, count: 1.5 }] });
 });

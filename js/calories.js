@@ -94,7 +94,8 @@ export function calorieRule(c, now = Date.now()) {
     eatingOutKcal: eo == null ? null : Math.round(eo),
     eatingOutMultiplier: em == null ? null : Math.round(em * 100) / 100,
     extras,
-    dayExtras: cleanDayExtras(o.dayExtras, extras)
+    dayExtras: cleanDayExtras(o.dayExtras, extras),
+    dayOneOffs: cleanDayOneOffs(o.dayOneOffs)
   };
 }
 
@@ -125,14 +126,67 @@ function cleanDayExtras(raw, extras) {
   }
   return out;
 }
-/** The extras for one day: [{ ...extra, count, usual, kcal, changed }], total and whether the day was adjusted. */
+// One-off items for a single day (2.91.0): something had just that day (from the library), not in the usual list.
+// dayOneOffs = { "2026-11-06": [{ id, name, unit, kcalPerUnit, count }] }, at most ONE_OFFS_MAX a day, same 120 days.
+export const ONE_OFFS_MAX = 12;
+function cleanDayOneOffs(raw) {
+  if (!raw || typeof raw !== "object") return {};
+  const days = Object.keys(raw).filter(k => DAY_KEY.test(k)).sort().slice(-DAY_EXTRAS_KEEP);
+  const out = {};
+  for (const k of days) {
+    if (!Array.isArray(raw[k])) continue;
+    const seen = new Set(), list = [];
+    raw[k].forEach((x, i) => {
+      const e = cleanExtra(x ? { ...x, perDay: x.count } : x, i);
+      if (!e || list.length >= ONE_OFFS_MAX) return;
+      if (!/^once-/.test(e.id)) e.id = `once-${e.id}`;
+      while (seen.has(e.id)) e.id += "x";
+      seen.add(e.id);
+      if (e.perDay > 0) list.push({ id: e.id, name: e.name, unit: e.unit, kcalPerUnit: e.kcalPerUnit, count: e.perDay });
+    });
+    if (list.length) out[k] = list;
+  }
+  return out;
+}
+/** The extras for one day: [{ ...extra, count, usual, kcal, changed, oneOff }], total and whether the day was adjusted.
+ * The usual list first (at that day's own counts), then that day's one-off items. */
 export function extrasForDay(rule, dayKey) {
   const own = (rule.dayExtras || {})[dayKey] || {};
   const items = rule.extras.map(x => {
     const count = Object.prototype.hasOwnProperty.call(own, x.id) ? own[x.id] : x.perDay;
-    return { ...x, usual: x.perDay, count, kcal: x.kcalPerUnit * count, changed: count !== x.perDay };
+    return { ...x, usual: x.perDay, count, kcal: x.kcalPerUnit * count, changed: count !== x.perDay, oneOff: false };
   });
+  for (const o of (rule.dayOneOffs || {})[dayKey] || [])
+    items.push({ id: o.id, name: o.name, unit: o.unit, kcalPerUnit: o.kcalPerUnit, perDay: 0, usual: 0, count: o.count, kcal: o.kcalPerUnit * o.count, changed: true, oneOff: true });
   return { items, total: items.reduce((s, x) => s + x.kcal, 0), adjusted: items.some(x => x.changed) };
+}
+/** { dayOneOffs } with a one-off item added to a day (or null when that day is full). */
+export function addDayOneOff(rule, dayKey, spec, id) {
+  if (!DAY_KEY.test(dayKey)) return null;
+  const all = { ...(rule.dayOneOffs || {}) };
+  const list = [...(all[dayKey] || [])];
+  if (list.length >= ONE_OFFS_MAX) return null;
+  const e = cleanExtra({ ...spec, perDay: spec.count || 1, id }, list.length);
+  if (!e) return null;
+  list.push({ id: /^once-/.test(e.id) ? e.id : `once-${e.id}`, name: e.name, unit: e.unit, kcalPerUnit: e.kcalPerUnit, count: e.perDay || 1 });
+  all[dayKey] = list;
+  return { dayOneOffs: all };
+}
+/** The settings patch for one count on a day: a usual extra (dayExtras) or a one-off (dayOneOffs; 0 removes it). */
+export function setDayCount(rule, dayKey, id, count) {
+  const one = ((rule.dayOneOffs || {})[dayKey] || []).find(o => o.id === id);
+  if (!one) return { dayExtras: setDayExtra(rule, dayKey, id, count) };
+  const c = Math.max(0, Math.min(CALORIE_LIMITS.perDay[1], Math.round(Number(count) * 100) / 100 || 0));
+  const all = { ...(rule.dayOneOffs || {}) };
+  const list = all[dayKey].map(o => (o.id === id ? { ...o, count: c } : o)).filter(o => o.count > 0);
+  if (list.length) all[dayKey] = list; else delete all[dayKey];
+  return { dayOneOffs: all };
+}
+/** The settings patch that puts a day back to the usual amounts (its own counts and one-offs dropped). */
+export function resetDay(rule, dayKey) {
+  const dayExtras = { ...(rule.dayExtras || {}) }, dayOneOffs = { ...(rule.dayOneOffs || {}) };
+  delete dayExtras[dayKey]; delete dayOneOffs[dayKey];
+  return { dayExtras, dayOneOffs };
 }
 /** dayExtras with one count set for a day (a count equal to the usual drops it, so the day follows the usual again). */
 export function setDayExtra(rule, dayKey, id, count) {

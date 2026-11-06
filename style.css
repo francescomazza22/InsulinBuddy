@@ -2243,3 +2243,10 @@ button.xlib-row:first-child { border-top: none; }
 .xlib-food { font-weight: 700; font-size: var(--fs-l); margin: 0 0 var(--space-s); }
 .xlib-sheet .dx-actions { margin-top: var(--space-s); }
 .cal-extra.is-new { background: color-mix(in srgb, var(--acc-1) 12%, transparent); transition: background 1s; border-radius: var(--radius-s); }
+
+/* Extras for any day and one-off items (2.91.0) */
+.day-extras-sheet .dx-add { margin-top: var(--space-xs); }
+.dx-row.is-once .dx-row__sub { color: var(--acc-1); }
+.btn.cal-day-btn { margin-top: var(--space-s); }
+.btn.cal-day-btn[hidden] { display: none; }
+.dx-links > :only-child { grid-column: 1 / -1; }
