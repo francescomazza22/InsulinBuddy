@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { extraFromFood, eatingOutEstimates, eatingOutKcalFromInsulin, isCorrectionOnly, todayCalories, calorieRule, calorieSummary, restingKcal, activityKcal, watchKcal, extrasKcal, missingDetails, CALORIE_DEFAULTS } from "../../js/calories.js";
+import { extraFromFood, extrasForDay, setDayExtra, dayKeyOf, eatingOutEstimates, eatingOutKcalFromInsulin, isCorrectionOnly, todayCalories, calorieRule, calorieSummary, restingKcal, activityKcal, watchKcal, extrasKcal, missingDetails, CALORIE_DEFAULTS } from "../../js/calories.js";
 import { normalizeState } from "../../js/state.js";
 import { shiftDay } from "../../js/day-timeline.js";
 
@@ -199,14 +199,40 @@ test("no insulin, no ratio or the multiplier switched off: the fixed figure (or 
   assert.equal(calorieRule({ eatingOutMultiplier: 9 }, NOW).eatingOutMultiplier, null);
 });
 
-test("per-day extras are gone (2.90.0): a stored dayExtras is ignored and dropped; every logged day gets the usual amounts", () => {
-  const today = new Date(NOW), p = n => String(n).padStart(2, "0");
-  const key = `${today.getFullYear()}-${p(today.getMonth() + 1)}-${p(today.getDate())}`;
-  const settings = { calories: { ...me, dayExtras: { [key]: { "flat-white": 3, "olive-oil": 0 } } } };
-  assert.equal("dayExtras" in calorieRule(settings.calories, NOW), false);
-  const sum = calorieSummary([meal(at(0, 9), 500), meal(at(1, 9), 500)], settings, { days: 3, now: NOW });
-  assert.equal(sum.days[2].extras, 348); assert.equal(sum.days[1].extras, 348); assert.equal(sum.days[0].extras, 0);
-  assert.equal(todayCalories([meal(at(0, 9), 500)], settings, NOW, 0).extras, 348);
+test("daily extras per day (2.83.0): a day starts at the usual, a changed day keeps its own counts", () => {
+  const rule = calorieRule(me, NOW);   // olive oil 2 tbsp x 119, flat white 1 x 110 = 348 usual
+  const today = dayKeyOf(NOW), yday = dayKeyOf(at(1, 12));
+  assert.equal(today, "2026-11-03");
+  assert.equal(extrasForDay(rule, today).total, 348); assert.equal(extrasForDay(rule, today).adjusted, false);
+  // 3 flat whites today, no oil
+  let de = setDayExtra(rule, today, "flat-white", 3);
+  de = setDayExtra({ ...rule, dayExtras: de }, today, "olive-oil", 0);
+  const r2 = calorieRule({ ...me, dayExtras: de }, NOW);
+  const t = extrasForDay(r2, today);
+  assert.equal(t.total, 330); assert.equal(t.adjusted, true);
+  assert.deepEqual(t.items.map(x => [x.id, x.count, x.usual, x.changed]), [["olive-oil", 0, 2, true], ["flat-white", 3, 1, true]]);
+  assert.equal(extrasForDay(r2, yday).total, 348);   // other days unchanged
+  // Setting it back to the usual drops the day.
+  const back = setDayExtra({ ...r2 }, today, "flat-white", 1);
+  assert.deepEqual(setDayExtra({ ...r2, dayExtras: back }, today, "olive-oil", 2), {});
+  // The summary and today's bar use the day's own amounts.
+  const sum = calorieSummary([meal(at(0, 9), 500), meal(at(1, 9), 500)], { calories: { ...me, dayExtras: de } }, { days: 3, now: NOW });
+  assert.equal(sum.days[2].extras, 330); assert.equal(sum.days[2].extrasAdjusted, true); assert.equal(sum.days[1].extras, 348);
+  assert.equal(todayCalories([meal(at(0, 9), 500)], { calories: { ...me, dayExtras: de } }, NOW, 0).extras, 330);
+  // A day adjusted with no meal logged still counts (he said what he had).
+  const lone = calorieSummary([], { calories: { ...me, dayExtras: { [yday]: { "flat-white": 2 } } } }, { days: 3, now: NOW });
+  assert.equal(lone.days[1].logged, true); assert.equal(lone.days[1].extras, 238 + 220);
+});
+
+test("day extras are cleaned: unknown items, bad dates and bad counts dropped; only the latest 120 days kept", () => {
+  const raw = { "2026-11-03": { "flat-white": "2,5", "nope": 3, "olive-oil": 99 }, "bad": { "flat-white": 1 }, "2026-11-02": {} };
+  for (let i = 0; i < 130; i++) raw[`2025-01-${String((i % 28) + 1).padStart(2, "0")}`.replace("2025-01", `2025-${String(Math.floor(i / 28) + 1).padStart(2, "0")}`)] = { "flat-white": 1 };
+  const r = calorieRule({ ...me, dayExtras: raw }, NOW);
+  assert.deepEqual(r.dayExtras["2026-11-03"], { "flat-white": 2.5 });
+  assert.equal(r.dayExtras.bad, undefined); assert.equal(r.dayExtras["2026-11-02"], undefined);
+  assert.ok(Object.keys(r.dayExtras).length <= 120);
+  assert.deepEqual(setDayExtra(r, "2026-11-03", "nope", 2), r.dayExtras);   // an unknown item changes nothing
+  assert.equal(setDayExtra(r, "2026-11-04", "flat-white", 80)["2026-11-04"]["flat-white"], 50);
 });
 
 test("a daily extra from a library food (2.89.0): a serving in grams, or one unit for a quantity food", () => {

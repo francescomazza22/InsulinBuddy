@@ -2,12 +2,11 @@
 // summary can never drift. Bump CHANGELOG[0].version here (and CACHE_VERSION in sw.js) on every release.
 export const CHANGELOG = [
   {
-    version: "2.90.0",
-    summary: "Daily extras are simple again: one usual list, added every day.",
+    version: "2.90.1",
+    summary: "Today's extras are back.",
     changes: [
-      "The per-day Today's extras sheet is gone: your usual amounts in Settings > Calories are added to every day you log a meal",
-      "Tapping the calories bar opens the Calories card in Trends again",
-      "Any per-day changes made since 2.83.0 no longer count. \u201c+ From your library\u201d stays"
+      "2.90.0 removed the per-day extras by mistake. They're restored as they were: tap the calories bar to change today's amounts",
+      "Per-day changes you made before are counted again"
     ]
   },
   {

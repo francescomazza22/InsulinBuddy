@@ -2172,8 +2172,22 @@ html[data-theme="dark"] .dose-card button.active-panel {
 }
 .history-entry--meal.is-expanded .history-entry__item-carbs { min-width: 4.6em; }
 
-/* Sheet button row (from 2.83.0's extras sheet; used by the From your library sheet) */
+/* Today's extras sheet (2.83.0) */
+.day-extras-sheet .dx-hint { margin: 0 0 var(--space-s); }
+.dx-row { display: flex; align-items: center; gap: var(--space-s); padding: var(--space-s) 0; border-top: 1px solid var(--line); }
+.dx-row:first-child { border-top: none; }
+.dx-row__name { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.dx-row__title { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dx-row__sub { font-size: var(--fs-s); color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+.dx-row.is-changed .dx-row__sub { color: var(--acc-1); }
+.dx-step { flex: none; display: flex; align-items: center; gap: var(--space-xs); }
+button.dx-step__btn { width: var(--tap); height: var(--tap); border-radius: var(--radius-pill); border: 1.5px solid var(--line); background: var(--surface); color: var(--ink); font-size: var(--fs-l); line-height: 1; cursor: pointer; font-family: var(--font-ui); }
+button.dx-step__btn:disabled { opacity: 0.35; cursor: default; }
+.dx-step__count { min-width: 2.2em; text-align: center; font-weight: 700; font-size: var(--fs-l); font-variant-numeric: tabular-nums; }
+.dx-total { margin: var(--space-s) 0; font-size: var(--fs-m); }
 .dx-actions { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-s); }
+.dx-actions > [hidden] + .btn { grid-column: 1 / -1; }
+.dx-links { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-s); margin-top: var(--space-s); }
 
 /* ================= EXTRA INSULIN AND RECIPE AUTOSAVE (2.84.0) ================= */
 /* Extra insulin row in the dose card: − [ box units ] +, the steppers as 44px round buttons like the extras sheet. */
