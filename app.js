@@ -8865,7 +8865,8 @@ import { extraFromFood, extrasForDay, setDayExtra, setDayCount, resetDay, addDay
   // ---- General tab ----
   function renderPaletteGrid() {
     const grid = el("palette-grid");
-    grid.innerHTML = PALETTES.map(p => `
+    grid.innerHTML = PALETTES.map((p, i) => `
+      ${p.group === "vibrant" && PALETTES[i - 1] && PALETTES[i - 1].group !== "vibrant" ? `<p class="palette-grid__group">Vibrant</p>` : ""}
       <button class="palette-card${state.settings.palette === p.id ? " is-selected" : ""}" data-id="${escapeAttr(p.id)}" type="button">
         ${state.settings.palette === p.id ? `<span class="palette-card__check"><svg viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>` : ""}
         <span class="palette-card__dots" data-swatch="${escapeAttr(p.id)}"><span style="background:var(--acc-1)"></span><span style="background:var(--acc-2)"></span></span>

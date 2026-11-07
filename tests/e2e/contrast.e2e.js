@@ -9,7 +9,8 @@ const DIR = new URL("../..", import.meta.url).pathname;
 const t = makeChecker();
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const SHOTS = process.env.SHOTS || "", REPORT = process.env.CONTRAST_REPORT === "1";
-const PALETTES = (process.env.PALETTES || "redOrange,orangeYellow,greenMint,tealCyan,blueIndigo,purplePink").split(",");
+import { PALETTES as ALL_PALETTES } from "../../js/palettes.js";
+const PALETTES = (process.env.PALETTES || ALL_PALETTES.map(p => p.id).join(",")).split(",");
 // Night mode must pass. Day mode shows each theme's designed colours exactly (Francesco's choice, 2.68.8), so it is reported
 // with MODES=light,dark but not required.
 const MODES = (process.env.MODES || "dark").split(",");

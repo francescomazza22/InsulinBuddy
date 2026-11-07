@@ -12,7 +12,16 @@ export const PALETTES = [
   { id: "greenMint", name: "Green & Mint" },
   { id: "tealCyan", name: "Teal & Cyan" },
   { id: "blueIndigo", name: "Blue & Indigo" },
-  { id: "purplePink", name: "Purple & Pink" }
+  { id: "purplePink", name: "Purple & Pink" },
+  // Vibrant (2.92.0): two clearly different Apple hues each. Colour 1 is Apple's higher-contrast shade wherever the bright
+  // one can't carry white text, so by day buttons and accent text read at 4.5:1 and white text on the dose card at 3.5:1
+  // or more (tests/unit/palettes.test.js). Night colours are derived like every other theme's (tools/make-tokens.mjs).
+  { id: "orangeToPink", name: "Orange & Pink", group: "vibrant" },
+  { id: "redToPurple", name: "Red & Purple", group: "vibrant" },
+  { id: "pinkToRed", name: "Pink & Red", group: "vibrant" },
+  { id: "indigoToPurple", name: "Indigo & Purple", group: "vibrant" },
+  { id: "indigoToPink", name: "Indigo & Pink", group: "vibrant" },
+  { id: "cyanToIndigo", name: "Cyan & Indigo", group: "vibrant" }
 ];
 
 // Themes from older versions, mapped to the closest current one.

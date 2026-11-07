@@ -38,3 +38,22 @@ test("2.55.0's ratio colours (too alike) move to the new distinct ones, and the 
   assert.deepEqual(s.timeRatios.map(r => r.color), RATIO_COLOURS.slice(0, 4));
   assert.equal(new Set(RATIO_COLOURS).size, 6);
 });
+
+// 2.92.0: the vibrant themes must read by day as well as by night (the six originals show their designed colours by day,
+// Francesco's choice in 2.68.8, so they are not held to this). Night colours are checked for every theme in tokens.test.js.
+import { contrast, over } from "../../tools/contrast-colours.mjs";
+test("vibrant themes: by day buttons and accent text 4.5:1, white on both dose-card colours 3.5:1, and two different hues", () => {
+  const vibrant = PALETTES.filter(p => p.group === "vibrant");
+  assert.equal(vibrant.length, 6);
+  for (const { id } of vibrant) {
+    const p = tokens.palette.set[id];
+    assert.ok(contrast("#FFFFFF", p["acc-1"]) >= 4.5, `${id}: white on buttons`);
+    assert.ok(contrast(p["acc-1"], tokens.color.light.paper) >= 4.5 && contrast(p["acc-1"], "#FFFFFF") >= 4.5, `${id}: accent text`);
+    assert.ok(contrast("#FFFFFF", p["acc-1"]) >= 3.5 && contrast("#FFFFFF", p["acc-2"]) >= 3.5, `${id}: dose card`);
+    assert.ok(contrast("#FFFFFF", over("#FFFFFF", 0.26, p["acc-1"])) >= 3, `${id}: dose card under its sheen`);
+    assert.notEqual(p["acc-1"], p["acc-2"]);
+  }
+  const pairs = PALETTES.map(p => tokens.palette.set[p.id]["acc-1"] + tokens.palette.set[p.id]["acc-2"]);
+  assert.equal(new Set(pairs).size, PALETTES.length, "no two themes look the same");
+  for (const old of ["orangePink", "cyanIndigo", "indigoPurple", "indigoCyan"]) assert.notEqual(paletteId(old), undefined);
+});

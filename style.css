@@ -670,6 +670,7 @@ button.history-entry__swap svg { width: 16px; height: 16px; color: var(--acc-1);
 .palette-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-s); }
 .palette-card { border: 1.5px solid var(--line); border-radius: var(--radius-s); padding: var(--space-m); cursor: pointer; background: var(--surface); display: flex; flex-direction: column; gap: var(--space-xs); position: relative; }
 .palette-card.is-selected { border-color: var(--acc-1); }
+.palette-grid__group { grid-column: 1 / -1; margin: var(--space-s) 0 0; font-size: var(--fs-s); font-weight: 600; color: var(--ink-soft); }   /* 2.92.0 */
 .palette-card__dots { display: flex; gap: var(--space-2xs); }
 .palette-card__dots span { width: 18px; height: 18px; border-radius: 50%; display: block; }
 .palette-card__name { font-size: var(--fs-s); font-weight: 600; }

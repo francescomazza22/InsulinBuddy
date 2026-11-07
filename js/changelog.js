@@ -2,6 +2,15 @@
 // summary can never drift. Bump CHANGELOG[0].version here (and CACHE_VERSION in sw.js) on every release.
 export const CHANGELOG = [
   {
+    version: "2.92.0",
+    summary: "Six new vibrant colour themes, readable by day and by night.",
+    changes: [
+      "Settings > General > Color theme has a new Vibrant group: Orange & Pink, Red & Purple, Pink & Red, Indigo & Purple, Indigo & Pink and Cyan & Indigo, each built from two different Apple colours. Your current theme is unchanged",
+      "By day their buttons and coloured text meet the 4.5:1 readability standard and white text on the dose card stays clearly readable; at night they get the same darker, readable dose card as the other themes",
+      "The text contrast check now covers all twelve themes"
+    ]
+  },
+  {
     version: "2.91.0",
     summary: "Extras: add something just for one day, and fix past days from Trends.",
     changes: [
