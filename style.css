@@ -997,6 +997,9 @@ button.swap-result:last-child { border-bottom: none; }
   /* Pop-ups are centred cards rather than bottom drawers. */
   .sheet-backdrop { align-items: center; padding: var(--space-xl); }
   .sheet { max-width: 540px; border-radius: var(--radius-l); padding: var(--space-xl); max-height: min(88vh, calc(var(--vv-height, 100vh) - 48px)); }
+  /* Meals log: one column, newest first, reading straight down (2.93.1). A grid of cards side by side zigzagged, and
+     cards of different heights left ragged rows and holes. */
+  .history-group { grid-template-columns: minmax(0, 1fr); }
 }
 
 @media (min-width: 1000px) {
@@ -1030,8 +1033,32 @@ button.swap-result:last-child { border-bottom: none; }
   .calc-side .sticky-log-bar .btn--ghost-full { flex: 1; }
   .sticky-log-spacer { display: none; }
   .food-pick-list { max-height: max(420px, calc(100vh - 380px)); max-height: max(420px, calc(100dvh - 380px)); }
-  /* History: more, wider entries per row; Trends: the two charts side by side. */
-  .history-group { grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); }
+  /* Meals log (2.93.1): one tidy list instead of a grid of cards. Each entry is one row with the same columns all the way
+     down -- icon | name, time and ratio | foods | dose | carbs and kcal -- so doses and carbs line up, nothing is cut short
+     for lack of width, and an opened meal grows in place without leaving holes beside it. */
+  .history-group { gap: 6px; margin-bottom: var(--space-l); }
+  .history-group__date { font-size: var(--fs-s); margin: var(--space-xs) 2px var(--space-3xs); }
+  .history-group .history-entry { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; column-gap: var(--space-l); align-items: center; min-height: 0; padding: 10px 18px 10px 14px; }
+  .history-group .history-entry__main { display: grid; grid-template-columns: minmax(0, 15em) minmax(0, 1fr); column-gap: var(--space-l); align-items: center; }
+  .history-group .history-entry__title { grid-column: 1; }
+  .history-group .history-entry__foods { grid-column: 2; margin: 0; }
+  /* Foods may take two lines rather than end in "…" (the GI chip stays beside them). */
+  .history-group .history-entry__food-names { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow-wrap: anywhere; }
+  .history-group .history-entry__detail { grid-column: 1 / -1; }
+  /* Dose in one column, carbs and kcal in the next: the same two columns on every row. */
+  .history-group .history-entry__stats { display: grid; grid-template-columns: 7.5em 7em; column-gap: var(--space-m); align-items: center; justify-items: end; min-width: 0; }
+  .history-group .history-entry__stats > :first-child { grid-column: 1; }
+  .history-group .history-entry__stats > :nth-child(2) { grid-column: 2; }
+  /* An opened meal keeps the same columns; its food lines sit under the name and stay a readable width. */
+  .history-group .history-entry.history-entry--meal.is-expanded { grid-template-columns: auto minmax(0, 1fr) auto; column-gap: var(--space-l); }
+  .history-group .history-entry--meal.is-expanded .history-entry__detail { grid-column: 2; max-width: 40em; }
+  @media (hover: hover) { .history-group .history-entry:hover { border-color: var(--acc-1); } }
+  /* Up to 1199px (a smaller iPad on its side) the foods go under the name, so they keep the room they need. */
+  @media (max-width: 1199px) {
+    .history-group .history-entry__main { grid-template-columns: minmax(0, 1fr); }
+    .history-group .history-entry__foods { grid-column: 1; margin-top: var(--space-3xs); }
+  }
+  /* Trends: the two charts side by side. */
   /* `dense` lets a half-width card move up into a gap a full-width card left (2.93.0): the Calories card sits between
      "Daily carbs" and "Daily insulin dose" in the page, and used to push the dose chart down a row on its own. */
   #history-trends-panel { display: grid; grid-template-columns: 1fr 1fr; grid-auto-flow: row dense; column-gap: var(--space-xl); align-items: stretch; }

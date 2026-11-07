@@ -2,6 +2,17 @@
 // summary can never drift. Bump CHANGELOG[0].version here (and CACHE_VERSION in sw.js) on every release.
 export const CHANGELOG = [
   {
+    version: "2.93.1",
+    summary: "Meals log on iPad and computer: one tidy list instead of a jumble of cards.",
+    changes: [
+      "On a large screen the log is now one list, newest first, reading straight down, instead of three or four cards side by side",
+      "Every row has the same columns: name, time and ratio; the foods; the dose; then carbs and kcal. Doses and carbs line up all the way down",
+      "Opening a meal makes its row taller in place: no more holes beside it, and its food lines stay a readable width",
+      "Food names are no longer cut short: they take a second line if they need it, and on a smaller iPad on its side they sit under the meal name",
+      "iPad upright: one column of the usual cards. Phone unchanged"
+    ]
+  },
+  {
     version: "2.93.0",
     summary: "iPad landscape and computer screens: tidier Insights and smoother resizing.",
     changes: [

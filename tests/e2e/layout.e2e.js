@@ -116,7 +116,7 @@ for (const [name, w, h, mobile] of [["IPAD LANDSCAPE (1180x820)", 1180, 820, tru
 
   await dev.tab("history"); await sleep(300);
   const hl = await dev.eval(`[...new Set(Array.from(document.querySelectorAll("#history-groups .history-group")[0].querySelectorAll(".history-entry")).map(e => Math.round(e.getBoundingClientRect().left)))]`);
-  t.check("History fits three entries across", hl.length >= 3, JSON.stringify(hl));
+  t.check("the Meals log is one list (2.93.1): every entry starts at the same left edge", hl.length === 1, JSON.stringify(hl));
   await dev.eval(`document.querySelector('[data-seg="trends"]').click()`); await sleep(500);
   const c1 = await R(dev, "#trend-card-carbs"), c2 = await R(dev, "#trend-card-dose"), c3 = await R(dev, "#trend-card-meals");
   t.check("Trends puts the two charts side by side", c1.right <= c2.left && Math.abs(c1.top - c2.top) <= 2, JSON.stringify({ c1, c2 }));
