@@ -32,7 +32,9 @@ const settings = { darkModeAuto: false, backgroundPattern: "doodles", basalBasel
   nightscoutUrl: "https://demo.ns.example.com/?token=tok-abcdef-123456",
   activityRatios: [{ id: "x", name: "Sport", color: "#8B5CF6", ratio: 18 }],
   timeRatios: [{ id: "a", name: "Morning", color: "#F59E0B", ratio: 10, start: "05:00", end: "11:00" }, { id: "b", name: "Lunch", color: "#D6A419", ratio: 12, start: "11:00", end: "16:00" }, { id: "c", name: "Evening", color: "#6366F1", ratio: 15, start: "16:00", end: "05:00" }] };
-const DEVICES = [["phone", 390, 844, true], ["ipad", 820, 1180, true], ["desktop", 1440, 900, false]];
+const ALL_DEVICES = [["phone", 390, 844, true], ["ipad", 820, 1180, true], ["ipadland", 1180, 820, true], ["laptop", 1280, 800, false], ["desktop", 1440, 900, false], ["wide", 1920, 1080, false]];
+// SWEEP_DEVICES=ipad,desktop picks devices (default: phone, ipad, desktop as before).
+const DEVICES = ALL_DEVICES.filter(d => (process.env.SWEEP_DEVICES || "phone,ipad,desktop").split(",").includes(d[0]));
 const only = process.env.SWEEP_ONLY;
 const be = createBackend();
 const app = await startApp(DIR, be, { "foods_data.js": FOODS_JS, "manifest.json": "{}" });
@@ -68,7 +70,7 @@ for (const [dname, w, h, mobile] of DEVICES) for (const dark of [false, true]) {
     await dev.eval(`(() => { const r = [...document.querySelectorAll(".history-entry")].find(e => !/--basal|--activity/.test(e.className)); if (r) { r.scrollIntoView({ block: "center" }); r.click(); } })()`); await sleep(700); await dev.shot(`${OUT}/${tag}--06-meal-detail.png`);
     await dev.eval(`document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }))`); await sleep(300);
     await dev.tab("settings"); await sleep(400);
-    for (const seg of ["ratios", "library", "sync", "data", "general"]) { await click(`#settings-segmented [data-seg="${seg}"]`); await sleep(500); await shot(`07-settings-${seg}`); }
+    for (const seg of ["ratios", "library", "calories", "sync", "general"]) { await click(`#settings-segmented [data-seg="${seg}"]`); await sleep(500); await shot(`07-settings-${seg}`); }
     await dev.tab("history"); await click('[data-seg="glucose"]'); await sleep(1200);
     await click("#btn-generate-report"); await sleep(2500); await dev.shot(`${OUT}/${tag}--08-doctor-report.png`); await click("#btn-report-close"); await sleep(300);
     await click("#btn-clinic-report"); await sleep(1500); await dev.shot(`${OUT}/${tag}--09-clinic-report.png`); await click("#clinic-report-close");

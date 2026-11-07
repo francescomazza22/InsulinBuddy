@@ -1518,6 +1518,14 @@ import { extraFromFood, extrasForDay, setDayExtra, setDayCount, resetDay, addDay
     bind("btn-clinic-report", "click", () => openClinicReport(days));
   }
 
+  // The daily pattern last drawn, so a width change redraws only its chart, in place (2.93.0).
+  let lastPatternBuckets = null;
+  function redrawGlucosePattern(box) {
+    const holder = box.querySelector(".glu-pattern-chart");
+    if (!holder || !lastPatternBuckets) return;
+    const svg = renderDailyPatternSVG(lastPatternBuckets, GLUCOSE_BAND_PRESETS[glucoseBandPreset], (box.clientWidth || 0) - 34);
+    if (svg) holder.innerHTML = svg;
+  }
   async function renderGlucoseTab(days) {
     const box = el("glucose-tab-content");
     const rangeSeg = el("glucose-range-segmented");
@@ -1575,6 +1583,8 @@ import { extraFromFood, extrasForDay, setDayExtra, setDayCount, resetDay, addDay
 
     const preset = GLUCOSE_BAND_PRESETS[glucoseBandPreset];
     const buckets = dailyPatternBuckets(readings, 30);
+    lastPatternBuckets = buckets;
+    if (box.clientWidth) box.dataset.drawnW = box.clientWidth;   // drawn for this width (read by the resize handler)
     const svg = renderDailyPatternSVG(buckets, preset, (box.clientWidth || 0) - 34);   // the card's inside width (its padding is 16 + 1 each side)
     const bandPicker = `
       <div class="band-preset-row">
@@ -1590,7 +1600,7 @@ import { extraFromFood, extrasForDay, setDayExtra, setDayCount, resetDay, addDay
         <h2 class="panel-card__title">Daily pattern</h2>
         <p class="panel-card__hint" style="margin-top:-4px;">Every day over the last ${days} days folded into one.</p>
         ${bandPicker}
-        ${svg}
+        <div class="glu-pattern-chart">${svg}</div>
         ${renderGlucoseLegend(preset)}
       </div>
       ${footerHtml}
@@ -1741,7 +1751,7 @@ import { extraFromFood, extrasForDay, setDayExtra, setDayCount, resetDay, addDay
   function renderDailyPatternSVG(buckets, preset, width) {
     if (buckets.length === 0) return null;
     const sorted = buckets.slice().sort((a, b) => a.minute - b.minute);
-    const W = width > 340 ? Math.round(width) : 340, H = 220, padL = 32, padR = 10, padT = 10, padB = 26;
+    const W = width > 340 ? Math.round(width) : 340, H = W > 600 ? Math.round(Math.min(340, 220 + (W - 600) * 0.2)) : 220, padL = 32, padR = 10, padT = 10, padB = 26;
     const plotW = W - padL - padR, plotH = H - padT - padB;
     const unit = state.settings.units;
     const toDisplay = v => unit === "mmol" ? convertGlucose(v, "mgdl", "mmol") : v;
@@ -1976,6 +1986,7 @@ import { extraFromFood, extrasForDay, setDayExtra, setDayCount, resetDay, addDay
   }
   function readingsSignature(rs) { return rs.length ? `${rs.length}:${rs[0].at}:${rs[rs.length - 1].at}` : "0"; }
   function drawDayView(box, nav, result, enterFrom) {
+    if (box.clientWidth) box.dataset.drawnW = box.clientWidth;   // drawn for this width (read by the resize handler)
     const readings = result.ok ? result.readings : [];
     const now = Date.now();
     const d = dayTimeline(state.history, readings, glucoseDay);
@@ -1995,7 +2006,7 @@ import { extraFromFood, extrasForDay, setDayExtra, setDayCount, resetDay, addDay
     const legend = `<div class="glucose-legend">${[["Meal", MEAL_TYPES.breakfast.color], ["Correction", MEAL_TYPES.correction.color], ["Treated low", LOW_TREAT.color], ["Basal", BASAL_COLOR], ["Activity", ACTIVITY_COLOR]].map(([t, c]) => `<span class="glucose-legend__item"><span class="glucose-legend__swatch day-legend__dot" style="background:${c}"></span>${t}</span>`).join("")}</div>`;
     box.innerHTML = `${nav}<div class="day-swipe">${stats}
       <div class="panel-card">
-        ${renderDaySVG(d, now, Math.max(300, Math.min(960, (box.clientWidth || 360) - 34)))}
+        ${renderDaySVG(d, now, Math.max(300, Math.min(1400, (box.clientWidth || 360) - 34)))}
         ${legend}
         <p class="panel-card__hint day-swipe-hint">Swipe sideways to move between days.</p>
         ${result.ok ? "" : `<p class="panel-card__hint">${escapeHtml(result.reason || "Couldn't load glucose readings.")}</p>`}
@@ -2024,12 +2035,21 @@ import { extraFromFood, extrasForDay, setDayExtra, setDayCount, resetDay, addDay
     const mk = e.target.closest && e.target.closest(".day-mark");
     if (mk && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); highlightDayRow(mk.dataset.dayev); }
   });
+  // Charts on the Glucose tab are drawn for the card's width: redraw them when that width changes, never for a
+  // height-only resize (2.93.0). The Day view redraws from its cache; the other views reuse the readings they have.
   let dayResizeTimer = null;
   window.addEventListener("resize", () => {
-    if (glucoseView !== "day" || historySeg !== "glucose") return;
+    if (historySeg !== "glucose") return;
     clearTimeout(dayResizeTimer);
-    dayResizeTimer = setTimeout(() => { const b = el("glucose-tab-content"); if (b && b.isConnected && !b.closest("[hidden]")) renderDayView(b); }, 200);
-  });
+    dayResizeTimer = setTimeout(() => {
+      const b = el("glucose-tab-content");
+      if (!b || !b.isConnected || b.closest("[hidden]")) return;
+      const w = b.clientWidth;
+      if (!w || String(w) === b.dataset.drawnW) return;
+      b.dataset.drawnW = w;
+      if (glucoseView === "day") renderDayView(b); else redrawGlucosePattern(b);
+    }, 200);
+  }, { passive: true });
   function highlightDayRow(i) {
     document.querySelectorAll(".day-ev.is-hl").forEach(r => r.classList.remove("is-hl"));
     const row = document.querySelector(`.day-ev[data-dayrow="${CSS.escape(String(i))}"]`);
@@ -6218,8 +6238,9 @@ import { extraFromFood, extrasForDay, setDayExtra, setDayCount, resetDay, addDay
       (averages.length ? `<p class="trend-caption trend-caption--tight">${averages.join(" \u00b7 ")}</p>` : "");
   }
 
-  function renderTrends(days) {
+  function renderTrends(days, opts = {}) {
     const chartCarbsBox = el("trend-chart-carbs");
+    { const tp = el("history-trends-panel"); if (tp && !tp.hidden && tp.clientWidth) tp.dataset.drawnW = tp.clientWidth; }   // drawn for this width (read by the resize handler)
     const chartDoseBox = el("trend-chart-dose");
     const statsBox = el("trend-stats");
     const emptyBox = el("trends-empty");
@@ -6359,7 +6380,7 @@ import { extraFromFood, extrasForDay, setDayExtra, setDayCount, resetDay, addDay
     renderRatioTime(days);
     renderActivityFilter(inRange);
     renderIdealRatioTrend(inRange);
-    renderInsights(inRange, days);
+    if (opts.keepInsights && lastInsights && lastInsights.days === days) drawInsights(); else renderInsights(inRange, days);
   }
 
   // "Average ratio by time of day": for each of your brackets, the insulin-to-carb ratio actually used in this period.
@@ -6603,7 +6624,8 @@ import { extraFromFood, extrasForDay, setDayExtra, setDayCount, resetDay, addDay
   const fmtGluU = v => { const t = fmtGlu(v); return t === "—" ? t : `${t} ${gluUnit()}`; };   // with its unit
   const gluUnit = () => (state.settings.units === "mmol" ? "mmol/L" : "mg/dL");
   const pctTxt = v => (v == null ? "—" : Math.round(v) + "%");
-  const insCard = (title, hint, body) => `<div class="panel-card ins-card"><h2 class="panel-card__title">${title}</h2>${hint ? `<p class="trend-caption trend-caption--tight" style="margin-top:-4px;">${hint}</p>` : ""}${body}</div>`;
+  const INS_WIDE = new Set(["Glucose after meals", "Where glucose is 3 hours after a meal", "Activity summary"]);   // full width in the two-column wide layout (2.93.0)
+  const insCard = (title, hint, body) => `<div class="panel-card ins-card${INS_WIDE.has(title) ? " ins-card--wide" : ""}"><h2 class="panel-card__title">${title}</h2>${hint ? `<p class="trend-caption trend-caption--tight" style="margin-top:-4px;">${hint}</p>` : ""}${body}</div>`;
 
   async function renderInsights(inRange, days) {
     const box = el("trend-insights");
@@ -6762,11 +6784,18 @@ import { extraFromFood, extrasForDay, setDayExtra, setDayCount, resetDay, addDay
     drawInsights();
   });
 
+  // Redraw the Trends charts only when the panel's WIDTH changes (2.93.0). Height-only resizes (a keyboard, an address bar,
+  // the iPad dock) used to redraw everything, and a hidden panel was redrawn too. A resize reuses the glucose readings
+  // already loaded for the insight cards instead of fetching them again.
   let trendResizeTimer = null;
   window.addEventListener("resize", () => {
     clearTimeout(trendResizeTimer);
-    trendResizeTimer = setTimeout(() => { if (!historyTrendsPanel.hidden) renderTrends(trendsRange); }, 150);
-  });
+    trendResizeTimer = setTimeout(() => {
+      const w = historyTrendsPanel.hidden ? 0 : historyTrendsPanel.clientWidth;
+      if (!w || String(w) === historyTrendsPanel.dataset.drawnW) return;
+      renderTrends(trendsRange, { keepInsights: true });
+    }, 150);
+  }, { passive: true });
 
   historyGroups.addEventListener("click", e => {
     const badgeBtn = e.target.closest("[data-nsbadge]");

@@ -1032,15 +1032,24 @@ button.swap-result:last-child { border-bottom: none; }
   .food-pick-list { max-height: max(420px, calc(100vh - 380px)); max-height: max(420px, calc(100dvh - 380px)); }
   /* History: more, wider entries per row; Trends: the two charts side by side. */
   .history-group { grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); }
-  #history-trends-panel { display: grid; grid-template-columns: 1fr 1fr; column-gap: var(--space-xl); align-items: stretch; }
+  /* `dense` lets a half-width card move up into a gap a full-width card left (2.93.0): the Calories card sits between
+     "Daily carbs" and "Daily insulin dose" in the page, and used to push the dose chart down a row on its own. */
+  #history-trends-panel { display: grid; grid-template-columns: 1fr 1fr; grid-auto-flow: row dense; column-gap: var(--space-xl); align-items: stretch; }
   #history-trends-panel > * { grid-column: 1 / -1; }
   #history-trends-panel > #trend-card-carbs { grid-column: 1; }
   #history-trends-panel > #trend-card-dose { grid-column: 2; }
   /* With a basal card, the bottom row is basal | by meal; without one, "By meal" keeps the full width. */
   #history-trends-panel > #trend-card-basal { grid-column: 1; }
   #history-trends-panel.has-basal > #trend-card-meals { grid-column: 2; }
-  /* Left-aligned with the heading and tabs above it (it used to be centred, so everything sat at a different edge). */
-  #history-glucose-panel { max-width: 960px; }
+  /* Glucose insight cards: the short ones pair up two to a row, the charts and long tables keep the full width (2.93.0). */
+  #history-trends-panel > #trend-insights { display: grid; grid-template-columns: 1fr 1fr; grid-auto-flow: row dense; column-gap: var(--space-xl); align-items: stretch; }
+  #trend-insights > * { grid-column: 1 / -1; }
+  #trend-insights > .ins-card:not(.ins-card--wide) { grid-column: auto; }
+  /* Glucose tab: same edges as the other tabs (it was capped narrower, so its right edge sat apart from the header's);
+     the four headline figures in one row; the band picker sized to its text. The charts grow taller as they widen. */
+  #history-glucose-panel { max-width: none; }
+  #glucose-tab-content .glucose-stats { grid-template-columns: repeat(4, 1fr); }   /* id: the base rules come later in this file */
+  #glucose-tab-content .band-preset-row select { flex: 0 1 260px; }
   /* Settings: the cards flow into two columns instead of one long scroll. */
   #view-settings .settings-panel { column-count: 2; column-gap: var(--space-xl); }
   #view-settings .settings-panel > * { break-inside: avoid; }
@@ -1049,7 +1058,8 @@ button.swap-result:last-child { border-bottom: none; }
 @media (min-width: 1500px) {
   html { font-size: 125%; }
   .view { max-width: 1400px; }
-  #history-glucose-panel { max-width: 1080px; }
+  /* The six Trends figures in one row instead of two rows of three. */
+  #trend-stats { grid-template-columns: repeat(6, 1fr); }
 }
 
 @media print {

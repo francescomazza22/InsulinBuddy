@@ -2,6 +2,17 @@
 // summary can never drift. Bump CHANGELOG[0].version here (and CACHE_VERSION in sw.js) on every release.
 export const CHANGELOG = [
   {
+    version: "2.93.0",
+    summary: "iPad landscape and computer screens: tidier Insights and smoother resizing.",
+    changes: [
+      "Trends: Daily carbs and Daily insulin dose sit side by side again (the Calories card had pushed the dose chart down to a row of its own)",
+      "Glucose insights: the shorter cards pair up two to a row, so the page is about a fifth shorter; the curve, the 3-hour table and the activity summary keep the full width",
+      "Glucose tab: as wide as the rest of Insights, the four headline figures in one row, the daily pattern taller as it gets wider, and the band picker no longer stretched across the card",
+      "Very wide screens: the six Trends figures in one row",
+      "Faster: resizing the window or iPad split view redraws the charts only when the width changes, reuses the glucose readings already loaded instead of fetching them again, and leaves screens you aren't looking at alone. Phone layout unchanged"
+    ]
+  },
+  {
     version: "2.92.1",
     summary: "Vibrant themes: three clearly different ones instead of six look-alikes.",
     changes: [
