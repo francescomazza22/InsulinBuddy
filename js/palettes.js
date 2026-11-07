@@ -13,15 +13,12 @@ export const PALETTES = [
   { id: "tealCyan", name: "Teal & Cyan" },
   { id: "blueIndigo", name: "Blue & Indigo" },
   { id: "purplePink", name: "Purple & Pink" },
-  // Vibrant (2.92.0): two clearly different Apple hues each. Colour 1 is Apple's higher-contrast shade wherever the bright
-  // one can't carry white text, so by day buttons and accent text read at 4.5:1 and white text on the dose card at 3.5:1
-  // or more (tests/unit/palettes.test.js). Night colours are derived like every other theme's (tools/make-tokens.mjs).
-  { id: "orangeToPink", name: "Orange & Pink", group: "vibrant" },
-  { id: "redToPurple", name: "Red & Purple", group: "vibrant" },
-  { id: "pinkToRed", name: "Pink & Red", group: "vibrant" },
-  { id: "indigoToPurple", name: "Indigo & Purple", group: "vibrant" },
-  { id: "indigoToPink", name: "Indigo & Pink", group: "vibrant" },
-  { id: "cyanToIndigo", name: "Cyan & Indigo", group: "vibrant" }
+  // Vibrant (2.92.0, reworked 2.92.1): three themes that jump across the colour wheel, so each looks clearly different.
+  // By day colour 1 reads at 4.5:1 as buttons and as text, and white text stays at 3:1 or more on both dose-card colours
+  // (tests/unit/palettes.test.js). Night colours are derived like every other theme's (tools/make-tokens.mjs).
+  { id: "purpleToOrange", name: "Purple & Orange", group: "vibrant" },
+  { id: "blueToGreen", name: "Blue & Green", group: "vibrant" },
+  { id: "indigoToPink", name: "Indigo & Pink", group: "vibrant" }
 ];
 
 // Themes from older versions, mapped to the closest current one.
@@ -34,7 +31,12 @@ const RETIRED = {
   greenAmber: "greenMint",
   indigoPurple: "purplePink",   // 2.55.0
   blueTeal: "tealCyan",         // 2.55.0
-  indigoCyan: "blueIndigo"      // 2.55.0
+  indigoCyan: "blueIndigo",     // 2.55.0
+  orangeToPink: "purpleToOrange", // 2.92.0's first vibrant set, replaced in 2.92.1
+  redToPurple: "purpleToOrange",
+  pinkToRed: "purpleToOrange",
+  indigoToPurple: "indigoToPink",
+  cyanToIndigo: "blueToGreen"
 };
 
 export function paletteId(id) {

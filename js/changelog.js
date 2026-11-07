@@ -2,6 +2,15 @@
 // summary can never drift. Bump CHANGELOG[0].version here (and CACHE_VERSION in sw.js) on every release.
 export const CHANGELOG = [
   {
+    version: "2.92.1",
+    summary: "Vibrant themes: three clearly different ones instead of six look-alikes.",
+    changes: [
+      "The Vibrant group is now Purple & Orange, Blue & Green and Indigo & Pink, each jumping across the colour wheel so they no longer look alike",
+      "If you had picked one of yesterday's six, you get the closest of the new three",
+      "Still readable by day (buttons and coloured text at 4.5:1, white text on the dose card at 3:1 or more) and by night (every text check passes)"
+    ]
+  },
+  {
     version: "2.92.0",
     summary: "Six new vibrant colour themes, readable by day and by night.",
     changes: [
