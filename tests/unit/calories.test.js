@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mealExtrasKcal, addDayOneOff, setDayCount, resetDay, ONE_OFFS_MAX, extraFromFood, extrasForDay, setDayExtra, dayKeyOf, eatingOutEstimates, eatingOutKcalFromInsulin, isCorrectionOnly, todayCalories, calorieRule, calorieSummary, restingKcal, activityKcal, watchKcal, extrasKcal, missingDetails, CALORIE_DEFAULTS } from "../../js/calories.js";
+import { weekdayOf, mealExtrasKcal, addDayOneOff, setDayCount, resetDay, ONE_OFFS_MAX, extraFromFood, extrasForDay, setDayExtra, dayKeyOf, eatingOutEstimates, eatingOutKcalFromInsulin, isCorrectionOnly, todayCalories, calorieRule, calorieSummary, restingKcal, activityKcal, watchKcal, extrasKcal, missingDetails, CALORIE_DEFAULTS } from "../../js/calories.js";
 import { normalizeState } from "../../js/state.js";
 import { shiftDay } from "../../js/day-timeline.js";
 
@@ -248,7 +248,7 @@ test("a daily extra from a library food (2.89.0): a serving in grams, or one uni
   assert.equal(extraFromFood({ name: "Bread", kcalPer100g: 250 }, 0).unit, "100 g");   // no grams: 100 g
   // and it survives the settings clean-up as a normal extra
   const r = calorieRule({ ...me, extras: [...me.extras, { id: "extra-x", ...extraFromFood(oil, 13.5) }] }, NOW);
-  assert.deepEqual(r.extras[2], { id: "extra-x", name: "Olio extravergine", unit: "13.5 g", kcalPerUnit: 119.3, perDay: 1, meals: [] });
+  assert.deepEqual(r.extras[2], { id: "extra-x", name: "Olio extravergine", unit: "13.5 g", kcalPerUnit: 119.3, perDay: 1, meals: [], days: [] });
 });
 
 test("one-off items for a day (2.91.0): added for that day only, counted, removable, reset with the day", () => {
@@ -335,4 +335,28 @@ test("eating out with calories typed (2.96.0): the typed figure beats the estima
   assert.equal(eatingOutEstimates(h, calorieRule({ ...me, eatingOutMultiplier: null, eatingOutKcal: null }, NOW)).get("l").kcal, 850);
   // 0 or missing = not known: back to the insulin estimate
   assert.equal(eatingOutEstimates([{ ...h[0], knownKcal: 0 }, h[1]], rule).get("l").kcal, 1020);
+});
+
+test("extras on some weekdays only (2.98.0): other days count 0, a count set for the day still wins", () => {
+  // NOW is Tue 3 Nov 2026. Mozzarella Mon–Fri; flat white weekends only.
+  assert.equal(weekdayOf("2026-11-03"), 2); assert.equal(weekdayOf("2026-11-01"), 0);
+  const set = { ...me, extras: [
+    { id: "olive-oil", name: "Olive oil", unit: "tbsp", kcalPerUnit: 119, perDay: 2 },
+    { id: "mozz", name: "Mozzarella", unit: "ball", kcalPerUnit: 250, perDay: 1, days: [5, 1, 2, 3, 4, 4, 9] },
+    { id: "fw", name: "Flat white", unit: "cup", kcalPerUnit: 110, perDay: 1, days: [0, 6] } ] };
+  const rule = calorieRule(set, NOW);
+  assert.deepEqual(rule.extras.map(x => x.days), [[], [1, 2, 3, 4, 5], [0, 6]]);   // cleaned and ordered
+  assert.deepEqual(calorieRule({ ...me, extras: [{ name: "x", days: [0, 1, 2, 3, 4, 5, 6] }] }, NOW).extras[0].days, []);   // all seven = every day
+  const tue = extrasForDay(rule, "2026-11-03"), sun = extrasForDay(rule, "2026-11-01");
+  assert.equal(tue.total, 238 + 250); assert.equal(sun.total, 238 + 110);
+  const fwTue = tue.items.find(x => x.id === "fw");
+  assert.deepEqual([fwTue.onDay, fwTue.usual, fwTue.count, fwTue.changed], [false, 0, 0, false]);
+  // a flat white on a Tuesday after all: set for that day, counted, and back to 0 = back to usual
+  const r2 = calorieRule({ ...set, ...setDayCount(rule, "2026-11-03", "fw", 1) }, NOW);
+  assert.equal(extrasForDay(r2, "2026-11-03").total, 238 + 250 + 110); assert.equal(extrasForDay(r2, "2026-11-03").adjusted, true);
+  assert.deepEqual(setDayCount(r2, "2026-11-03", "fw", 0).dayExtras, {});
+  // summary and today follow the weekday
+  const sum = calorieSummary([meal(at(0, 9), 500), meal(at(2, 9), 500)], { calories: set }, { days: 3, now: NOW });
+  assert.equal(sum.days[2].extras, 488); assert.equal(sum.days[0].extras, 348);   // Tue / Sun
+  assert.equal(todayCalories([meal(at(0, 9), 500)], { calories: set }, NOW, 0).extras, 488);
 });

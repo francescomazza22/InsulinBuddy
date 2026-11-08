@@ -2306,3 +2306,8 @@ html[data-theme="dark"] .dose-card .carbs-pill.carbs-pill--ratio.mode-chip.is-su
 .dose-card .carbs-pill.carbs-pill--ratio.mode-chip.is-suggest-high,
 html[data-theme="dark"] .dose-card .carbs-pill.carbs-pill--ratio.mode-chip.is-suggest-high { background: #fff; color: var(--card-1); box-shadow: none; }
 .dose-card .mode-chip.is-suggest-low svg, .dose-card .mode-chip.is-suggest-high svg { display: none; }
+
+/* Weekdays per extra (2.98.0) */
+.cal-extra__days { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: var(--space-2xs); min-width: 0; }
+button.cal-day-chip { padding: 0; min-width: 0; text-align: center; }
+.dx-row.is-off-day .dx-row__sub { color: var(--ink-soft); }

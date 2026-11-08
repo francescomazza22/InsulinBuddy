@@ -44,7 +44,7 @@ import { workoutsToActivities, awaitingIntensity, mayBeDoubleCounted, intensityU
 import { dayBounds, shiftDay, dayTimeline, readingNear, stackRows } from "./js/day-timeline.js";
 import { sessionLevel, primaryTotp, verifyCode, startTotpSetup, cancelTotpSetup, removeTotp, signOutOtherDevices, groupSecret, cleanTotpCode, validTotpCode } from "./js/mfa.js";
 import { nearActivity, activitySkip, countNearActivity, breakfastByActivity, activitySummary, ACTIVITY_FILTERS, NEAR_BEFORE_HOURS, NEAR_AFTER_HOURS } from "./js/activity-stats.js";
-import { mealTypesForDay, MEAL_KINDS, extraFromFood, extrasForDay, setDayExtra, setDayCount, resetDay, addDayOneOff, ONE_OFFS_MAX, dayKeyOf, eatingOutEstimates, eatingOutKcalFromInsulin, EATING_OUT_CORRECTION_HOURS, KCAL_PER_G_CARB, todayCalories, calorieRule, calorieSummary, missingDetails, restingKcal, extrasKcal, cleanExtra, LIFE_FACTORS, CALORIE_DEFAULTS, CALORIE_LIMITS } from "./js/calories.js";
+import { weekdayOf, mealTypesForDay, MEAL_KINDS, extraFromFood, extrasForDay, setDayExtra, setDayCount, resetDay, addDayOneOff, ONE_OFFS_MAX, dayKeyOf, eatingOutEstimates, eatingOutKcalFromInsulin, EATING_OUT_CORRECTION_HOURS, KCAL_PER_G_CARB, todayCalories, calorieRule, calorieSummary, missingDetails, restingKcal, extrasKcal, cleanExtra, LIFE_FACTORS, CALORIE_DEFAULTS, CALORIE_LIMITS } from "./js/calories.js";
 
 
   const STORAGE_KEY = "insulinBuddy.v2";
@@ -3238,11 +3238,12 @@ import { mealTypesForDay, MEAL_KINDS, extraFromFood, extrasForDay, setDayExtra, 
           : x.share > 0 ? ` \u00b7 ${kcalText(x.counted)} counted (${x.logged.map(mn).join(" + ")}${isToday ? " so far" : " only"})`
           : ` \u00b7 ${isToday ? `counts once ${ms.map(mn).join(" or ")} is logged` : `no ${ms.map(mn).join(" or ")} logged`}`;
         row.classList.toggle("is-waiting", !x.applies);
-        row.querySelector(".dx-row__sub").textContent = `${fmtN(x.count)}${unitOf(x, x.count)} \u00b7 ${kcalText(x.kcal)} kcal${when}${x.oneOff ? ` \u00b7 ${isToday ? "today" : "that day"} only` : x.changed ? ` \u00b7 usual ${fmtN(x.usual)}` : ""}`;
+        row.querySelector(".dx-row__sub").textContent = `${fmtN(x.count)}${unitOf(x, x.count)} \u00b7 ${kcalText(x.kcal)} kcal${when}${x.oneOff ? ` \u00b7 ${isToday ? "today" : "that day"} only` : !x.onDay ? ` \u00b7 not usual on ${weekdayPlural(dayKey)}` : x.changed ? ` \u00b7 usual ${fmtN(x.usual)}` : ""}`;
+        row.classList.toggle("is-off-day", !x.oneOff && !x.onDay && !x.changed);
         row.querySelector('[data-dx="-1"]').setAttribute("aria-label", x.oneOff && x.count <= 1 ? `Remove ${x.name}` : `One less ${x.name}`);
         row.querySelector('[data-dx="-1"]').disabled = !(x.count > 0);
       });
-      const usual = extrasKcal(r).total;
+      const usual = dx.items.filter(x => !x.oneOff).reduce((s, x) => s + x.kcalPerUnit * x.usual, 0);   // 2.98.0: that weekday's usual
       $("#dx-total").innerHTML = `${isToday ? "Today" : escapeHtml(dayName)} <b>${kcalText(dx.total)} kcal</b> of extras${dx.adjusted ? ` (usual ${kcalText(usual)})` : ""}`;
       $("#dx-reset").hidden = !dx.adjusted;
     }
@@ -7854,12 +7855,14 @@ import { mealTypesForDay, MEAL_KINDS, extraFromFood, extrasForDay, setDayExtra, 
       : `Resting about ${kcalText(rest)} kcal a day; with everyday moving (×${r.lifeFactor}) about ${kcalText(rest * r.lifeFactor)} kcal, before any logged activity. An estimate (Mifflin-St Jeor).`;
     const ex = extrasKcal(r);
     const mealPart = r.extras.filter(x => x.meals && x.meals.length).reduce((s, x) => s + x.kcalPerUnit * x.perDay, 0);
-    if (tot) tot.textContent = r.extras.length ? `Extras: ${kcalText(ex.total)} kcal a day${mealPart > 0 ? `, ${kcalText(mealPart)} of it only with the meals you picked` : ""}.` : "No extras.";
+    const dayPart = r.extras.filter(x => x.days && x.days.length && !(x.meals && x.meals.length)).reduce((s, x) => s + x.kcalPerUnit * x.perDay, 0);   // 2.98.0
+    if (tot) tot.textContent = r.extras.length ? `Extras: ${kcalText(ex.total)} kcal a day${mealPart > 0 ? `, ${kcalText(mealPart)} of it only with the meals you picked` : ""}${dayPart > 0 ? `${mealPart > 0 ? " and" : ","} ${kcalText(dayPart)} only on the days you picked` : ""}.` : "No extras.";
     r.extras.forEach(x => {
       const row = document.querySelector(`#cal-extras [data-xid="${CSS.escape(x.id)}"]`);
       if (!row) return;
       const out = row.querySelector(".cal-extra__kcal");
       if (out) out.textContent = `${kcalText(x.kcalPerUnit * x.perDay)} kcal`;
+      row.querySelectorAll("[data-xday]").forEach(b => { const on = (x.days || []).includes(Number(b.dataset.xday)); b.classList.toggle("is-on", on); b.setAttribute("aria-pressed", String(on)); });
       row.querySelectorAll("[data-xmeal]").forEach(b => { const on = x.meals.includes(b.dataset.xmeal); b.classList.toggle("is-on", on); b.setAttribute("aria-pressed", String(on)); });
       const w = row.querySelector(".cal-extra__when-text");
       if (w) w.textContent = extraWhenText(x);
@@ -7889,12 +7892,26 @@ import { mealTypesForDay, MEAL_KINDS, extraFromFood, extrasForDay, setDayExtra, 
   // 2.95.0: "Every day", "Only with lunch", or "Split over breakfast and lunch: 1 cup each".
   function extraWhenText(x) {
     const ms = x.meals || [], mn = m => MEAL_TYPES[m].label.toLowerCase();
-    if (!ms.length) return "Every day you log a meal. Pick meals to count it only with them.";
-    if (ms.length === 1) return `Only on days you log ${mn(ms[0])}.`;
+    const days = x.days || [];
+    const on = days.length ? `${daysText(days)} only. ` : "";   // 2.98.0
+    if (!ms.length) return days.length ? `${on}Counted on those days when you log a meal.` : "Every day you log a meal. Pick meals or days to count it only with them.";
+    if (ms.length === 1) return `${on}${days.length ? "On" : "Only on"} days you log ${mn(ms[0])}.`;
     const each = Math.round(x.perDay / ms.length * 100) / 100;
     const names = ms.map(mn), list = names.slice(0, -1).join(", ") + " and " + names[names.length - 1];
-    return `Split over ${list}: ${each}${x.unit ? ` ${/^\d/.test(x.unit) ? "\u00d7 " + x.unit : unitPlural(x.unit, each)}` : ""} each. A day with only some of them counts their share.`;
+    return `${on}Split over ${list}: ${each}${x.unit ? ` ${/^\d/.test(x.unit) ? "\u00d7 " + x.unit : unitPlural(x.unit, each)}` : ""} each. A day with only some of them counts their share.`;
   }
+  // 2.98.0: weekdays, Monday first. [1,2,3,4,5] -> "Weekdays", [0,6] -> "Weekends", else "Mon, Wed and Fri".
+  const WEEK_ORDER = [1, 2, 3, 4, 5, 6, 0];
+  const dayShort = n => new Date(2026, 10, 1 + n).toLocaleDateString(undefined, { weekday: "short" });   // 1 Nov 2026 is a Sunday
+  const dayLong = n => new Date(2026, 10, 1 + n).toLocaleDateString(undefined, { weekday: "long" });
+  function daysText(days) {
+    const k = [...days].sort((a, b) => WEEK_ORDER.indexOf(a) - WEEK_ORDER.indexOf(b));
+    if (k.join() === "1,2,3,4,5") return "Weekdays";
+    if (k.join() === "6,0") return "Weekends";
+    const names = k.map(dayShort);
+    return names.length === 1 ? `${dayLong(k[0])}s` : names.slice(0, -1).join(", ") + " and " + names[names.length - 1];
+  }
+  function weekdayPlural(dayKey) { return `${dayLong(weekdayOf(dayKey))}s`; }
   function renderCalorieExtras() {
     const box = el("cal-extras");
     if (!box) return;
@@ -7920,6 +7937,7 @@ import { mealTypesForDay, MEAL_KINDS, extraFromFood, extrasForDay, setDayExtra, 
         <label class="cal-extra__cell"><span>kcal each</span><input type="text" name="cal-extra-kcal" data-xfield="kcalPerUnit" value="${x.kcalPerUnit}" inputmode="decimal" autocomplete="off"></label>
       </div>
       <div class="cal-extra__when"><span>Counted with</span><div class="cal-extra__meals" role="group" aria-label="${escapeAttr(x.name)}: which meals it goes with">${MEAL_KINDS.map(m => `<button type="button" class="cal-meal-chip" data-xmeal="${m}" aria-pressed="false">${MEAL_TYPES[m].label}</button>`).join("")}</div></div>
+      <div class="cal-extra__when"><span>Days</span><div class="cal-extra__days" role="group" aria-label="${escapeAttr(x.name)}: which days of the week">${WEEK_ORDER.map(n => `<button type="button" class="cal-meal-chip cal-day-chip" data-xday="${n}" aria-pressed="false" aria-label="${escapeAttr(dayLong(n))}">${escapeHtml(dayShort(n).slice(0, 2))}</button>`).join("")}</div></div>
       <p class="cal-extra__when-text"></p>
     </div>`).join("");
     renderCalorieStatus();
@@ -7988,6 +8006,16 @@ import { mealTypesForDay, MEAL_KINDS, extraFromFood, extrasForDay, setDayExtra, 
     if (out) out.textContent = `${kcalText(num("perDay") * num("kcalPerUnit"))} kcal`;
   });
   bind("cal-extras", "click", e => {
+    const dayChip = e.target.closest("[data-xday]");
+    if (dayChip) {   // 2.98.0: weekdays
+      const row = e.target.closest("[data-xid]"), r = calRule(), x = row && r.extras.find(y => y.id === row.dataset.xid);
+      if (!x) return;
+      const n = Number(dayChip.dataset.xday), cur = x.days || [];
+      const days = cur.includes(n) ? cur.filter(d => d !== n) : [...cur, n];
+      saveCalories({ extras: r.extras.map(y => (y.id === x.id ? { ...y, days } : y)) });
+      renderCalorieStatus();
+      return;
+    }
     const chip = e.target.closest("[data-xmeal]"), row = e.target.closest("[data-xid]");
     if (!chip || !row) return;
     const r = calRule(), x = r.extras.find(y => y.id === row.dataset.xid);

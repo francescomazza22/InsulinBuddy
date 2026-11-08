@@ -396,6 +396,44 @@ t.check(`the bar then counts the estimate again (${estK.toLocaleString()})`, k.t
 t.check("no JS errors", (await dev.eval("window.__errs.length")) === 0, JSON.stringify(await dev.eval("window.__errs")));
 dev.close();
 
+t.section("EXTRAS ON SOME WEEKDAYS (2.98.0)");
+dev = await boot({ calories });
+const todayDow = new Date().getDay();
+await dev.tab("settings"); await sleep(300); await dev.click('#settings-segmented [data-seg="calories"]'); await sleep(400);
+const dayChips = id => dev.eval(`(() => { const r = document.querySelector('#cal-extras [data-xid="${id}"]'); return { labels: [...r.querySelectorAll("[data-xday]")].map(b => b.textContent), names: [...r.querySelectorAll("[data-xday]")].map(b => b.getAttribute("aria-label")), on: [...r.querySelectorAll("[data-xday]")].filter(b => b.getAttribute("aria-pressed") === "true").map(b => Number(b.dataset.xday)), text: r.querySelector(".cal-extra__when-text").textContent }; })()`);
+let dc = await dayChips("flat-white");
+t.check("each extra has seven day chips, Monday first, none on = every day", dc.labels.join(",") === "Mo,Tu,We,Th,Fr,Sa,Su" && dc.names[0] === "Monday" && dc.on.length === 0 && /^Every day you log a meal/.test(dc.text), JSON.stringify(dc));
+for (const n of [1, 2, 3, 4, 5]) await dev.eval(`document.querySelector('#cal-extras [data-xid="flat-white"] [data-xday="${n}"]').click()`);
+await sleep(200);
+dc = await dayChips("flat-white");
+t.check("Mon–Fri picked: saved and described as weekdays", JSON.stringify((await saved()).extras.find(x => x.id === "flat-white").days) === "[1,2,3,4,5]" && dc.text === "Weekdays only. Counted on those days when you log a meal.", JSON.stringify(dc));
+// now every day except today
+for (const n of [1, 2, 3, 4, 5]) await dev.eval(`document.querySelector('#cal-extras [data-xid="flat-white"] [data-xday="${n}"]').click()`);
+for (const n of [0, 1, 2, 3, 4, 5, 6].filter(n => n !== todayDow)) await dev.eval(`document.querySelector('#cal-extras [data-xid="flat-white"] [data-xday="${n}"]').click()`);
+await sleep(200);
+const savedDays = (await saved()).extras.find(x => x.id === "flat-white").days;
+t.check("the total says some only count on the days picked", /^Extras: 348 kcal a day, 110 only on the days you picked\.$/.test(await dev.eval(`document.getElementById("cal-extras-total").textContent`)), await dev.eval(`document.getElementById("cal-extras-total").textContent`));
+t.check("every day but today: six days saved", savedDays.length === 6 && !savedDays.includes(todayDow), JSON.stringify(savedDays));
+await dev.tab("calculator"); await sleep(300);
+k = await kbar();
+// today: only olive oil (238) set aside -> 2177.5 - 238 = 1939.5 for food
+t.check("today isn't one of its days: the flat white isn't set aside (1,940 left)", k.today === "Today 0 kcal" && k.target === "1,940 left", JSON.stringify(k));
+await dev.click("#cc-day-kcal"); await sleep(400);
+const todayName = await dev.eval(`new Date().toLocaleDateString(undefined, { weekday: "long" })`);
+let fwSub = await dev.eval(`document.querySelector('.day-extras-sheet [data-xid="flat-white"] .dx-row__sub').textContent`);
+t.check("Today's extras shows it at 0, not usual today", (await dev.eval(`document.querySelector('.day-extras-sheet [data-xid="flat-white"] .dx-step__count').textContent`)) === "0" && fwSub.endsWith(`not usual on ${todayName}s`), fwSub);
+await dev.eval(`document.querySelector('.day-extras-sheet [data-xid="flat-white"] [data-dx="1"]').click()`); await sleep(200);
+k = await kbar();
+t.check("had one anyway: + counts it for today (1,830 left)", k.target === "1,830 left" && /usual 238\)/.test(await dev.eval(`document.getElementById("dx-total").textContent`)), JSON.stringify(k));
+await dev.eval(`document.querySelector('.day-extras-sheet [data-xid="flat-white"] [data-dx="-1"]').click()`); await sleep(200);
+const dayEx = (await saved()).dayExtras || {};
+t.check("back to 0 is back to the usual for today (nothing stored)", JSON.stringify(dayEx) === "{}", JSON.stringify(dayEx));
+if (SHOTS) await dev.shot(`${SHOTS}/days-sheet-${W}${dark ? "-dark" : ""}.png`);
+await dev.click("#dx-done"); await sleep(300);
+if (SHOTS) { await dev.tab("settings"); await sleep(300); await dev.click('#settings-segmented [data-seg="calories"]'); await sleep(300); await dev.eval(`document.querySelector('#cal-extras [data-xid="flat-white"]').scrollIntoView({ block: "start" })`); await sleep(300); await dev.shot(`${SHOTS}/days-settings-${W}${dark ? "-dark" : ""}.png`); }
+t.check("no sideways scroll, no JS errors", (await dev.eval(`document.documentElement.scrollWidth <= innerWidth + 1`)) && (await dev.eval("window.__errs.length")) === 0, JSON.stringify(await dev.eval("window.__errs")));
+dev.close();
+
 t.section("NOT SET UP");
 dev = await boot({});
 await openTrends(dev);

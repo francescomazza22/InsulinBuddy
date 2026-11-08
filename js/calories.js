@@ -62,11 +62,25 @@ export function cleanExtra(x, i = 0) {
     name, unit: clean(x.unit, CALORIE_LIMITS.unitMax),
     kcalPerUnit: kcal == null ? 0 : Math.round(kcal * 10) / 10,
     perDay: per == null ? 0 : Math.round(per * 100) / 100,
-    meals: cleanMeals(x)   // 2.95.0: [] = every logged day; else the meals it goes with, its amount split evenly between them
+    meals: cleanMeals(x),   // 2.95.0: [] = every logged day; else the meals it goes with, its amount split evenly between them
+    days: cleanDays(x.days)   // 2.98.0: [] = every day of the week; else only those weekdays (0 = Sunday … 6 = Saturday)
   };
 }
 // 2.94.0 had one `meal` ("any" or a meal type); 2.95.0 keeps a list, so a coffee can go with breakfast and lunch.
 export const MEAL_KINDS = ["breakfast", "lunch", "dinner", "snack"];
+// Weekdays as numbers 0 (Sunday) … 6 (Saturday), like the ratio brackets' days; all seven is the same as none (every day).
+function cleanDays(raw) {
+  if (!Array.isArray(raw)) return [];
+  const d = [0, 1, 2, 3, 4, 5, 6].filter(n => raw.some(v => Number(v) === n));
+  return d.length === 7 ? [] : d;
+}
+/** The weekday (0 = Sunday) of a "YYYY-MM-DD" local date. */
+export function weekdayOf(dayKey) {
+  const [y, m, d] = String(dayKey).split("-").map(Number);
+  return new Date(y, m - 1, d).getDay();
+}
+/** Is an extra used on that date at all (its weekdays)? */
+export const extraOnDay = (x, dayKey) => !(x.days && x.days.length) || x.days.includes(weekdayOf(dayKey));
 function cleanMeals(x) {
   const raw = Array.isArray(x.meals) ? x.meals : x.meal && x.meal !== "any" ? [x.meal] : [];
   return MEAL_KINDS.filter(m => raw.includes(m));   // known ones, in the day's order, no repeats
@@ -167,12 +181,14 @@ function cleanDayOneOffs(raw) {
 export function extrasForDay(rule, dayKey, mealsOnDay = null) {
   const own = (rule.dayExtras || {})[dayKey] || {};
   const items = rule.extras.map(x => {
-    const count = Object.prototype.hasOwnProperty.call(own, x.id) ? own[x.id] : x.perDay;
+    // 2.98.0: on a weekday it isn't used, its usual amount that day is 0 (a count set for the day still wins).
+    const onDay = extraOnDay(x, dayKey), usual = onDay ? x.perDay : 0;
+    const count = Object.prototype.hasOwnProperty.call(own, x.id) ? own[x.id] : usual;
     const meals = Array.isArray(x.meals) ? x.meals : [];
     const logged = meals.filter(m => !!mealsOnDay && mealsOnDay.has(m));
     const share = meals.length ? logged.length / meals.length : 1;
     const kcal = x.kcalPerUnit * count;
-    return { ...x, meals, logged, share, usual: x.perDay, count, kcal, counted: kcal * share, changed: count !== x.perDay, oneOff: false, applies: share > 0 };
+    return { ...x, meals, logged, share, usual, onDay, count, kcal, counted: kcal * share, changed: count !== usual, oneOff: false, applies: share > 0 };
   });
   for (const o of (rule.dayOneOffs || {})[dayKey] || []) {
     const kcal = o.kcalPerUnit * o.count;
@@ -223,7 +239,7 @@ export function setDayExtra(rule, dayKey, id, count) {
   if (!x || !DAY_KEY.test(dayKey)) return all;
   const day = { ...(all[dayKey] || {}) };
   const c = Math.max(CALORIE_LIMITS.perDay[0], Math.min(CALORIE_LIMITS.perDay[1], Math.round(Number(count) * 100) / 100 || 0));
-  if (c === x.perDay) delete day[id]; else day[id] = c;
+  if (c === (extraOnDay(x, dayKey) ? x.perDay : 0)) delete day[id]; else day[id] = c;   // the usual for that weekday
   if (Object.keys(day).length) all[dayKey] = day; else delete all[dayKey];
   return all;
 }

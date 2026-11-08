@@ -2,6 +2,15 @@
 // summary can never drift. Bump CHANGELOG[0].version here (and CACHE_VERSION in sw.js) on every release.
 export const CHANGELOG = [
   {
+    version: "2.98.0",
+    summary: "Daily extras can be set to some days of the week.",
+    changes: [
+      "In Settings > Calories, each extra has day chips (Mo\u2013Su) under the meal chips. None picked = every day; otherwise it only counts on those days (say mozzarella on weekdays)",
+      "On other days it starts at 0 in Today's extras (\u201cnot usual on Sundays\u201d); tap + if you had it anyway",
+      "The line under the chips and the total say which days it counts on"
+    ]
+  },
+  {
     version: "2.97.0",
     summary: "The Meal chip offers Treating a low or Correction when your glucose is low or high.",
     changes: [
