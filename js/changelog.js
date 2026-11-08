@@ -2,6 +2,14 @@
 // summary can never drift. Bump CHANGELOG[0].version here (and CACHE_VERSION in sw.js) on every release.
 export const CHANGELOG = [
   {
+    version: "2.98.1",
+    summary: "Fix: Treating a low stays on when the app finishes signing in late, so fast carbs are never given an insulin dose.",
+    changes: [
+      "If sign-in finished a few seconds after the app opened, Treating a low switched on before any carbs were added was quietly dropped while its button still looked on. Adding fast carbs then offered an insulin dose (\u201cLog 1.0 u \u00b7 15g carbs\u201d)",
+      "Treating a low now stays on through a late sign-in and when the app is reopened, and the Correction, Treating a low and Eating out buttons always match what will be logged"
+    ]
+  },
+  {
     version: "2.98.0",
     summary: "Daily extras can be set to some days of the week.",
     changes: [
