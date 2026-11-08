@@ -89,4 +89,44 @@ c = await chip(dev);
 t.check("a low from 40 minutes ago: plain 'Meal'", c.label === "Meal" && !c.low, JSON.stringify(c));
 dev.close(); await app.close();
 
+// 2.98.1, found on his phone: sign-in finishing after the 4 s start-up fallback redraws the Calculator from the saved draft,
+// which dropped a Treating a low with no carbs yet while its button still looked on, so 15 g of fast carbs came out as
+// "Log 1.0 u · 15g carbs". The sign-in here is slowed past the fallback, and the chip is tapped before it lands.
+t.section("A LATE SIGN-IN DOESN'T UNDO THE TAP");
+{
+  const be2 = createBackend();
+  const app2 = await startApp(DIR, be2, { "foods_data.js": FOODS_JS, "manifest.json": "{}" });
+  be2.ns.entries = [{ sgv: 58, date: Date.now() - 60000, direction: "Flat", type: "sgv" }];
+  const blob = stateBlob({ settings: { units: "mgdl", darkMode: dark, darkModeAuto: false, nightscoutUrl: "https://demo.ns.example.com/?token=tok-abcdef-123456" } });
+  be2.row = { user_id: "user-1", data: blob, updated_at: be2.stamp() };
+  const d2 = await openDevice(app2, { width: W, height: 900, mobile: W < 1000, dark, wait: 500,
+    inject: fakeSupabaseSource({ userId: "user-1", delayMs: 6000 }) + `localStorage.setItem("insulinBuddy.v2", ${JSON.stringify(JSON.stringify(blob))}); localStorage.setItem("insulinBuddy.liveGlucose", JSON.stringify({ mgdl: 58, direction: "Flat", at: Date.now() - 60000 }));` });
+  await d2.waitFor(`document.getElementById("loading-screen").hidden`, 12000);
+  const signedInYet = () => d2.eval(`!!document.querySelector("#cc-mode-btn")`);
+  await signedInYet();
+  c = await chip(d2);
+  t.check("the app opens (start-up fallback) offering Treating a low", c.label === "Treating a low" && c.low, JSON.stringify(c));
+  await d2.click("#cc-mode-btn"); await sleep(200);
+  t.check("tapped before sign-in lands: Treating a low is on", (await chip(d2)).lowOn);
+  await sleep(14000);   // the slowed sign-in lands and the Calculator is redrawn from the saved draft
+  c = await chip(d2);
+  t.check("after the late sign-in Treating a low is still on (button and draft agree)", c.lowOn && c.label === "Treating a low" && (await d2.eval(`document.getElementById("cc-log-btn").textContent`)) === "Add the carbs you had", JSON.stringify(c));
+  await d2.eval(`document.querySelector('#quick-carb-row [data-grams="15"]').click()`); await sleep(300);
+  t.check("15 g of fast carbs logs as a treated low, with no insulin", (await d2.eval(`document.getElementById("cc-log-btn").textContent`)) === "Log treated low · 15g carbs" && (await d2.eval(`document.getElementById("cc-dose-number").textContent`)) === "0.0");
+  t.check("no JS errors", (await d2.eval("window.__errs.length")) === 0, JSON.stringify(await d2.eval("window.__errs")));
+  d2.close(); await app2.close();
+}
+
+t.section("TREATING A LOW SURVIVES THE APP BEING RELOADED");
+({ app, dev, be } = await boot(55));
+await dev.click("#cc-mode-btn"); await sleep(300);
+await dev.go("index.html", 2000); await dev.tab("calculator"); await sleep(400);
+c = await chip(dev);
+t.check("reopened: Treating a low still on, quick add showing", c.lowOn && c.open && (await dev.eval(`!document.getElementById("quick-carb-row").hidden`)), JSON.stringify(c));
+await dev.click("#cc-clear-all-btn"); await sleep(300);
+await dev.go("index.html", 2000); await dev.tab("calculator"); await sleep(400);
+c = await chip(dev);
+t.check("after Clear All and a reload it's off again, and offered", !c.lowOn && c.low, JSON.stringify(c));
+dev.close(); await app.close();
+
 process.exit(t.summary() ? 0 : 1);

@@ -3354,7 +3354,24 @@ import { weekdayOf, mealTypesForDay, MEAL_KINDS, extraFromFood, extrasForDay, se
     modeOpen = !modeOpen; renderModeChip();
   });
 
+  // 2.98.1: the mode buttons and their rows always show what the draft says. A path that replaces the draft (a late sign-in,
+  // a cloud pull, "delete all") used to leave a button looking on while the draft had it off, so the Calculator could work
+  // out an insulin dose under a lit "Treating a low". Called from recompute, so every redraw puts them back in step.
+  function syncModeButtons() {
+    const low = !!draft.noInsulinOn, out = !!draft.eatingOutOn, corr = !!draft.correctionOn;
+    el("cc-no-insulin-toggle").classList.toggle("is-active", low);
+    el("cc-no-insulin-note").hidden = !low;
+    el("quick-carb-row").hidden = !low;
+    el("cc-eating-out-toggle").classList.toggle("is-active", out);
+    el("cc-eating-out-note").hidden = !out;
+    el("cc-eating-out-row").hidden = !out;
+    el("cc-food-section").hidden = out;
+    correctionToggle.classList.toggle("is-active", corr);
+    correctionRow.hidden = !corr;
+  }
+
   function recompute() {
+    syncModeButtons();
     // Eating Out: carbs aren't being tracked for this entry at all, so the carbs pill and the
     // ratio-based formula are both bypassed in favor of the insulin dose entered directly.
     const carbs = draft.eatingOutOn ? 0 : totalCarbs();
@@ -3749,7 +3766,10 @@ import { weekdayOf, mealTypesForDay, MEAL_KINDS, extraFromFood, extrasForDay, se
     // Eating Out dose, and was being thrown away on reload because it has no items.
     const hasTypedCorrection = !!saved && !!saved.correctionOn && !!(saved.correctionManualValue || saved.glucose);
     const hasTypedExtra = !!saved && !!saved.extraOn && !!saved.extraValue;
-    if (!saved || (!Array.isArray(saved.items) || saved.items.length === 0) && !saved.eatingOutOn && !hasTypedCorrection && !hasTypedExtra) return;
+    // 2.98.1: Treating a low switched on before any carbs are added (the chip's one tap, 2.97.0) is a real in-progress entry
+    // too. Dropping it here, while its button still looked on, let 15 g of fast carbs be offered with an insulin dose.
+    const hasLowOn = !!saved && !!saved.noInsulinOn;
+    if (!saved || (!Array.isArray(saved.items) || saved.items.length === 0) && !saved.eatingOutOn && !hasTypedCorrection && !hasTypedExtra && !hasLowOn) return;
     draft.items = saved.items || [];
     draft.manualRatioId = saved.manualRatioId || null;
     draft.glucoseUnit = saved.glucoseUnit || state.settings.units;
