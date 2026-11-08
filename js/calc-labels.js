@@ -55,3 +55,15 @@ export function logButtonLabel({ hasDose, empty, noInsulinOn, eatingOutOn, final
   if (Number(carbs) > 0) return `Log ${u} · ${carbsText(carbs)}`;
   return `Log ${u} correction`;
 }
+
+/**
+ * 2.97.0: what the mode chip offers from the live glucose. "low" below `low`, "high" above `high` (the same 70 / 180 mg/dL
+ * as the glucose pill's colours), else null. Only for a fresh reading (no older than staleMs) and only while no mode is on,
+ * so it never changes what you have already chosen. It only offers: nothing is switched on until the chip is tapped.
+ */
+export function glucoseSuggestion({ mgdl, at, now = Date.now(), staleMs = 15 * 60 * 1000, low = 70, high = 180, anyModeOn = false } = {}) {
+  if (anyModeOn || typeof mgdl !== "number" || !Number.isFinite(mgdl) || !Number.isFinite(at) || now - at > staleMs || at - now > 5 * 60 * 1000) return null;
+  if (mgdl < low) return "low";
+  if (mgdl > high) return "high";
+  return null;
+}

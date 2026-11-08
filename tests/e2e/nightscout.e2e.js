@@ -650,25 +650,27 @@ await scenario("Keyboard focus is visible on the correction/eating-out inputs an
 
 // Dose card geometry. Spacing here has needed correcting repeatedly, so these assert the actual
 // measured gaps instead of relying on anyone's eye.
+// 2.81.0 moved Correction / Treating a low / Eating out behind the mode chip, which sits right above the Ratio pill, and hid
+// the carbs pill while the meal is empty; so the pills checked are the mode chip, the ratio and (when its row is open) Eating Out.
 const doseGeom = dev => dev.eval(`(() => {
   const R = e => e.getBoundingClientRect();
-  const carbs = R(document.getElementById("cc-carbs-pill")), ratioEl = document.getElementById("cc-ratio-pill"), ratio = R(ratioEl);
-  const eo = R(document.getElementById("cc-eating-out-toggle"));
+  const mode = R(document.getElementById("cc-mode-btn")), ratioEl = document.getElementById("cc-ratio-pill"), ratio = R(ratioEl);
+  const eoEl = document.getElementById("cc-eating-out-toggle"), eo = R(eoEl);
   const textNode = Array.from(ratioEl.childNodes).find(n => n.nodeType === 3 && n.textContent.trim());
   // Measure from the last visible letter, not the node's edge: in a normal inline layout the node's
   // range includes the trailing space (so the gap would read 0 even though a space is clearly there),
   // while in a flex layout the space is collapsed away. This way it measures what's actually visible.
   const range = document.createRange(); range.setStart(textNode, 0); range.setEnd(textNode, textNode.textContent.trimEnd().length);
-  return { above: ratio.top - carbs.bottom, below: eo.top - ratio.bottom,
-           heights: [carbs.height, ratio.height, eo.height],
+  return { gap: ratio.top - mode.bottom, rightAligned: Math.abs(mode.right - ratio.right) < 1,
+           heights: [mode.height, ratio.height].concat(eo.height > 0 ? [eo.height] : []),
            labelToValue: R(document.getElementById("cc-ratio-value")).left - range.getBoundingClientRect().right };
 })()`);
 
-await scenario("Ratio pill is vertically centred between the carbs pill and the Eating Out pill", printSeed, async (be, dev) => {
+await scenario("Mode chip and Ratio pill sit neatly stacked on the dose card", printSeed, async (be, dev) => {
   const check = async label => {
     const g = await doseGeom(dev);
-    t.check(`${label}: equal gap above and below (${g.above.toFixed(1)} / ${g.below.toFixed(1)})`, Math.abs(g.above - g.below) <= 1, JSON.stringify(g));
-    t.check(`${label}: carbs, ratio and Eating Out pills are the same height`, g.heights.every(h => Math.abs(h - g.heights[0]) < 0.5), JSON.stringify(g.heights));
+    t.check(`${label}: the Ratio pill sits just under the mode chip, right edges lined up (${g.gap.toFixed(1)}px)`, g.gap >= 2 && g.gap <= 10 && g.rightAligned, JSON.stringify(g));
+    t.check(`${label}: the pills are the same height`, g.heights.every(h => Math.abs(h - g.heights[0]) < 0.5), JSON.stringify(g.heights));
     t.check(`${label}: "Ratio" and its value are visibly separated, not "Ratio1:15"`, g.labelToValue >= 2, String(g.labelToValue));
   };
   await check("default");
@@ -686,14 +688,15 @@ for (const showRecent of [false, true]) {
   await scenario(`Active Insulin banner sits close to the next section (Recently Logged ${showRecent ? "on" : "off"})`, { settings: { showRecentMeals: showRecent }, history: printSeed.history }, async (be, dev) => {
     const g = await dev.eval(`(() => {
       const R = e => e.getBoundingClientRect();
-      const panel = document.querySelector(".active-panel");
+      const panel = document.querySelector(".active-panel"), card = document.querySelector(".dose-card");   // inside the dose card since 2.81.0
       const recent = document.getElementById("recent-meals-header");
       const add = Array.from(document.querySelectorAll("#cc-food-section .section-header")).find(e => e.textContent.trim().startsWith("Add food item"));   // the header also holds the Browse button
       const next = recent && !recent.hidden ? recent : add;
-      return { panelShown: !panel.hidden, gap: R(next).top - R(panel).bottom, mealItemsDisplay: getComputedStyle(document.getElementById("cc-meal-items")).display };
+      return { panelShown: !panel.hidden, inCard: !!panel.closest(".dose-card"), gap: R(next).top - R(card).bottom, mealItemsDisplay: getComputedStyle(document.getElementById("cc-meal-items")).display };
     })()`);
     t.check("the Active Insulin banner is showing", g.panelShown, JSON.stringify(g));
-    t.check(`gap to the next section header is tight (${g.gap}px, was 28px)`, g.gap <= 14, JSON.stringify(g));
+    t.check("…inside the dose card", g.inCard, JSON.stringify(g));
+    t.check(`gap from the dose card to the next section header is tight (${g.gap}px)`, g.gap <= 24, JSON.stringify(g));
     t.check("the empty meal-items container takes no space (it used to add an invisible 12px)", g.mealItemsDisplay === "none", JSON.stringify(g));
     await noErrors(dev, "device");
   });

@@ -2299,3 +2299,10 @@ button.cal-meal-chip::after { content: ""; position: absolute; inset: -4px 0; } 
 .cal-extra__when-text { margin: var(--space-2xs) 0 0; color: var(--ink-soft); font-size: var(--fs-xs); }
 .dx-row.is-waiting .dx-row__sub { color: var(--ink-soft); font-style: italic; }
 #cc-eating-out-row label.eatout-kcal-label { margin-top: var(--space-s); }   /* 2.96.0: calories under the dose */
+
+/* 2.97.0: the mode chip offering Treating a low (amber, like the low pill) or Correction (from a high reading). */
+.dose-card .carbs-pill.carbs-pill--ratio.mode-chip.is-suggest-low,
+html[data-theme="dark"] .dose-card .carbs-pill.carbs-pill--ratio.mode-chip.is-suggest-low { background: #FBBF24; color: #5a3200; box-shadow: none; }
+.dose-card .carbs-pill.carbs-pill--ratio.mode-chip.is-suggest-high,
+html[data-theme="dark"] .dose-card .carbs-pill.carbs-pill--ratio.mode-chip.is-suggest-high { background: #fff; color: var(--card-1); box-shadow: none; }
+.dose-card .mode-chip.is-suggest-low svg, .dose-card .mode-chip.is-suggest-high svg { display: none; }

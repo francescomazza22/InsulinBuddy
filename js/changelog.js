@@ -2,6 +2,16 @@
 // summary can never drift. Bump CHANGELOG[0].version here (and CACHE_VERSION in sw.js) on every release.
 export const CHANGELOG = [
   {
+    version: "2.97.0",
+    summary: "The Meal chip offers Treating a low or Correction when your glucose is low or high.",
+    changes: [
+      "With a Nightscout reading from the last 15 minutes under 70 mg/dL, the chip beside the dose reads \u201cTreating a low\u201d (in amber). One tap turns it on, with the quick-add carbs ready",
+      "Over 180 mg/dL it reads \u201cCorrection\u201d. One tap turns Correction on and fills in your latest glucose from Nightscout, so the correction dose shows straight away",
+      "Nothing switches on by itself, and once you have chosen a mode the chip goes back to saying what is on",
+      "An older reading or one in range leaves the chip as \u201cMeal\u201d"
+    ]
+  },
+  {
     version: "2.96.0",
     summary: "Log the calories of an eating-out meal when you know them.",
     changes: [

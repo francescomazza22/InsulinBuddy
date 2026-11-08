@@ -17,7 +17,7 @@ import { fieldSvg } from "./js/doodle-field.js";
 import { abstractSvg } from "./js/abstract-field.js";
 import { recordRatioChange, ratioTimeline, ratioChanges } from "./js/ratio-history.js";
 import { dailyCarbsSummary, overBar } from "./js/daily-carbs.js";
-import { modeChipLabel, logButtonLabel, doseBreakdownText } from "./js/calc-labels.js";
+import { modeChipLabel, glucoseSuggestion, logButtonLabel, doseBreakdownText } from "./js/calc-labels.js";
 import { solveSwap, carbsForGrams, canAdjust, setGrams } from "./js/swap.js";
 import { glucoseAxisTicks, percentile, dailyPatternBuckets, daysSpanned, estimatedA1c, extendedGlucoseStats, dailyStats, glucoseSummaryStats, timeInRangeBreakdown, glucoseGuideRows, TIME_IN_RANGE_BANDS, preferLiveReadings, preferLiveEntries } from "./js/glucose-stats.js";
 import { randomBytes, toB64, fromB64, deriveKey, encryptString, decryptString, isEncryptedPayload, exportKeyRaw, importKeyRaw } from "./js/crypto.js";
@@ -3323,14 +3323,35 @@ import { mealTypesForDay, MEAL_KINDS, extraFromFood, extrasForDay, setDayExtra, 
     const chip = el("cc-mode-btn");
     if (!chip) return;
     const label = modeChipLabel({ correctionOn: draft.correctionOn, noInsulinOn: draft.noInsulinOn, eatingOutOn: draft.eatingOutOn, extraOn: !!draft.extraOn, hasFood: draft.items.length > 0 });
-    el("cc-mode-label").textContent = label;
+    // 2.97.0: with a fresh low or high reading and nothing chosen yet, the chip offers the mode that fits (one tap turns it on).
+    const suggest = on || modeOpen ? null : liveGlucoseSuggestion();
+    chipSuggestion = suggest;
+    el("cc-mode-label").textContent = suggest === "low" ? "Treating a low" : suggest === "high" ? "Correction" : label;
     chip.classList.toggle("is-on", on);
+    chip.classList.toggle("is-suggest-low", suggest === "low");
+    chip.classList.toggle("is-suggest-high", suggest === "high");
     chip.setAttribute("aria-expanded", modeOpen ? "true" : "false");
-    chip.setAttribute("aria-label", `${label}. ${modeOpen ? "Hide" : "Show"} Correction, Treating a low, Eating out and Adjust`);
+    chip.setAttribute("aria-label", suggest === "low" ? "Glucose is low. Turn on Treating a low" : suggest === "high" ? "Glucose is high. Turn on Correction and fill in the glucose" : `${label}. ${modeOpen ? "Hide" : "Show"} Correction, Treating a low, Eating out and Adjust`);
     el("cc-mode-controls").hidden = !modeOpen;
     el("cc-extra-row").hidden = !(draft.extraOn && modeOpen);
   }
-  bind("cc-mode-btn", "click", () => { modeOpen = !modeOpen; renderModeChip(); });
+  let chipSuggestion = null;
+  // The live reading lives further down (liveGlucose, declared with let); before it exists there is simply nothing to offer.
+  function liveGlucoseSuggestion() {
+    try {
+      if (!nightscoutConfigured() || !liveGlucose) return null;
+      return glucoseSuggestion({ mgdl: liveGlucose.mgdl, at: liveGlucose.at, staleMs: LIVE_GLUCOSE_STALE_MS });
+    } catch (e) { return null; }
+  }
+  bind("cc-mode-btn", "click", () => {
+    if (chipSuggestion === "low") { el("cc-no-insulin-toggle").click(); return; }       // the row opens by itself once a mode is on
+    if (chipSuggestion === "high") {
+      correctionToggle.click();
+      if (draft.correctionOn && !glucoseInput.value.trim()) fetchCurrentGlucoseFromNightscout();   // read only: the latest reading goes in the glucose box
+      return;
+    }
+    modeOpen = !modeOpen; renderModeChip();
+  });
 
   function recompute() {
     // Eating Out: carbs aren't being tracked for this entry at all, so the carbs pill and the
@@ -4600,6 +4621,7 @@ import { mealTypesForDay, MEAL_KINDS, extraFromFood, extrasForDay, setDayExtra, 
     const pill = el("cc-live-glucose");
     if (!pill) return;
     renderLowHint();
+    renderModeChip();   // 2.97.0: a new reading can make the chip offer Treating a low or Correction
     if (!nightscoutConfigured() || !liveGlucose || typeof liveGlucose.mgdl !== "number") { pill.hidden = true; return; }
     const stale = Date.now() - liveGlucose.at > LIVE_GLUCOSE_STALE_MS;
     const value = round1(convertGlucose(liveGlucose.mgdl, "mgdl", state.settings.units));

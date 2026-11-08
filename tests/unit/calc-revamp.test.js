@@ -63,3 +63,18 @@ test("far past the target the bar stops growing at twice the target and never ov
   assert.equal(overBar({ logged: 10, target: 0 }).fill, 0);
   assert.equal(overBar({ logged: NaN, draft: -5, target: 100 }).fill, 0);
 });
+
+import { glucoseSuggestion } from "../../js/calc-labels.js";
+test("the chip offers a mode only for a fresh low or high reading, and never over a chosen mode", () => {
+  const now = 1_800_000_000_000, fresh = now - 60_000;
+  assert.equal(glucoseSuggestion({ mgdl: 55, at: fresh, now }), "low");
+  assert.equal(glucoseSuggestion({ mgdl: 69, at: fresh, now }), "low");
+  assert.equal(glucoseSuggestion({ mgdl: 70, at: fresh, now }), null);
+  assert.equal(glucoseSuggestion({ mgdl: 180, at: fresh, now }), null);
+  assert.equal(glucoseSuggestion({ mgdl: 181, at: fresh, now }), "high");
+  assert.equal(glucoseSuggestion({ mgdl: 250, at: now - 16 * 60_000, now }), null, "older than 15 minutes");
+  assert.equal(glucoseSuggestion({ mgdl: 250, at: fresh, now, anyModeOn: true }), null, "a mode is already on");
+  assert.equal(glucoseSuggestion({ mgdl: NaN, at: fresh, now }), null);
+  assert.equal(glucoseSuggestion({ mgdl: 55, at: undefined, now }), null);
+  assert.equal(glucoseSuggestion({ mgdl: 55, at: now + 60 * 60_000, now }), null, "a reading from the future (clock off) is not trusted");
+});
