@@ -310,6 +310,12 @@ export function eatingOutEstimates(history, rule) {
       if (open) { const c = Math.max(0, Number(e.correctionDose) || 0); open.est.corrUnits += c; if (c > 0) open.est.corrections += 1; }
       continue;
     }
+    if (isEatingOutMeal(e) && Number(e.knownKcal) > 0) {
+      // 2.96.0: calories typed when it was logged (a menu, an app) beat any estimate; later corrections aren't added to it.
+      out.set(e.id, { kcal: Math.round(Number(e.knownKcal)), from: "logged", units: Math.max(0, Number(e.mealDose) || 0), corrUnits: 0, corrections: 0, ratio: Number(e.ratioValue) > 0 ? Number(e.ratioValue) : null, carbs: null });
+      open = null;
+      continue;
+    }
     if (isEatingOutMeal(e)) {
       // A reduction for a low reading is meal insulin not taken; a correction for a high one at the time isn't food.
       const units = Math.max(0, (Number(e.mealDose) || 0) + Math.min(0, Number(e.correctionDose) || 0));
@@ -322,6 +328,7 @@ export function eatingOutEstimates(history, rule) {
     open = null;   // a meal with its own foods: later corrections are for that one
   }
   for (const est of out.values()) {
+    if (est.from === "logged") continue;
     const k = rule.eatingOutMultiplier != null ? eatingOutKcalFromInsulin(est.units + est.corrUnits, est.ratio, rule.eatingOutMultiplier) : null;
     if (k != null) { est.kcal = k; est.from = "insulin"; est.carbs = (est.units + est.corrUnits) * est.ratio; }
     else if (rule.eatingOutKcal != null) { est.kcal = rule.eatingOutKcal; est.from = "fixed"; }

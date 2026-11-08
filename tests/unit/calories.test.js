@@ -323,3 +323,16 @@ test("an extra across several meals (2.95.0): its amount is split evenly, each l
   const r3 = calorieRule({ ...set, dayExtras: { "2026-11-02": { cof: 3 } } }, NOW);
   assert.equal(extrasForDay(r3, "2026-11-02", new Set(["lunch"])).withMeals, 165);
 });
+
+test("eating out with calories typed (2.96.0): the typed figure beats the estimate, and later corrections aren't added", () => {
+  const rule = calorieRule({ ...me }, NOW);
+  const h = [{ id: "l", ts: at(1, 12, 31), mealType: "lunch", carbsUnknown: true, items: [], totalCarbs: 0, totalKcal: 0, mealDose: 14, correctionDose: 0, ratioValue: 7.5, knownKcal: 850.4 },
+    { id: "c", ts: at(1, 13, 52), mealType: "correction", items: [], totalCarbs: 0, totalKcal: 0, mealDose: 0, correctionDose: 3, ratioValue: 7.5 }];
+  const est = eatingOutEstimates(h, rule).get("l");
+  assert.equal(est.kcal, 850); assert.equal(est.from, "logged"); assert.equal(est.corrUnits, 0);
+  assert.equal(calorieSummary(h, { calories: me }, { days: 3, now: NOW }).days[1].food, 850);
+  // with the multiplier off and no fixed figure it still counts (it was typed)
+  assert.equal(eatingOutEstimates(h, calorieRule({ ...me, eatingOutMultiplier: null, eatingOutKcal: null }, NOW)).get("l").kcal, 850);
+  // 0 or missing = not known: back to the insulin estimate
+  assert.equal(eatingOutEstimates([{ ...h[0], knownKcal: 0 }, h[1]], rule).get("l").kcal, 1020);
+});

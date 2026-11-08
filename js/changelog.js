@@ -2,6 +2,15 @@
 // summary can never drift. Bump CHANGELOG[0].version here (and CACHE_VERSION in sw.js) on every release.
 export const CHANGELOG = [
   {
+    version: "2.96.0",
+    summary: "Log the calories of an eating-out meal when you know them.",
+    changes: [
+      "With Eating Out on, the Calculator has \u201cCalories, if you know them\u201d under the dose. Empty, it shows the estimate from the insulin (e.g. \u2248 640 estimated); typed, your figure is used instead",
+      "You can add or change it later in Edit Meal; emptying it goes back to the estimate. The log shows it next to \u201cCarbs not logged\u201d",
+      "A typed figure isn't increased by corrections afterwards. \u201c1,100\u201d is read as one thousand one hundred"
+    ]
+  },
+  {
     version: "2.95.0",
     summary: "A daily extra can go with several meals, its amount split between them.",
     changes: [

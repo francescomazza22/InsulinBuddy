@@ -2298,3 +2298,4 @@ button.cal-meal-chip.is-on { border-color: var(--acc-1); background: color-mix(i
 button.cal-meal-chip::after { content: ""; position: absolute; inset: -4px 0; }   /* 44pt touch target around the 36px chip */
 .cal-extra__when-text { margin: var(--space-2xs) 0 0; color: var(--ink-soft); font-size: var(--fs-xs); }
 .dx-row.is-waiting .dx-row__sub { color: var(--ink-soft); font-style: italic; }
+#cc-eating-out-row label.eatout-kcal-label { margin-top: var(--space-s); }   /* 2.96.0: calories under the dose */

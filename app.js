@@ -3096,18 +3096,27 @@ import { mealTypesForDay, MEAL_KINDS, extraFromFood, extrasForDay, setDayExtra, 
 
   // Today's calories against today's target (2.79.0): the same slim bar, just under the carbs one. Hidden until the body
   // details are set in Settings > Calories (no target without them). The meal being built shows as the lighter piece.
+  // The estimate for the eating-out meal being built: 2.82.0, from the typed dose at the meal's ratio, like the logged meal
+  // will be; the fixed figure with no dose yet. { kcal, from: "insulin" | "fixed" }.
+  function eatingOutEstimateNow() {
+    const r = calorieRule(state.settings.calories);
+    const c = draft._computed || {};
+    const ratio = c.ratioEntry && Number(c.ratioEntry.ratio) > 0 ? Number(c.ratioEntry.ratio) : null;
+    const k = r.eatingOutMultiplier != null ? eatingOutKcalFromInsulin(Number(c.mealDose) || 0, ratio, r.eatingOutMultiplier) : null;
+    return k != null ? { kcal: k, from: "insulin" } : { kcal: r.eatingOutKcal || 0, from: "fixed" };
+  }
   function draftKcal() {
     if (draft.eatingOutOn) {
-      // 2.82.0: from the typed dose at the meal's ratio, like the logged meal will be; the fixed figure with no dose yet.
-      const r = calorieRule(state.settings.calories);
-      const c = draft._computed || {};
-      const ratio = c.ratioEntry && Number(c.ratioEntry.ratio) > 0 ? Number(c.ratioEntry.ratio) : null;
-      const k = r.eatingOutMultiplier != null ? eatingOutKcalFromInsulin(Number(c.mealDose) || 0, ratio, r.eatingOutMultiplier) : null;
-      return k != null ? k : (r.eatingOutKcal || 0);
+      const typed = eatingOutTypedKcal();   // 2.96.0: calories he typed beat the estimate
+      return typed != null ? typed : eatingOutEstimateNow().kcal;
     }
     return draft.items.reduce((s, i) => s + (Number(i.kcal) > 0 ? Number(i.kcal) : 0), 0);
   }
   function renderDayKcal() {
+    if (draft.eatingOutOn && el("cc-eating-out-kcal")) {   // 2.96.0: the estimate shows in the empty calories box
+      const est = eatingOutEstimateNow();
+      el("cc-eating-out-kcal").placeholder = est.kcal > 0 ? `\u2248 ${kcalText(est.kcal)} estimated` : "Not counted";
+    }
     const box = el("cc-day-kcal");
     if (!box) return;
     const buildingMeal = draft.items.length > 0 && !draft.eatingOutOn ? autoMealType(new Date()) : null;   // 2.94.0: its meal extras join the draft
@@ -3612,6 +3621,18 @@ import { mealTypesForDay, MEAL_KINDS, extraFromFood, extrasForDay, setDayExtra, 
     saveDraftLocal();
   });
   bind("cc-eating-out-dose", "input", () => { recompute(); saveDraftLocal(); });
+  bind("cc-eating-out-kcal", "input", () => { renderDayKcal(); saveDraftLocal(); });
+  /** Calories typed for the eating-out meal being built (whole kcal, 1–10,000), or null when empty or unreadable. */
+  // Whole calories: "1,100" / "1.100" / "1 100" are thousands (a decimal comma makes no sense for kcal); else as typed.
+  function parseKcalInput(raw) {
+    const t = String(raw == null ? "" : raw).trim().replace(/\s+/g, "");
+    if (/^\d{1,3}([,.]\d{3})+$/.test(t)) return Number(t.replace(/[,.]/g, ""));
+    return parseDecimalInput(t);
+  }
+  function eatingOutTypedKcal() {
+    const v = parseKcalInput(el("cc-eating-out-kcal").value);
+    return Number.isFinite(v) && v > 0 && v <= 10000 ? Math.round(v) : null;
+  }
   glucoseInput.addEventListener("input", () => { recompute(); saveDraftLocal(); });
   glucoseUnitLabel.addEventListener("click", () => {
     const newUnit = draft.glucoseUnit === "mmol" ? "mgdl" : "mmol";
@@ -3680,6 +3701,7 @@ import { mealTypesForDay, MEAL_KINDS, extraFromFood, extrasForDay, setDayExtra, 
         noInsulinOn: draft.noInsulinOn,
         eatingOutOn: draft.eatingOutOn,
         eatingOutValue: el("cc-eating-out-dose").value || "",
+        eatingOutKcalValue: el("cc-eating-out-kcal").value || "",
         extraOn: !!draft.extraOn,
         extraValue: el("cc-extra-dose").value || "",
         glucose: glucoseInput.value || "",
@@ -3736,6 +3758,7 @@ import { mealTypesForDay, MEAL_KINDS, extraFromFood, extrasForDay, setDayExtra, 
       el("cc-eating-out-row").hidden = false;
       el("cc-food-section").hidden = true;
       if (saved.eatingOutValue) el("cc-eating-out-dose").value = saved.eatingOutValue;
+      if (saved.eatingOutKcalValue) el("cc-eating-out-kcal").value = saved.eatingOutKcalValue;
     }
     if (saved.extraOn && !saved.noInsulinOn && !saved.eatingOutOn) {
       setExtraMode(true);
@@ -3770,7 +3793,7 @@ import { mealTypesForDay, MEAL_KINDS, extraFromFood, extrasForDay, setDayExtra, 
     el("cc-eating-out-toggle").classList.remove("is-active");
     el("cc-eating-out-note").hidden = true;
     el("cc-eating-out-row").hidden = true;
-    el("cc-eating-out-dose").value = "";
+    el("cc-eating-out-dose").value = ""; el("cc-eating-out-kcal").value = "";
     el("cc-food-section").hidden = false;
     setExtraMode(false);
     ratioPicker.hidden = true;
@@ -3916,6 +3939,8 @@ import { mealTypesForDay, MEAL_KINDS, extraFromFood, extrasForDay, setDayExtra, 
       now, mealType, periodEntry, ratioEntry, items: draft.items, eatingOut: draft.eatingOutOn, noInsulin: draft.noInsulinOn,
       computed: draft._computed, glucoseVal
     });
+    const typedKcal = draft.eatingOutOn ? eatingOutTypedKcal() : null;   // 2.96.0: calories typed for an eating-out meal
+    if (typedKcal != null) entry.knownKcal = typedKcal;
     state.history.unshift(entry);
     if (!draft.eatingOutOn) adjustUsage(state.library, state.recipes, draft.items, +1);
     saveState();
@@ -5742,7 +5767,7 @@ import { mealTypesForDay, MEAL_KINDS, extraFromFood, extrasForDay, setDayExtra, 
           </div>
           <div class="history-entry__stats">
             ${dosePillHtml}
-            ${entry.carbsUnknown ? `<span class="stat-line"><span class="stat-grams">Carbs not logged</span></span>` : `<span class="stat-line"><span class="stat-grams">${entry.totalCarbs}g carbs</span><span class="stat-kcal">${entry.totalKcal || 0} kcal</span></span>`}
+            ${entry.carbsUnknown ? `<span class="stat-line"><span class="stat-grams">Carbs not logged</span>${Number(entry.knownKcal) > 0 ? `<span class="stat-kcal">${kcalText(entry.knownKcal)} kcal</span>` : ""}</span>` : `<span class="stat-line"><span class="stat-grams">${entry.totalCarbs}g carbs</span><span class="stat-kcal">${entry.totalKcal || 0} kcal</span></span>`}
           </div>
         `;
         groupEl.appendChild(wrapSwipe(row, entry.id, { useAgain: true }));
@@ -6169,7 +6194,7 @@ import { mealTypesForDay, MEAL_KINDS, extraFromFood, extrasForDay, setDayExtra, 
         if (d.target != null) t += ` · needed ${kcalText(d.target)} (everyday ${kcalText(d.life)}${acts.length ? " + " + acts.join(", ") : ""})` + (d.isToday ? "" : ` · ${gap(d.diff)}`);
         for (const x of d.eatingOutMeals) t += x.from === "insulin"
           ? ` · eating out \u2248${kcalText(x.kcal)} kcal (${round1(x.units + x.corrUnits)}u${x.corrUnits ? `, incl. ${round1(x.corrUnits)}u correction` : ""} at ${ratioText(round1(x.ratio))} \u2192 ${Math.round(x.carbs)} g carbs \u00d7${KCAL_PER_G_CARB}\u00d7${r.eatingOutMultiplier})`
-          : ` · eating out ${kcalText(x.kcal)} kcal (fixed figure)`;
+          : x.from === "logged" ? ` · eating out ${kcalText(x.kcal)} kcal (as you logged it)` : ` · eating out ${kcalText(x.kcal)} kcal (fixed figure)`;
         if (d.unknownMeals) t += ` · ${d.unknownMeals} eating-out meal${d.unknownMeals === 1 ? "" : "s"} not counted, so it was really more`;
         return t;
       }
@@ -6904,7 +6929,7 @@ import { mealTypesForDay, MEAL_KINDS, extraFromFood, extrasForDay, setDayExtra, 
     // draft had already turned it off underneath.
     el("cc-no-insulin-toggle").classList.remove("is-active"); el("cc-no-insulin-note").hidden = true; el("quick-carb-row").hidden = true;
     el("cc-eating-out-toggle").classList.remove("is-active"); el("cc-eating-out-note").hidden = true;
-    el("cc-eating-out-row").hidden = true; el("cc-eating-out-dose").value = ""; el("cc-food-section").hidden = false;
+    el("cc-eating-out-row").hidden = true; el("cc-eating-out-dose").value = ""; el("cc-eating-out-kcal").value = ""; el("cc-food-section").hidden = false;
     setExtraMode(false);   // an extra is decided fresh each time, never copied from the old meal
     ratioPicker.hidden = true; selectedPickId = null; modeOpen = false;
     renderFoodPickList(); renderMealItems(); recompute();
@@ -6966,6 +6991,10 @@ import { mealTypesForDay, MEAL_KINDS, extraFromFood, extrasForDay, setDayExtra, 
         <div class="field" id="em-eatout-field" hidden>
           <label for="em-eatout-dose">Insulin taken</label>
           <div class="field__row"><input type="text" id="em-eatout-dose" inputmode="decimal" autocomplete="off" value="${round1(Number(entry.mealDose) || 0)}"><span class="field__unit">units</span></div>
+        </div>
+        <div class="field" id="em-eatout-kcal-field" hidden>
+          <label for="em-eatout-kcal">Calories, if you know them</label>
+          <div class="field__row"><input type="text" id="em-eatout-kcal" inputmode="numeric" autocomplete="off" placeholder="Estimated from the insulin" value="${Number(entry.knownKcal) > 0 ? Math.round(Number(entry.knownKcal)) : ""}"><span class="field__unit">kcal</span></div>
         </div>
         <div class="field" id="em-corr-field" hidden>
           <label for="em-corr-dose">Correction dose</label>
@@ -7061,6 +7090,7 @@ import { mealTypesForDay, MEAL_KINDS, extraFromFood, extrasForDay, setDayExtra, 
       backdrop.querySelector("#em-corr-field").hidden = kind !== "correction";
       backdrop.querySelector("#em-meal-part").hidden = kind === "correction";
       backdrop.querySelector("#em-eatout-field").hidden = kind !== "eatout";
+      backdrop.querySelector("#em-eatout-kcal-field").hidden = kind !== "eatout";
       backdrop.querySelector("#em-items-part").hidden = kind === "eatout";
       backdrop.querySelectorAll("#em-meal-types button").forEach(b => {
         const m = MEAL_TYPES[b.dataset.meal], on = b.dataset.meal === mealType;
@@ -7184,7 +7214,7 @@ import { mealTypesForDay, MEAL_KINDS, extraFromFood, extrasForDay, setDayExtra, 
         entry.items = []; entry.totalCarbs = 0; entry.totalKcal = 0;
         entry.mealDose = 0; entry.correctionDose = round1(corrDose);
         delete entry.extraDose;   // the dose typed here is the whole correction
-        delete entry.cappedFrom; delete entry.noInsulin; delete entry.carbsUnknown; delete entry.eatingOut;
+        delete entry.cappedFrom; delete entry.noInsulin; delete entry.carbsUnknown; delete entry.eatingOut; delete entry.knownKcal;
         delete entry.ratioValue; delete entry.ratioLabel; delete entry.periodName; delete entry.glycemicLoad;
         entry.glucose = newGlucose;
       } else if (kind === "eatout") {
@@ -7194,10 +7224,14 @@ import { mealTypesForDay, MEAL_KINDS, extraFromFood, extrasForDay, setDayExtra, 
         entry.mealDose = mealDose; entry.correctionDose = correctionDose;
         if (parts.capped) entry.cappedFrom = parts.requested; else delete entry.cappedFrom;
         entry.glucose = newGlucose;
+        // 2.96.0: calories typed for it (empty = not known: back to the estimate from its insulin)
+        const kc = parseKcalInput(backdrop.querySelector("#em-eatout-kcal").value);
+        if (Number.isFinite(kc) && kc > 0 && kc <= 10000) entry.knownKcal = Math.round(kc); else delete entry.knownKcal;
       } else {
         entry.items = items;
         entry.totalCarbs = totalCarbs;
         entry.totalKcal = totalKcal;
+        delete entry.knownKcal;   // 2.96.0: only an eating-out entry keeps typed calories
         entry.mealDose = mealDose;
         entry.correctionDose = correctionDose;
         if (kind === "low") entry.noInsulin = true; else delete entry.noInsulin;

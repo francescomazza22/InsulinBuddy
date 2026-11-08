@@ -356,6 +356,46 @@ if (SHOTS) { await dev.tab("settings"); await sleep(300); await dev.click('#sett
 t.check("no JS errors", (await dev.eval("window.__errs.length")) === 0, JSON.stringify(await dev.eval("window.__errs")));
 dev.close();
 
+t.section("EATING OUT WITH CALORIES TYPED (2.96.0)");
+{ const { eatingOutKcal, eatingOutMultiplier, ...rest } = calories; dev = await boot({ calories: rest }); }   // defaults: estimate from insulin x2
+await dev.tab("calculator"); await sleep(300);
+await dev.click("#cc-eating-out-toggle"); await sleep(250);
+await dev.eval(`(() => { const f = document.getElementById("cc-eating-out-dose"); f.focus(); f.value = "10"; f.dispatchEvent(new Event("input", { bubbles: true })); })()`); await sleep(300);
+const eoR = Number((/1u?:([\d.]+)/.exec(await dev.eval(`document.getElementById("cc-ratio-value").textContent`)) || [])[1]);
+const estK = Math.round(10 * eoR * 8);
+const ph = await dev.eval(`document.getElementById("cc-eating-out-kcal").placeholder`);
+t.check("an empty calories box shows the estimate from the insulin", eoR > 0 && ph === `\u2248 ${estK.toLocaleString()} estimated`, ph);
+k = await kbar();
+t.check("and the bar adds that estimate", k.today.endsWith(`+${estK.toLocaleString()}`), JSON.stringify(k));
+await dev.eval(`(() => { const f = document.getElementById("cc-eating-out-kcal"); f.focus(); f.value = "850"; f.dispatchEvent(new Event("input", { bubbles: true })); })()`); await sleep(200);
+k = await kbar();
+t.check("typing 850 kcal replaces it on the bar", k.today === "Today 0 kcal +850", JSON.stringify(k));
+if (SHOTS) { await dev.eval(`document.activeElement.blur(); document.querySelector(".dose-card").scrollIntoView({ block: "start" })`); await sleep(300); await dev.shot(`${SHOTS}/eatout-kcal-${W}${dark ? "-dark" : ""}.png`); }
+await dev.click("#cc-log-btn"); await sleep(700);
+let eoEntry = (await dev.eval(`JSON.parse(localStorage.getItem("insulinBuddy.v2")).history`)).find(e => e.carbsUnknown);
+t.check("logged: the entry keeps 850 kcal, the box is cleared", eoEntry && eoEntry.knownKcal === 850 && eoEntry.mealDose === 10 && (await dev.eval(`document.getElementById("cc-eating-out-kcal").value`)) === "", JSON.stringify(eoEntry));
+k = await kbar();
+t.check("today's bar counts it: 850 kcal", k.today === "Today 850 kcal", JSON.stringify(k));
+await dev.tab("history"); await dev.click('#history-segmented [data-seg="log"]'); await sleep(400);
+const card850 = await dev.eval(`(() => { const b = document.querySelector('[data-edit="${eoEntry.id}"]'); const c = b && b.closest(".history-entry, .history-row, .hs-wrap, li, article"); return c ? c.textContent.replace(/\\s+/g, " ") : document.getElementById("history-groups").textContent.replace(/\\s+/g, " "); })()`);
+t.check("the log shows it next to 'Carbs not logged'", /Carbs not logged ?850 kcal/.test(card850), card850.slice(0, 200));
+await dev.eval(`document.querySelector('[data-edit="${eoEntry.id}"]').click()`); await sleep(500);
+t.check("Edit Meal shows the calories", (await dev.eval(`document.getElementById("em-eatout-kcal").value`)) === "850" && !(await dev.eval(`document.getElementById("em-eatout-kcal-field").hidden`)));
+await dev.eval(`(() => { const f = document.getElementById("em-eatout-kcal"); f.value = "1,100"; f.dispatchEvent(new Event("input", { bubbles: true })); })()`);
+await dev.click("#em-save"); await sleep(500);
+eoEntry = (await dev.eval(`JSON.parse(localStorage.getItem("insulinBuddy.v2")).history`)).find(e => e.id === eoEntry.id);
+t.check("changing it there is saved (1,100)", eoEntry.knownKcal === 1100, JSON.stringify(eoEntry.knownKcal));
+await dev.eval(`document.querySelector('[data-edit="${eoEntry.id}"]').click()`); await sleep(500);
+await dev.eval(`(() => { const f = document.getElementById("em-eatout-kcal"); f.value = ""; f.dispatchEvent(new Event("input", { bubbles: true })); })()`);
+await dev.click("#em-save"); await sleep(500);
+eoEntry = (await dev.eval(`JSON.parse(localStorage.getItem("insulinBuddy.v2")).history`)).find(e => e.id === eoEntry.id);
+t.check("emptying it goes back to the estimate", !("knownKcal" in eoEntry));
+await dev.tab("calculator"); await sleep(300);
+k = await kbar();
+t.check(`the bar then counts the estimate again (${estK.toLocaleString()})`, k.today === `Today ${estK.toLocaleString()} kcal`, JSON.stringify(k));
+t.check("no JS errors", (await dev.eval("window.__errs.length")) === 0, JSON.stringify(await dev.eval("window.__errs")));
+dev.close();
+
 t.section("NOT SET UP");
 dev = await boot({});
 await openTrends(dev);

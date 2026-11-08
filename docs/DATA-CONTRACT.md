@@ -30,6 +30,7 @@ only changes how glucose is shown and typed.
 | `items` | list | Empty for Eating Out. Each: `refType` (`food`, `recipe`, or `quick` for the Fast carbs chips, whose `refId` is null), `refId`, `name`, `grams`, `carbs`, `kcal`, `carbsPer100g`, `kcalPer100g`, optional `quantity`, `unitLabel`, `gramsPerUnit`, `gi`. |
 | `totalCarbs`, `totalKcal` | number | 0 when carbs were not counted. |
 | `carbsUnknown` | boolean | True for Eating Out. |
+| `knownKcal` | number ≥ 0, optional | 2.96.0: calories typed for an Eating Out meal; used instead of the estimate from its insulin. Absent = not known. |
 | `glycemicLoad` | object or null | From the items' GI. |
 | `mealDose` | number ≥ 0 | Units. The saved dose is exactly what the calculator showed. |
 | `correctionDose` | number | Units; positive adds to the meal dose, negative (since 2.44.0) is a reduction taken off it. `mealDose + correctionDose` is the injected total and never goes below 0. |
