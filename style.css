@@ -2289,8 +2289,12 @@ button.xlib-row:first-child { border-top: none; }
 .btn.cal-day-btn[hidden] { display: none; }
 .dx-links > :only-child { grid-column: 1 / -1; }
 
-/* Extras that go with a meal (2.94.0) */
-.cal-extra__when { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: var(--space-s); margin-top: var(--space-xs); }
-.cal-extra__when span { color: var(--ink-soft); font-size: var(--fs-xs); }
-.cal-extra__when select { width: 100%; min-width: 0; box-sizing: border-box; }
+/* Extras that go with meals (2.94.0; several meals 2.95.0) */
+.cal-extra__when { display: flex; flex-direction: column; gap: var(--space-2xs); margin-top: var(--space-xs); min-width: 0; }   /* no text fields inside, so a column is safe (see 2.78.1) */
+.cal-extra__when > span { color: var(--ink-soft); font-size: var(--fs-xs); }
+.cal-extra__meals { display: flex; flex-wrap: wrap; gap: var(--space-2xs); min-width: 0; }
+button.cal-meal-chip { position: relative; min-height: 36px; padding: 0 var(--space-s); border-radius: var(--radius-pill); border: 1.5px solid var(--line); background: var(--surface); color: var(--ink-soft); font: inherit; font-size: var(--fs-s); font-weight: 600; cursor: pointer; }
+button.cal-meal-chip.is-on { border-color: var(--acc-1); background: color-mix(in srgb, var(--acc-1) 14%, transparent); color: var(--ink); }
+button.cal-meal-chip::after { content: ""; position: absolute; inset: -4px 0; }   /* 44pt touch target around the 36px chip */
+.cal-extra__when-text { margin: var(--space-2xs) 0 0; color: var(--ink-soft); font-size: var(--fs-xs); }
 .dx-row.is-waiting .dx-row__sub { color: var(--ink-soft); font-style: italic; }

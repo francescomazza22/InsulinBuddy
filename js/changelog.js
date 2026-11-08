@@ -2,6 +2,15 @@
 // summary can never drift. Bump CHANGELOG[0].version here (and CACHE_VERSION in sw.js) on every release.
 export const CHANGELOG = [
   {
+    version: "2.95.0",
+    summary: "A daily extra can go with several meals, its amount split between them.",
+    changes: [
+      "In Settings > Calories, each extra has meal chips (Breakfast, Lunch, Dinner, Snack) instead of one choice. None picked = every day, as before",
+      "With more than one meal the amount is split evenly: 2 coffees with breakfast and lunch = 1 each, so a day you only log breakfast counts 1. The line under the chips says how it's split",
+      "While you build one of those meals, the calories bar adds its share; Today's extras shows how much has counted so far. Extras set to one meal in 2.94.0 keep working"
+    ]
+  },
+  {
     version: "2.94.0",
     summary: "Daily extras can go with a meal: mozzarella with lunch counts only on days you log lunch.",
     changes: [

@@ -248,7 +248,7 @@ test("a daily extra from a library food (2.89.0): a serving in grams, or one uni
   assert.equal(extraFromFood({ name: "Bread", kcalPer100g: 250 }, 0).unit, "100 g");   // no grams: 100 g
   // and it survives the settings clean-up as a normal extra
   const r = calorieRule({ ...me, extras: [...me.extras, { id: "extra-x", ...extraFromFood(oil, 13.5) }] }, NOW);
-  assert.deepEqual(r.extras[2], { id: "extra-x", name: "Olio extravergine", unit: "13.5 g", kcalPerUnit: 119.3, perDay: 1, meal: "any" });
+  assert.deepEqual(r.extras[2], { id: "extra-x", name: "Olio extravergine", unit: "13.5 g", kcalPerUnit: 119.3, perDay: 1, meals: [] });
 });
 
 test("one-off items for a day (2.91.0): added for that day only, counted, removable, reset with the day", () => {
@@ -284,7 +284,8 @@ test("one-off items for a day (2.91.0): added for that day only, counted, remova
 test("meal extras (2.94.0): mozzarella with lunch counts only on a day lunch is logged with its foods", () => {
   const withMozz = { ...me, extras: [...me.extras, { id: "mozz", name: "Mozzarella", unit: "ball", kcalPerUnit: 250, perDay: 1, meal: "lunch" }] };
   const rule = calorieRule(withMozz, NOW);
-  assert.equal(rule.extras[2].meal, "lunch"); assert.equal(calorieRule({ ...me, extras: [{ name: "x", meal: "brunch" }] }, NOW).extras[0].meal, "any");
+  assert.deepEqual(rule.extras[2].meals, ["lunch"]);   // a 2.94.0 save ({ meal: "lunch" }) reads as one meal
+  assert.deepEqual(calorieRule({ ...me, extras: [{ name: "x", meal: "brunch" }] }, NOW).extras[0].meals, []);
   const lunch = ts => meal(ts, 600, { mealType: "lunch" }), dinner = ts => meal(ts, 700, { mealType: "dinner" });
   const sum = calorieSummary([lunch(at(2, 13)), dinner(at(1, 20)), meal(at(0, 13), 0, { mealType: "lunch", carbsUnknown: true, items: [], mealDose: 10, ratioValue: 9 })], { calories: withMozz }, { days: 3, now: NOW });
   assert.equal(sum.days[0].extras, 348 + 250);   // lunch logged: every-day extras + mozzarella
@@ -301,4 +302,24 @@ test("meal extras (2.94.0): mozzarella with lunch counts only on a day lunch is 
   const dx = extrasForDay(rule, "2026-11-02", new Set(["dinner"]));
   assert.deepEqual(dx.items.map(x => [x.id, x.applies]), [["olive-oil", true], ["flat-white", true], ["mozz", false]]);
   assert.equal(dx.total, 348); assert.equal(dx.aside, 348); assert.equal(dx.withMeals, 0);
+});
+
+test("an extra across several meals (2.95.0): its amount is split evenly, each logged meal brings its share", () => {
+  const coffee = { id: "cof", name: "Coffee", unit: "cup", kcalPerUnit: 110, perDay: 2, meals: ["lunch", "breakfast", "lunch", "nope"] };
+  const set = { ...me, extras: [coffee] };
+  const rule = calorieRule(set, NOW);
+  assert.deepEqual(rule.extras[0].meals, ["breakfast", "lunch"]);   // known meals, in the day's order, once each
+  const b = ts => meal(ts, 300, { mealType: "breakfast" }), l = ts => meal(ts, 600, { mealType: "lunch" });
+  const sum = calorieSummary([b(at(2, 8)), l(at(2, 13)), b(at(1, 8)), meal(at(0, 20), 500, { mealType: "dinner" })], { calories: set }, { days: 3, now: NOW });
+  assert.equal(sum.days[0].extras, 220);   // breakfast + lunch: both coffees
+  assert.equal(sum.days[1].extras, 110);   // only breakfast: half
+  assert.equal(sum.days[2].extras, 0);     // dinner only: none
+  const dx = extrasForDay(rule, "2026-11-02", new Set(["breakfast"]));
+  assert.deepEqual([dx.items[0].logged, dx.items[0].share, dx.items[0].counted], [["breakfast"], 0.5, 110]);
+  // today: breakfast logged (110 counted), building lunch brings the other 110
+  const t = todayCalories([b(at(0, 8))], { calories: set }, NOW, 400, "lunch");
+  assert.equal(t.eaten, 300 + 110); assert.equal(t.draftExtras, 110); assert.equal(t.extras, 0);
+  // a changed count for the day is split the same way (3 cups over two meals = 1.5 each)
+  const r3 = calorieRule({ ...set, dayExtras: { "2026-11-02": { cof: 3 } } }, NOW);
+  assert.equal(extrasForDay(r3, "2026-11-02", new Set(["lunch"])).withMeals, 165);
 });

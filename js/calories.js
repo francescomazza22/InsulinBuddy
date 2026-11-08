@@ -62,11 +62,18 @@ export function cleanExtra(x, i = 0) {
     name, unit: clean(x.unit, CALORIE_LIMITS.unitMax),
     kcalPerUnit: kcal == null ? 0 : Math.round(kcal * 10) / 10,
     perDay: per == null ? 0 : Math.round(per * 100) / 100,
-    meal: EXTRA_MEALS.includes(x.meal) ? x.meal : "any"   // 2.94.0: "any" = every logged day; else only with that meal
+    meals: cleanMeals(x)   // 2.95.0: [] = every logged day; else the meals it goes with, its amount split evenly between them
   };
 }
-// 2.94.0: an extra can belong to a meal (mozzarella with lunch): it counts only on a day that meal is logged with its
-// foods (an eating-out meal doesn't count: its estimate already covers everything eaten).
+// 2.94.0 had one `meal` ("any" or a meal type); 2.95.0 keeps a list, so a coffee can go with breakfast and lunch.
+export const MEAL_KINDS = ["breakfast", "lunch", "dinner", "snack"];
+function cleanMeals(x) {
+  const raw = Array.isArray(x.meals) ? x.meals : x.meal && x.meal !== "any" ? [x.meal] : [];
+  return MEAL_KINDS.filter(m => raw.includes(m));   // known ones, in the day's order, no repeats
+}
+// 2.94.0: an extra can belong to meals (mozzarella with lunch): it counts only when those meals are logged with their
+// foods (an eating-out meal doesn't count: its estimate already covers everything eaten). With several meals (2.95.0) each
+// logged meal brings its share: 2 coffees with breakfast and lunch = 1 each, so a day with only breakfast counts 1.
 export const EXTRA_MEALS = ["any", "breakfast", "lunch", "dinner", "snack"];
 
 /** The calorie settings, cleaned and clamped; anything unusable is null (not set). */
@@ -154,27 +161,32 @@ function cleanDayOneOffs(raw) {
 }
 /** The extras for one day: [{ ...extra, count, usual, kcal, changed, oneOff }], total and whether the day was adjusted.
  * The usual list first (at that day's own counts), then that day's one-off items. */
-// mealsOnDay (2.94.0): the meal types logged that day with their foods (a Set); a meal extra applies only when its meal
-// is in it. total = what counts that day; aside = every-day extras + one-offs; withMeals = the meal extras that apply.
+// mealsOnDay (2.94.0): the meal types logged that day with their foods (a Set). Each item gets meals ([] = every day),
+// logged (its meals logged that day), share (fraction that counts: logged / meals), counted (kcal x share), applies.
+// total = what counts that day; aside = every-day extras + one-offs; withMeals = the meal extras' counted kcal.
 export function extrasForDay(rule, dayKey, mealsOnDay = null) {
   const own = (rule.dayExtras || {})[dayKey] || {};
-  const has = m => !!mealsOnDay && mealsOnDay.has(m);
   const items = rule.extras.map(x => {
     const count = Object.prototype.hasOwnProperty.call(own, x.id) ? own[x.id] : x.perDay;
-    const meal = x.meal || "any";
-    return { ...x, meal, usual: x.perDay, count, kcal: x.kcalPerUnit * count, changed: count !== x.perDay, oneOff: false, applies: meal === "any" || has(meal) };
+    const meals = Array.isArray(x.meals) ? x.meals : [];
+    const logged = meals.filter(m => !!mealsOnDay && mealsOnDay.has(m));
+    const share = meals.length ? logged.length / meals.length : 1;
+    const kcal = x.kcalPerUnit * count;
+    return { ...x, meals, logged, share, usual: x.perDay, count, kcal, counted: kcal * share, changed: count !== x.perDay, oneOff: false, applies: share > 0 };
   });
-  for (const o of (rule.dayOneOffs || {})[dayKey] || [])
-    items.push({ id: o.id, name: o.name, unit: o.unit, kcalPerUnit: o.kcalPerUnit, perDay: 0, usual: 0, count: o.count, kcal: o.kcalPerUnit * o.count, changed: true, oneOff: true, meal: "any", applies: true });
-  const sum = list => list.reduce((s, x) => s + x.kcal, 0);
-  const aside = sum(items.filter(x => x.meal === "any"));
-  const withMeals = sum(items.filter(x => x.meal !== "any" && x.applies));
+  for (const o of (rule.dayOneOffs || {})[dayKey] || []) {
+    const kcal = o.kcalPerUnit * o.count;
+    items.push({ id: o.id, name: o.name, unit: o.unit, kcalPerUnit: o.kcalPerUnit, perDay: 0, usual: 0, count: o.count, kcal, counted: kcal, changed: true, oneOff: true, meals: [], logged: [], share: 1, applies: true });
+  }
+  const sum = (list, f) => list.reduce((s, x) => s + x[f], 0);
+  const aside = sum(items.filter(x => !x.meals.length), "kcal");
+  const withMeals = sum(items.filter(x => x.meals.length), "counted");
   return { items, total: aside + withMeals, aside, withMeals, adjusted: items.some(x => x.changed) };
 }
-/** kcal of the meal extras for one meal type that haven't counted yet that day (for the meal being built). */
+/** kcal the meal being built (mealType) brings in: each extra's share for that meal, if that meal isn't logged yet. */
 export function mealExtrasKcal(rule, dayKey, mealType, mealsOnDay = null) {
   if (!mealType || mealType === "any" || (mealsOnDay && mealsOnDay.has(mealType))) return 0;
-  return extrasForDay(rule, dayKey, null).items.filter(x => x.meal === mealType).reduce((s, x) => s + x.kcal, 0);
+  return extrasForDay(rule, dayKey, null).items.filter(x => x.meals.includes(mealType)).reduce((s, x) => s + x.kcal / x.meals.length, 0);
 }
 /** { dayOneOffs } with a one-off item added to a day (or null when that day is full). */
 export function addDayOneOff(rule, dayKey, spec, id) {
