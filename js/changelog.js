@@ -2,6 +2,15 @@
 // summary can never drift. Bump CHANGELOG[0].version here (and CACHE_VERSION in sw.js) on every release.
 export const CHANGELOG = [
   {
+    version: "2.99.0",
+    summary: "Meals logged for later count in your calories only once their time has passed.",
+    changes: [
+      "A meal saved with a time later today isn't added to the calories bar or Trends until then, and doesn't bring in its meal extras early. The same goes for an activity logged ahead",
+      "Tap today in Trends > Calories (or look at the bar's description) to see \u201cdinner at 20:00 (700 kcal) counts from then\u201d",
+      "It starts counting by itself within half a minute of its time"
+    ]
+  },
+  {
     version: "2.98.1",
     summary: "Fix: Treating a low stays on when the app finishes signing in late, so fast carbs are never given an insulin dose.",
     changes: [

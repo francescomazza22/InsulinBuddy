@@ -364,7 +364,7 @@ export function calorieSummary(history, settings, { days = 14, now = Date.now() 
   const out = [];
   for (let i = days - 1; i >= 0; i--) {
     const start = shiftDay(now, -i), end = shiftDay(start, 1);
-    out.push({ key: start, end, isToday: start === todayStart, food: 0, meals: 0, eatingOut: 0, unknownMeals: 0, assumedKcal: 0, eatingOutMeals: [], mealTypes: new Set(), missingKcal: 0, activity: 0, activities: [], unestimated: 0 });
+    out.push({ key: start, end, isToday: start === todayStart, food: 0, meals: 0, eatingOut: 0, unknownMeals: 0, assumedKcal: 0, eatingOutMeals: [], mealTypes: new Set(), missingKcal: 0, activity: 0, activities: [], unestimated: 0, later: [], laterKcal: 0 });
   }
   const from = out[0].key, to = out[out.length - 1].end;
   const dayOf = ts => out.find(d => ts >= d.key && ts < d.end);
@@ -374,6 +374,7 @@ export function calorieSummary(history, settings, { days = 14, now = Date.now() 
     const ts = Number(e.ts);
     if (!Number.isFinite(ts)) continue;
     if (e.entryType === "activity") {
+      if (ts > now) continue;   // 2.99.0: a workout logged ahead counts once it has started
       const mins = Number(e.durationMin);
       if (!(mins > 0)) continue;
       const aEnd = ts + mins * 60000;
@@ -393,6 +394,17 @@ export function calorieSummary(history, settings, { days = 14, now = Date.now() 
     if (ts < from || ts >= to) continue;
     const d = dayOf(ts);
     if (!d) continue;
+    if (ts > now) {
+      // 2.99.0: a meal logged for later (time set ahead) isn't counted until its time has passed, and doesn't bring in
+      // its meal's extras yet; it's listed so the day can say so.
+      if (!isCorrectionOnly(e)) {
+        const est = e.carbsUnknown ? eo.get(e.id) : null;
+        const k = e.carbsUnknown ? (est && est.kcal != null ? est.kcal : 0) : foodKcal(e);
+        d.later.push({ id: e.id, ts, kcal: k, mealType: e.mealType });
+        d.laterKcal += k;
+      }
+      continue;
+    }
     d.meals += 1;
     if (isCorrectionOnly(e)) continue;   // no food (2.82.0: even one logged with Eating Out on, which used to add a whole meal)
     if (e.carbsUnknown) {
@@ -458,7 +470,7 @@ export function todayCalories(history, settings, now = Date.now(), draftKcal = 0
   const eaten = d.food + dx.withMeals;
   const fill = target > 0 ? Math.min(1, eaten / target) : (eaten > 0 ? 1 : 0);
   const withDraft = target > 0 ? Math.min(1, (eaten + draft) / target) : (eaten + draft > 0 ? 1 : 0);
-  return { eaten, draft, draftExtras, mealExtras: dx.withMeals, target, needed: d.target, extras, activity: d.activity, logged: d.logged, fill, draftFill: withDraft - fill, over: eaten + draft > target };
+  return { eaten, draft, draftExtras, mealExtras: dx.withMeals, target, needed: d.target, extras, activity: d.activity, logged: d.logged, later: d.later, laterKcal: d.laterKcal, fill, draftFill: withDraft - fill, over: eaten + draft > target };
 }
 
 // ---- Daily extras from the food library (2.89.0) ----
@@ -480,10 +492,11 @@ export function extraFromFood(item, grams) {
 }
 
 /** The meal types logged on a local day with their foods (not eating out, not corrections): which meal extras apply. */
-export function mealTypesForDay(history, dayKey) {
+export function mealTypesForDay(history, dayKey, now = Date.now()) {
   const out = new Set();
   for (const e of history || []) {
     if (!e || !Number.isFinite(Number(e.ts)) || isNonMealEntry(e) || e.carbsUnknown || isCorrectionOnly(e)) continue;
+    if (Number(e.ts) > now) continue;   // 2.99.0: not yet
     if (EXTRA_MEALS.includes(e.mealType) && dayKeyOf(Number(e.ts)) === dayKey) out.add(e.mealType);
   }
   return out;

@@ -3131,7 +3131,9 @@ import { weekdayOf, mealTypesForDay, MEAL_KINDS, extraFromFood, extrasForDay, se
     box.classList.toggle("is-over", t.over);
     const left = rest;
     box.setAttribute("aria-label", `Food today: about ${kcalText(t.eaten)} kcal logged${t.mealExtras > 0 ? ` (including ${kcalText(t.mealExtras)} of extras that go with your meals)` : ""}${t.draft > 0 ? `, plus ${kcalText(t.draft)} in this meal${t.draftExtras > 0 ? ` (${kcalText(t.draftExtras)} of it extras for ${MEAL_TYPES[buildingMeal].label.toLowerCase()})` : ""}` : ""}. About ${kcalText(t.needed)} needed today${t.activity > 0 ? ` including ${kcalText(t.activity)} for activity` : ""}${t.extras > 0 ? `, ${kcalText(t.extras)} of it set aside for your daily extras, so ${kcalText(t.target)} for food` : ""}: ${left >= 0 ? `${kcalText(left)} left` : `${kcalText(-left)} over`}. Estimates. Tap to change today's extras.`);
-    box.title = `${kcalText(t.target)} for food today${t.extras > 0 ? ` (${kcalText(t.needed)} for the day less ${kcalText(t.extras)} of daily extras)` : ""}, minus ${kcalText(t.eaten)} logged${t.draft > 0 ? ` and ${kcalText(t.draft)} in this meal` : ""}`;
+    const laterText = (t.later || []).map(x => `${MEAL_TYPES[x.mealType] ? MEAL_TYPES[x.mealType].label : "A meal"} at ${formatTime(x.ts)} (${kcalText(x.kcal)} kcal) counts from then`).join("; ");   // 2.99.0
+    if (laterText) box.setAttribute("aria-label", `${box.getAttribute("aria-label")} ${laterText}.`);
+    box.title = `${laterText ? laterText + ". " : ""}${kcalText(t.target)} for food today${t.extras > 0 ? ` (${kcalText(t.needed)} for the day less ${kcalText(t.extras)} of daily extras)` : ""}, minus ${kcalText(t.eaten)} logged${t.draft > 0 ? ` and ${kcalText(t.draft)} in this meal` : ""}`;
     alignDayBars();
   }
   // 2.81.0: up to the target the bar fills as before; past it a white mark shows where the target is and the part past it
@@ -6239,6 +6241,7 @@ import { weekdayOf, mealTypesForDay, MEAL_KINDS, extraFromFood, extrasForDay, se
           ? ` · eating out \u2248${kcalText(x.kcal)} kcal (${round1(x.units + x.corrUnits)}u${x.corrUnits ? `, incl. ${round1(x.corrUnits)}u correction` : ""} at ${ratioText(round1(x.ratio))} \u2192 ${Math.round(x.carbs)} g carbs \u00d7${KCAL_PER_G_CARB}\u00d7${r.eatingOutMultiplier})`
           : x.from === "logged" ? ` · eating out ${kcalText(x.kcal)} kcal (as you logged it)` : ` · eating out ${kcalText(x.kcal)} kcal (fixed figure)`;
         if (d.unknownMeals) t += ` · ${d.unknownMeals} eating-out meal${d.unknownMeals === 1 ? "" : "s"} not counted, so it was really more`;
+        for (const x of d.later || []) t += ` · ${MEAL_TYPES[x.mealType] ? MEAL_TYPES[x.mealType].label.toLowerCase() : "a meal"} at ${formatTime(x.ts)} (${kcalText(x.kcal)} kcal) counts from then`;
         return t;
       }
     };

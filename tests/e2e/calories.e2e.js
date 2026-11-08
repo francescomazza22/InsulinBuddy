@@ -434,6 +434,31 @@ if (SHOTS) { await dev.tab("settings"); await sleep(300); await dev.click('#sett
 t.check("no sideways scroll, no JS errors", (await dev.eval(`document.documentElement.scrollWidth <= innerWidth + 1`)) && (await dev.eval("window.__errs.length")) === 0, JSON.stringify(await dev.eval("window.__errs")));
 dev.close();
 
+t.section("MEALS LOGGED FOR LATER (2.99.0)");
+{
+  // A meal a minute ago (600) and one 90 min ahead (700, as dinner, with a dinner extra). Skipped close to midnight.
+  const endOfDay = new Date(); endOfDay.setHours(23, 58, 0, 0);
+  const aheadTs = Math.min(Date.now() + 90 * 60000, endOfDay.getTime()), sameDay = aheadTs > Date.now() + 3 * 60000;
+  if (!sameDay) t.check("(skipped: too close to midnight to log something later today)", true);
+  else {
+    const withDinner = { ...calories, extras: [...calories.extras, { id: "mozz", name: "Mozzarella", unit: "ball", kcalPerUnit: 250, perDay: 1, meals: ["dinner"] }] };
+    const h2 = [meal("ahead", aheadTs, { totalKcal: 700, mealType: "dinner" }), meal("now1", Math.max(at(0, 0, 1), Date.now() - 60000), { totalKcal: 600, mealType: "breakfast" })];
+    const blob = stateBlob({ history: h2, settings: { darkMode: dark, darkModeAuto: false, calories: withDinner } });
+    dev = await openDevice(app, { width: W, height: 1000, mobile: W < 1000, dark, inject: `if (!localStorage.getItem("insulinBuddy.v2")) { ${seedLocal(blob)} }`, wait: 1500 });
+    await dev.tab("calculator"); await sleep(300);
+    k = await kbar();
+    const aheadTime = await dev.eval(`new Date(${aheadTs}).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })`);
+    t.check("the later meal and its dinner extra don't count yet: today 600 kcal, 1,230 left", k.today === "Today 600 kcal" && k.target === "1,230 left", JSON.stringify(k));
+    t.check("the bar's description says when it will count", /Dinner at .+ \(700 kcal\) counts from then/.test(k.label), k.label);
+    await openTrends(dev);
+    await dev.eval(`document.querySelector('#trend-chart-calories .trend-chart__hit[data-idx="6"]').dispatchEvent(new MouseEvent("click", { bubbles: true }))`); await sleep(200);
+    const roL = await dev.eval(`document.querySelector("#trend-chart-calories .trend-readout").textContent`);
+    t.check("Trends says the same for today", /ate 948 \(food 600 \+ extras 348\)/.test(roL) && /dinner at .+ \(700 kcal\) counts from then/.test(roL), roL);
+    t.check("no JS errors", (await dev.eval("window.__errs.length")) === 0, JSON.stringify(await dev.eval("window.__errs")));
+    dev.close();
+  }
+}
+
 t.section("NOT SET UP");
 dev = await boot({});
 await openTrends(dev);

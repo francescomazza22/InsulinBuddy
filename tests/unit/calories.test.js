@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { weekdayOf, mealExtrasKcal, addDayOneOff, setDayCount, resetDay, ONE_OFFS_MAX, extraFromFood, extrasForDay, setDayExtra, dayKeyOf, eatingOutEstimates, eatingOutKcalFromInsulin, isCorrectionOnly, todayCalories, calorieRule, calorieSummary, restingKcal, activityKcal, watchKcal, extrasKcal, missingDetails, CALORIE_DEFAULTS } from "../../js/calories.js";
+import { mealTypesForDay, weekdayOf, mealExtrasKcal, addDayOneOff, setDayCount, resetDay, ONE_OFFS_MAX, extraFromFood, extrasForDay, setDayExtra, dayKeyOf, eatingOutEstimates, eatingOutKcalFromInsulin, isCorrectionOnly, todayCalories, calorieRule, calorieSummary, restingKcal, activityKcal, watchKcal, extrasKcal, missingDetails, CALORIE_DEFAULTS } from "../../js/calories.js";
 import { normalizeState } from "../../js/state.js";
 import { shiftDay } from "../../js/day-timeline.js";
 
@@ -359,4 +359,22 @@ test("extras on some weekdays only (2.98.0): other days count 0, a count set for
   const sum = calorieSummary([meal(at(0, 9), 500), meal(at(2, 9), 500)], { calories: set }, { days: 3, now: NOW });
   assert.equal(sum.days[2].extras, 488); assert.equal(sum.days[0].extras, 348);   // Tue / Sun
   assert.equal(todayCalories([meal(at(0, 9), 500)], { calories: set }, NOW, 0).extras, 488);
+});
+
+test("meals logged for later (2.99.0) count only once their time has passed, with their meal extras", () => {
+  const set = { ...me, extras: [...me.extras, { id: "mozz", name: "Mozzarella", unit: "ball", kcalPerUnit: 250, perDay: 1, meals: ["dinner"] }] };
+  const h = [meal(at(0, 9), 400, { mealType: "breakfast" }), meal(at(0, 20), 700, { mealType: "dinner" }),
+    { id: "run", ts: at(0, 19), entryType: "activity", mealType: "activity", activityType: "run", intensity: "moderate", durationMin: 60, items: [], totalCarbs: 0, totalKcal: 0 }];
+  // NOW is 18:00: dinner at 20:00 and the 19:00 run haven't happened yet
+  const t = todayCalories(h, { calories: set }, NOW, 0);
+  assert.equal(t.eaten, 400); assert.equal(t.mealExtras, 0); assert.equal(t.activity, 0);
+  assert.equal(t.later.length, 1); assert.equal(t.laterKcal, 700); assert.equal(t.later[0].mealType, "dinner");
+  assert.equal(mealTypesForDay(h, "2026-11-03", NOW).has("dinner"), false);
+  // at 21:00 both count, and dinner brings its mozzarella
+  const later = at(0, 21);
+  const t2 = todayCalories(h, { calories: set }, later, 0);
+  assert.equal(t2.eaten, 400 + 700 + 250); assert.equal(t2.later.length, 0); assert.equal(t2.activity, 600);
+  // a future-only day isn't "logged" yet
+  const s = calorieSummary([meal(at(0, 20), 700)], { calories: set }, { days: 1, now: NOW });
+  assert.equal(s.days[0].logged, false); assert.equal(s.days[0].laterKcal, 700);
 });
