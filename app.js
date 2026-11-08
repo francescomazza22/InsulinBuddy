@@ -44,7 +44,7 @@ import { workoutsToActivities, awaitingIntensity, mayBeDoubleCounted, intensityU
 import { dayBounds, shiftDay, dayTimeline, readingNear, stackRows } from "./js/day-timeline.js";
 import { sessionLevel, primaryTotp, verifyCode, startTotpSetup, cancelTotpSetup, removeTotp, signOutOtherDevices, groupSecret, cleanTotpCode, validTotpCode } from "./js/mfa.js";
 import { nearActivity, activitySkip, countNearActivity, breakfastByActivity, activitySummary, ACTIVITY_FILTERS, NEAR_BEFORE_HOURS, NEAR_AFTER_HOURS } from "./js/activity-stats.js";
-import { extraFromFood, extrasForDay, setDayExtra, setDayCount, resetDay, addDayOneOff, ONE_OFFS_MAX, dayKeyOf, eatingOutEstimates, eatingOutKcalFromInsulin, EATING_OUT_CORRECTION_HOURS, KCAL_PER_G_CARB, todayCalories, calorieRule, calorieSummary, missingDetails, restingKcal, extrasKcal, cleanExtra, LIFE_FACTORS, CALORIE_DEFAULTS, CALORIE_LIMITS } from "./js/calories.js";
+import { mealTypesForDay, EXTRA_MEALS, extraFromFood, extrasForDay, setDayExtra, setDayCount, resetDay, addDayOneOff, ONE_OFFS_MAX, dayKeyOf, eatingOutEstimates, eatingOutKcalFromInsulin, EATING_OUT_CORRECTION_HOURS, KCAL_PER_G_CARB, todayCalories, calorieRule, calorieSummary, missingDetails, restingKcal, extrasKcal, cleanExtra, LIFE_FACTORS, CALORIE_DEFAULTS, CALORIE_LIMITS } from "./js/calories.js";
 
 
   const STORAGE_KEY = "insulinBuddy.v2";
@@ -3110,7 +3110,8 @@ import { extraFromFood, extrasForDay, setDayExtra, setDayCount, resetDay, addDay
   function renderDayKcal() {
     const box = el("cc-day-kcal");
     if (!box) return;
-    const t = todayCalories(state.history, state.settings, Date.now(), draftKcal());
+    const buildingMeal = draft.items.length > 0 && !draft.eatingOutOn ? autoMealType(new Date()) : null;   // 2.94.0: its meal extras join the draft
+    const t = todayCalories(state.history, state.settings, Date.now(), draftKcal(), buildingMeal);
     if (!t) { box.hidden = true; alignDayBars(); return; }
     box.hidden = false;
     el("cc-day-kcal-today").innerHTML = `Today <b>${kcalText(t.eaten)} kcal</b>${t.draft > 0 ? ` <span class="day-carbs__plus">+${kcalText(t.draft)}</span>` : ""}`;
@@ -3120,7 +3121,7 @@ import { extraFromFood, extrasForDay, setDayExtra, setDayCount, resetDay, addDay
     paintDayBar("cc-day-kcal", overBar({ logged: t.eaten, draft: t.draft, target: t.target }));
     box.classList.toggle("is-over", t.over);
     const left = rest;
-    box.setAttribute("aria-label", `Food today: about ${kcalText(t.eaten)} kcal logged${t.draft > 0 ? `, plus ${kcalText(t.draft)} in this meal` : ""}. About ${kcalText(t.needed)} needed today${t.activity > 0 ? ` including ${kcalText(t.activity)} for activity` : ""}${t.extras > 0 ? `, ${kcalText(t.extras)} of it set aside for your daily extras, so ${kcalText(t.target)} for food` : ""}: ${left >= 0 ? `${kcalText(left)} left` : `${kcalText(-left)} over`}. Estimates. Tap to change today's extras.`);
+    box.setAttribute("aria-label", `Food today: about ${kcalText(t.eaten)} kcal logged${t.mealExtras > 0 ? ` (including ${kcalText(t.mealExtras)} of extras that go with your meals)` : ""}${t.draft > 0 ? `, plus ${kcalText(t.draft)} in this meal${t.draftExtras > 0 ? ` (${kcalText(t.draftExtras)} of it extras for ${MEAL_TYPES[buildingMeal].label.toLowerCase()})` : ""}` : ""}. About ${kcalText(t.needed)} needed today${t.activity > 0 ? ` including ${kcalText(t.activity)} for activity` : ""}${t.extras > 0 ? `, ${kcalText(t.extras)} of it set aside for your daily extras, so ${kcalText(t.target)} for food` : ""}: ${left >= 0 ? `${kcalText(left)} left` : `${kcalText(-left)} over`}. Estimates. Tap to change today's extras.`);
     box.title = `${kcalText(t.target)} for food today${t.extras > 0 ? ` (${kcalText(t.needed)} for the day less ${kcalText(t.extras)} of daily extras)` : ""}, minus ${kcalText(t.eaten)} logged${t.draft > 0 ? ` and ${kcalText(t.draft)} in this meal` : ""}`;
     alignDayBars();
   }
@@ -3194,7 +3195,7 @@ import { extraFromFood, extrasForDay, setDayExtra, setDayCount, resetDay, addDay
     const fmtN = n => String(round1(n));
     const unitOf = (x, n) => (!x.unit ? "" : /^\d/.test(x.unit) ? ` \u00d7 ${x.unit}` : ` ${unitPlural(x.unit, n)}`);   // "1 × 120 g", "3 cups"
     function draw(full) {
-      const r = calRule(), dx = extrasForDay(r, dayKey);
+      const r = calRule(), dx = extrasForDay(r, dayKey, mealTypesForDay(state.history, dayKey));
       const list = $("#dx-list");
       if (!dx.items.length) {
         list.innerHTML = `<p class="panel-card__hint">No daily extras set yet.</p>`;
@@ -3220,7 +3221,10 @@ import { extraFromFood, extrasForDay, setDayExtra, setDayCount, resetDay, addDay
         row.classList.toggle("is-changed", x.changed);
         row.querySelector(".dx-step__count").textContent = fmtN(x.count);
         row.classList.toggle("is-once", x.oneOff);
-        row.querySelector(".dx-row__sub").textContent = `${fmtN(x.count)}${unitOf(x, x.count)} \u00b7 ${kcalText(x.kcal)} kcal${x.oneOff ? ` \u00b7 ${isToday ? "today" : "that day"} only` : x.changed ? ` \u00b7 usual ${fmtN(x.usual)}` : ""}`;
+        const mealName = x.meal && x.meal !== "any" ? MEAL_TYPES[x.meal].label.toLowerCase() : "";
+        const when = !mealName ? "" : x.applies ? ` \u00b7 with ${mealName}` : ` \u00b7 ${isToday ? `counts once ${mealName} is logged` : `no ${mealName} logged`}`;
+        row.classList.toggle("is-waiting", !x.applies);
+        row.querySelector(".dx-row__sub").textContent = `${fmtN(x.count)}${unitOf(x, x.count)} \u00b7 ${kcalText(x.kcal)} kcal${when}${x.oneOff ? ` \u00b7 ${isToday ? "today" : "that day"} only` : x.changed ? ` \u00b7 usual ${fmtN(x.usual)}` : ""}`;
         row.querySelector('[data-dx="-1"]').setAttribute("aria-label", x.oneOff && x.count <= 1 ? `Remove ${x.name}` : `One less ${x.name}`);
         row.querySelector('[data-dx="-1"]').disabled = !(x.count > 0);
       });
@@ -7788,7 +7792,8 @@ import { extraFromFood, extrasForDay, setDayExtra, setDayCount, resetDay, addDay
       ? `Add your ${miss.join(", ").replace(/, ([^,]*)$/, " and $1")} to estimate what you need each day.`
       : `Resting about ${kcalText(rest)} kcal a day; with everyday moving (×${r.lifeFactor}) about ${kcalText(rest * r.lifeFactor)} kcal, before any logged activity. An estimate (Mifflin-St Jeor).`;
     const ex = extrasKcal(r);
-    if (tot) tot.textContent = r.extras.length ? `Extras: ${kcalText(ex.total)} kcal a day.` : "No extras.";
+    const mealPart = r.extras.filter(x => x.meal && x.meal !== "any").reduce((s, x) => s + x.kcalPerUnit * x.perDay, 0);
+    if (tot) tot.textContent = r.extras.length ? `Extras: ${kcalText(ex.total)} kcal a day${mealPart > 0 ? `, ${kcalText(mealPart)} of it only on days you log that meal` : ""}.` : "No extras.";
     r.extras.forEach(x => {
       const out = document.querySelector(`#cal-extras [data-xid="${CSS.escape(x.id)}"] .cal-extra__kcal`);
       if (out) out.textContent = `${kcalText(x.kcalPerUnit * x.perDay)} kcal`;
@@ -7839,6 +7844,7 @@ import { extraFromFood, extrasForDay, setDayExtra, setDayCount, resetDay, addDay
         <label class="cal-extra__cell"><span>Unit</span><input type="text" name="cal-extra-unit" data-xfield="unit" value="${escapeAttr(x.unit)}" maxlength="${CALORIE_LIMITS.unitMax}" placeholder="e.g. cup" autocomplete="off"></label>
         <label class="cal-extra__cell"><span>kcal each</span><input type="text" name="cal-extra-kcal" data-xfield="kcalPerUnit" value="${x.kcalPerUnit}" inputmode="decimal" autocomplete="off"></label>
       </div>
+      <label class="cal-extra__when"><span>Counted</span><select name="cal-extra-meal" data-xfield="meal">${EXTRA_MEALS.map(m => `<option value="${m}"${(x.meal || "any") === m ? " selected" : ""}>${m === "any" ? "Every day" : `With ${MEAL_TYPES[m].label.toLowerCase()}`}</option>`).join("")}</select></label>
     </div>`).join("");
     renderCalorieStatus();
   }

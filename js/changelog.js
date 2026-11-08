@@ -2,6 +2,15 @@
 // summary can never drift. Bump CHANGELOG[0].version here (and CACHE_VERSION in sw.js) on every release.
 export const CHANGELOG = [
   {
+    version: "2.94.0",
+    summary: "Daily extras can go with a meal: mozzarella with lunch counts only on days you log lunch.",
+    changes: [
+      "Each daily extra in Settings > Calories has \u201cCounted\u201d: Every day (as before), or with breakfast, lunch, dinner or snack",
+      "A meal extra counts on a day that meal is logged with its foods (an eating-out meal doesn't bring it in: its estimate already covers what you ate)",
+      "While you build that meal, the calories bar adds its extras to the +kcal. Today's extras shows \u201cwith lunch\u201d, or \u201ccounts once lunch is logged\u201d until then"
+    ]
+  },
+  {
     version: "2.93.1",
     summary: "Meals log on iPad and computer: one tidy list instead of a jumble of cards.",
     changes: [

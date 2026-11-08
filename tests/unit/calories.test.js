@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { addDayOneOff, setDayCount, resetDay, ONE_OFFS_MAX, extraFromFood, extrasForDay, setDayExtra, dayKeyOf, eatingOutEstimates, eatingOutKcalFromInsulin, isCorrectionOnly, todayCalories, calorieRule, calorieSummary, restingKcal, activityKcal, watchKcal, extrasKcal, missingDetails, CALORIE_DEFAULTS } from "../../js/calories.js";
+import { mealExtrasKcal, addDayOneOff, setDayCount, resetDay, ONE_OFFS_MAX, extraFromFood, extrasForDay, setDayExtra, dayKeyOf, eatingOutEstimates, eatingOutKcalFromInsulin, isCorrectionOnly, todayCalories, calorieRule, calorieSummary, restingKcal, activityKcal, watchKcal, extrasKcal, missingDetails, CALORIE_DEFAULTS } from "../../js/calories.js";
 import { normalizeState } from "../../js/state.js";
 import { shiftDay } from "../../js/day-timeline.js";
 
@@ -248,7 +248,7 @@ test("a daily extra from a library food (2.89.0): a serving in grams, or one uni
   assert.equal(extraFromFood({ name: "Bread", kcalPer100g: 250 }, 0).unit, "100 g");   // no grams: 100 g
   // and it survives the settings clean-up as a normal extra
   const r = calorieRule({ ...me, extras: [...me.extras, { id: "extra-x", ...extraFromFood(oil, 13.5) }] }, NOW);
-  assert.deepEqual(r.extras[2], { id: "extra-x", name: "Olio extravergine", unit: "13.5 g", kcalPerUnit: 119.3, perDay: 1 });
+  assert.deepEqual(r.extras[2], { id: "extra-x", name: "Olio extravergine", unit: "13.5 g", kcalPerUnit: 119.3, perDay: 1, meal: "any" });
 });
 
 test("one-off items for a day (2.91.0): added for that day only, counted, removable, reset with the day", () => {
@@ -279,4 +279,26 @@ test("one-off items for a day (2.91.0): added for that day only, counted, remova
   assert.equal(addDayOneOff(rule, "nope", { name: "x" }, "e"), null);
   assert.deepEqual(calorieRule({ ...me, dayOneOffs: { [day]: [{ name: "" }, { name: "Ok", kcalPerUnit: 10, count: "1,5" }], bad: [{ name: "x" }] } }, NOW).dayOneOffs,
     { [day]: [{ id: "once-extra-1", name: "Ok", unit: "", kcalPerUnit: 10, count: 1.5 }] });
+});
+
+test("meal extras (2.94.0): mozzarella with lunch counts only on a day lunch is logged with its foods", () => {
+  const withMozz = { ...me, extras: [...me.extras, { id: "mozz", name: "Mozzarella", unit: "ball", kcalPerUnit: 250, perDay: 1, meal: "lunch" }] };
+  const rule = calorieRule(withMozz, NOW);
+  assert.equal(rule.extras[2].meal, "lunch"); assert.equal(calorieRule({ ...me, extras: [{ name: "x", meal: "brunch" }] }, NOW).extras[0].meal, "any");
+  const lunch = ts => meal(ts, 600, { mealType: "lunch" }), dinner = ts => meal(ts, 700, { mealType: "dinner" });
+  const sum = calorieSummary([lunch(at(2, 13)), dinner(at(1, 20)), meal(at(0, 13), 0, { mealType: "lunch", carbsUnknown: true, items: [], mealDose: 10, ratioValue: 9 })], { calories: withMozz }, { days: 3, now: NOW });
+  assert.equal(sum.days[0].extras, 348 + 250);   // lunch logged: every-day extras + mozzarella
+  assert.equal(sum.days[1].extras, 348);         // dinner only: no mozzarella
+  assert.equal(sum.days[2].extras, 348);         // an eating-out lunch doesn't bring it
+  // today: every-day extras set aside, mozzarella eaten once lunch is logged; while building lunch it joins the draft
+  const before = todayCalories([meal(at(0, 8), 300, { mealType: "breakfast" })], { calories: withMozz }, NOW, 500, "lunch");
+  assert.equal(before.extras, 348); assert.equal(before.eaten, 300); assert.equal(before.draftExtras, 250); assert.equal(before.draft, 750);
+  assert.equal(todayCalories([meal(at(0, 8), 300, { mealType: "breakfast" })], { calories: withMozz }, NOW, 0, "lunch").draft, 0);   // nothing being built
+  const after = todayCalories([lunch(at(0, 13))], { calories: withMozz }, NOW, 400, "lunch");
+  assert.equal(after.eaten, 850); assert.equal(after.draftExtras, 0);   // already counted with the first lunch
+  assert.equal(mealExtrasKcal(rule, "2026-11-03", "dinner", new Set(["lunch"])), 0);
+  // the day sheet sees which apply
+  const dx = extrasForDay(rule, "2026-11-02", new Set(["dinner"]));
+  assert.deepEqual(dx.items.map(x => [x.id, x.applies]), [["olive-oil", true], ["flat-white", true], ["mozz", false]]);
+  assert.equal(dx.total, 348); assert.equal(dx.aside, 348); assert.equal(dx.withMeals, 0);
 });

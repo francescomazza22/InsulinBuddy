@@ -291,6 +291,57 @@ await dev.click("#dx-done"); await sleep(300);
 t.check("no JS errors", (await dev.eval("window.__errs.length")) === 0, JSON.stringify(await dev.eval("window.__errs")));
 dev.close();
 
+t.section("EXTRAS WITH A MEAL (2.94.0)");
+{
+  // Today: a breakfast a minute ago (600 kcal). Mozzarella (250) goes with whatever meal the clock says now, so building
+  // a meal brings it in; flat white and oil stay every-day extras (348, set aside from the target).
+  const todayHist = [meal("b1", Math.max(at(0, 0, 1), Date.now() - 60000), { totalKcal: 600, mealType: "breakfast" })];
+  const blob = stateBlob({ history: todayHist, settings: { darkMode: dark, darkModeAuto: false, calories } });
+  dev = await openDevice(app, { width: W, height: 1000, mobile: W < 1000, dark, inject: `if (!localStorage.getItem("insulinBuddy.v2")) { ${seedLocal(blob)} }`, wait: 1500 });
+}
+const curMeal = await dev.eval(`import("./js/core/time.js").then(m => m.autoMealType(new Date()))`);
+const otherMeal = curMeal === "dinner" ? "lunch" : "dinner";
+await dev.tab("settings"); await sleep(300); await dev.click('#settings-segmented [data-seg="calories"]'); await sleep(400);
+// add mozzarella by hand: name, 1 a day, ball, 250 kcal, counted with the meal of the moment
+await dev.click("#cal-add-extra"); await sleep(300);
+const mid = (await saved()).extras.slice(-1)[0].id;
+await setField(`#cal-extras [data-xid="${mid}"] [data-xfield="name"]`, "Mozzarella");
+await setField(`#cal-extras [data-xid="${mid}"] [data-xfield="unit"]`, "ball");
+await setField(`#cal-extras [data-xid="${mid}"] [data-xfield="kcalPerUnit"]`, "250");
+const whenSel = () => dev.eval(`(() => { const f = document.querySelector('#cal-extras [data-xid="${mid}"] [data-xfield="meal"]'); return { value: f.value, options: [...f.options].map(o => o.textContent) }; })()`);
+t.check("each extra has Counted: Every day / With breakfast / lunch / dinner / snack, Every day by default",
+  JSON.stringify(await whenSel()) === JSON.stringify({ value: "any", options: ["Every day", "With breakfast", "With lunch", "With dinner", "With snack"] }), JSON.stringify(await whenSel()));
+await dev.eval(`(() => { const f = document.querySelector('#cal-extras [data-xid="${mid}"] [data-xfield="meal"]'); f.value = ${JSON.stringify(otherMeal)}; f.dispatchEvent(new Event("change", { bubbles: true })); })()`); await sleep(200);
+t.check("choosing a meal is saved", (await saved()).extras.find(x => x.id === mid).meal === otherMeal);
+t.check("the total says how much only counts with a meal", /Extras: 598 kcal a day, 250 of it only on days you log that meal\./.test(await dev.eval(`document.getElementById("cal-extras-total").textContent`)));
+await dev.tab("calculator"); await sleep(300);
+k = await kbar();
+t.check("not that meal's day: mozzarella doesn't count (today 600 kcal, 1,230 left)", k.today === "Today 600 kcal" && k.target === "1,230 left", JSON.stringify(k));
+await dev.click("#cc-day-kcal"); await sleep(400);
+let mrow = await dev.eval(`document.querySelector('.day-extras-sheet [data-xid="${mid}"] .dx-row__sub').textContent`);
+t.check("Today's extras says it counts once that meal is logged", mrow === `1 ball · 250 kcal · counts once ${otherMeal} is logged`, mrow);
+await dev.click("#dx-done"); await sleep(300);
+// now make it go with the meal of the moment and build a meal: it joins the draft, then counts once logged
+await dev.tab("settings"); await sleep(300); await dev.click('#settings-segmented [data-seg="calories"]'); await sleep(300);
+await dev.eval(`(() => { const f = document.querySelector('#cal-extras [data-xid="${mid}"] [data-xfield="meal"]'); f.value = ${JSON.stringify(curMeal)}; f.dispatchEvent(new Event("change", { bubbles: true })); })()`); await sleep(200);
+await dev.tab("calculator"); await sleep(300);
+await dev.waitFor(`document.getElementById("cc-food-list").children.length > 1`, 6000);
+await dev.eval(`[...document.getElementById("cc-food-list").children].find(c => /Banana/.test(c.textContent)).click()`);
+await dev.eval(`(() => { const g = document.getElementById("cc-grams"); g.value = "200"; g.dispatchEvent(new Event("input", { bubbles: true })); })()`);
+await dev.click("#cc-add-btn"); await sleep(400);
+k = await kbar();
+t.check(`building a ${curMeal} brings its mozzarella into the draft: +178 food +250 = +428`, k.today === "Today 600 kcal +428" && k.target === "802 left", JSON.stringify(k));
+await dev.click("#cc-log-btn"); await sleep(700);
+k = await kbar();
+const loggedType = (await dev.eval(`JSON.parse(localStorage.getItem("insulinBuddy.v2")).history.map(e => e.mealType)`)).join(",");
+t.check(`once the ${curMeal} is logged it counts: 600 + 178 + 250 = 1,028`, k.today === "Today 1,028 kcal" && k.target === "802 left", JSON.stringify(k) + " " + loggedType);
+await dev.click("#cc-day-kcal"); await sleep(400);
+mrow = await dev.eval(`document.querySelector('.day-extras-sheet [data-xid="${mid}"] .dx-row__sub').textContent`);
+t.check("and the sheet says it's with that meal", mrow === `1 ball · 250 kcal · with ${curMeal}`, mrow);
+await dev.click("#dx-done"); await sleep(300);
+t.check("no JS errors", (await dev.eval("window.__errs.length")) === 0, JSON.stringify(await dev.eval("window.__errs")));
+dev.close();
+
 t.section("NOT SET UP");
 dev = await boot({});
 await openTrends(dev);

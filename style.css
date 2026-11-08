@@ -2288,3 +2288,9 @@ button.xlib-row:first-child { border-top: none; }
 .btn.cal-day-btn { margin-top: var(--space-s); }
 .btn.cal-day-btn[hidden] { display: none; }
 .dx-links > :only-child { grid-column: 1 / -1; }
+
+/* Extras that go with a meal (2.94.0) */
+.cal-extra__when { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: var(--space-s); margin-top: var(--space-xs); }
+.cal-extra__when span { color: var(--ink-soft); font-size: var(--fs-xs); }
+.cal-extra__when select { width: 100%; min-width: 0; box-sizing: border-box; }
+.dx-row.is-waiting .dx-row__sub { color: var(--ink-soft); font-style: italic; }
