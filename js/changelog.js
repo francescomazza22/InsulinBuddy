@@ -2,6 +2,15 @@
 // summary can never drift. Bump CHANGELOG[0].version here (and CACHE_VERSION in sw.js) on every release.
 export const CHANGELOG = [
   {
+    version: "2.100.1",
+    summary: "Food searches find English or Italian names, with or without accents.",
+    changes: [
+      "\u201cWine\u201d now finds \u201cVino Bianco e Rosso\u201d (and \u201cbread\u201d finds Pane, \u201ccheese\u201d Mozzarella, \u201ccaffe\u201d Caff\u00e8\u2026), already while you type",
+      "Works in every food search: Calculator, Browse, Library, recipe ingredients, Edit Meal and Add from your library",
+      "Fixed: in Add from your library the \u201cNothing matches\u201d line was half hidden under the search box"
+    ]
+  },
+  {
     version: "2.100.0",
     summary: "Tap the calories bar for everything counted today.",
     changes: [

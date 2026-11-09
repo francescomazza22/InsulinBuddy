@@ -122,6 +122,14 @@ t.check("From your library lists the foods with their kcal", rows.some(r => /^Pa
 await dev.eval(`(() => { const f = document.getElementById("xlib-search"); f.value = "pane"; f.dispatchEvent(new Event("input", { bubbles: true })); })()`); await sleep(150);
 rows = await xl();
 t.check("search narrows the list", rows.length === 1 && /^Pane comune/.test(rows[0]), JSON.stringify(rows));
+// 2.100.1: English finds the Italian name, and the empty message isn't clipped under the search box
+await dev.eval(`(() => { const f = document.getElementById("xlib-search"); f.value = "Bread"; f.dispatchEvent(new Event("input", { bubbles: true })); })()`); await sleep(150);
+rows = await xl();
+t.check("searching Bread finds Pane comune", rows.length === 1 && /^Pane comune/.test(rows[0]), JSON.stringify(rows));
+await dev.eval(`(() => { const f = document.getElementById("xlib-search"); f.value = "Wine"; f.dispatchEvent(new Event("input", { bubbles: true })); })()`); await sleep(150);
+const emptyMsg = await dev.eval(`(() => { const p = document.querySelector("#xlib-list > .panel-card__hint"), f = document.getElementById("xlib-search"), l = document.getElementById("xlib-list"); if (!p) return null; const a = p.getBoundingClientRect(), b = f.getBoundingClientRect(), c = l.getBoundingClientRect(); return { text: p.textContent, belowField: a.top >= b.bottom - 0.5, inList: a.top >= c.top - 0.5 }; })()`);
+t.check("nothing matching: the message sits fully below the search box", emptyMsg && emptyMsg.belowField && emptyMsg.inList && /Nothing in your library matches .Wine./.test(emptyMsg.text), JSON.stringify(emptyMsg));
+await dev.eval(`(() => { const f = document.getElementById("xlib-search"); f.value = "pane"; f.dispatchEvent(new Event("input", { bubbles: true })); })()`); await sleep(150);
 await dev.eval(`document.querySelector(".xlib-sheet .xlib-row").click()`); await sleep(200);
 const xk = () => dev.eval(`document.getElementById("xlib-kcal").textContent`);
 t.check("picking it suggests the grams you logged last time (60 g = 180 kcal)", (await dev.eval(`document.getElementById("xlib-grams").value`)) === "60" && /^60 g = 180 kcal\./.test(await xk()), await xk());

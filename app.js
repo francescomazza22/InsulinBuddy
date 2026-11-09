@@ -44,6 +44,7 @@ import { workoutsToActivities, awaitingIntensity, mayBeDoubleCounted, intensityU
 import { dayBounds, shiftDay, dayTimeline, readingNear, stackRows } from "./js/day-timeline.js";
 import { sessionLevel, primaryTotp, verifyCode, startTotpSetup, cancelTotpSetup, removeTotp, signOutOtherDevices, groupSecret, cleanTotpCode, validTotpCode } from "./js/mfa.js";
 import { nearActivity, activitySkip, countNearActivity, breakfastByActivity, activitySummary, ACTIVITY_FILTERS, NEAR_BEFORE_HOURS, NEAR_AFTER_HOURS } from "./js/activity-stats.js";
+import { foodNameMatches } from "./js/food-search.js";
 import { weekdayOf, mealTypesForDay, MEAL_KINDS, extraFromFood, extrasForDay, setDayExtra, setDayCount, resetDay, addDayOneOff, ONE_OFFS_MAX, dayKeyOf, eatingOutEstimates, eatingOutKcalFromInsulin, EATING_OUT_CORRECTION_HOURS, KCAL_PER_G_CARB, todayCalories, calorieRule, calorieSummary, missingDetails, restingKcal, extrasKcal, cleanExtra, LIFE_FACTORS, CALORIE_DEFAULTS, CALORIE_LIMITS } from "./js/calories.js";
 
 
@@ -802,7 +803,7 @@ import { weekdayOf, mealTypesForDay, MEAL_KINDS, extraFromFood, extrasForDay, se
   function renderFoodPickList() {
     const q = searchInput.value.trim().toLowerCase();
     let items = pickableItems();
-    if (q) items = items.filter(i => i.name.toLowerCase().includes(q));
+    if (q) items = items.filter(i => foodNameMatches(i.name, q));   // 2.100.1: accents, English/Italian names
     // Most eaten in this time slot first (Morning, Lunch…), then most eaten overall, then A to Z.
     const slot = foodOrderSlot();
     foodOrderSlotId = slot ? slot.id : null;
@@ -992,7 +993,7 @@ import { weekdayOf, mealTypesForDay, MEAL_KINDS, extraFromFood, extrasForDay, se
     function rows() {
       const q = search.value.trim().toLowerCase();
       let r = pickableItems();
-      if (q) r = r.filter(i => i.name.toLowerCase().includes(q));    // searching looks everywhere, whichever tab is open
+      if (q) r = r.filter(i => foodNameMatches(i.name, q));    // searching looks everywhere, whichever tab is open
       else if (tab === "fav") r = r.filter(i => i.favorite);
       else if (tab === "used") r = r.filter(i => i.usageCount).sort((a, b) => b.usageCount - a.usageCount);
       else if (tab === "recipes") r = r.filter(i => i.refType === "recipe");
@@ -5110,7 +5111,7 @@ import { weekdayOf, mealTypesForDay, MEAL_KINDS, extraFromFood, extrasForDay, se
   function renderFoodsLibrary() {
     const q = libSearch.value.trim().toLowerCase();
     let items = state.library.slice();
-    if (q) items = items.filter(f => f.name.toLowerCase().includes(q));
+    if (q) items = items.filter(f => foodNameMatches(f.name, q));
     if (libFavOnly.checked) items = items.filter(f => f.favorite);
     if (libCatFilter.value) items = items.filter(f => f.category === libCatFilter.value);
     const sort = libSort.value;
@@ -5373,7 +5374,7 @@ import { weekdayOf, mealTypesForDay, MEAL_KINDS, extraFromFood, extrasForDay, se
   function renderRecipesLibrary() {
     const q = libSearch.value.trim().toLowerCase();
     let items = state.recipes.slice();
-    if (q) items = items.filter(r => r.name.toLowerCase().includes(q));
+    if (q) items = items.filter(r => foodNameMatches(r.name, q));
     if (libFavOnly.checked) items = items.filter(r => r.favorite);
     libRecipesList.innerHTML = "";
     libEmpty.hidden = items.length > 0;
@@ -5599,7 +5600,7 @@ import { weekdayOf, mealTypesForDay, MEAL_KINDS, extraFromFood, extrasForDay, se
       const dd = backdrop.querySelector("#rs-ing-dropdown");
       const q = backdrop.querySelector("#rs-ing-search").value.trim().toLowerCase();
       if (!q) { dd.hidden = true; dd.innerHTML = ""; return; }
-      const matches = state.library.filter(f => f.name.toLowerCase().includes(q)).slice(0, 8);
+      const matches = state.library.filter(f => foodNameMatches(f.name, q)).slice(0, 8);
       if (matches.length === 0) { dd.hidden = true; dd.innerHTML = ""; return; }
       dd.innerHTML = matches.map(f => `<button type="button" class="ingredient-dropdown__item" data-id="${escapeAttr(f.id)}">${escapeHtml(f.name)} <span>${f.carbs}g carbs/100g</span></button>`).join("");
       dd.hidden = false;
@@ -7566,7 +7567,7 @@ import { weekdayOf, mealTypesForDay, MEAL_KINDS, extraFromFood, extrasForDay, se
     function renderResults() {
       const q = searchEl.value.trim().toLowerCase();
       if (!q) { resultsEl.hidden = true; resultsEl.innerHTML = ""; return; }
-      const found = pickableItems().filter(p => p.carbsPer100g != null && p.name.toLowerCase().includes(q))
+      const found = pickableItems().filter(p => p.carbsPer100g != null && foodNameMatches(p.name, q))
         .sort((a, b) => (b.name.toLowerCase().startsWith(q) - a.name.toLowerCase().startsWith(q)) || (b.usageCount - a.usageCount) || a.name.localeCompare(b.name))
         .slice(0, 6);
       resultsEl.hidden = false;
@@ -8252,10 +8253,10 @@ import { weekdayOf, mealTypesForDay, MEAL_KINDS, extraFromFood, extrasForDay, se
     };
     function drawList() {
       const q = $("#xlib-search").value.trim().toLowerCase();
-      const shown = items.filter(it => !q || it.name.toLowerCase().includes(q)).slice(0, 40);
+      const shown = items.filter(it => !q || foodNameMatches(it.name, q)).slice(0, 40);
       $("#xlib-list").innerHTML = shown.length
         ? shown.map(it => `<button type="button" class="xlib-row" role="listitem" data-xlib="${escapeAttr(it.id)}"><span class="xlib-row__name">${escapeHtml(it.name)}</span><span class="xlib-row__kcal">${per(it)}</span></button>`).join("")
-        : `<p class="panel-card__hint">Nothing in your library matches.</p>`;
+        : `<p class="panel-card__hint">Nothing in your library matches \u201c${escapeHtml($("#xlib-search").value.trim())}\u201d. Search in English or Italian, or add it in Settings > Library first.</p>`;
     }
     function preview() {
       const grams = parseDecimalInput($("#xlib-grams").value);

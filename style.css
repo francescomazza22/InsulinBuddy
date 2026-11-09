@@ -2335,3 +2335,4 @@ html[data-theme="dark"] .dose-card .carbs-pill.carbs-pill--ratio.mode-chip.is-su
 .dc-row.is-waiting .dc-row__sub { font-style: italic; }
 .dc-note { margin-top: var(--space-xs); }
 .day-kcal-sheet .dx-links { margin-top: var(--space-s); }
+.xlib-list > .panel-card__hint { margin: var(--space-s) var(--space-2xs); }   /* 2.100.1: the hint's -8px top margin clipped it inside the scrolling list */
