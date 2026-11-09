@@ -208,14 +208,14 @@ const align = await dev.eval(`(() => { const [a, b] = ["cc-day-carbs", "cc-day-k
 t.check("the carbs and calories bars line up", align.dl < 1.5 && align.dr < 1.5, JSON.stringify(align));
 t.check("once logged it counts: 778 kcal, 1,052 left", k.today === "Today 778 kcal" && k.target === "1,052 left" && k.draft < 0.01, JSON.stringify(k));
 // 2.83.0: tapping the bar opens today's extras, starting at the usual amounts (olive oil 2 tbsp, flat white 1 cup = 348).
-await dev.click("#cc-day-kcal"); await sleep(600);
+await dev.click("#cc-day-kcal"); await sleep(600); await dev.click("#dc-extras"); await sleep(400);
 const dxs = () => dev.eval(`(() => { const sh = document.querySelector(".day-extras-sheet"); if (!sh) return { open: false };
   const rows = [...sh.querySelectorAll(".dx-row")].map(r => ({ id: r.dataset.xid, n: r.querySelector(".dx-step__count").textContent, sub: r.querySelector(".dx-row__sub").textContent, changed: r.classList.contains("is-changed"), minusOff: r.querySelector('[data-dx="-1"]').disabled }));
   return { open: true, rows, total: document.getElementById("dx-total").textContent, resetShown: !document.getElementById("dx-reset").hidden && document.getElementById("dx-reset").offsetParent !== null }; })()`);
 const dayExtrasSaved = () => dev.eval(`JSON.parse(localStorage.getItem("insulinBuddy.v2")).settings.calories.dayExtras || {}`);
 const todayKey = await dev.eval(`(() => { const d = new Date(), p = n => String(n).padStart(2, "0"); return d.getFullYear() + "-" + p(d.getMonth() + 1) + "-" + p(d.getDate()); })()`);
 let dx = await dxs();
-t.check("tapping the bar opens today's extras at the usual amounts", dx.open && dx.rows.map(r => r.n).join(",") === "2,1" && dx.total === "Today 348 kcal of extras" && !dx.resetShown, JSON.stringify(dx));
+t.check("tapping the bar, then Change today's extras, opens today's extras at the usual amounts", dx.open && dx.rows.map(r => r.n).join(",") === "2,1" && dx.total === "Today 348 kcal of extras" && !dx.resetShown, JSON.stringify(dx));
 const tapDx = (id, d) => dev.eval(`document.querySelector('.day-extras-sheet [data-xid="${id}"] [data-dx="${d}"]').click()`);
 await tapDx("flat-white", 1); await tapDx("flat-white", 1); await sleep(250);
 dx = await dxs(); k = await kbar();
@@ -233,7 +233,7 @@ await tapDx("flat-white", 1); await sleep(150);
 await dev.click("#dx-done"); await sleep(300);
 k = await kbar();
 t.check("Done closes it, and today keeps 2 flat whites (2,178 - 458 - 778 = 942 left)", !(await dxs()).open && k.target === "942 left", JSON.stringify(k));
-await dev.click("#cc-day-kcal"); await sleep(500);
+await dev.click("#cc-day-kcal"); await sleep(500); await dev.click("#dc-extras"); await sleep(400);
 await dev.click("#dx-trends"); await sleep(700);
 t.check("from the sheet, Calories in Trends opens the card", await dev.eval(`!document.getElementById("view-history").hidden && document.querySelector('#history-segmented [data-seg="trends"]').classList.contains("is-active")`));
 await dev.eval(`document.querySelector('#trends-range-segmented [data-range="7"]').click()`); await sleep(400);
@@ -284,7 +284,7 @@ await dev.click("#dx-reset"); await sleep(200);
 t.check("Back to usual clears that day", JSON.stringify((await saved()).dayExtras || {}) === "{}");
 await dev.click("#dx-done"); await sleep(400);
 await dev.tab("calculator"); await sleep(300);
-await dev.click("#cc-day-kcal"); await sleep(500);
+await dev.click("#cc-day-kcal"); await sleep(500); await dev.click("#dc-extras"); await sleep(400);
 ps = await sh();
 t.check("from the Calculator it's still today's extras, with + Add something today", ps.open && ps.title === "Today's extras" && ps.add === "+ Add something today" && ps.trends, JSON.stringify(ps));
 await dev.click("#dx-done"); await sleep(300);
@@ -319,7 +319,7 @@ t.check("the total says how much only counts with meals", /Extras: 598 kcal a da
 await dev.tab("calculator"); await sleep(300);
 k = await kbar();
 t.check("not that meal's day: mozzarella doesn't count (today 600 kcal, 1,230 left)", k.today === "Today 600 kcal" && k.target === "1,230 left", JSON.stringify(k));
-await dev.click("#cc-day-kcal"); await sleep(400);
+await dev.click("#cc-day-kcal"); await sleep(400); await dev.click("#dc-extras"); await sleep(400);
 let mrow = await dev.eval(`document.querySelector('.day-extras-sheet [data-xid="${mid}"] .dx-row__sub').textContent`);
 t.check("Today's extras says it counts once that meal is logged", mrow === `1 ball · 250 kcal · counts once ${otherMeal} is logged`, mrow);
 await dev.click("#dx-done"); await sleep(300);
@@ -334,7 +334,7 @@ await dev.tab("calculator"); await sleep(300);
 k = await kbar();
 // set aside now: oil 238 only -> 2177.5 - 238 = 1939.5 for food; eaten 600 + half a flat white 55 = 655
 t.check(`with only ${seedType} logged, half the flat white counts: 655 kcal, 1,285 left`, k.today === "Today 655 kcal" && k.target === "1,285 left", JSON.stringify(k));
-await dev.click("#cc-day-kcal"); await sleep(400);
+await dev.click("#cc-day-kcal"); await sleep(400); await dev.click("#dc-extras"); await sleep(400);
 mrow = await dev.eval(`document.querySelector('.day-extras-sheet [data-xid="flat-white"] .dx-row__sub').textContent`);
 t.check("Today's extras shows the share so far", mrow === `1 cup · 110 kcal · 55 counted (${seedType} so far)`, mrow);
 await dev.click("#dx-done"); await sleep(300);
@@ -347,7 +347,7 @@ t.check(`building a ${curMeal} brings mozzarella and the other half flat white: 
 await dev.click("#cc-log-btn"); await sleep(700);
 k = await kbar();
 t.check(`once logged: 600 + 178 + 250 + 110 = 1,138`, k.today === "Today 1,138 kcal" && k.target === "802 left", JSON.stringify(k));
-await dev.click("#cc-day-kcal"); await sleep(400);
+await dev.click("#cc-day-kcal"); await sleep(400); await dev.click("#dc-extras"); await sleep(400);
 const subs = await dev.eval(`[...document.querySelectorAll(".day-extras-sheet .dx-row")].map(r => r.dataset.xid + ": " + r.querySelector(".dx-row__sub").textContent)`);
 t.check("and the sheet says both are with their meals", subs.includes(`${mid}: 1 ball · 250 kcal · with ${curMeal}`) && subs.includes(`flat-white: 1 cup · 110 kcal · with ${order[0]} + ${order[1]}`), JSON.stringify(subs));
 if (SHOTS) await dev.shot(`${SHOTS}/meal-split-sheet-${W}${dark ? "-dark" : ""}.png`);
@@ -418,7 +418,7 @@ await dev.tab("calculator"); await sleep(300);
 k = await kbar();
 // today: only olive oil (238) set aside -> 2177.5 - 238 = 1939.5 for food
 t.check("today isn't one of its days: the flat white isn't set aside (1,940 left)", k.today === "Today 0 kcal" && k.target === "1,940 left", JSON.stringify(k));
-await dev.click("#cc-day-kcal"); await sleep(400);
+await dev.click("#cc-day-kcal"); await sleep(400); await dev.click("#dc-extras"); await sleep(400);
 const todayName = await dev.eval(`new Date().toLocaleDateString(undefined, { weekday: "long" })`);
 let fwSub = await dev.eval(`document.querySelector('.day-extras-sheet [data-xid="flat-white"] .dx-row__sub').textContent`);
 t.check("Today's extras shows it at 0, not usual today", (await dev.eval(`document.querySelector('.day-extras-sheet [data-xid="flat-white"] .dx-step__count').textContent`)) === "0" && fwSub.endsWith(`not usual on ${todayName}s`), fwSub);
@@ -457,6 +457,49 @@ t.section("MEALS LOGGED FOR LATER (2.99.0)");
     t.check("no JS errors", (await dev.eval("window.__errs.length")) === 0, JSON.stringify(await dev.eval("window.__errs")));
     dev.close();
   }
+}
+
+t.section("TODAY'S CALORIES BREAKDOWN (2.100.0)");
+{
+  const curMeal2 = autoMealType(new Date());
+  const endOfDay2 = new Date(); endOfDay2.setHours(23, 58, 0, 0);
+  const aheadTs2 = Math.min(Date.now() + 90 * 60000, endOfDay2.getTime());
+  const laterOk = aheadTs2 > Date.now() + 3 * 60000;
+  const tAgo = m => Math.max(at(0, 0, 1) + m * 1000, Date.now() - m * 60000);
+  const withMeal = { ...calories, extras: [...calories.extras, { id: "mozz", name: "Mozzarella", unit: "ball", kcalPerUnit: 250, perDay: 1, meals: [curMeal2] }, { id: "nut", name: "Nuts", unit: "handful", kcalPerUnit: 160, perDay: 1, meals: [curMeal2 === "dinner" ? "lunch" : "dinner"] }] };
+  const h3 = [
+    meal("f1", tAgo(30), { totalKcal: 520, mealType: curMeal2, items: [{ name: "Pane comune", grams: 60, carbs: 39, kcal: 180 }, { name: "Banana", grams: 200, carbs: 46, kcal: 340 }] }),
+    meal("e1x", tAgo(20), { mealType: "snack", carbsUnknown: true, items: [], totalCarbs: 0, totalKcal: 0, mealDose: 2, ratioValue: 10, knownKcal: 300 }),
+    { id: "w1", ts: tAgo(60), entryType: "activity", mealType: "activity", activityType: "walk", intensity: "moderate", durationMin: 30, items: [], totalCarbs: 0, totalKcal: 0, mealDose: 0, correctionDose: 0 },
+    ...(laterOk ? [meal("later1", aheadTs2, { totalKcal: 700, mealType: "dinner" })] : [])
+  ];
+  const blob = stateBlob({ history: h3, settings: { darkMode: dark, darkModeAuto: false, calories: withMeal } });
+  dev = await openDevice(app, { width: W, height: 1000, mobile: W < 1000, dark, inject: `if (!localStorage.getItem("insulinBuddy.v2")) { ${seedLocal(blob)} }`, wait: 1500 });
+  await dev.tab("calculator"); await sleep(300);
+  k = await kbar();
+  await dev.click("#cc-day-kcal"); await sleep(500);
+  const bd = await dev.eval(`(() => { const s = document.querySelector(".day-kcal-sheet"); if (!s) return { open: false };
+    const secs = [...s.querySelectorAll(".dc-section")].map(x => ({ title: [...x.querySelector(".dc-section__title").children].map(c => c.textContent.trim()).join(" "), rows: [...x.querySelectorAll(".dc-row")].map(r => [r.querySelector(".dc-row__label").textContent, (r.querySelector(".dc-row__sub") || {}).textContent || "", r.querySelector(".dc-row__kcal").textContent]) }));
+    return { open: true, title: s.querySelector("#dc-title").textContent, head: [...s.querySelector(".dc-head").children].map(c => c.textContent.replace(/\\s+/g, " ").trim()).join(" "), secs }; })()`);
+  console.log("  ", JSON.stringify(bd).slice(0, 900));
+  const sec = name => (bd.secs || []).find(x => x.title.startsWith(name)) || { rows: [], title: "" };
+  // food 520 + eating out 300 = 820; extras: oil 238 + flat white 110 + mozzarella 250 (its meal is logged) = 598; nuts wait.
+  // needed: 2177.5 + walk (3.5-1)*75*0.5 = 93.75 -> 2271.25; left = 2271.25 - 820 - 598 = 853.25
+  t.check("tapping the bar opens Today's calories", bd.open && bd.title === "Today's calories");
+  t.check("headline: 1,418 counted so far, 853 left of 2,271 needed (same left as the bar)", bd.head === "1,418 kcal counted so far 853 left of 2,271 needed today" && k.target === "853 left", bd.head + " | " + k.target);
+  const food = sec("Food");
+  t.check("Food lists each meal in time order with its foods and kcal", food.title === "Food 820 kcal" && food.rows.length === 2 && /Pane comune, Banana/.test(food.rows[0][1]) && food.rows[0][2] === "520" && /eating out, as you logged it/.test(food.rows[1][1]) && food.rows[1][2] === "300", JSON.stringify(food));
+  const ex = sec("Extras");
+  t.check("Extras lists what counted, and what's still waiting for its meal", ex.title === "Extras 598 kcal" && ex.rows.some(r => r[0] === "Olive oil" && r[2] === "238") && ex.rows.some(r => r[0] === "Mozzarella" && /with /.test(r[1]) && r[2] === "250") && ex.rows.some(r => r[0] === "Nuts" && /counts once .* is logged/.test(r[1]) && r[2] === "\u2014"), JSON.stringify(ex));
+  if (laterOk) { const lt = sec("Later today"); t.check("Later today lists the meal logged ahead", lt.rows.length === 1 && lt.rows[0][1] === "counts from then" && lt.rows[0][2] === "700", JSON.stringify(lt)); }
+  const nd = sec("Needed today");
+  t.check("Needed shows resting, everyday moving and the walk", nd.title === "Needed today 2,271 kcal" && nd.rows[0][0] === "Resting" && nd.rows[0][2] === "1,675" && nd.rows[1][2] === "+503" && /^Walk/.test(nd.rows[2][0]) && nd.rows[2][2] === "+94", JSON.stringify(nd));
+  if (SHOTS) await dev.shot(`${SHOTS}/day-kcal-${W}${dark ? "-dark" : ""}.png`);
+  await dev.click("#dc-extras"); await sleep(500);
+  t.check("Change today's extras opens the extras sheet in its place", !(await dev.eval(`!!document.querySelector(".day-kcal-sheet")`)) && (await dev.eval(`!!document.querySelector(".day-extras-sheet")`)));
+  await dev.click("#dx-done"); await sleep(300);
+  t.check("no sideways scroll, no JS errors", (await dev.eval(`document.documentElement.scrollWidth <= innerWidth + 1`)) && (await dev.eval("window.__errs.length")) === 0, JSON.stringify(await dev.eval("window.__errs")));
+  dev.close();
 }
 
 t.section("NOT SET UP");

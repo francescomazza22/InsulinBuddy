@@ -3130,7 +3130,7 @@ import { weekdayOf, mealTypesForDay, MEAL_KINDS, extraFromFood, extrasForDay, se
     paintDayBar("cc-day-kcal", overBar({ logged: t.eaten, draft: t.draft, target: t.target }));
     box.classList.toggle("is-over", t.over);
     const left = rest;
-    box.setAttribute("aria-label", `Food today: about ${kcalText(t.eaten)} kcal logged${t.mealExtras > 0 ? ` (including ${kcalText(t.mealExtras)} of extras that go with your meals)` : ""}${t.draft > 0 ? `, plus ${kcalText(t.draft)} in this meal${t.draftExtras > 0 ? ` (${kcalText(t.draftExtras)} of it extras for ${MEAL_TYPES[buildingMeal].label.toLowerCase()})` : ""}` : ""}. About ${kcalText(t.needed)} needed today${t.activity > 0 ? ` including ${kcalText(t.activity)} for activity` : ""}${t.extras > 0 ? `, ${kcalText(t.extras)} of it set aside for your daily extras, so ${kcalText(t.target)} for food` : ""}: ${left >= 0 ? `${kcalText(left)} left` : `${kcalText(-left)} over`}. Estimates. Tap to change today's extras.`);
+    box.setAttribute("aria-label", `Food today: about ${kcalText(t.eaten)} kcal logged${t.mealExtras > 0 ? ` (including ${kcalText(t.mealExtras)} of extras that go with your meals)` : ""}${t.draft > 0 ? `, plus ${kcalText(t.draft)} in this meal${t.draftExtras > 0 ? ` (${kcalText(t.draftExtras)} of it extras for ${MEAL_TYPES[buildingMeal].label.toLowerCase()})` : ""}` : ""}. About ${kcalText(t.needed)} needed today${t.activity > 0 ? ` including ${kcalText(t.activity)} for activity` : ""}${t.extras > 0 ? `, ${kcalText(t.extras)} of it set aside for your daily extras, so ${kcalText(t.target)} for food` : ""}: ${left >= 0 ? `${kcalText(left)} left` : `${kcalText(-left)} over`}. Estimates. Tap for the breakdown.`);
     const laterText = (t.later || []).map(x => `${MEAL_TYPES[x.mealType] ? MEAL_TYPES[x.mealType].label : "A meal"} at ${formatTime(x.ts)} (${kcalText(x.kcal)} kcal) counts from then`).join("; ");   // 2.99.0
     if (laterText) box.setAttribute("aria-label", `${box.getAttribute("aria-label")} ${laterText}.`);
     box.title = `${laterText ? laterText + ". " : ""}${kcalText(t.target)} for food today${t.extras > 0 ? ` (${kcalText(t.needed)} for the day less ${kcalText(t.extras)} of daily extras)` : ""}, minus ${kcalText(t.eaten)} logged${t.draft > 0 ? ` and ${kcalText(t.draft)} in this meal` : ""}`;
@@ -3166,7 +3166,97 @@ import { weekdayOf, mealTypesForDay, MEAL_KINDS, extraFromFood, extrasForDay, se
     const c = el("trend-card-calories");
     if (c) requestAnimationFrame(() => { if (!c.hidden) c.scrollIntoView({ block: "start", behavior: "smooth" }); });
   }
-  bind("cc-day-kcal", "click", () => openDayExtrasSheet());   // 2.83.0: today's extras (it used to open Trends)
+  bind("cc-day-kcal", "click", () => openDayCaloriesSheet());   // 2.100.0: today's breakdown (2.83.0–2.99: the extras sheet, now one tap further)
+
+  // ---- Today's calories (2.100.0) ----
+  // Everything counted today, in one list: each meal (food, treated lows, eating out and how its figure was reached), the
+  // extras (whole, a share so far, or still waiting for their meal), meals logged for later, activity, and how "needed" and
+  // "left" are worked out. Same maths as the bar (js/calories.js); this only lays it out.
+  function openDayCaloriesSheet() {
+    const trigger = el("cc-day-kcal");
+    const backdrop = document.createElement("div");
+    backdrop.className = "sheet-backdrop";
+    backdrop.innerHTML = `
+      <div class="sheet day-kcal-sheet" role="dialog" aria-modal="true" aria-labelledby="dc-title">
+        <div class="sheet-head">
+          <h2 id="dc-title">Today's calories</h2>
+          <button class="sheet-close" id="dc-close" type="button" aria-label="Close">
+            <svg viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+          </button>
+        </div>
+        <div id="dc-body"></div>
+        <div class="dx-links">
+          <button class="dashed-btn" id="dc-extras" type="button">Change today's extras</button>
+          <button class="dashed-btn" id="dc-trends" type="button">See in Trends</button>
+        </div>
+      </div>`;
+    const $ = sel => backdrop.querySelector(sel);
+    const fmtN = n => String(round1(n));
+    const mealLabel = m => (MEAL_TYPES[m] ? MEAL_TYPES[m].label : "Meal");
+    const row = (label, sub, kcal, cls = "") => `<div class="dc-row${cls ? " " + cls : ""}"><div class="dc-row__main"><span class="dc-row__label">${label}</span>${sub ? `<span class="dc-row__sub">${sub}</span>` : ""}</div><span class="dc-row__kcal">${kcal}</span></div>`;
+    const section = (title, total, rows) => `<section class="dc-section"><h3 class="dc-section__title"><span>${title}</span>${total != null ? `<span>${total}</span>` : ""}</h3>${rows}</section>`;
+    const now = Date.now(), dayKey = dayKeyOf(now);
+    const sum = calorieSummary(state.history, state.settings, { days: 1, now });
+    const d = sum.days[0], r = sum.rule;
+    const dx = extrasForDay(r, dayKey, d.mealTypes);
+    let html = "";
+    // headline: what's counted, and what's left of what's needed
+    const hasTarget = d.target != null;
+    html += `<div class="dc-head"><div class="dc-head__big"><b>${kcalText(d.food + dx.total)}</b> kcal counted so far</div>` +
+      (hasTarget ? `<div class="dc-head__sub">${(() => { const left = d.target - d.food - dx.total; return left >= 0 ? `${kcalText(left)} left` : `${kcalText(-left)} over`; })()} of ${kcalText(d.target)} needed today</div>` : `<div class="dc-head__sub">Add your details in Settings > Calories to see what you need.</div>`) + `</div>`;
+    // food
+    const entries = d.entries.slice().sort((a, b) => a.ts - b.ts);
+    const foodRows = entries.map(x => {
+      const when = `${formatTime(x.ts)} \u00b7 ${escapeHtml(mealLabel(x.mealType))}`;
+      if (x.kind === "eatout") {
+        const e = x.est;
+        const how = !e || e.kcal == null ? "eating out, not counted (no estimate set)"
+          : e.from === "logged" ? "eating out, as you logged it"
+          : e.from === "insulin" ? `eating out: ${fmtN(e.units)}u${e.corrUnits ? ` + ${fmtN(e.corrUnits)}u correction` : ""} at ${ratioText(fmtN(e.ratio))} \u2192 ${Math.round(e.carbs)} g carbs \u00d74\u00d7${r.eatingOutMultiplier}`
+          : "eating out, fixed figure";
+        return row(when, escapeHtml(how), x.kcal == null ? "\u2014" : `${kcalText(x.kcal)}`);
+      }
+      const names = (x.items || []).map(i => i.name).filter(Boolean);
+      const sub = (x.kind === "low" ? "treated low \u00b7 " : "") + (names.length ? escapeHtml(names.slice(0, 3).join(", ") + (names.length > 3 ? ` + ${names.length - 3} more` : "")) : "") + (x.missing ? ` \u00b7 ${x.missing} without a calorie figure` : "");
+      return row(when, sub, kcalText(x.kcal));
+    }).join("");
+    html += section("Food", entries.length ? `${kcalText(d.food)} kcal` : null, foodRows || `<p class="panel-card__hint">Nothing logged yet today.</p>`);
+    // extras
+    const mn = m => MEAL_TYPES[m].label.toLowerCase();
+    const exRows = dx.items.filter(x => x.count > 0 || x.changed).map(x => {
+      const amt = `${fmtN(x.count)}${x.unit ? ` ${/^\d/.test(x.unit) ? "\u00d7 " + x.unit : unitPlural(x.unit, x.count)}` : ""}`;
+      const ms = x.meals || [];
+      let sub = amt, val = kcalText(x.counted), cls = "";
+      if (x.oneOff) sub += " \u00b7 today only";
+      else if (ms.length && x.share <= 0) { sub += ` \u00b7 counts once ${ms.map(mn).join(" or ")} is logged`; val = "\u2014"; cls = "is-waiting"; }
+      else if (ms.length && x.share < 1) sub += ` \u00b7 ${x.logged.map(mn).join(" + ")} so far (${Math.round(x.share * 100)}%)`;
+      else if (ms.length) sub += ` \u00b7 with ${ms.map(mn).join(" + ")}`;
+      if (!x.oneOff && x.changed) sub += ` \u00b7 usual ${fmtN(x.usual)}`;
+      return row(escapeHtml(x.name), sub, val, cls);
+    }).join("");
+    html += section("Extras", `${kcalText(dx.total)} kcal`, exRows || `<p class="panel-card__hint">No extras today.</p>`);
+    // later today
+    if (d.later.length) html += section("Later today", null, d.later.slice().sort((a, b) => a.ts - b.ts).map(x =>
+      row(`${formatTime(x.ts)} \u00b7 ${escapeHtml(mealLabel(x.mealType))}`, "counts from then", kcalText(x.kcal), "is-waiting")).join(""));
+    // needed
+    if (hasTarget) {
+      const acts = d.activities.map(a => row(`${escapeHtml(activityLabel(a.entry))} \u00b7 ${formatMinutes(Math.round(a.minutes))}`, a.from === "watch" ? "the Watch's active calories" : "estimated from type, minutes and intensity", `+${kcalText(a.kcal)}`)).join("");
+      html += section("Needed today", `${kcalText(d.target)} kcal`,
+        row("Resting", `from your details (Mifflin-St Jeor)`, kcalText(d.resting)) +
+        row("Everyday moving", `\u00d7${r.lifeFactor}`, `+${kcalText(d.life - d.resting)}`) + acts +
+        (d.unestimated ? `<p class="panel-card__hint">${d.unestimated} activit${d.unestimated === 1 ? "y isn't" : "ies aren't"} counted: add your weight to estimate ${d.unestimated === 1 ? "it" : "them"}.</p>` : ""));
+      html += `<p class="panel-card__hint dc-note">The bar in the Calculator shows food (and extras that go with meals) against what's left for food once your every-day extras are set aside. Same total, same \u201cleft\u201d. All figures are estimates.</p>`;
+    }
+    $("#dc-body").innerHTML = html;
+    const close = () => { closeSheet(backdrop); if (trigger && trigger.isConnected) trigger.focus({ preventScroll: true }); };
+    $("#dc-close").addEventListener("click", close);
+    $("#dc-extras").addEventListener("click", () => { close(); openDayExtrasSheet(); });
+    $("#dc-trends").addEventListener("click", () => { close(); openCaloriesTrend(); });
+    backdrop.addEventListener("click", e => { if (e.target === backdrop) close(); });
+    backdrop.addEventListener("keydown", e => { if (e.key === "Escape") close(); });
+    openSheet(backdrop);
+    requestAnimationFrame(() => { const f = $("#dc-close"); if (f) f.focus({ preventScroll: true }); });
+  }
 
   // ---- Today's extras (2.83.0; any day and one-off items 2.91.0) ----
   // Each day starts at the usual daily extras; here he says what he actually had. Every tap is saved at once (a day set

@@ -378,3 +378,14 @@ test("meals logged for later (2.99.0) count only once their time has passed, wit
   const s = calorieSummary([meal(at(0, 20), 700)], { calories: set }, { days: 1, now: NOW });
   assert.equal(s.days[0].logged, false); assert.equal(s.days[0].laterKcal, 700);
 });
+
+test("the day's entries for the breakdown (2.100.0): food meals, lows and eating out, in time order with their kcal", () => {
+  const h = [meal(at(0, 9), 400, { mealType: "breakfast" }), meal(at(0, 11), 60, { mealType: "snack", noInsulin: true }),
+    { id: "eo", ts: at(0, 13), mealType: "lunch", carbsUnknown: true, items: [], totalCarbs: 0, totalKcal: 0, mealDose: 10, correctionDose: 0, ratioValue: 8 },
+    { id: "c", ts: at(0, 14), mealType: "correction", items: [], totalCarbs: 0, totalKcal: 0, mealDose: 0, correctionDose: 2 },
+    meal(at(0, 20), 700, { mealType: "dinner" })];
+  const d = calorieSummary(h, { calories: me }, { days: 1, now: NOW }).days[0];
+  const list = d.entries.sort((a, b) => a.ts - b.ts).map(x => [x.mealType, x.kind, Math.round(x.kcal)]);
+  assert.deepEqual(list, [["breakfast", "food", 400], ["snack", "low", 60], ["lunch", "eatout", (10 + 2) * 8 * 8]]);   // the 14:00 correction is added to lunch; dinner is later
+  assert.equal(d.later.length, 1);
+});

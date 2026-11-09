@@ -364,7 +364,7 @@ export function calorieSummary(history, settings, { days = 14, now = Date.now() 
   const out = [];
   for (let i = days - 1; i >= 0; i--) {
     const start = shiftDay(now, -i), end = shiftDay(start, 1);
-    out.push({ key: start, end, isToday: start === todayStart, food: 0, meals: 0, eatingOut: 0, unknownMeals: 0, assumedKcal: 0, eatingOutMeals: [], mealTypes: new Set(), missingKcal: 0, activity: 0, activities: [], unestimated: 0, later: [], laterKcal: 0 });
+    out.push({ key: start, end, isToday: start === todayStart, food: 0, meals: 0, eatingOut: 0, unknownMeals: 0, assumedKcal: 0, eatingOutMeals: [], mealTypes: new Set(), missingKcal: 0, activity: 0, activities: [], unestimated: 0, later: [], laterKcal: 0, entries: [] });
   }
   const from = out[0].key, to = out[out.length - 1].end;
   const dayOf = ts => out.find(d => ts >= d.key && ts < d.end);
@@ -412,9 +412,11 @@ export function calorieSummary(history, settings, { days = 14, now = Date.now() 
       d.eatingOut += 1;
       const est = eo.get(e.id);
       if (est && est.kcal != null) { d.food += est.kcal; d.assumedKcal += est.kcal; d.eatingOutMeals.push(est); } else d.unknownMeals += 1;
+      d.entries.push({ id: e.id, ts, mealType: e.mealType, kind: "eatout", kcal: est && est.kcal != null ? est.kcal : null, est: est || null });   // 2.100.0: for the day's breakdown
       continue;
     }
     d.food += foodKcal(e);
+    d.entries.push({ id: e.id, ts, mealType: e.mealType, kind: e.noInsulin ? "low" : "food", kcal: foodKcal(e), items: (Array.isArray(e.items) ? e.items : []).map(i => ({ name: i && i.name, kcal: Number(i && i.kcal) > 0 ? Number(i.kcal) : 0 })), missing: kcalMissing(e) });
     d.missingKcal += kcalMissing(e);
     if (EXTRA_MEALS.includes(e.mealType)) d.mealTypes.add(e.mealType);   // 2.94.0: meal extras follow the meals logged
   }
