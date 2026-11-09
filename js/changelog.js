@@ -2,6 +2,16 @@
 // summary can never drift. Bump CHANGELOG[0].version here (and CACHE_VERSION in sw.js) on every release.
 export const CHANGELOG = [
   {
+    version: "2.99.1",
+    summary: "At a low, Treating a low now switches on by itself, so no insulin is worked out for the carbs.",
+    changes: [
+      "Before, the amber \u201cTreating a low\u201d chip was only an offer but looked switched on, so food added during a low still got an insulin dose",
+      "Now, with a Nightscout reading under 70 mg/dL from the last 15 minutes, Treating a low is on: the dose is 0.0 and the Log button reads \u201cLog treated low\u201d. The note under the dose says whether it is on or off",
+      "Switch it off by hand if you want insulin: it then stays off for that low. A reading of 70 or more ends the low, and the next low switches it on again",
+      "At a high it is still only offered, now as an outline reading \u201c+ Correction\u201d, so it never looks switched on"
+    ]
+  },
+  {
     version: "2.99.0",
     summary: "Meals logged for later count in your calories only once their time has passed.",
     changes: [
