@@ -3326,12 +3326,15 @@ import { weekdayOf, mealTypesForDay, MEAL_KINDS, extraFromFood, extrasForDay, se
     const chip = el("cc-mode-btn");
     if (!chip) return;
     const label = modeChipLabel({ correctionOn: draft.correctionOn, noInsulinOn: draft.noInsulinOn, eatingOutOn: draft.eatingOutOn, extraOn: !!draft.extraOn, hasFood: draft.items.length > 0 });
-    // 2.97.0: with a fresh low or high reading and nothing chosen yet, the chip offers the mode that fits (one tap turns it on).
-    const suggest = on || modeOpen ? null : liveGlucoseSuggestion();
+    // 2.97.0 offered the mode that fits a fresh low or high reading. 2.99.1: a low switches Treating a low ON by itself
+    // (autoLowOn, below), because an amber "Treating a low" that was only an offer read as on while insulin was being worked
+    // out. A high is still only offered (switching on Correction by itself would add insulin), worded as an action.
+    const suggest = on || modeOpen ? null : (liveGlucoseSuggestion() === "high" ? "high" : null);
     chipSuggestion = suggest;
-    el("cc-mode-label").textContent = suggest === "low" ? "Treating a low" : suggest === "high" ? "Correction" : label;
+    el("cc-mode-label").textContent = suggest === "high" ? "+ Correction" : label;
     chip.classList.toggle("is-on", on);
-    chip.classList.toggle("is-suggest-low", suggest === "low");
+    chip.classList.toggle("is-low", !!draft.noInsulinOn);
+    chip.classList.toggle("is-suggest-low", false);
     chip.classList.toggle("is-suggest-high", suggest === "high");
     chip.setAttribute("aria-expanded", modeOpen ? "true" : "false");
     chip.setAttribute("aria-label", suggest === "low" ? "Glucose is low. Turn on Treating a low" : suggest === "high" ? "Glucose is high. Turn on Correction and fill in the glucose" : `${label}. ${modeOpen ? "Hide" : "Show"} Correction, Treating a low, Eating out and Adjust`);
@@ -3347,7 +3350,6 @@ import { weekdayOf, mealTypesForDay, MEAL_KINDS, extraFromFood, extrasForDay, se
     } catch (e) { return null; }
   }
   bind("cc-mode-btn", "click", () => {
-    if (chipSuggestion === "low") { el("cc-no-insulin-toggle").click(); return; }       // the row opens by itself once a mode is on
     if (chipSuggestion === "high") {
       correctionToggle.click();
       if (draft.correctionOn && !glucoseInput.value.trim()) fetchCurrentGlucoseFromNightscout();   // read only: the latest reading goes in the glucose box
@@ -3355,6 +3357,33 @@ import { weekdayOf, mealTypesForDay, MEAL_KINDS, extraFromFood, extrasForDay, se
     }
     modeOpen = !modeOpen; renderModeChip();
   });
+
+  // 2.99.1: with a fresh low (under 70 mg/dL, last 15 minutes) Treating a low switches on by itself: carbs only, no insulin.
+  // It never adds insulin, only takes the meal dose away. Switched off by hand (or by turning on Correction or Eating out) it
+  // stays off for that low; the next reading of 70 or more ends the low, so the next one switches it on again. It doesn't
+  // override a mode already chosen or a dose changed with − / +. The draft is saved, so a reload keeps it.
+  const LOW_AUTO_OFF_KEY = "insulinBuddy.lowAutoOff";
+  let lowAutoOff = (() => { try { return store.getItem(LOW_AUTO_OFF_KEY) === "1"; } catch (e) { return false; } })();
+  function setLowAutoOff(v) {
+    lowAutoOff = !!v;
+    try { if (v) store.setItem(LOW_AUTO_OFF_KEY, "1"); else store.removeItem(LOW_AUTO_OFF_KEY); } catch (e) { /* storage unavailable: kept for this session */ }
+  }
+  function lowNow() {
+    try {
+      if (!nightscoutConfigured() || !liveGlucose) return false;
+      return glucoseSuggestion({ mgdl: liveGlucose.mgdl, at: liveGlucose.at, staleMs: LIVE_GLUCOSE_STALE_MS }) === "low";
+    } catch (e) { return false; }
+  }
+  // Called where Treating a low goes from on to off by a person's choice.
+  function lowTurnedOffByHand() { if (lowNow()) setLowAutoOff(true); }
+  function autoLowOn() {
+    if (lowAutoOff || draft.noInsulinOn || draft.correctionOn || draft.eatingOutOn || draft.extraOn || !lowNow()) return false;
+    draft.noInsulinOn = true;
+    renderQuickUsual();
+    recompute();
+    saveDraftLocal();
+    return true;
+  }
 
   // 2.98.1: the mode buttons and their rows always show what the draft says. A path that replaces the draft (a late sign-in,
   // a cloud pull, "delete all") used to leave a button looking on while the draft had it off, so the Calculator could work
@@ -3374,6 +3403,7 @@ import { weekdayOf, mealTypesForDay, MEAL_KINDS, extraFromFood, extrasForDay, se
 
   function recompute() {
     syncModeButtons();
+    try { renderLowHint(); } catch (e) { /* the reading isn't set up yet at the very start */ }
     // Eating Out: carbs aren't being tracked for this entry at all, so the carbs pill and the
     // ratio-based formula are both bypassed in favor of the insulin dose entered directly.
     const carbs = draft.eatingOutOn ? 0 : totalCarbs();
@@ -3556,6 +3586,7 @@ import { weekdayOf, mealTypesForDay, MEAL_KINDS, extraFromFood, extrasForDay, se
     el("cc-fetch-glucose").hidden = !(draft.correctionOn && nightscoutConfigured());
     el("cc-fetch-glucose-status").hidden = true;
     if (draft.correctionOn && draft.noInsulinOn) {
+      lowTurnedOffByHand();
       draft.noInsulinOn = false;
       el("cc-no-insulin-toggle").classList.remove("is-active");
       el("cc-no-insulin-note").hidden = true;
@@ -3570,6 +3601,7 @@ import { weekdayOf, mealTypesForDay, MEAL_KINDS, extraFromFood, extrasForDay, se
 
   bind("cc-no-insulin-toggle", "click", () => {
     draft.noInsulinOn = !draft.noInsulinOn;
+    if (!draft.noInsulinOn) lowTurnedOffByHand();
     el("cc-no-insulin-toggle").classList.toggle("is-active", draft.noInsulinOn);
     el("cc-no-insulin-note").hidden = !draft.noInsulinOn;
     el("quick-carb-row").hidden = !draft.noInsulinOn;
@@ -3600,6 +3632,7 @@ import { weekdayOf, mealTypesForDay, MEAL_KINDS, extraFromFood, extrasForDay, se
   bind("cc-eating-out-toggle", "click", () => {
     setEatingOutMode(!draft.eatingOutOn);
     if (draft.eatingOutOn && draft.noInsulinOn) {
+      lowTurnedOffByHand();
       draft.noInsulinOn = false;
       el("cc-no-insulin-toggle").classList.remove("is-active");
       el("cc-no-insulin-note").hidden = true;
@@ -3847,6 +3880,7 @@ import { weekdayOf, mealTypesForDay, MEAL_KINDS, extraFromFood, extrasForDay, se
     renderFoodPickList();
     renderMealItems();
     recompute();
+    autoLowOn();   // still low after logging or Clear All: the next entry starts as Treating a low too
   }
   clearAllBtn.addEventListener("click", resetDraft);
 
@@ -4134,7 +4168,11 @@ import { weekdayOf, mealTypesForDay, MEAL_KINDS, extraFromFood, extrasForDay, se
     const fresh = liveGlucose && typeof liveGlucose.mgdl === "number" && Date.now() - liveGlucose.at <= LIVE_GLUCOSE_STALE_MS;
     if (!nightscoutConfigured() || !fresh || liveGlucose.mgdl >= 70) { hint.hidden = true; return; }
     const u = lowTreatmentUsual(state.history);
-    hint.innerHTML = `<b>Low (${fmtGluShort(liveGlucose.mgdl)} ${gluUnitShort()}).</b> ${u.n ? `You usually treat with about ${round1(u.medianCarbs)} g of fast carbs — tap “Treating a low” for quick add.` : "Tap “Treating a low” to log fast carbs."}`;
+    const usual = u.n ? ` You usually treat with about ${round1(u.medianCarbs)} g of fast carbs.` : "";
+    // 2.99.1: say plainly whether insulin is being worked out, since the mode switches on by itself at a low.
+    hint.innerHTML = `<b>Low (${fmtGluShort(liveGlucose.mgdl)} ${gluUnitShort()}).</b> ` + (draft.noInsulinOn
+      ? `Treating a low is on: carbs only, no insulin.${usual}`
+      : `Treating a low is off, so the dose above includes insulin.${usual}`);
     hint.hidden = false;
   }
 
@@ -4643,8 +4681,9 @@ import { weekdayOf, mealTypesForDay, MEAL_KINDS, extraFromFood, extrasForDay, se
   function renderLiveGlucosePill() {
     const pill = el("cc-live-glucose");
     if (!pill) return;
-    renderLowHint();
-    renderModeChip();   // 2.97.0: a new reading can make the chip offer Treating a low or Correction
+    // 2.99.1: a reading of 70 or more ends the low (a by-hand switch-off is forgotten); a low switches Treating a low on.
+    try { if (liveGlucose && typeof liveGlucose.mgdl === "number" && liveGlucose.mgdl >= 70 && Date.now() - liveGlucose.at <= LIVE_GLUCOSE_STALE_MS) setLowAutoOff(false); } catch (e) { /* no reading */ }
+    if (!autoLowOn()) { renderLowHint(); renderModeChip(); }   // 2.97.0: a new reading can make the chip offer Correction
     if (!nightscoutConfigured() || !liveGlucose || typeof liveGlucose.mgdl !== "number") { pill.hidden = true; return; }
     const stale = Date.now() - liveGlucose.at > LIVE_GLUCOSE_STALE_MS;
     const value = round1(convertGlucose(liveGlucose.mgdl, "mgdl", state.settings.units));
@@ -9254,6 +9293,7 @@ import { weekdayOf, mealTypesForDay, MEAL_KINDS, extraFromFood, extrasForDay, se
     renderMealItems();
     recompute();
     restoreDraftIfAny();
+    autoLowOn();
     renderActivePanel();
     renderRecentMeals();
     if (!restorePlace()) showView("calculator");
@@ -9310,6 +9350,7 @@ import { weekdayOf, mealTypesForDay, MEAL_KINDS, extraFromFood, extrasForDay, se
     setExtraMode(false);   // the saved draft below puts it back if it was on
     renderFoodPickList(); renderMealItems(); recompute();
     restoreDraftIfAny();
+    autoLowOn();
     renderActivePanel();
     renderRecentMeals();
     renderLibrary(); renderHistory(); renderSettings();
