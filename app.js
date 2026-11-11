@@ -44,7 +44,7 @@ import { workoutsToActivities, awaitingIntensity, mayBeDoubleCounted, intensityU
 import { dayBounds, shiftDay, dayTimeline, readingNear, stackRows } from "./js/day-timeline.js";
 import { sessionLevel, primaryTotp, verifyCode, startTotpSetup, cancelTotpSetup, removeTotp, signOutOtherDevices, groupSecret, cleanTotpCode, validTotpCode } from "./js/mfa.js";
 import { nearActivity, activitySkip, countNearActivity, breakfastByActivity, activitySummary, ACTIVITY_FILTERS, NEAR_BEFORE_HOURS, NEAR_AFTER_HOURS } from "./js/activity-stats.js";
-import { nutrientSummary, per100Index, compareToGuide, NUTRIENTS } from "./js/nutrients.js";
+import { nutrientSummary, per100Index, compareToGuide, NUTRIENTS, missingReport } from "./js/nutrients.js";
 import { foodNameMatches } from "./js/food-search.js";
 import { weekdayOf, mealTypesForDay, MEAL_KINDS, extraFromFood, extrasForDay, setDayExtra, setDayCount, resetDay, addDayOneOff, ONE_OFFS_MAX, dayKeyOf, eatingOutEstimates, eatingOutKcalFromInsulin, EATING_OUT_CORRECTION_HOURS, KCAL_PER_G_CARB, todayCalories, calorieRule, calorieSummary, missingDetails, restingKcal, extrasKcal, cleanExtra, LIFE_FACTORS, CALORIE_DEFAULTS, CALORIE_LIMITS } from "./js/calories.js";
 
@@ -3248,7 +3248,8 @@ import { weekdayOf, mealTypesForDay, MEAL_KINDS, extraFromFood, extrasForDay, se
     {
       const nd = nutrientSummary(state.history, state.settings, state.library, state.recipes, { days: 1, now }).days[0];
       if (nd.logged) html += section("Nutrients so far", null, `<div class="nut-rows">${nutrientRowsHtml(nd.totals, nd.guide, { soFar: true })}</div>` +
-        `<p class="panel-card__hint dc-note">Against the guide for the whole day (UK Reference Intakes scaled to what you need today; salt a 6 g maximum). ${nutrientNotes(nd.missing, nd.estimated)}</p>`);
+        `<p class="panel-card__hint dc-note">Against the guide for the whole day (UK Reference Intakes scaled to what you need today; salt a 6 g maximum). ${nutrientNotes(nd.missing, nd.estimated)}</p>` +
+        (missingCount() ? `<button class="dashed-btn dc-missing" id="dc-missing" type="button">Check missing figures</button>` : ""));
     }
     // needed
     if (hasTarget) {
@@ -3264,6 +3265,7 @@ import { weekdayOf, mealTypesForDay, MEAL_KINDS, extraFromFood, extrasForDay, se
     $("#dc-close").addEventListener("click", close);
     $("#dc-extras").addEventListener("click", () => { close(); openDayExtrasSheet(); });
     $("#dc-trends").addEventListener("click", () => { close(); openCaloriesTrend(); });
+    if ($("#dc-missing")) $("#dc-missing").addEventListener("click", () => { close(); openMissingSheet(); });
     backdrop.addEventListener("click", e => { if (e.target === backdrop) close(); });
     backdrop.addEventListener("keydown", e => { if (e.key === "Escape") close(); });
     openSheet(backdrop);
@@ -6320,6 +6322,66 @@ import { weekdayOf, mealTypesForDay, MEAL_KINDS, extraFromFood, extrasForDay, se
     if (missing.extras && missing.extras.length) notes.push(`Extras without a breakdown: ${[...new Set(missing.extras)].map(escapeHtml).join(", ")} (add them from your library to include them).`);
     return notes.join(" ");
   }
+  // ---- Missing figures (2.103.0) ----
+  // Everything that keeps calories and nutrients from being complete, most eaten first: library foods without kcal /
+  // protein / fat / salt, recipes whose ingredients lack them (or aren't linked to a library food), logged foods no longer
+  // in the library, and extras without a breakdown. A food or recipe opens its editor; js/nutrients.js builds the list.
+  function missingCount() {
+    return missingReport(state.history, state.library, state.recipes, calorieRule(state.settings.calories).extras, { days: 30 }).total;
+  }
+  // A recipe's problems grouped by kind, so a dish with 11 typed-in ingredients reads as one line, not eleven.
+  function recipeProblemsText(problems) {
+    const groups = new Map();
+    for (const p of problems) { const g = groups.get(p.issue) || []; g.push(p.name || "an ingredient"); groups.set(p.issue, g); }
+    return [...groups].map(([issue, names]) => {
+      const shown = names.slice(0, 3).map(escapeHtml).join(", ") + (names.length > 3 ? ` and ${names.length - 3} more` : "");
+      if (issue === "not linked to a library food") return names.length === 1 ? `${shown}: typed in, so no protein, fat or salt` : `${names.length} ingredients typed in, so no protein, fat or salt (${shown})`;
+      return `${shown}: ${escapeHtml(issue)}`;
+    }).join(" \u00b7 ");
+  }
+  function openMissingSheet() {
+    const rep = missingReport(state.history, state.library, state.recipes, calorieRule(state.settings.calories).extras, { days: 30 });
+    const backdrop = document.createElement("div");
+    backdrop.className = "sheet-backdrop";
+    const when = ts => (ts ? new Date(ts).toLocaleDateString(undefined, { day: "numeric", month: "short" }) : "");
+    const fieldsText = m => m.map(k => (k === "kcal" ? "calories" : k)).join(", ");
+    const foodRow = f => `<button type="button" class="miss-row" data-miss-food="${escapeAttr(f.id)}"><span class="miss-row__main"><span class="miss-row__name">${escapeHtml(f.name)}</span><span class="miss-row__sub">No ${escapeHtml(fieldsText(f.missing))}${f.times ? ` · eaten ${f.times}× in 30 days` : ""}</span></span><span class="miss-row__go" aria-hidden="true"></span></button>`;
+    const sec = (title, hint, rows) => `<section class="dc-section"><h3 class="dc-section__title"><span>${title}</span></h3>${hint ? `<p class="panel-card__hint miss-hint">${hint}</p>` : ""}${rows}</section>`;
+    let html = "";
+    if (!rep.total) html = `<p class="miss-none">Nothing missing: every food, recipe and extra has calories, protein, fat and salt.</p>`;
+    if (rep.eatenFoods.length) html += sec(`Eaten in the last 30 days (${rep.eatenFoods.length})`, "These affect your figures now. Tap one to fill in what's on its label.", rep.eatenFoods.map(foodRow).join(""));
+    if (rep.recipes.length) html += sec(`Recipes (${rep.recipes.length})`, "Their ingredients need figures (or a link to a library food) for the recipe's protein, fat and salt.", rep.recipes.map(r =>
+      `<button type="button" class="miss-row" data-miss-recipe="${escapeAttr(r.id)}"><span class="miss-row__main"><span class="miss-row__name">${escapeHtml(r.name)}</span><span class="miss-row__sub">${recipeProblemsText(r.problems)}${r.times ? ` · eaten ${r.times}× in 30 days` : ""}</span></span><span class="miss-row__go" aria-hidden="true"></span></button>`).join(""));
+    if (rep.extras.length) html += sec(`Daily extras (${rep.extras.length})`, "Typed by hand, so no protein, fat or salt. Add them again with “+ From your library” to include them.", rep.extras.map(x =>
+      `<button type="button" class="miss-row" data-miss-extras="1"><span class="miss-row__main"><span class="miss-row__name">${escapeHtml(x.name)}</span><span class="miss-row__sub">Calories only</span></span><span class="miss-row__go" aria-hidden="true"></span></button>`).join(""));
+    if (rep.gone.length) html += sec(`Logged but no longer in your library (${rep.gone.length})`, "Their calories were saved with the meal, but protein, fat and salt can't be looked up. Add the food to your library again to count them in future.", rep.gone.map(g =>
+      `<div class="miss-row miss-row--static"><span class="miss-row__main"><span class="miss-row__name">${escapeHtml(g.name || "A food")}</span><span class="miss-row__sub">eaten ${g.times}×, last on ${escapeHtml(when(g.lastTs))}</span></span></div>`).join(""));
+    if (rep.otherFoods.length) html += `<details class="miss-more"><summary>Other library foods missing figures (${rep.otherFoods.length})</summary>${rep.otherFoods.map(foodRow).join("")}</details>`;
+    backdrop.innerHTML = `
+      <div class="sheet miss-sheet" role="dialog" aria-modal="true" aria-labelledby="miss-title">
+        <div class="sheet-head">
+          <h2 id="miss-title">Missing figures</h2>
+          <button class="sheet-close" id="miss-close" type="button" aria-label="Close">
+            <svg viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+          </button>
+        </div>
+        <p class="panel-card__hint miss-intro">Calories, protein, fat and salt that can't be counted. Fixing the ones you eat most makes the biggest difference.</p>
+        <div id="miss-body">${html}</div>
+      </div>`;
+    const close = () => closeSheet(backdrop);
+    backdrop.querySelector("#miss-close").addEventListener("click", close);
+    backdrop.addEventListener("click", e => {
+      if (e.target === backdrop) { close(); return; }
+      const f = e.target.closest("[data-miss-food]"), r = e.target.closest("[data-miss-recipe]"), x = e.target.closest("[data-miss-extras]");
+      if (f) { const food = state.library.find(y => String(y.id) === f.dataset.missFood); if (food) { close(); openFoodSheet(food); } }
+      else if (r) { const rec = state.recipes.find(y => String(y.id) === r.dataset.missRecipe); if (rec) { close(); openRecipeSheet(rec); } }
+      else if (x) { close(); openSettingsPanel("calories"); }
+    });
+    backdrop.addEventListener("keydown", e => { if (e.key === "Escape") close(); });
+    openSheet(backdrop);
+  }
+  bind("nut-missing-btn", "click", () => openMissingSheet());
+
   function renderNutrientTrend(days, show) {
     const card = el("trend-card-nutrients"), box = el("trend-nutrients");
     if (!card || !box) return;
@@ -6330,6 +6392,8 @@ import { weekdayOf, mealTypesForDay, MEAL_KINDS, extraFromFood, extrasForDay, se
     const missing = { protein: 0, fat: 0, salt: 0, recipeGaps: 0, extras: [] };
     for (const d of ns.days) if (d.logged && !d.isToday && d.unknownMeals === 0) { for (const k of ["protein", "fat", "salt", "recipeGaps"]) missing[k] += d.missing[k] || 0; missing.extras.push(...d.missing.extras); }
     const g = a.guide;
+    const mb = el("nut-missing-btn"), mc = missingCount();
+    if (mb) { mb.hidden = mc === 0; mb.textContent = `Check missing figures (${mc})`; }
     box.innerHTML = `<p class="trend-readout">Daily average over ${a.daysUsed} full day${a.daysUsed === 1 ? "" : "s"} with meals</p>` +
       `<div class="nut-rows">${nutrientRowsHtml(a.totals, g)}</div>` +
       `<p class="trend-caption trend-caption--tight">Guide: UK Reference Intakes (fat 70 g, carbs 260 g, salt 6 g a day for 2,000 kcal) with fat and carbs scaled to what you needed each day (about ${kcalText(g.carbs / 260 * 2000)} kcal on average), protein ${ns.rule.weightKg ? `0.75 g per kg of your weight (${round1(g.protein)} g)` : "50 g (add your weight in Settings > Calories for your own figure)"}. A general guide for adults, not a diabetes plan: your carbs follow what you and your team agreed. ${nutrientNotes(missing, a.daysEstimated, { avg: true })} All figures are estimates.</p>`;

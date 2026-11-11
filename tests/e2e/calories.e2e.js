@@ -561,6 +561,51 @@ t.section("PROTEIN, CARBS, FAT AND SALT (2.102.0)");
   dev.close();
 }
 
+t.section("MISSING FIGURES (2.103.0)");
+{
+  const lib = [
+    { id: "m1", name: "Pane comune", category: "grains", carbs: 65, kcal: 300, protein: 8, fat: 1.5, salt: 1.2, gi: 75, notes: "", favorite: false, usageCount: 9 },
+    { id: "m2", name: "Banana", category: "fruits", carbs: 23, kcal: 89, protein: 1.1, fat: 0.3, gi: 51, notes: "", favorite: false, usageCount: 5 },
+    { id: "m3", name: "Farina", category: "grains", carbs: 72, kcal: 340, gi: 70, notes: "", favorite: false, usageCount: 0 }
+  ];
+  const recs = [{ id: "r1", name: "Banana Bread", items: [{ foodId: "m2", name: "Banana", grams: 200 }, { foodId: null, name: "Walnuts", grams: 30 }], finalWeight: 230 }];
+  const item = (refId, name, grams) => ({ refType: "food", refId, name, grams, carbs: 10, kcal: 50 });
+  const hM = [
+    meal("mm1", at(1, 13), { items: [item("m2", "Banana", 120), item("gone1", "Old crackers", 30)] }),
+    meal("mm2", at(2, 13), { items: [item("m2", "Banana", 120)] }),
+    meal("mm3", Math.max(at(0, 0, 1), Date.now() - 60000), { items: [item("m2", "Banana", 120)] })
+  ];
+  const cal2 = { ...calories, extras: [...calories.extras, { id: "choc", name: "Chocolate", unit: "square", kcalPerUnit: 55, perDay: 1 }] };
+  const blob = { ...stateBlob({ history: hM, library: lib, settings: { darkMode: dark, darkModeAuto: false, calories: cal2 } }), recipes: recs };
+  dev = await openDevice(app, { width: W, height: 1000, mobile: W < 1000, dark, inject: `if (!localStorage.getItem("insulinBuddy.v2")) { ${seedLocal(blob)} }`, wait: 1500 });
+  await openTrends(dev);
+  const btn = await dev.eval(`(() => { const b = document.getElementById("nut-missing-btn"); return { hidden: b.hidden, text: b.textContent }; })()`);
+  // Banana (no salt), Farina, Banana Bread + the 3 ready-made recipes (typed-in ingredients), Chocolate, Old crackers = 8
+  t.check("the nutrients card offers 'Check missing figures' with a count", !btn.hidden && btn.text === "Check missing figures (8)", JSON.stringify(btn));
+  await dev.click("#nut-missing-btn"); await sleep(500);
+  const ms = await dev.eval(`(() => { const s = document.querySelector(".miss-sheet"); if (!s) return null;
+    return { secs: [...s.querySelectorAll(".dc-section")].map(x => ({ title: [...x.querySelector(".dc-section__title").children].map(c => c.textContent.trim()).join(" "), rows: [...x.querySelectorAll(".miss-row")].map(r => [...r.querySelectorAll(".miss-row__name, .miss-row__sub")].map(c => c.textContent).join(" | ")) })),
+      more: (s.querySelector("details.miss-more summary") || {}).textContent || "" }; })()`);
+  console.log("  ", JSON.stringify(ms));
+  const msec = n => ((ms && ms.secs) || []).find(x => x.title.startsWith(n)) || { rows: [] };
+  t.check("eaten foods come first, with what's missing and how often", msec("Eaten").rows.length === 1 && msec("Eaten").rows[0] === "Banana | No salt · eaten 3× in 30 days", JSON.stringify(msec("Eaten")));
+  t.check("recipes name the ingredient and the problem", msec("Recipes").rows.length === 4 && msec("Recipes").rows[0] === "Banana Bread | Banana: no salt \u00b7 Walnuts: typed in, so no protein, fat or salt" && msec("Recipes").rows.some(r => /^Classic chicken pad thai \| 11 ingredients typed in, so no protein, fat or salt \(Rice noodles, cooked, Petto di pollo, Egg and 8 more\)$/.test(r)), JSON.stringify(msec("Recipes")));
+  t.check("extras typed by hand are listed", msec("Daily extras").rows.length === 1 && /^Chocolate/.test(msec("Daily extras").rows[0]), JSON.stringify(msec("Daily extras")));
+  t.check("logged foods no longer in the library are listed", msec("Logged but").rows.length === 1 && /^Old crackers \| eaten 1×/.test(msec("Logged but").rows[0]), JSON.stringify(msec("Logged but")));
+  t.check("library foods not eaten lately are tucked away", ms && ms.more === "Other library foods missing figures (1)", ms && ms.more);
+  if (SHOTS) await dev.shot(`${SHOTS}/missing-${W}${dark ? "-dark" : ""}.png`);
+  await dev.click('[data-miss-food="m2"]'); await sleep(500);
+  t.check("tapping a food opens its editor", !(await dev.eval(`!!document.querySelector(".miss-sheet")`)) && (await dev.eval(`[...document.querySelectorAll(".sheet h2")].some(h => /Banana/.test(h.textContent) || /food/i.test(h.textContent))`)));
+  await dev.eval(`document.querySelectorAll(".sheet-backdrop").forEach(b => b.remove())`); await sleep(200);
+  await dev.tab("calculator"); await sleep(300);
+  await dev.click("#cc-day-kcal"); await sleep(500);
+  t.check("Today's calories links to the same check", await dev.eval(`!!document.getElementById("dc-missing")`));
+  await dev.click("#dc-missing"); await sleep(500);
+  t.check("...and it opens Missing figures", await dev.eval(`!!document.querySelector(".miss-sheet")`));
+  t.check("no sideways scroll, no JS errors", (await dev.eval(`document.documentElement.scrollWidth <= innerWidth + 1`)) && (await dev.eval("window.__errs.length")) === 0, JSON.stringify(await dev.eval("window.__errs")));
+  dev.close();
+}
+
 t.section("NOT SET UP");
 dev = await boot({});
 await openTrends(dev);

@@ -152,3 +152,61 @@ export function compareToGuide(nutrient, value, guide) {
 }
 
 export { calorieRule };
+
+// ---- Missing figures (2.103.0) ----
+// What stops the calorie and nutrient figures being complete, with what you eat most first: library foods without kcal /
+// protein / fat / salt (eaten in the last `days` days first, then the rest), recipes whose ingredients lack figures or
+// aren't linked to a library food, logged foods that are no longer in the library, and daily extras without a breakdown.
+export const CHECKED_FIELDS = ["kcal", "protein", "fat", "salt"];
+const blank = v => v == null || v === "" || !Number.isFinite(Number(v));
+export function missingReport(history, library, recipes, extras, { days = 30, now = Date.now() } = {}) {
+  const from = now - days * 86400000;
+  const foods = new Map((library || []).filter(f => f && f.id != null).map(f => [f.id, f]));
+  const recs = new Map((recipes || []).filter(r => r && r.id != null).map(r => [r.id, r]));
+  const eaten = new Map();     // "food:id" / "recipe:id" -> { times, lastTs, name }
+  const gone = new Map();      // logged refs no longer in the library
+  for (const e of history || []) {
+    const ts = Number(e && e.ts);
+    if (!Number.isFinite(ts) || ts < from || ts > now || !Array.isArray(e.items)) continue;
+    for (const it of e.items) {
+      if (!it || it.refId == null) continue;
+      const key = `${it.refType === "recipe" ? "recipe" : "food"}:${it.refId}`;
+      const exists = it.refType === "recipe" ? recs.has(it.refId) : foods.has(it.refId);
+      const map = exists ? eaten : gone;
+      const cur = map.get(key) || { times: 0, lastTs: 0, name: it.name || "", refType: it.refType === "recipe" ? "recipe" : "food", refId: it.refId };
+      cur.times += 1; cur.lastTs = Math.max(cur.lastTs, ts); if (!cur.name && it.name) cur.name = it.name;
+      map.set(key, cur);
+    }
+  }
+  const foodRows = [];
+  for (const f of foods.values()) {
+    const missing = CHECKED_FIELDS.filter(k => blank(f[k]));
+    if (!missing.length) continue;
+    const u = eaten.get(`food:${f.id}`);
+    foodRows.push({ id: f.id, name: f.name || "", missing, times: u ? u.times : 0, lastTs: u ? u.lastTs : null });
+  }
+  const recipeRows = [];
+  for (const r of recs.values()) {
+    if (!Array.isArray(r.items)) continue;
+    const problems = [];
+    for (const it of r.items) {
+      if (!it) continue;
+      if (it.foodId == null) { problems.push({ name: it.name || "", issue: "not linked to a library food" }); continue; }
+      const f = foods.get(it.foodId);
+      if (!f) { problems.push({ name: it.name || "", issue: "no longer in your library" }); continue; }
+      const m = CHECKED_FIELDS.filter(k => blank(f[k]));
+      if (m.length) problems.push({ name: f.name || it.name || "", issue: `no ${m.join(", ")}`, foodId: f.id });
+    }
+    if (!problems.length) continue;
+    const u = eaten.get(`recipe:${r.id}`);
+    recipeRows.push({ id: r.id, name: r.name || "", problems, times: u ? u.times : 0, lastTs: u ? u.lastTs : null });
+  }
+  const byUse = (a, b) => b.times - a.times || (b.lastTs || 0) - (a.lastTs || 0) || a.name.localeCompare(b.name);
+  foodRows.sort(byUse); recipeRows.sort(byUse);
+  const noBreakdown = (extras || []).filter(x => x && !extraFigures(x)).map(x => ({ id: x.id, name: x.name }));
+  return {
+    eatenFoods: foodRows.filter(r => r.times > 0), otherFoods: foodRows.filter(r => r.times === 0),
+    recipes: recipeRows, gone: [...gone.values()].sort(byUse), extras: noBreakdown,
+    total: foodRows.length + recipeRows.length + gone.size + noBreakdown.length
+  };
+}

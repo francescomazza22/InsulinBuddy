@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { per100Index, mealNutrients, eatingOutNutrients, extraFigures, dailyGuide, nutrientSummary, compareToGuide, UK_RI } from "../../js/nutrients.js";
+import { missingReport, per100Index, mealNutrients, eatingOutNutrients, extraFigures, dailyGuide, nutrientSummary, compareToGuide, UK_RI } from "../../js/nutrients.js";
 import { calorieRule, extraFromFood } from "../../js/calories.js";
 import { shiftDay } from "../../js/day-timeline.js";
 
@@ -79,4 +79,29 @@ test("a day: meals + eating out + extras, later meals not yet, gaps reported; av
   close(t.totals.carbs, 39); close(t.totals.protein, 4.8);
   assert.equal(s.avg.daysUsed, 1); close(s.avg.totals.carbs, 119); assert.equal(s.avg.daysEstimated, 1);
   close(y.guide.fat, 70 * y.needKcal / 2000); close(y.guide.protein, 56.25);
+});
+
+test("missing figures (2.103.0): foods eaten recently first, recipes with gaps, deleted foods, extras without a breakdown", () => {
+  const lib = [
+    { id: "ban", name: "Banana", kcal: 89, protein: 1.1, fat: 0.3, salt: null },
+    { id: "flour", name: "Farina", kcal: null, protein: null, fat: null, salt: null },
+    { id: "ok", name: "Pasta", kcal: 355, protein: 12.5, fat: 1.5, salt: 0 },
+    { id: "rare", name: "Senape", kcal: 70, protein: null, fat: 4, salt: 2.5 }
+  ];
+  const recs = [{ id: "bb", name: "Banana Bread", finalWeight: 600, items: [{ foodId: "flour", name: "Farina", grams: 200 }, { foodId: "ban", grams: 300 }, { foodId: null, name: "Pancakes", grams: 100 }, { foodId: "x", name: "Old sugar", grams: 50 }] },
+    { id: "fine", name: "Pasta al sugo", finalWeight: 300, items: [{ foodId: "ok", grams: 100 }] }];
+  const hist = [
+    { ts: at(1, 8), items: [{ refType: "food", refId: "ban", grams: 120, name: "Banana" }, { refType: "recipe", refId: "bb", grams: 50, name: "Banana Bread" }] },
+    { ts: at(2, 8), items: [{ refType: "food", refId: "ban", grams: 100, name: "Banana" }, { refType: "food", refId: "deleted", grams: 30, name: "Old crackers" }] },
+    { ts: at(40, 8), items: [{ refType: "food", refId: "rare", grams: 10, name: "Senape" }] }   // older than 30 days
+  ];
+  const extras = [{ id: "olive-oil", name: "Olive oil", kcalPerUnit: 119 }, { id: "choc", name: "Chocolate", kcalPerUnit: 80 }];
+  const r = missingReport(hist, lib, recs, extras, { days: 30, now: NOW });
+  assert.deepEqual(r.eatenFoods.map(x => [x.name, x.missing.join(","), x.times]), [["Banana", "salt", 2]]);
+  assert.deepEqual(r.otherFoods.map(x => x.name), ["Farina", "Senape"]);
+  assert.deepEqual(r.recipes.map(x => [x.name, x.times, x.problems.map(p => `${p.name}: ${p.issue}`)]), [["Banana Bread", 1, [
+    "Farina: no kcal, protein, fat, salt", "Banana: no salt", "Pancakes: not linked to a library food", "Old sugar: no longer in your library"]]]);
+  assert.deepEqual(r.gone.map(x => [x.name, x.times]), [["Old crackers", 1]]);
+  assert.deepEqual(r.extras.map(x => x.name), ["Chocolate"]);
+  assert.equal(r.total, 3 + 1 + 1 + 1);
 });

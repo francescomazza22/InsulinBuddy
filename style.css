@@ -2387,3 +2387,19 @@ button.cal-extra__remove { flex: none; width: auto; height: auto; min-height: 32
 .nut-row.is-high .nut-row__fill { background: #FF9F0A; }
 .nut-row__mark { position: absolute; top: -3px; bottom: -3px; width: 2px; margin-left: -1px; background: var(--ink); border-radius: 1px; }
 .nut-row__word { font-size: var(--fs-xs); color: var(--ink-soft); margin-top: var(--space-3xs); }
+
+/* Missing figures (2.103.0) */
+.miss-intro { margin: 0 0 var(--space-s); }
+.miss-hint { margin: 0 0 var(--space-xs); }
+.miss-none { color: var(--ink-soft); margin: var(--space-m) 0; }
+.miss-row { display: flex; align-items: center; gap: var(--space-s); width: 100%; min-height: var(--tap); padding: var(--space-xs) 0; border: none; border-top: 1px solid var(--line); background: none; color: var(--ink); font: inherit; text-align: left; cursor: pointer; }
+.miss-row:first-of-type { border-top: none; }
+.miss-row--static { cursor: default; }
+.miss-row__main { flex: 1 1 auto; display: flex; flex-direction: column; min-width: 0; }
+.miss-row__name { font-weight: 600; overflow-wrap: anywhere; }
+.miss-row__sub { color: var(--ink-soft); font-size: var(--fs-xs); overflow-wrap: anywhere; }
+.miss-row__go { flex: none; width: 8px; height: 8px; border-right: 2px solid var(--ink-soft); border-bottom: 2px solid var(--ink-soft); transform: rotate(-45deg); margin-right: var(--space-2xs); }
+details.miss-more { margin-top: var(--space-s); border-top: 1px solid var(--line); padding-top: var(--space-s); }
+details.miss-more > summary { cursor: pointer; color: var(--acc-1); font-weight: 600; font-size: var(--fs-s); padding: var(--space-2xs) 0; }
+.dc-missing { margin-top: var(--space-xs); }
+#nut-missing-btn { margin-top: var(--space-s); }

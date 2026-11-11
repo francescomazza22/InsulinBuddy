@@ -2,6 +2,16 @@
 // summary can never drift. Bump CHANGELOG[0].version here (and CACHE_VERSION in sw.js) on every release.
 export const CHANGELOG = [
   {
+    version: "2.103.0",
+    summary: "Missing figures: one place to see what can't be counted.",
+    changes: [
+      "New Missing figures panel, opened from \u201cCheck missing figures\u201d on the nutrients card in Trends or in Today's calories",
+      "It lists foods you've eaten in the last 30 days that lack calories, protein, fat or salt (most eaten first), recipes whose ingredients lack them or were typed in, extras without a breakdown, and logged foods no longer in your library",
+      "Tap a food or recipe to open it and fill in what's on the label; tap an extra to go to Settings > Calories",
+      "Library foods you haven't eaten lately are tucked under their own heading at the bottom"
+    ]
+  },
+  {
     version: "2.102.0",
     summary: "Protein, carbs, fat and salt against a daily guide.",
     changes: [
