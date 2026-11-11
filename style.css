@@ -2374,3 +2374,16 @@ button.cal-extra__remove { flex: none; width: auto; height: auto; min-height: 32
   .cal-extra__sum-when { font-size: var(--fs-s); }
   .cal-extra__sum:hover .cal-extra__sum-name { color: var(--acc-1); }
 }
+
+/* Protein, carbs, fat and salt (2.102.0): neutral colours, the same in every theme */
+.nut-rows { display: flex; flex-direction: column; gap: var(--space-s); margin: var(--space-xs) 0; }
+.nut-row__top { display: flex; justify-content: space-between; gap: var(--space-s); align-items: baseline; }
+.nut-row__name { font-weight: 600; }
+.nut-row__val { font-size: var(--fs-s); color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+.nut-row__val b { color: var(--ink); }
+.nut-row__bar { position: relative; height: 8px; border-radius: 4px; background: var(--line); margin-top: var(--space-3xs); overflow: visible; }
+.nut-row__fill { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 4px; background: #30B0C7; }
+.nut-row.is-ok .nut-row__fill { background: #34C759; }
+.nut-row.is-high .nut-row__fill { background: #FF9F0A; }
+.nut-row__mark { position: absolute; top: -3px; bottom: -3px; width: 2px; margin-left: -1px; background: var(--ink); border-radius: 1px; }
+.nut-row__word { font-size: var(--fs-xs); color: var(--ink-soft); margin-top: var(--space-3xs); }

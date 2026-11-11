@@ -530,6 +530,37 @@ t.section("TODAY'S CALORIES BREAKDOWN (2.100.0)");
   dev.close();
 }
 
+t.section("PROTEIN, CARBS, FAT AND SALT (2.102.0)");
+{
+  const lib = [
+    { id: "s1", name: "Pane comune", category: "grains", carbs: 65, kcal: 300, protein: 8, fat: 1.5, salt: 1.2, gi: 75, notes: "", favorite: false, usageCount: 9 },
+    { id: "s2", name: "Banana", category: "fruits", carbs: 23, kcal: 89, protein: 1.1, fat: 0.3, salt: 0, gi: 51, notes: "", favorite: false, usageCount: 5 }
+  ];
+  // yesterday one meal (Pane comune 60 g, 40 g carbs logged) + olive oil 2 tbsp + flat white 1 cup (built-in figures)
+  const hN = [meal("ny", at(1, 13)), meal("nt", Math.max(at(0, 0, 1), Date.now() - 60000))];
+  const blob = stateBlob({ history: hN, library: lib, settings: { darkMode: dark, darkModeAuto: false, calories } });
+  dev = await openDevice(app, { width: W, height: 1000, mobile: W < 1000, dark, inject: `if (!localStorage.getItem("insulinBuddy.v2")) { ${seedLocal(blob)} }`, wait: 1500 });
+  await openTrends(dev);
+  const nut = sel => dev.eval(`[...document.querySelectorAll("${sel} .nut-row")].map(r => [r.dataset.nutrient, r.querySelector(".nut-row__val").textContent, r.querySelector(".nut-row__word").textContent, r.className.replace("nut-row ", "")])`);
+  const tr = await nut("#trend-card-nutrients");
+  console.log("  ", JSON.stringify(tr));
+  // protein 4.8 + 6.1 = 10.9 of 56.25; carbs 40 + 8.6 = 48.6 of 260 x 2177.5/2000 = 283; fat 0.9 + 27 + 5.7 = 33.6 of 76; salt 0.72 + 0.2 of max 6
+  t.check("Trends shows the four nutrients against the scaled guide", JSON.stringify(tr) === JSON.stringify([
+    ["protein", "11 g of 56 g", "lower (19%)", "is-low"], ["carbs", "49 g of 283 g", "lower (17%)", "is-low"],
+    ["fat", "34 g of 76 g", "lower (44%)", "is-low"], ["salt", "0.9 g of max 6.0 g", "within the 6.0 g maximum", "is-ok"]]), JSON.stringify(tr));
+  const cap = await dev.eval(`document.querySelector("#trend-card-nutrients .trend-caption").textContent`);
+  t.check("its caption explains the guide and what's missing", /UK Reference Intakes/.test(cap) && /0\.75 g per kg of your weight \(56\.3 g\)/.test(cap) && /not a diabetes plan/.test(cap) && /Extras without a breakdown: Chocolate|Extras without a breakdown/.test(cap) === false, cap);
+  await dev.tab("calculator"); await sleep(300);
+  await dev.click("#cc-day-kcal"); await sleep(500);
+  const td = await nut(".day-kcal-sheet");
+  t.check("Today's calories has 'Nutrients so far' with the day's progress", td.length === 4 && td[0][2] === "19% so far" && td[0][1] === "11 g of 56 g" && td[3][2] === "within the 6.0 g maximum", JSON.stringify(td));
+  if (SHOTS) { await dev.eval(`document.querySelector(".day-kcal-sheet .nut-rows").scrollIntoView({ block: "center" })`); await sleep(300); await dev.shot(`${SHOTS}/nutrients-today-${W}${dark ? "-dark" : ""}.png`); }
+  await dev.click("#dc-close"); await sleep(300);
+  if (SHOTS) { await openTrends(dev); await dev.eval(`document.getElementById("trend-card-nutrients").scrollIntoView({ block: "start" })`); await sleep(300); await dev.shot(`${SHOTS}/nutrients-trend-${W}${dark ? "-dark" : ""}.png`); }
+  t.check("no sideways scroll, no JS errors", (await dev.eval(`document.documentElement.scrollWidth <= innerWidth + 1`)) && (await dev.eval("window.__errs.length")) === 0, JSON.stringify(await dev.eval("window.__errs")));
+  dev.close();
+}
+
 t.section("NOT SET UP");
 dev = await boot({});
 await openTrends(dev);

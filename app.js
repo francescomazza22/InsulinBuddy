@@ -44,6 +44,7 @@ import { workoutsToActivities, awaitingIntensity, mayBeDoubleCounted, intensityU
 import { dayBounds, shiftDay, dayTimeline, readingNear, stackRows } from "./js/day-timeline.js";
 import { sessionLevel, primaryTotp, verifyCode, startTotpSetup, cancelTotpSetup, removeTotp, signOutOtherDevices, groupSecret, cleanTotpCode, validTotpCode } from "./js/mfa.js";
 import { nearActivity, activitySkip, countNearActivity, breakfastByActivity, activitySummary, ACTIVITY_FILTERS, NEAR_BEFORE_HOURS, NEAR_AFTER_HOURS } from "./js/activity-stats.js";
+import { nutrientSummary, per100Index, compareToGuide, NUTRIENTS } from "./js/nutrients.js";
 import { foodNameMatches } from "./js/food-search.js";
 import { weekdayOf, mealTypesForDay, MEAL_KINDS, extraFromFood, extrasForDay, setDayExtra, setDayCount, resetDay, addDayOneOff, ONE_OFFS_MAX, dayKeyOf, eatingOutEstimates, eatingOutKcalFromInsulin, EATING_OUT_CORRECTION_HOURS, KCAL_PER_G_CARB, todayCalories, calorieRule, calorieSummary, missingDetails, restingKcal, extrasKcal, cleanExtra, LIFE_FACTORS, CALORIE_DEFAULTS, CALORIE_LIMITS } from "./js/calories.js";
 
@@ -762,16 +763,20 @@ import { weekdayOf, mealTypesForDay, MEAL_KINDS, extraFromFood, extrasForDay, se
       id: "food:" + f.id, refType: "food", refId: f.id, name: f.name,
       carbsPer100g: f.carbs, kcalPer100g: f.kcal, notes: f.notes, gi: f.gi || null,
       usageCount: f.usageCount || 0, favorite: f.favorite,
-      unitBased: !!f.unitBased, unitLabel: f.unitLabel || null, gramsPerUnit: f.gramsPerUnit || null
+      unitBased: !!f.unitBased, unitLabel: f.unitLabel || null, gramsPerUnit: f.gramsPerUnit || null,
+      proteinPer100g: f.protein ?? null, fatPer100g: f.fat ?? null, saltPer100g: f.salt ?? null   // 2.102.0: for extras from the library
     }));
+    const nIdx = per100Index(state.library, state.recipes);
     const recipes = state.recipes.filter(r => r.finalWeight > 0).map(r => {
       const t = recipeTotals(r);
+      const n = nIdx.get(`recipe:${r.id}`) || {};
       return {
         id: "recipe:" + r.id, refType: "recipe", refId: r.id, name: r.name,
         carbsPer100g: t.carbsPer100g, kcalPer100g: t.kcalPer100g, notes: r.notes,
         dishWeight: r.finalWeight, slices: r.slices > 0 ? r.slices : null,
         usageCount: r.usageCount || 0, favorite: r.favorite,
-        unitBased: false, unitLabel: null, gramsPerUnit: null
+        unitBased: false, unitLabel: null, gramsPerUnit: null,
+        proteinPer100g: n.protein ?? null, fatPer100g: n.fat ?? null, saltPer100g: n.salt ?? null
       };
     });
     return [...recipes, ...foods];
@@ -3239,6 +3244,12 @@ import { weekdayOf, mealTypesForDay, MEAL_KINDS, extraFromFood, extrasForDay, se
     // later today
     if (d.later.length) html += section("Later today", null, d.later.slice().sort((a, b) => a.ts - b.ts).map(x =>
       row(`${formatTime(x.ts)} \u00b7 ${escapeHtml(mealLabel(x.mealType))}`, "counts from then", kcalText(x.kcal), "is-waiting")).join(""));
+    // 2.102.0: protein, carbs, fat and salt so far, against the whole day's guide
+    {
+      const nd = nutrientSummary(state.history, state.settings, state.library, state.recipes, { days: 1, now }).days[0];
+      if (nd.logged) html += section("Nutrients so far", null, `<div class="nut-rows">${nutrientRowsHtml(nd.totals, nd.guide, { soFar: true })}</div>` +
+        `<p class="panel-card__hint dc-note">Against the guide for the whole day (UK Reference Intakes scaled to what you need today; salt a 6 g maximum). ${nutrientNotes(nd.missing, nd.estimated)}</p>`);
+    }
     // needed
     if (hasTarget) {
       const acts = d.activities.map(a => row(`${escapeHtml(activityLabel(a.entry))} \u00b7 ${formatMinutes(Math.round(a.minutes))}`, a.from === "watch" ? "the Watch's active calories" : "estimated from type, minutes and intensity", `+${kcalText(a.kcal)}`)).join("");
@@ -6278,6 +6289,52 @@ import { weekdayOf, mealTypesForDay, MEAL_KINDS, extraFromFood, extrasForDay, se
 
   // The "Daily basal insulin" card. Shown only when a basal dose was logged in the period; it joins the tap-a-day
   // selection shared by the other charts (see setTrendSelection) while it is showing.
+  // ---- Protein, carbs, fat and salt against a daily guide (2.102.0) ----
+  // One row per nutrient: what was eaten, the guide, and a bar running to 150% of the guide with a mark at 100%. Lower /
+  // about right (within 10%) / higher for protein, carbs and fat; within / higher than the 6 g maximum for salt. js/nutrients.js
+  // does the maths. Estimates, never used for a dose.
+  const NUTRIENT_LABEL = { protein: "Protein", carbs: "Carbs", fat: "Fat", salt: "Salt" };
+  function nutrientRowsHtml(totals, guide, { soFar = false } = {}) {
+    return NUTRIENTS.map(n => {
+      const v = totals[n], g = guide[n];
+      if (v == null || !(g > 0)) return "";
+      const cmp = soFar && n !== "salt" ? null : compareToGuide(n, v, g);
+      const pct = Math.round(v / g * 100);
+      const fill = Math.min(1, v / g / 1.5) * 100;
+      const cls = cmp === "higher" ? "is-high" : cmp === "about right" || cmp === "within" ? "is-ok" : "is-low";   // so far: neutral
+      const fmtG = x => (n === "salt" ? round1(x).toFixed(1) : Math.round(x).toLocaleString());
+      const word = cmp == null ? `${pct}% so far` : cmp === "within" ? `within the ${fmtG(g)} g maximum` : cmp === "higher" && n === "salt" ? `above the ${fmtG(g)} g maximum` : `${cmp} (${pct}%)`;
+      return `<div class="nut-row ${cls}" data-nutrient="${n}">
+        <div class="nut-row__top"><span class="nut-row__name">${NUTRIENT_LABEL[n]}</span><span class="nut-row__val"><b>${fmtG(v)} g</b> of ${n === "salt" ? "max " : ""}${fmtG(g)} g</span></div>
+        <div class="nut-row__bar" role="img" aria-label="${NUTRIENT_LABEL[n]}: ${fmtG(v)} grams of ${fmtG(g)}, ${escapeAttr(word)}"><span class="nut-row__fill" style="width:${fill.toFixed(1)}%"></span><span class="nut-row__mark" style="left:${(100 / 1.5).toFixed(1)}%"></span></div>
+        <div class="nut-row__word">${escapeHtml(word)}</div>
+      </div>`;
+    }).join("");
+  }
+  function nutrientNotes(missing, estimated, { avg = false } = {}) {
+    const notes = [];
+    if (estimated) notes.push(avg ? `${estimated} day${estimated === 1 ? "" : "s"} include eating out, estimated from its calories (carbs from the insulin; the rest 70% fat, 30% protein; salt 2.5 g per 1,000 kcal).` : "Eating out is estimated from its calories (carbs from the insulin; the rest 70% fat, 30% protein; salt 2.5 g per 1,000 kcal).");
+    const gaps = ["protein", "fat", "salt"].filter(n => missing[n] > 0).map(n => `${missing[n]} ${missing[n] === 1 ? "food" : "foods"} without ${n}`);
+    if (gaps.length) notes.push(`Not counted: ${gaps.join(", ")} (add the figures in Settings > Library).`);
+    if (missing.recipeGaps) notes.push(`${missing.recipeGaps} recipe${missing.recipeGaps === 1 ? " has" : "s have"} ingredients without some figures.`);
+    if (missing.extras && missing.extras.length) notes.push(`Extras without a breakdown: ${[...new Set(missing.extras)].map(escapeHtml).join(", ")} (add them from your library to include them).`);
+    return notes.join(" ");
+  }
+  function renderNutrientTrend(days, show) {
+    const card = el("trend-card-nutrients"), box = el("trend-nutrients");
+    if (!card || !box) return;
+    const ns = nutrientSummary(state.history, state.settings, state.library, state.recipes, { days });
+    const a = ns.avg;
+    card.hidden = !show || !a.daysUsed;
+    if (card.hidden) { box.innerHTML = ""; return; }
+    const missing = { protein: 0, fat: 0, salt: 0, recipeGaps: 0, extras: [] };
+    for (const d of ns.days) if (d.logged && !d.isToday && d.unknownMeals === 0) { for (const k of ["protein", "fat", "salt", "recipeGaps"]) missing[k] += d.missing[k] || 0; missing.extras.push(...d.missing.extras); }
+    const g = a.guide;
+    box.innerHTML = `<p class="trend-readout">Daily average over ${a.daysUsed} full day${a.daysUsed === 1 ? "" : "s"} with meals</p>` +
+      `<div class="nut-rows">${nutrientRowsHtml(a.totals, g)}</div>` +
+      `<p class="trend-caption trend-caption--tight">Guide: UK Reference Intakes (fat 70 g, carbs 260 g, salt 6 g a day for 2,000 kcal) with fat and carbs scaled to what you needed each day (about ${kcalText(g.carbs / 260 * 2000)} kcal on average), protein ${ns.rule.weightKg ? `0.75 g per kg of your weight (${round1(g.protein)} g)` : "50 g (add your weight in Settings > Calories for your own figure)"}. A general guide for adults, not a diabetes plan: your carbs follow what you and your team agreed. ${nutrientNotes(missing, a.daysEstimated, { avg: true })} All figures are estimates.</p>`;
+  }
+
   // ---- Calories card (2.78.0; redrawn as a daily balance in 2.78.2) ----
   // Each day's balance: eaten (food logged + daily extras) minus what the day needed (resting x everyday moving + logged
   // activity). Bars rise for over and fall for under around the "needed" line, so the question "how did the day go" is read
@@ -6523,6 +6580,7 @@ import { weekdayOf, mealTypesForDay, MEAL_KINDS, extraFromFood, extrasForDay, se
       emptyBox.hidden = basalSummary.hasData;
       renderBasalTrend(buckets, basalSummary, 320);
       renderCalorieTrend(days, false, 320);
+      renderNutrientTrend(days, false);
       if (ratioCard) ratioCard.hidden = true;
       if (el("trend-card-ideal")) el("trend-card-ideal").hidden = true;
       renderRatioTime(days);   // a ratio changed in Settings in this period is still worth showing
@@ -6605,6 +6663,7 @@ import { weekdayOf, mealTypesForDay, MEAL_KINDS, extraFromFood, extrasForDay, se
 
     renderBasalTrend(buckets, basalSummary, width);
     renderCalorieTrend(days, true, width);
+    renderNutrientTrend(days, true);
     renderTrendMealBreakdown(inRange);
     renderRatioTrend(inRange);
     renderRatioTime(days);
@@ -8351,11 +8410,12 @@ import { weekdayOf, mealTypesForDay, MEAL_KINDS, extraFromFood, extrasForDay, se
       if (!picked) return;
       const g = parseDecimalInput($("#xlib-grams").value);
       if (!(picked.unitBased && picked.gramsPerUnit > 0) && !(g > 0)) { $("#xlib-kcal").textContent = "Type how many grams one serving is."; return; }
-      const { name, unit, kcalPerUnit, perDay } = extraFromFood(picked, g);
-      if (forDay) { close(); opts.onAdd({ name, unit, kcalPerUnit, count: 1 }); return; }
+      const { name, unit, kcalPerUnit, perDay, proteinPerUnit, carbsPerUnit, fatPerUnit, saltPerUnit } = extraFromFood(picked, g);
+      const figs = Object.fromEntries(Object.entries({ proteinPerUnit, carbsPerUnit, fatPerUnit, saltPerUnit }).filter(([, v]) => v != null));   // 2.102.0
+      if (forDay) { close(); opts.onAdd({ name, unit, kcalPerUnit, count: 1, ...figs }); return; }
       const r = calRule();
       const id = makeId("extra");
-      saveCalories({ extras: [...r.extras, { id, name, unit, kcalPerUnit, perDay }] });
+      saveCalories({ extras: [...r.extras, { id, name, unit, kcalPerUnit, perDay, ...figs }] });
       close();
       openExtras.add(id);
       renderCalorieExtras();

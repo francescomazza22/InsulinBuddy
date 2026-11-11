@@ -2,6 +2,15 @@
 // summary can never drift. Bump CHANGELOG[0].version here (and CACHE_VERSION in sw.js) on every release.
 export const CHANGELOG = [
   {
+    version: "2.102.0",
+    summary: "Protein, carbs, fat and salt against a daily guide.",
+    changes: [
+      "Insights > Trends has a new card with your daily averages of protein, carbs, fat and salt, each marked lower, about right or higher than the guide (salt: within or above a 6 g maximum)",
+      "Today's calories (tap the calories bar) shows the same for the day so far, against the whole day's guide",
+      "The guide is the UK Reference Intakes on food labels, with fat and carbs scaled to the calories you need and protein from your weight (0.75 g per kg). Figures come from your library foods and recipes; eating out is estimated from its calories; extras added from your library (and the built-in olive oil and flat white) count too. Anything missing is listed. A general guide, not a diabetes plan"
+    ]
+  },
+  {
     version: "2.101.0",
     summary: "Daily extras take far less space: one line each, tap to change.",
     changes: [

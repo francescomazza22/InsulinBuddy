@@ -63,8 +63,16 @@ export function cleanExtra(x, i = 0) {
     kcalPerUnit: kcal == null ? 0 : Math.round(kcal * 10) / 10,
     perDay: per == null ? 0 : Math.round(per * 100) / 100,
     meals: cleanMeals(x),   // 2.95.0: [] = every logged day; else the meals it goes with, its amount split evenly between them
-    days: cleanDays(x.days)   // 2.98.0: [] = every day of the week; else only those weekdays (0 = Sunday … 6 = Saturday)
+    days: cleanDays(x.days),   // 2.98.0: [] = every day of the week; else only those weekdays (0 = Sunday … 6 = Saturday)
+    ...cleanFigures(x)         // 2.102.0: per-unit protein / carbs / fat / salt when known (from the library)
   };
+}
+// Optional grams per unit of protein, carbs, fat and salt (2.102.0, for the nutrients panel). Only the ones known are kept.
+export const FIGURE_KEYS = ["proteinPerUnit", "carbsPerUnit", "fatPerUnit", "saltPerUnit"];
+function cleanFigures(x) {
+  const out = {};
+  for (const k of FIGURE_KEYS) { const v = inRange(x && x[k], [0, 1000]); if (v != null) out[k] = Math.round(v * 100) / 100; }
+  return out;
 }
 // 2.94.0 had one `meal` ("any" or a meal type); 2.95.0 keeps a list, so a coffee can go with breakfast and lunch.
 export const MEAL_KINDS = ["breakfast", "lunch", "dinner", "snack"];
@@ -167,7 +175,7 @@ function cleanDayOneOffs(raw) {
       if (!/^once-/.test(e.id)) e.id = `once-${e.id}`;
       while (seen.has(e.id)) e.id += "x";
       seen.add(e.id);
-      if (e.perDay > 0) list.push({ id: e.id, name: e.name, unit: e.unit, kcalPerUnit: e.kcalPerUnit, count: e.perDay });
+      if (e.perDay > 0) list.push({ id: e.id, name: e.name, unit: e.unit, kcalPerUnit: e.kcalPerUnit, count: e.perDay, ...cleanFigures(e) });
     });
     if (list.length) out[k] = list;
   }
@@ -192,7 +200,7 @@ export function extrasForDay(rule, dayKey, mealsOnDay = null) {
   });
   for (const o of (rule.dayOneOffs || {})[dayKey] || []) {
     const kcal = o.kcalPerUnit * o.count;
-    items.push({ id: o.id, name: o.name, unit: o.unit, kcalPerUnit: o.kcalPerUnit, perDay: 0, usual: 0, count: o.count, kcal, counted: kcal, changed: true, oneOff: true, meals: [], logged: [], share: 1, applies: true });
+    items.push({ ...cleanFigures(o), id: o.id, name: o.name, unit: o.unit, kcalPerUnit: o.kcalPerUnit, perDay: 0, usual: 0, count: o.count, kcal, counted: kcal, changed: true, oneOff: true, meals: [], logged: [], share: 1, applies: true });
   }
   const sum = (list, f) => list.reduce((s, x) => s + x[f], 0);
   const aside = sum(items.filter(x => !x.meals.length), "kcal");
@@ -212,7 +220,7 @@ export function addDayOneOff(rule, dayKey, spec, id) {
   if (list.length >= ONE_OFFS_MAX) return null;
   const e = cleanExtra({ ...spec, perDay: spec.count || 1, id }, list.length);
   if (!e) return null;
-  list.push({ id: /^once-/.test(e.id) ? e.id : `once-${e.id}`, name: e.name, unit: e.unit, kcalPerUnit: e.kcalPerUnit, count: e.perDay || 1 });
+  list.push({ id: /^once-/.test(e.id) ? e.id : `once-${e.id}`, name: e.name, unit: e.unit, kcalPerUnit: e.kcalPerUnit, count: e.perDay || 1, ...cleanFigures(e) });
   all[dayKey] = list;
   return { dayOneOffs: all };
 }
@@ -490,7 +498,13 @@ export function extraFromFood(item, grams) {
   const g = byUnit ? Number(item.gramsPerUnit) : Math.max(1, Math.min(2000, Number(grams) || 100));
   const unit = byUnit ? clean(item.unitLabel || "unit", CALORIE_LIMITS.unitMax) : clean(`${Math.round(g * 10) / 10} g`, CALORIE_LIMITS.unitMax);
   const kcal = noKcal ? 0 : Math.round(per100 * g / 100 * 10) / 10;
-  return { name, unit, kcalPerUnit: Math.min(CALORIE_LIMITS.kcalPerUnit[1], kcal), perDay: 1, noKcal, byUnit, grams: g };
+  // 2.102.0: the food's protein / carbs / fat / salt for one unit, when the library has them
+  const figs = {};
+  for (const [k, src] of [["proteinPerUnit", "proteinPer100g"], ["carbsPerUnit", "carbsPer100g"], ["fatPerUnit", "fatPer100g"], ["saltPerUnit", "saltPer100g"]]) {
+    const v = item && item[src];
+    if (v != null && v !== "" && Number.isFinite(Number(v)) && Number(v) >= 0) figs[k] = Math.round(Number(v) * g / 100 * 100) / 100;
+  }
+  return { name, unit, kcalPerUnit: Math.min(CALORIE_LIMITS.kcalPerUnit[1], kcal), perDay: 1, noKcal, byUnit, grams: g, ...figs };
 }
 
 /** The meal types logged on a local day with their foods (not eating out, not corrections): which meal extras apply. */
