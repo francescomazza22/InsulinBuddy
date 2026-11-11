@@ -2,6 +2,15 @@
 // summary can never drift. Bump CHANGELOG[0].version here (and CACHE_VERSION in sw.js) on every release.
 export const CHANGELOG = [
   {
+    version: "2.103.1",
+    summary: "Saving a food from Missing figures now shows what it did; 0 is kept.",
+    changes: [
+      "A 0 typed for calories, fat, protein or salt is now saved as 0 (it was saved as blank, so the food stayed on the missing list)",
+      "After saving a food or recipe opened from Missing figures you come straight back to the panel, refreshed, with a line saying what was saved and what's still missing",
+      "The Trends nutrients card and the calories bar update as soon as a food is saved"
+    ]
+  },
+  {
     version: "2.103.0",
     summary: "Missing figures: one place to see what can't be counted.",
     changes: [

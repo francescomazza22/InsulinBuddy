@@ -594,9 +594,27 @@ t.section("MISSING FIGURES (2.103.0)");
   t.check("logged foods no longer in the library are listed", msec("Logged but").rows.length === 1 && /^Old crackers \| eaten 1×/.test(msec("Logged but").rows[0]), JSON.stringify(msec("Logged but")));
   t.check("library foods not eaten lately are tucked away", ms && ms.more === "Other library foods missing figures (1)", ms && ms.more);
   if (SHOTS) await dev.shot(`${SHOTS}/missing-${W}${dark ? "-dark" : ""}.png`);
+  await dev.click('[data-miss-food="m3"]'); await sleep(500);
+  t.check("tapping a food opens its editor", !(await dev.eval(`!!document.querySelector(".miss-sheet")`)) && (await dev.eval(`document.getElementById("fs-name").value === "Farina"`)));
+  // 2.103.1: fill some figures and save: back to the panel, saying what's still missing
+  await dev.eval(`document.getElementById("fs-protein").value = "10"; document.getElementById("fs-fat").value = "1"`);
+  await dev.click("#fs-save"); await sleep(600);
+  let note = await dev.eval(`(document.querySelector(".miss-sheet .miss-saved") || {}).textContent || ""`);
+  t.check("saving comes back to Missing figures and says what's still missing", note === "Saved Farina. Still missing: salt (type 0 if it has none).", note);
+  t.check("...and the Trends button count goes down", (await dev.eval(`document.getElementById("nut-missing-btn").textContent`)) === "Check missing figures (8)");
+  // a 0 is a real figure: Banana's salt 0 takes it off the list
   await dev.click('[data-miss-food="m2"]'); await sleep(500);
-  t.check("tapping a food opens its editor", !(await dev.eval(`!!document.querySelector(".miss-sheet")`)) && (await dev.eval(`[...document.querySelectorAll(".sheet h2")].some(h => /Banana/.test(h.textContent) || /food/i.test(h.textContent))`)));
-  await dev.eval(`document.querySelectorAll(".sheet-backdrop").forEach(b => b.remove())`); await sleep(200);
+  await dev.eval(`document.getElementById("fs-salt").value = "0"`);
+  await dev.click("#fs-save"); await sleep(600);
+  note = await dev.eval(`(document.querySelector(".miss-sheet .miss-saved") || {}).textContent || ""`);
+  const lib2 = await dev.eval(`JSON.parse(localStorage.getItem("insulinBuddy.v2")).library.find(f => f.id === "m2").salt`);
+  t.check("typing 0 saves 0 (not blank), so the food is complete", lib2 === 0 && note === "Saved Banana. It's complete now." && !(await dev.eval(`!!document.querySelector('.miss-sheet [data-miss-food="m2"]')`)), JSON.stringify([lib2, note]));
+  t.check("cancelling an edit also comes back to the panel", await (async () => { await dev.click('[data-miss-food="m3"]'); await sleep(400); await dev.click("#fs-cancel"); await sleep(400); return dev.eval(`!!document.querySelector(".miss-sheet") && !document.querySelector(".miss-saved")`); })());
+  if (SHOTS) await dev.shot(`${SHOTS}/missing-saved-${W}${dark ? "-dark" : ""}.png`);
+  await dev.click("#miss-close"); await sleep(300);
+  // put Banana's salt back to blank so Today's calories still offers the check
+  await dev.eval(`(() => { const st = JSON.parse(localStorage.getItem("insulinBuddy.v2")); st.library.find(f => f.id === "m2").salt = null; localStorage.setItem("insulinBuddy.v2", JSON.stringify(st)); })()`);
+  await dev.eval(`location.reload()`); await sleep(1800);
   await dev.tab("calculator"); await sleep(300);
   await dev.click("#cc-day-kcal"); await sleep(500);
   t.check("Today's calories links to the same check", await dev.eval(`!!document.getElementById("dc-missing")`));

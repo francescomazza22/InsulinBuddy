@@ -2403,3 +2403,4 @@ details.miss-more { margin-top: var(--space-s); border-top: 1px solid var(--line
 details.miss-more > summary { cursor: pointer; color: var(--acc-1); font-weight: 600; font-size: var(--fs-s); padding: var(--space-2xs) 0; }
 .dc-missing { margin-top: var(--space-xs); }
 #nut-missing-btn { margin-top: var(--space-s); }
+.miss-saved { margin: 0 0 var(--space-s); padding: var(--space-xs) var(--space-s); border-radius: var(--radius-s, 10px); background: color-mix(in srgb, var(--acc-1) 12%, transparent); color: var(--ink); font-size: var(--fs-s); }

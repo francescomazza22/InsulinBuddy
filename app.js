@@ -44,7 +44,7 @@ import { workoutsToActivities, awaitingIntensity, mayBeDoubleCounted, intensityU
 import { dayBounds, shiftDay, dayTimeline, readingNear, stackRows } from "./js/day-timeline.js";
 import { sessionLevel, primaryTotp, verifyCode, startTotpSetup, cancelTotpSetup, removeTotp, signOutOtherDevices, groupSecret, cleanTotpCode, validTotpCode } from "./js/mfa.js";
 import { nearActivity, activitySkip, countNearActivity, breakfastByActivity, activitySummary, ACTIVITY_FILTERS, NEAR_BEFORE_HOURS, NEAR_AFTER_HOURS } from "./js/activity-stats.js";
-import { nutrientSummary, per100Index, compareToGuide, NUTRIENTS, missingReport } from "./js/nutrients.js";
+import { nutrientSummary, per100Index, compareToGuide, NUTRIENTS, missingReport, CHECKED_FIELDS } from "./js/nutrients.js";
 import { foodNameMatches } from "./js/food-search.js";
 import { weekdayOf, mealTypesForDay, MEAL_KINDS, extraFromFood, extrasForDay, setDayExtra, setDayCount, resetDay, addDayOneOff, ONE_OFFS_MAX, dayKeyOf, eatingOutEstimates, eatingOutKcalFromInsulin, EATING_OUT_CORRECTION_HOURS, KCAL_PER_G_CARB, todayCalories, calorieRule, calorieSummary, missingDetails, restingKcal, extrasKcal, cleanExtra, LIFE_FACTORS, CALORIE_DEFAULTS, CALORIE_LIMITS } from "./js/calories.js";
 
@@ -5253,7 +5253,7 @@ import { weekdayOf, mealTypesForDay, MEAL_KINDS, extraFromFood, extrasForDay, se
     });
   }
 
-  function openFoodSheet(food) {
+  function openFoodSheet(food, opts = {}) {
     const isEdit = !!food;
     const f = food || { name: "", category: "other", carbs: "", kcal: "", fat: "", protein: "", salt: "", notes: "", favorite: false, unitBased: false, unitLabel: "", gramsPerUnit: "" };
     const backdrop = document.createElement("div");
@@ -5335,7 +5335,8 @@ import { weekdayOf, mealTypesForDay, MEAL_KINDS, extraFromFood, extrasForDay, se
     backdrop.querySelector("#fs-unit-based").addEventListener("change", e => {
       backdrop.querySelector("#fs-unit-fields").hidden = !e.target.checked;
     });
-    backdrop.addEventListener("click", e => { if (e.target === backdrop || e.target.id === "fs-cancel" || e.target.closest("#fs-close")) closeSheet(backdrop); });
+    const done = saved => { closeSheet(backdrop); if (opts.onClose) opts.onClose(saved ? f : null); };
+    backdrop.addEventListener("click", e => { if (e.target === backdrop || e.target.id === "fs-cancel" || e.target.closest("#fs-close")) done(false); });
     backdrop.querySelector("#fs-save").addEventListener("click", () => {
       const name = backdrop.querySelector("#fs-name").value.trim();
       // Every amount is read with the decimal-comma parser: "12,5" is 12.5, never 125.
@@ -5357,10 +5358,11 @@ import { weekdayOf, mealTypesForDay, MEAL_KINDS, extraFromFood, extrasForDay, se
         name,
         category: backdrop.querySelector("#fs-cat").value,
         carbs,
-        kcal: optional.kcal || null,
-        fat: optional.fat || null,
-        protein: optional.protein || null,
-        salt: optional.salt || null,
+        // 2.103.1: 0 is a real figure (no salt in a banana), not a gap, so it's kept; only an empty box is "unknown"
+        kcal: optional.kcal ?? null,
+        fat: optional.fat ?? null,
+        protein: optional.protein ?? null,
+        salt: optional.salt ?? null,
         gi: optional.gi || null,
         notes: backdrop.querySelector("#fs-notes").value.trim(),
         favorite: backdrop.querySelector("#fs-fav").checked,
@@ -5369,7 +5371,7 @@ import { weekdayOf, mealTypesForDay, MEAL_KINDS, extraFromFood, extrasForDay, se
         gramsPerUnit: unitBased ? gramsPerUnit : null,
         source: foodSource(backdrop.querySelector("#fs-source").value)
       };
-      const figuresChanged = isEdit && (payload.carbs !== f.carbs || (payload.kcal || null) !== (f.kcal || null));
+      const figuresChanged = isEdit && (payload.carbs !== f.carbs || (payload.kcal ?? null) !== (f.kcal ?? null));
       if (isEdit) {
         // a value you changed is yours now, no longer an estimate
         if (Array.isArray(f.estimated)) { const keep = f.estimated.filter(k => payload[k] === f[k]); if (keep.length) payload.estimated = keep; else delete f.estimated; }
@@ -5377,7 +5379,7 @@ import { weekdayOf, mealTypesForDay, MEAL_KINDS, extraFromFood, extrasForDay, se
       } else state.library.unshift({ id: "food-" + Date.now(), usageCount: 0, ...payload });
       saveState();
       renderFoodsLibrary();
-      closeSheet(backdrop);
+      done(true);
       if (figuresChanged) offerRecipeUpdate(f);
     });
   }
@@ -5477,7 +5479,7 @@ import { weekdayOf, mealTypesForDay, MEAL_KINDS, extraFromFood, extrasForDay, se
   function writeRecipeDraft(id, d) { try { store.setItem(recipeDraftKey(id), JSON.stringify(d)); } catch (e) { /* storage unavailable: the library copy still saves */ } }
   function clearRecipeDraft(id) { try { store.removeItem(recipeDraftKey(id)); } catch (e) { /* nothing to clear */ } }
 
-  function openRecipeSheet(recipe) {
+  function openRecipeSheet(recipe, opts = {}) {
     // A draft left by an earlier visit: a new recipe that was never complete, or unfinished changes to this recipe.
     const draftHere = readRecipeDraft(recipe ? recipe.id : null);
     let saved = recipe || null;
@@ -5772,6 +5774,7 @@ import { weekdayOf, mealTypesForDay, MEAL_KINDS, extraFromFood, extrasForDay, se
       document.removeEventListener("visibilitychange", onHide);
       window.removeEventListener("pagehide", onPageHide);
       closeSheet(backdrop);
+      if (opts.onClose) opts.onClose(saved || null);
     };
 
     function putBack() {
@@ -6329,6 +6332,26 @@ import { weekdayOf, mealTypesForDay, MEAL_KINDS, extraFromFood, extrasForDay, se
   function missingCount() {
     return missingReport(state.history, state.library, state.recipes, calorieRule(state.settings.calories).extras, { days: 30 }).total;
   }
+  // 2.103.1: after editing a food or recipe from the panel, come straight back to it (refreshed) and say what the save did,
+  // so a saved food visibly drops off, or it's clear what's still missing. Trends and the calories bar are redrawn too.
+  function backFromMissing(saved, kind) {
+    refreshAfterLibraryEdit();
+    if (!saved) { openMissingSheet(); return; }
+    const name = escapeHtml(saved.name || (kind === "recipe" ? "Recipe" : "Food"));
+    let note = `Saved ${name}.`;
+    if (kind === "food") {
+      const still = CHECKED_FIELDS.filter(k => saved[k] == null || saved[k] === "" || !Number.isFinite(Number(saved[k]))).map(k => (k === "kcal" ? "calories" : k));
+      note += still.length ? ` Still missing: ${still.join(", ")} (type 0 if it has none).` : " It's complete now.";
+    } else {
+      const rep = missingReport(state.history, state.library, state.recipes, [], { days: 30 });
+      note += rep.recipes.some(r => r.id === saved.id) ? " Some ingredients still lack figures (see below)." : " It's complete now.";
+    }
+    openMissingSheet(note);
+  }
+  function refreshAfterLibraryEdit() {
+    try { if (historySeg === "trends") renderTrends(trendsRange, { keepInsights: true }); } catch (e) { /* the panel is still right */ }
+    try { if (typeof renderDayKcal === "function") renderDayKcal(); } catch (e) { /* drawn again on the next change */ }
+  }
   // A recipe's problems grouped by kind, so a dish with 11 typed-in ingredients reads as one line, not eleven.
   function recipeProblemsText(problems) {
     const groups = new Map();
@@ -6339,7 +6362,7 @@ import { weekdayOf, mealTypesForDay, MEAL_KINDS, extraFromFood, extrasForDay, se
       return `${shown}: ${escapeHtml(issue)}`;
     }).join(" \u00b7 ");
   }
-  function openMissingSheet() {
+  function openMissingSheet(note) {
     const rep = missingReport(state.history, state.library, state.recipes, calorieRule(state.settings.calories).extras, { days: 30 });
     const backdrop = document.createElement("div");
     backdrop.className = "sheet-backdrop";
@@ -6366,6 +6389,7 @@ import { weekdayOf, mealTypesForDay, MEAL_KINDS, extraFromFood, extrasForDay, se
           </button>
         </div>
         <p class="panel-card__hint miss-intro">Calories, protein, fat and salt that can't be counted. Fixing the ones you eat most makes the biggest difference.</p>
+        ${note ? `<p class="miss-saved" role="status">${note}</p>` : ""}
         <div id="miss-body">${html}</div>
       </div>`;
     const close = () => closeSheet(backdrop);
@@ -6373,8 +6397,8 @@ import { weekdayOf, mealTypesForDay, MEAL_KINDS, extraFromFood, extrasForDay, se
     backdrop.addEventListener("click", e => {
       if (e.target === backdrop) { close(); return; }
       const f = e.target.closest("[data-miss-food]"), r = e.target.closest("[data-miss-recipe]"), x = e.target.closest("[data-miss-extras]");
-      if (f) { const food = state.library.find(y => String(y.id) === f.dataset.missFood); if (food) { close(); openFoodSheet(food); } }
-      else if (r) { const rec = state.recipes.find(y => String(y.id) === r.dataset.missRecipe); if (rec) { close(); openRecipeSheet(rec); } }
+      if (f) { const food = state.library.find(y => String(y.id) === f.dataset.missFood); if (food) { close(); openFoodSheet(food, { onClose: saved => backFromMissing(saved, "food") }); } }
+      else if (r) { const rec = state.recipes.find(y => String(y.id) === r.dataset.missRecipe); if (rec) { close(); openRecipeSheet(rec, { onClose: saved => backFromMissing(saved, "recipe") }); } }
       else if (x) { close(); openSettingsPanel("calories"); }
     });
     backdrop.addEventListener("keydown", e => { if (e.key === "Escape") close(); });
