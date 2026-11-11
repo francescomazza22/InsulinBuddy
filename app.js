@@ -8035,7 +8035,12 @@ import { weekdayOf, mealTypesForDay, MEAL_KINDS, extraFromFood, extrasForDay, se
       if (!row) return;
       const out = row.querySelector(".cal-extra__kcal");
       if (out) out.textContent = `${kcalText(x.kcalPerUnit * x.perDay)} kcal`;
-      row.querySelectorAll("[data-xday]").forEach(b => { const on = (x.days || []).includes(Number(b.dataset.xday)); b.classList.toggle("is-on", on); b.setAttribute("aria-pressed", String(on)); });
+      const effDays = x.days && x.days.length ? x.days : WEEK_ORDER;   // 2.101.0: no days saved = every day, shown as all seven lit
+      row.querySelectorAll("[data-xday]").forEach(b => { const on = effDays.includes(Number(b.dataset.xday)); b.classList.toggle("is-on", on); b.setAttribute("aria-pressed", String(on)); });
+      const sn = row.querySelector(".cal-extra__sum-name"), sa = row.querySelector(".cal-extra__sum-amt"), sw = row.querySelector(".cal-extra__sum-when");
+      if (sn) sn.textContent = x.name;
+      if (sa) sa.textContent = extraAmountText(x);
+      if (sw) sw.textContent = extraWhenShort(x);
       row.querySelectorAll("[data-xmeal]").forEach(b => { const on = x.meals.includes(b.dataset.xmeal); b.classList.toggle("is-on", on); b.setAttribute("aria-pressed", String(on)); });
       const w = row.querySelector(".cal-extra__when-text");
       if (w) w.textContent = extraWhenText(x);
@@ -8084,6 +8089,30 @@ import { weekdayOf, mealTypesForDay, MEAL_KINDS, extraFromFood, extrasForDay, se
     const names = k.map(dayShort);
     return names.length === 1 ? `${dayLong(k[0])}s` : names.slice(0, -1).join(", ") + " and " + names[names.length - 1];
   }
+  // 2.101.0: compact Daily extras. One summary line per extra; the editor opens on tap (one or more may be open).
+  const openExtras = new Set();
+  // "2 tbsp", "1 cup", "1" (a generic unit like "Unit" or "each" says nothing), "1 × 120 g".
+  function extraAmountText(x) {
+    const n = x.perDay, num = String(Math.round(n * 100) / 100), u = (x.unit || "").trim();
+    if (!u || /^(units?|each|pz|pcs?|pieces?|items?)$/i.test(u)) return num;
+    return /^\d/.test(u) ? `${num} \u00d7 ${u}` : `${num} ${unitPlural(u, n)}`;
+  }
+  // "Lunch, dinner · not Sat", "Any meal · every day", "Breakfast · weekdays".
+  function extraWhenShort(x) {
+    const ms = x.meals || [], days = x.days || [];
+    const meals = ms.length ? ms.map((m, i) => { const l = MEAL_TYPES[m].label; return i ? l.toLowerCase() : l; }).join(", ") : "Any meal";
+    let d = "every day";
+    if (days.length === 6) d = `not ${dayShort(WEEK_ORDER.find(n => !days.includes(n)))}`;
+    else if (days.length) { const t = daysText(days); d = /^(Weekdays|Weekends)$/.test(t) ? t.toLowerCase() : t; }
+    return `${meals} \u00b7 ${d}`;
+  }
+  function setExtraOpen(row, open) {
+    const id = row.dataset.xid, edit = row.querySelector(".cal-extra__edit"), btn = row.querySelector("[data-xtoggle]");
+    if (open) openExtras.add(id); else openExtras.delete(id);
+    row.classList.toggle("is-open", open);
+    if (edit) edit.hidden = !open;
+    if (btn) btn.setAttribute("aria-expanded", String(open));
+  }
   function weekdayPlural(dayKey) { return `${dayLong(weekdayOf(dayKey))}s`; }
   function renderCalorieExtras() {
     const box = el("cal-extras");
@@ -8098,12 +8127,17 @@ import { weekdayOf, mealTypesForDay, MEAL_KINDS, extraFromFood, extrasForDay, se
       renderCalorieStatus();
       return;
     }
-    box.innerHTML = r.extras.map(x => `<div class="cal-extra" data-xid="${escapeAttr(x.id)}">
-      <div class="cal-extra__top">
-        <input type="text" class="cal-extra__name" data-xfield="name" value="${escapeAttr(x.name)}" maxlength="${CALORIE_LIMITS.nameMax}" aria-label="Item name" autocomplete="off">
+    box.innerHTML = r.extras.map(x => {
+      const open = openExtras.has(x.id), eid = `cal-extra-edit-${escapeAttr(x.id)}`;
+      return `<div class="cal-extra${open ? " is-open" : ""}" data-xid="${escapeAttr(x.id)}">
+      <button type="button" class="cal-extra__sum" data-xtoggle aria-expanded="${open}" aria-controls="${eid}">
+        <span class="cal-extra__sum-what"><span class="cal-extra__sum-name"></span><span class="cal-extra__sum-amt"></span></span>
+        <span class="cal-extra__sum-when"></span>
         <span class="cal-extra__kcal"></span>
-        <button type="button" class="cal-extra__remove" data-xremove aria-label="Remove ${escapeAttr(x.name)}">\u00d7</button>
-      </div>
+        <span class="cal-extra__chev" aria-hidden="true"></span>
+      </button>
+      <div class="cal-extra__edit" id="${eid}"${open ? "" : " hidden"}>
+      <label class="cal-extra__cell cal-extra__cell--name"><span>Name</span><input type="text" class="cal-extra__name" data-xfield="name" value="${escapeAttr(x.name)}" maxlength="${CALORIE_LIMITS.nameMax}" autocomplete="off"></label>
       <div class="cal-extra__nums">
         <label class="cal-extra__cell"><span>A day</span><input type="text" name="cal-extra-per-day" data-xfield="perDay" value="${x.perDay}" inputmode="decimal" autocomplete="off"></label>
         <label class="cal-extra__cell"><span>Unit</span><input type="text" name="cal-extra-unit" data-xfield="unit" value="${escapeAttr(x.unit)}" maxlength="${CALORIE_LIMITS.unitMax}" placeholder="e.g. cup" autocomplete="off"></label>
@@ -8111,8 +8145,10 @@ import { weekdayOf, mealTypesForDay, MEAL_KINDS, extraFromFood, extrasForDay, se
       </div>
       <div class="cal-extra__when"><span>Counted with</span><div class="cal-extra__meals" role="group" aria-label="${escapeAttr(x.name)}: which meals it goes with">${MEAL_KINDS.map(m => `<button type="button" class="cal-meal-chip" data-xmeal="${m}" aria-pressed="false">${MEAL_TYPES[m].label}</button>`).join("")}</div></div>
       <div class="cal-extra__when"><span>Days</span><div class="cal-extra__days" role="group" aria-label="${escapeAttr(x.name)}: which days of the week">${WEEK_ORDER.map(n => `<button type="button" class="cal-meal-chip cal-day-chip" data-xday="${n}" aria-pressed="false" aria-label="${escapeAttr(dayLong(n))}">${escapeHtml(dayShort(n).slice(0, 2))}</button>`).join("")}</div></div>
-      <p class="cal-extra__when-text"></p>
-    </div>`).join("");
+      <div class="cal-extra__foot"><p class="cal-extra__when-text"></p><button type="button" class="cal-extra__remove" data-xremove aria-label="Remove ${escapeAttr(x.name)}">Remove</button></div>
+      </div>
+        </div>`;
+    }).join("");
     renderCalorieStatus();
   }
   function renderCalorieSettings() {
@@ -8179,12 +8215,17 @@ import { weekdayOf, mealTypesForDay, MEAL_KINDS, extraFromFood, extrasForDay, se
     if (out) out.textContent = `${kcalText(num("perDay") * num("kcalPerUnit"))} kcal`;
   });
   bind("cal-extras", "click", e => {
+    const t = e.target.closest("[data-xtoggle]"), row = t && t.closest("[data-xid]");
+    if (row) setExtraOpen(row, !openExtras.has(row.dataset.xid));
+  });
+  bind("cal-extras", "click", e => {
     const dayChip = e.target.closest("[data-xday]");
     if (dayChip) {   // 2.98.0: weekdays
       const row = e.target.closest("[data-xid]"), r = calRule(), x = row && r.extras.find(y => y.id === row.dataset.xid);
       if (!x) return;
-      const n = Number(dayChip.dataset.xday), cur = x.days || [];
-      const days = cur.includes(n) ? cur.filter(d => d !== n) : [...cur, n];
+      const n = Number(dayChip.dataset.xday), cur = x.days && x.days.length ? x.days : WEEK_ORDER;   // 2.101.0: none saved = all seven
+      if (cur.includes(n) && cur.length === 1) return;   // at least one day stays on
+      const days = cur.includes(n) ? cur.filter(d => d !== n) : [...cur, n];   // all seven is saved as [] (every day)
       saveCalories({ extras: r.extras.map(y => (y.id === x.id ? { ...y, days } : y)) });
       renderCalorieStatus();
       return;
@@ -8207,6 +8248,7 @@ import { weekdayOf, mealTypesForDay, MEAL_KINDS, extraFromFood, extrasForDay, se
     const ok = await dialogs.confirm(`Remove ${x.name} from your daily extras?`, { title: "Remove extra", confirmText: "Remove", danger: true });
     if (!ok) return;
     saveCalories({ extras: r.extras.filter(y => y.id !== x.id) });
+    openExtras.delete(x.id);
     renderCalorieExtras();
   });
   bind("cal-add-extra", "click", () => {
@@ -8214,6 +8256,7 @@ import { weekdayOf, mealTypesForDay, MEAL_KINDS, extraFromFood, extrasForDay, se
     if (r.extras.length >= CALORIE_LIMITS.extrasMax) { dialogs.alert(`Up to ${CALORIE_LIMITS.extrasMax} extras.`, { title: "Daily extras" }); return; }
     const id = makeId("extra");
     saveCalories({ extras: [...r.extras, { id, name: "New item", unit: "", kcalPerUnit: 0, perDay: 1 }] });
+    openExtras.add(id);
     renderCalorieExtras();
     const name = document.querySelector(`#cal-extras [data-xid="${CSS.escape(id)}"] .cal-extra__name`);
     if (name) { name.focus(); name.setSelectionRange(name.value.length, name.value.length); }
@@ -8314,6 +8357,7 @@ import { weekdayOf, mealTypesForDay, MEAL_KINDS, extraFromFood, extrasForDay, se
       const id = makeId("extra");
       saveCalories({ extras: [...r.extras, { id, name, unit, kcalPerUnit, perDay }] });
       close();
+      openExtras.add(id);
       renderCalorieExtras();
       const row = document.querySelector(`#cal-extras [data-xid="${CSS.escape(id)}"]`);
       if (row) { row.scrollIntoView({ block: "center", behavior: "smooth" }); row.classList.add("is-new"); setTimeout(() => row.classList.remove("is-new"), 1600); }

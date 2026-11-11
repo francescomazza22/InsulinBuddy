@@ -2336,3 +2336,41 @@ html[data-theme="dark"] .dose-card .carbs-pill.carbs-pill--ratio.mode-chip.is-su
 .dc-note { margin-top: var(--space-xs); }
 .day-kcal-sheet .dx-links { margin-top: var(--space-s); }
 .xlib-list > .panel-card__hint { margin: var(--space-s) var(--space-2xs); }   /* 2.100.1: the hint's -8px top margin clipped it inside the scrolling list */
+
+/* ===== COMPACT DAILY EXTRAS (2.101.0) =====
+   Each extra is one summary line (name · amount, when it counts, kcal); tapping it opens the editor underneath.
+   On wide screens the summary lines up in columns under a small header. */
+.cal-extra { padding: 0; }
+.cal-extra__sum { display: grid; grid-template-columns: minmax(0, 1fr) auto 14px; grid-template-areas: "what kcal chev" "when kcal chev"; column-gap: var(--space-s); align-items: center; width: 100%; min-height: 52px; padding: var(--space-xs) 0; border: none; background: transparent; color: var(--ink); font: inherit; text-align: left; cursor: pointer; }
+.cal-extra__sum-what { grid-area: what; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-m); }
+.cal-extra__sum-name { font-weight: 600; }
+.cal-extra__sum-amt { color: var(--ink-soft); }
+.cal-extra__sum-amt::before { content: " \00b7\00a0"; }
+.cal-extra__sum-when { grid-area: when; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink-soft); font-size: var(--fs-xs); }
+.cal-extra__sum .cal-extra__kcal { grid-area: kcal; color: var(--ink); font-weight: 500; }
+.cal-extra__chev { grid-area: chev; width: 8px; height: 8px; border-right: 2px solid var(--ink-soft); border-bottom: 2px solid var(--ink-soft); transform: rotate(-45deg); justify-self: center; transition: transform var(--motion-fast) var(--motion-ease); }
+.cal-extra.is-open .cal-extra__chev { transform: rotate(45deg); }
+.cal-extra__sum:focus-visible { outline: 2px solid var(--acc-1); outline-offset: 2px; border-radius: var(--radius-s); }
+.cal-extra__edit { padding: var(--space-3xs) 0 var(--space-m); }
+.cal-extra__edit[hidden] { display: none; }
+.cal-extra__cell--name { margin-bottom: var(--space-xs); }
+.panel-card .cal-extra__edit input[type="text"] { height: 44px; }
+.cal-extra__edit button.cal-meal-chip { min-height: 32px; font-size: var(--fs-xs); }
+.cal-extra__foot { display: flex; align-items: flex-start; gap: var(--space-s); margin-top: var(--space-2xs); }
+.cal-extra__foot .cal-extra__when-text { flex: 1 1 auto; min-width: 0; margin: 0; }
+button.cal-extra__remove { flex: none; width: auto; height: auto; min-height: 32px; padding: 0 var(--space-xs); color: var(--brick); font-size: var(--fs-s); font-weight: 600; }
+.cal-extras__head { display: none; }
+#cal-extras:empty + .cal-add-row { margin-top: var(--space-xs); }
+@media (min-width: 1000px) {
+  .cal-extras__head, .cal-extra__sum { grid-template-columns: minmax(0, 1fr) minmax(0, 0.55fr) minmax(0, 1.7fr) 4.5em 14px; grid-template-areas: "what amt when kcal chev"; }
+  .cal-extras__head { display: grid; column-gap: var(--space-s); padding-bottom: var(--space-3xs); border-bottom: 1px solid var(--line); color: var(--ink-soft); font-size: var(--fs-xs); }
+  .cal-extras__head span:nth-child(4), .cal-extra__sum .cal-extra__kcal { text-align: right; }
+  .cal-extra:first-child { border-top: none; }
+  .cal-extra__sum { min-height: 44px; }
+  .cal-extra__sum-what { display: contents; }
+  .cal-extra__sum-name { grid-area: what; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .cal-extra__sum-amt::before { content: none; }
+  .cal-extra__sum-amt { grid-area: amt; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .cal-extra__sum-when { font-size: var(--fs-s); }
+  .cal-extra__sum:hover .cal-extra__sum-name { color: var(--acc-1); }
+}

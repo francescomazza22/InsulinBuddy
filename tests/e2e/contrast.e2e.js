@@ -102,6 +102,7 @@ const screens = [
   ["insights meals", async dev => { await dev.tab("history"); await dev.click('#history-segmented [data-seg="log"]'); }],
   ["insights trends", async dev => { await dev.tab("history"); await dev.click('#history-segmented [data-seg="trends"]'); await sleep(400); }],
   ["settings dosing", async dev => { await dev.tab("settings"); await dev.click('#settings-segmented [data-seg="ratios"]'); }],
+  ["settings calories, an extra open", async dev => { await dev.tab("settings"); await dev.click('#settings-segmented [data-seg="calories"]'); await sleep(200); if (!(await dev.eval(`document.querySelectorAll("#cal-extras .cal-extra").length`))) await dev.click("#cal-add-extra"); await dev.eval(`(() => { const b = document.querySelector('#cal-extras [data-xtoggle][aria-expanded="false"]'); if (b) b.click(); document.activeElement && document.activeElement.blur(); })()`); await sleep(150); }],   // 2.101.0
   ["settings general", async dev => { await dev.tab("settings"); await dev.click('#settings-segmented [data-seg="general"]'); }],
   ["settings library", async dev => { await dev.tab("settings"); await dev.click('#settings-segmented [data-seg="library"]'); }],
   ["settings sync", async dev => { await dev.tab("settings"); await dev.click('#settings-segmented [data-seg="sync"]'); }],

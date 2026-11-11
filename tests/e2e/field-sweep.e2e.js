@@ -112,6 +112,7 @@ await dev.tab("settings"); await sleep(300);
 for (const seg of ["ratios", "library", "calories", "sync", "general"]) {
   await dev.click(`#settings-segmented [data-seg="${seg}"]`); await sleep(350);
   if (seg === "ratios") { await dev.eval(`document.querySelectorAll("#time-ratio-list [data-toggle]").forEach(x => x.click())`); await sleep(150); }
+  if (seg === "calories") { await dev.eval(`document.querySelectorAll('#cal-extras [data-xtoggle][aria-expanded="false"]').forEach(x => x.click())`); await sleep(150); }   // 2.101.0: extras open on tap
   await probe(`#panel-${seg}`, "Settings · " + seg);
   if (seg === "library") {
     for (const lseg of ["foods", "recipes"]) {

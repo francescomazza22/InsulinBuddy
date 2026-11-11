@@ -2,6 +2,16 @@
 // summary can never drift. Bump CHANGELOG[0].version here (and CACHE_VERSION in sw.js) on every release.
 export const CHANGELOG = [
   {
+    version: "2.101.0",
+    summary: "Daily extras take far less space: one line each, tap to change.",
+    changes: [
+      "Settings > Calories > Daily extras: each extra is now one line with its amount, when it counts and its calories; tap it to open the editor underneath",
+      "On iPad and PC the lines sit in columns (extra, a day, when, kcal) so they read like a small table",
+      "Days: an extra that counts every day now shows all seven days lit (before, none lit meant every day); tap a day to leave it out",
+      "Remove is inside the editor, and a vague unit like \"Unit\" is left out of the summary"
+    ]
+  },
+  {
     version: "2.100.2",
     summary: "Treating a low switches itself off again once the low is over.",
     changes: [

@@ -80,6 +80,18 @@ t.check("an impossible weight keeps what is saved", (await saved()).weightKg ===
 await setField("#cal-weight", "");
 t.check("clearing it asks for the weight", (await saved()).weightKg === null && /Add your weight/.test(await status()), await status());
 await setField("#cal-weight", "75");
+
+t.section("COMPACT DAILY EXTRAS (2.101.0)");
+const sumOf = id => dev.eval(`(() => { const r = document.querySelector('#cal-extras [data-xid="${id}"]'); const b = r.querySelector("[data-xtoggle]"); return { name: r.querySelector(".cal-extra__sum-name").textContent, amt: r.querySelector(".cal-extra__sum-amt").textContent, when: r.querySelector(".cal-extra__sum-when").textContent, kcal: r.querySelector(".cal-extra__kcal").textContent, open: b.getAttribute("aria-expanded"), editHidden: r.querySelector(".cal-extra__edit").hidden, h: Math.round(r.getBoundingClientRect().height) }; })()`);
+let so = await sumOf("olive-oil");
+t.check("each extra starts as one closed summary line: name, amount, when, kcal", so.name === "Olive oil" && so.amt === "2 tbsp" && so.when === "Any meal \u00b7 every day" && so.kcal === "238 kcal" && so.open === "false" && so.editHidden && so.h > 0 && so.h <= 72, JSON.stringify(so));
+const toggleX = id => dev.eval(`document.querySelector('#cal-extras [data-xid="${id}"] [data-xtoggle]').click()`);
+await toggleX("olive-oil"); await sleep(150);
+so = await sumOf("olive-oil");
+t.check("tapping it opens the editor with every field", so.open === "true" && !so.editHidden && (await dev.eval(`["name","perDay","unit","kcalPerUnit"].every(k => { const f = document.querySelector('#cal-extras [data-xid="olive-oil"] [data-xfield="' + k + '"]'); return f && f.getBoundingClientRect().height > 0; })`)), JSON.stringify(so));
+await toggleX("olive-oil"); await sleep(150);
+t.check("tapping it again closes it", (await sumOf("olive-oil")).editHidden);
+await toggleX("olive-oil"); await toggleX("flat-white"); await sleep(150);
 await setField('#cal-extras [data-xid="olive-oil"] [data-xfield="perDay"]', "1,5");
 let c = await saved();
 t.check("olive oil 1,5 a day is saved as 1.5 and the totals update in place", c.extras[0].perDay === 1.5 && /Extras: 289 kcal a day/.test(await status()) &&
@@ -98,6 +110,7 @@ await dev.eval(`(() => { const f = document.activeElement; f.value = "1"; f.disp
 await dev.eval(`document.activeElement.blur()`); await sleep(150);
 await setField('#cal-extras [data-xid="flat-white"] [data-xfield="name"]', "");
 t.check("an empty name keeps the old one", (await saved()).extras[1].name === "Flat white");
+t.check("the summary follows what is saved and the editor stays open after a save", (await sumOf("olive-oil")).amt === "1.5 tbsp" && (await sumOf("olive-oil")).kcal === "179 kcal" && !(await sumOf("olive-oil")).editHidden && (await sumOf("flat-white")).name === "Flat white");
 await dev.click("#cal-add-extra"); await sleep(300);
 c = await saved();
 t.check("Add an item adds a row ready to name", c.extras.length === 3 && (await dev.eval(`document.activeElement.classList.contains("cal-extra__name")`)));
@@ -410,15 +423,22 @@ const todayDow = new Date().getDay();
 await dev.tab("settings"); await sleep(300); await dev.click('#settings-segmented [data-seg="calories"]'); await sleep(400);
 const dayChips = id => dev.eval(`(() => { const r = document.querySelector('#cal-extras [data-xid="${id}"]'); return { labels: [...r.querySelectorAll("[data-xday]")].map(b => b.textContent), names: [...r.querySelectorAll("[data-xday]")].map(b => b.getAttribute("aria-label")), on: [...r.querySelectorAll("[data-xday]")].filter(b => b.getAttribute("aria-pressed") === "true").map(b => Number(b.dataset.xday)), text: r.querySelector(".cal-extra__when-text").textContent }; })()`);
 let dc = await dayChips("flat-white");
-t.check("each extra has seven day chips, Monday first, none on = every day", dc.labels.join(",") === "Mo,Tu,We,Th,Fr,Sa,Su" && dc.names[0] === "Monday" && dc.on.length === 0 && /^Every day you log a meal/.test(dc.text), JSON.stringify(dc));
-for (const n of [1, 2, 3, 4, 5]) await dev.eval(`document.querySelector('#cal-extras [data-xid="flat-white"] [data-xday="${n}"]').click()`);
+t.check("each extra has seven day chips, Monday first, every day = all seven lit (2.101.0)", dc.labels.join(",") === "Mo,Tu,We,Th,Fr,Sa,Su" && dc.names[0] === "Monday" && dc.on.length === 7 && /^Every day you log a meal/.test(dc.text), JSON.stringify(dc));
+for (const n of [6, 0]) await dev.eval(`document.querySelector('#cal-extras [data-xid="flat-white"] [data-xday="${n}"]').click()`);
 await sleep(200);
 dc = await dayChips("flat-white");
-t.check("Mon–Fri picked: saved and described as weekdays", JSON.stringify((await saved()).extras.find(x => x.id === "flat-white").days) === "[1,2,3,4,5]" && dc.text === "Weekdays only. Counted on those days when you log a meal.", JSON.stringify(dc));
-// now every day except today
-for (const n of [1, 2, 3, 4, 5]) await dev.eval(`document.querySelector('#cal-extras [data-xid="flat-white"] [data-xday="${n}"]').click()`);
-for (const n of [0, 1, 2, 3, 4, 5, 6].filter(n => n !== todayDow)) await dev.eval(`document.querySelector('#cal-extras [data-xid="flat-white"] [data-xday="${n}"]').click()`);
+t.check("Sat and Sun turned off: weekdays saved and described", JSON.stringify((await saved()).extras.find(x => x.id === "flat-white").days) === "[1,2,3,4,5]" && dc.text === "Weekdays only. Counted on those days when you log a meal." && (await sumOf("flat-white")).when === "Any meal \u00b7 weekdays", JSON.stringify(dc));
+for (const n of [6, 0]) await dev.eval(`document.querySelector('#cal-extras [data-xid="flat-white"] [data-xday="${n}"]').click()`);
 await sleep(200);
+t.check("all seven back on is saved as every day", JSON.stringify((await saved()).extras.find(x => x.id === "flat-white").days) === "[]");
+for (const n of [0, 1, 2, 3, 4, 5, 6].filter(n => n !== 3)) await dev.eval(`document.querySelector('#cal-extras [data-xid="flat-white"] [data-xday="${n}"]').click()`);
+await dev.eval(`document.querySelector('#cal-extras [data-xid="flat-white"] [data-xday="3"]').click()`); await sleep(200);
+t.check("the last day on can't be turned off", JSON.stringify((await saved()).extras.find(x => x.id === "flat-white").days) === "[3]");
+for (const n of [0, 1, 2, 4, 5, 6]) await dev.eval(`document.querySelector('#cal-extras [data-xid="flat-white"] [data-xday="${n}"]').click()`);
+// now every day except today
+await dev.eval(`document.querySelector('#cal-extras [data-xid="flat-white"] [data-xday="${todayDow}"]').click()`);
+await sleep(200);
+t.check("six days: the summary says which day it's not", (await sumOf("flat-white")).when.startsWith("Any meal \u00b7 not "), (await sumOf("flat-white")).when);
 const savedDays = (await saved()).extras.find(x => x.id === "flat-white").days;
 t.check("the total says some only count on the days picked", /^Extras: 348 kcal a day, 110 only on the days you picked\.$/.test(await dev.eval(`document.getElementById("cal-extras-total").textContent`)), await dev.eval(`document.getElementById("cal-extras-total").textContent`));
 t.check("every day but today: six days saved", savedDays.length === 6 && !savedDays.includes(todayDow), JSON.stringify(savedDays));
