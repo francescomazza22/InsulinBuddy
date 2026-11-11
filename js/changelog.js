@@ -2,6 +2,15 @@
 // summary can never drift. Bump CHANGELOG[0].version here (and CACHE_VERSION in sw.js) on every release.
 export const CHANGELOG = [
   {
+    version: "2.100.2",
+    summary: "Treating a low switches itself off again once the low is over.",
+    changes: [
+      "Fixed: after switching on by itself at a low, Treating a low stayed on, so the app could open on it hours later at 145 mg/dL",
+      "Now, once there is no reading under 70 mg/dL in the last 15 minutes, it switches off by itself, as long as you haven't added any carbs yet",
+      "If you've already added carbs for the low, or turned it on yourself, it stays on"
+    ]
+  },
+  {
     version: "2.100.1",
     summary: "Food searches find English or Italian names, with or without accents.",
     changes: [

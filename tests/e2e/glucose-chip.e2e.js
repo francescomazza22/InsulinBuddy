@@ -146,4 +146,41 @@ t.section("A LATE SIGN-IN DOESN'T UNDO TREATING A LOW");
   d2.close(); await app2.close();
 }
 
+// 2.100.2, his 11 Nov screenshot: 145 mg/dL, yet the app opened on Treating a low. It had switched on at an earlier low and
+// nothing switched it off, so the empty draft kept it on across reopens. Now it goes off once the low is over, unless carbs
+// were added or it was turned on by hand.
+const setReading = async (dev, be, mgdl) => {
+  be.ns.entries = [{ sgv: mgdl, date: Date.now() - 20000, direction: "Flat", type: "sgv" }];
+  await dev.eval(`localStorage.setItem("insulinBuddy.liveGlucose", JSON.stringify({ mgdl: ${mgdl}, direction: "Flat", at: Date.now() - 20000 }))`);
+};
+const reopen = async dev => { await dev.go("index.html", 2000); await dev.tab("calculator"); await sleep(400); };
+t.section("THE LOW IS OVER: TREATING A LOW SWITCHES OFF AGAIN (HIS 11 NOV CASE)");
+({ app, dev, be } = await boot(62));
+c = await chip(dev);
+t.check("62 mg/dL: on by itself", c.lowOn && c.amber, JSON.stringify(c));
+await setReading(dev, be, 145); await reopen(dev);
+c = await chip(dev);
+t.check("reopened at 145 mg/dL with nothing added: Treating a low is off, plain Meal, row closed", !c.lowOn && !c.amber && c.label === "Meal" && !c.open && c.log === "Add food to log a meal", JSON.stringify(c));
+t.check("the saved draft no longer has it on", !(await dev.eval(`(JSON.parse(localStorage.getItem("insulinBuddy.draft") || "null") || {}).noInsulinOn`)));
+// A draft saved by 2.100.1 or earlier (no lowAuto flag), empty, with Treating a low on: what his phone holds now.
+await dev.eval(`localStorage.setItem("insulinBuddy.draft", JSON.stringify({ items: [], noInsulinOn: true, correctionOn: false, eatingOutOn: false }))`);
+await reopen(dev);
+c = await chip(dev);
+t.check("an old empty draft with Treating a low on is cleared at 145 mg/dL", !c.lowOn && c.label === "Meal", JSON.stringify(c));
+// Carbs already added during the low: stays on even after the reading recovers.
+await setReading(dev, be, 61); await reopen(dev);
+await addFood(dev, "Banana", 100);
+await setReading(dev, be, 78); await reopen(dev);
+c = await chip(dev);
+t.check("carbs added during the low: stays on at 78 mg/dL, no insulin", c.lowOn && c.dose === "0.0", JSON.stringify(c));
+await dev.click("#cc-clear-all-btn"); await sleep(300);
+// Turned on by hand when not low: left alone.
+await dev.click("#cc-mode-btn"); await sleep(200);
+await dev.click("#cc-no-insulin-toggle"); await sleep(300);
+await reopen(dev);
+c = await chip(dev);
+t.check("turned on by hand at 78 mg/dL: still on after reopening", c.lowOn, JSON.stringify(c));
+t.check("no JS errors", (await dev.eval("window.__errs.length")) === 0, JSON.stringify(await dev.eval("window.__errs")));
+dev.close(); await app.close();
+
 process.exit(t.summary() ? 0 : 1);

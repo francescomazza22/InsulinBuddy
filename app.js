@@ -3468,8 +3468,25 @@ import { weekdayOf, mealTypesForDay, MEAL_KINDS, extraFromFood, extrasForDay, se
   // Called where Treating a low goes from on to off by a person's choice.
   function lowTurnedOffByHand() { if (lowNow()) setLowAutoOff(true); }
   function autoLowOn() {
+    if (autoLowOff()) return true;
     if (lowAutoOff || draft.noInsulinOn || draft.correctionOn || draft.eatingOutOn || draft.extraOn || !lowNow()) return false;
     draft.noInsulinOn = true;
+    draft.lowAuto = true;
+    renderQuickUsual();
+    recompute();
+    saveDraftLocal();
+    return true;
+  }
+
+  // 2.100.2: the other half. A Treating a low that switched on by itself is switched off again once the low is over (no
+  // reading under 70 in the last 15 minutes), as long as no carbs have been added: before, it stayed on, was saved with the
+  // draft and greeted every reopen hours later. Once carbs are in, it stays (fast carbs eaten at a low never get insulin). Turned
+  // on by hand, it is never touched. Drafts saved before 2.100.2 have no flag: an empty one counts as switched on by itself.
+  function autoLowOff() {
+    if (!draft.noInsulinOn || draft.lowAuto === false || draft.items.length > 0 || lowNow()) return false;
+    draft.noInsulinOn = false;
+    draft.lowAuto = undefined;
+    modeOpen = false;
     renderQuickUsual();
     recompute();
     saveDraftLocal();
@@ -3692,6 +3709,7 @@ import { weekdayOf, mealTypesForDay, MEAL_KINDS, extraFromFood, extrasForDay, se
 
   bind("cc-no-insulin-toggle", "click", () => {
     draft.noInsulinOn = !draft.noInsulinOn;
+    draft.lowAuto = false;   // chosen by hand: autoLowOff leaves it alone
     if (!draft.noInsulinOn) lowTurnedOffByHand();
     el("cc-no-insulin-toggle").classList.toggle("is-active", draft.noInsulinOn);
     el("cc-no-insulin-note").hidden = !draft.noInsulinOn;
@@ -3864,6 +3882,7 @@ import { weekdayOf, mealTypesForDay, MEAL_KINDS, extraFromFood, extrasForDay, se
         correctionManualValue: el("cc-correction-manual-input").value || "",
         correctionSign: draft.correctionSign === -1 ? -1 : 1,
         noInsulinOn: draft.noInsulinOn,
+        lowAuto: draft.lowAuto,
         eatingOutOn: draft.eatingOutOn,
         eatingOutValue: el("cc-eating-out-dose").value || "",
         eatingOutKcalValue: el("cc-eating-out-kcal").value || "",
@@ -3915,6 +3934,7 @@ import { weekdayOf, mealTypesForDay, MEAL_KINDS, extraFromFood, extrasForDay, se
     }
     if (saved.noInsulinOn) {
       draft.noInsulinOn = true;
+      draft.lowAuto = typeof saved.lowAuto === "boolean" ? saved.lowAuto : undefined;
       el("cc-no-insulin-toggle").classList.add("is-active");
       el("cc-no-insulin-note").hidden = false;
       el("quick-carb-row").hidden = false;
