@@ -5,7 +5,7 @@ const DIR = new URL("../..", import.meta.url).pathname;
 const t = makeChecker(); const sleep = ms => new Promise(r => setTimeout(r, ms));
 const app = await startApp(DIR, null, { "foods_data.js": FOODS_JS, "manifest.json": "{}" });
 const blob = stateBlob(); blob.recipes = []; blob.library = [{ id: "bun1", name: "Burger bun", category: "grains", carbs: 49, kcal: 280, usageCount: 0 }];
-const dev = await openDevice(app, { width: 420, height: 900, mobile: false, inject: `if (!localStorage.getItem("insulinBuddy.v2")) { ${seedLocal(blob)} }`, wait: 1800 });
+const dev = await openDevice(app, { width: 420, height: 900, mobile: false, input: "touch", inject: `if (!localStorage.getItem("insulinBuddy.v2")) { ${seedLocal(blob)} }`, wait: 1800 });
 t.section("SEEDED RECIPES");
 let st = await localState(dev);
 const names = (st.recipes || []).map(r => r.name);

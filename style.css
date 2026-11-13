@@ -2439,6 +2439,12 @@ html[data-input="mouse"] .switch { width: 36px; height: 21px; }
 html[data-input="mouse"] .switch__track::before { width: 15px; height: 15px; }
 html[data-input="mouse"] .switch input:checked + .switch__track::before { transform: translateX(15px); }
 
+/* The centred sheet's padding is --space-xl (20px here, 24px on touch): its pinned Save / Cancel bar cancels the same amount,
+   so it stays flush with the card's edges (the touch rule says -24px outright). */
+@media (min-width: 700px) {
+  html[data-input="mouse"] .sheet .sheet-actions { bottom: calc(-1 * var(--space-xl)); margin: var(--space-s) calc(-1 * var(--space-xl)) calc(-1 * var(--space-xl)); padding: var(--space-m) var(--space-xl) var(--space-m); }
+}
+
 /* Hover: show what can be clicked. */
 html[data-input="mouse"] .btn--primary:not(:disabled):hover { filter: brightness(1.08); }
 html[data-input="mouse"] .dashed-btn:hover { border-color: var(--acc-1); color: var(--ink); }
