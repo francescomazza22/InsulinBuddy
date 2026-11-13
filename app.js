@@ -1914,19 +1914,6 @@ import { weekdayOf, mealTypesForDay, MEAL_KINDS, extraFromFood, extrasForDay, se
     renderDayView(el("glucose-tab-content"), { enterFrom: dir === "today" ? 1 : dir });
     return true;
   }
-  // 2.104.0: the arrow keys move between days in the Day view (with a mouse there's no swipe), unless typing or a sheet is open.
-  document.addEventListener("keydown", e => {
-    if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
-    if (e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
-    const box = el("glucose-tab-content");
-    if (!box || box.closest("[hidden]") || glucoseView !== "day") return;
-    if (e.target.closest && e.target.closest("input, textarea, select, [contenteditable]")) return;
-    if (document.querySelector(".sheet-backdrop, .dialog-backdrop")) return;
-    const b = box.querySelector(`[data-dayshift="${e.key === "ArrowLeft" ? -1 : 1}"]`);
-    if (!b || b.disabled) return;
-    e.preventDefault();
-    b.click();
-  });
   (() => {
     const box = el("glucose-tab-content");
     if (!box) return;

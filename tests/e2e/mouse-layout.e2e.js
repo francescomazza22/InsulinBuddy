@@ -67,7 +67,7 @@ const dayBefore = await dev.eval(`(document.querySelector(".day-nav__label") || 
 if (dayBefore) {
   await dev.eval(`document.body.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowLeft", bubbles: true }))`); await sleep(700);
   const dayAfter = await dev.eval(`document.querySelector(".day-nav__label").textContent`);
-  t.check("← goes to the day before", dayAfter !== dayBefore, `${dayBefore} -> ${dayAfter}`);
+  t.check("← goes to the day before (one day per press)", dayAfter === "Yesterday", `${dayBefore} -> ${dayAfter}`);
   await dev.eval(`document.body.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true }))`); await sleep(700);
   t.check("→ comes back", (await dev.eval(`document.querySelector(".day-nav__label").textContent`)) === dayBefore);
   const hint = await dev.eval(`(() => { const p = document.querySelector(".day-swipe-hint"); return p ? { text: p.textContent, shown: getComputedStyle(p).display !== "none" } : null; })()`);
