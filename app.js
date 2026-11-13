@@ -1160,6 +1160,13 @@ import { weekdayOf, mealTypesForDay, MEAL_KINDS, extraFromFood, extrasForDay, se
     }
   });
 
+  // 2.104.0: with a mouse the grams can be clicked straight away (no swipe needed); focusing it shows the edit box.
+  mealItemsBox.addEventListener("focusin", e => {
+    if (e.target.classList.contains("meal-item__grams-input")) e.target.classList.add("is-editing");
+  });
+  mealItemsBox.addEventListener("keydown", e => {
+    if (e.key === "Enter" && e.target.classList.contains("meal-item__grams-input")) e.target.blur();
+  });
   mealItemsBox.addEventListener("focusout", e => {
     if (!e.target.classList.contains("meal-item__grams-input")) return;
     e.target.classList.remove("is-editing");
@@ -1907,6 +1914,19 @@ import { weekdayOf, mealTypesForDay, MEAL_KINDS, extraFromFood, extrasForDay, se
     renderDayView(el("glucose-tab-content"), { enterFrom: dir === "today" ? 1 : dir });
     return true;
   }
+  // 2.104.0: the arrow keys move between days in the Day view (with a mouse there's no swipe), unless typing or a sheet is open.
+  document.addEventListener("keydown", e => {
+    if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+    if (e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
+    const box = el("glucose-tab-content");
+    if (!box || box.closest("[hidden]") || glucoseView !== "day") return;
+    if (e.target.closest && e.target.closest("input, textarea, select, [contenteditable]")) return;
+    if (document.querySelector(".sheet-backdrop, .dialog-backdrop")) return;
+    const b = box.querySelector(`[data-dayshift="${e.key === "ArrowLeft" ? -1 : 1}"]`);
+    if (!b || b.disabled) return;
+    e.preventDefault();
+    b.click();
+  });
   (() => {
     const box = el("glucose-tab-content");
     if (!box) return;
@@ -2014,7 +2034,7 @@ import { weekdayOf, mealTypesForDay, MEAL_KINDS, extraFromFood, extrasForDay, se
       <div class="panel-card">
         ${renderDaySVG(d, now, Math.max(300, Math.min(1400, (box.clientWidth || 360) - 34)))}
         ${legend}
-        <p class="panel-card__hint day-swipe-hint">Swipe sideways to move between days.</p>
+        <p class="panel-card__hint day-swipe-hint">${isMouse() ? "Use \u2039 \u203a or the \u2190 \u2192 keys to move between days." : "Swipe sideways to move between days."}</p>
         ${result.ok ? "" : `<p class="panel-card__hint">${escapeHtml(result.reason || "Couldn't load glucose readings.")}</p>`}
       </div>
       <div class="panel-card"><h2 class="panel-card__title">Logged this day</h2>${list}</div></div>`;
@@ -4097,6 +4117,21 @@ import { weekdayOf, mealTypesForDay, MEAL_KINDS, extraFromFood, extrasForDay, se
       if ((atTop && dy > 0) || (atBottom && dy < 0)) e.preventDefault();
     }, { passive: false });
   }
+  // 2.104.0: Escape closes the sheet on top, for every sheet (several had no key of their own). It presses that sheet's own
+  // Cancel or close button, so whatever the sheet does on Cancel (asking about unsaved changes, say) still happens. Sheets
+  // that already handle Escape close first and are left alone; a dialog on top, or an Escape a field used (closing a
+  // suggestion list), is left alone too.
+  document.addEventListener("keydown", e => {
+    if (e.key !== "Escape" || e.defaultPrevented || document.querySelector(".dialog-backdrop")) return;
+    const sheets = [...document.querySelectorAll(".sheet-backdrop")];
+    const top = sheets[sheets.length - 1];
+    if (!top) return;
+    setTimeout(() => {
+      if (!top.isConnected || document.querySelector(".dialog-backdrop")) return;
+      const btn = top.querySelector('[id$="-cancel"]:not([hidden]):not(:disabled)') || top.querySelector('[id$="-close"]:not([hidden]):not(:disabled)');
+      if (btn) btn.click();
+    }, 0);
+  });
   function closeSheet(backdrop) {
     if (!backdrop.isConnected) return;                      // already closed: don't count it twice
     backdrop.remove();
@@ -5661,7 +5696,7 @@ import { weekdayOf, mealTypesForDay, MEAL_KINDS, extraFromFood, extrasForDay, se
     backdrop.querySelector("#rs-ing-search").addEventListener("input", () => { ingredientSelection = null; hint(""); renderDropdown(); });
     backdrop.querySelector("#rs-ing-search").addEventListener("keydown", e => {
       if (e.key === "Enter") { e.preventDefault(); const f = resolveTypedFood() || state.library.find(x => x.name.toLowerCase().includes(e.target.value.trim().toLowerCase()) && e.target.value.trim()); if (f) { pickFood(f); backdrop.querySelector("#rs-ing-weight").focus(); } }
-      if (e.key === "Escape") closeDropdown();
+      if (e.key === "Escape") { const dd = backdrop.querySelector("#rs-ing-dropdown"); if (dd && !dd.hidden) e.preventDefault(); closeDropdown(); }   // only the list closes, not the sheet
     });
     // Leaving the search box closes the suggestions (a tap on a suggestion still lands: it keeps the focus, see below).
     backdrop.querySelector("#rs-ing-search").addEventListener("blur", () => setTimeout(closeDropdown, 0));
@@ -7829,6 +7864,7 @@ import { weekdayOf, mealTypesForDay, MEAL_KINDS, extraFromFood, extrasForDay, se
     el("export-count-label").textContent = `${state.library.length} foods · ${state.recipes.length} recipes`;
     renderPaletteGrid();
     renderBackgroundSection();
+    renderLayoutSection();
     renderStatusPanel();
     renderInsulinCarbSettings();
     el("dark-mode-toggle").checked = state.settings.darkMode;
@@ -8617,6 +8653,38 @@ import { weekdayOf, mealTypesForDay, MEAL_KINDS, extraFromFood, extrasForDay, se
       b.classList.toggle("is-active", on);
       b.setAttribute("aria-pressed", String(on));
     });
+  }
+  // ---- Layout: touch or mouse (2.104.0). Kept on this device only (localStorage), never in the synced settings. ----
+  function inputMode(pref) {
+    if (typeof window.ibInputMode === "function") return window.ibInputMode(pref);
+    return { pref: "auto", mode: document.documentElement.getAttribute("data-input") || "touch", auto: "touch" };
+  }
+  function renderLayoutSection() {
+    const box = el("input-mode");
+    if (!box) return;
+    const m = inputMode();
+    box.querySelectorAll("[data-input-mode]").forEach(b => {
+      const on = b.dataset.inputMode === m.pref;
+      b.classList.toggle("is-active", on);
+      b.setAttribute("aria-pressed", String(on));
+    });
+    const name = x => (x === "mouse" ? "Mouse" : "Touch");
+    el("input-mode-note").textContent = m.pref === "auto" ? `Using ${name(m.auto)} on this device.` : `Always ${name(m.mode)} on this device. Automatic would pick ${name(m.auto)}.`;
+    renderDayHint();
+  }
+  bind("input-mode", "click", e => {
+    const btn = e.target.closest("[data-input-mode]");
+    if (!btn) return;
+    const pref = btn.dataset.inputMode;
+    try { if (pref === "auto") localStorage.removeItem("insulinBuddy.input"); else localStorage.setItem("insulinBuddy.input", pref); }
+    catch (err) { dialogs.alert("This browser wouldn't save the layout (private browsing?), so it applies only until the app is closed.", { title: "Layout" }); }
+    inputMode(pref);
+    renderLayoutSection();
+    window.dispatchEvent(new Event("resize"));   // sizes changed: anything measured from its box (charts, dose card) fits again
+  });
+  const isMouse = () => document.documentElement.getAttribute("data-input") === "mouse";
+  function renderDayHint() {
+    document.querySelectorAll(".day-swipe-hint").forEach(p => { p.textContent = isMouse() ? "Use \u2039 \u203a or the \u2190 \u2192 keys to move between days." : "Swipe sideways to move between days."; });
   }
   bind("bg-pattern-size", "click", e => {
     const btn = e.target.closest("[data-size]");

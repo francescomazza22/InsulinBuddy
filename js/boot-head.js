@@ -16,3 +16,22 @@
     var m = document.querySelector('meta[name="theme-color"]'); if (m) m.setAttribute("content", dark ? "#000000" : "#F2F2F7");
   } catch (e) {}
 })();
+
+/* 2.104.0: touch or mouse layout, per device. "Mouse" when the main pointer is precise and can hover and the screen has no
+   touch at all (a PC or Mac with a mouse or trackpad); anything with a touchscreen (iPhone, iPad, even with a trackpad
+   attached, or a touchscreen laptop) stays "touch", so the iPad layout never changes by itself. The choice in
+   Settings > General > Layout (saved on this device only, never synced) wins over the automatic one. */
+window.ibInputMode = function (pref) {
+  var root = document.documentElement, mm = window.matchMedia, auto = "touch";
+  try {
+    if (pref === undefined) { try { pref = localStorage.getItem("insulinBuddy.input"); } catch (e) { pref = null; } }
+    var fine = !!(mm && mm("(pointer: fine)").matches && mm("(hover: hover)").matches);
+    var touch = (navigator.maxTouchPoints || 0) > 0;
+    auto = fine && !touch ? "mouse" : "touch";
+  } catch (e) {}
+  var chosen = pref === "mouse" || pref === "touch" ? pref : "auto";
+  var mode = chosen === "auto" ? auto : chosen;
+  root.setAttribute("data-input", mode);
+  return { pref: chosen, mode: mode, auto: auto };
+};
+try { window.ibInputMode(); } catch (e) {}

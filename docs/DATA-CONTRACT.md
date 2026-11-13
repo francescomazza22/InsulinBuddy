@@ -79,7 +79,8 @@ Secrets (the Nightscout token) are stored per URL outside the state and are neve
 
 ## Other things on the device (not in the state)
 `insulinBuddy.storageVersion` (migration level), `.draft` (meal in progress), `.place` (screen to reopen), `.glucoseRecent2`
-(glucose cache), `.nsQueue` (unsent Nightscout jobs), `.diag` (diagnostics log), `.lock` (passphrase verifier).
+(glucose cache), `.nsQueue` (unsent Nightscout jobs), `.diag` (diagnostics log), `.lock` (passphrase verifier), `.theme` (light/dark
+hint for the first paint), `.input` ("touch" or "mouse": this device's Layout choice, 2.104.0; absent = automatic).
 These can be deleted without losing data, except `.lock`, which only matters if a passphrase is set.
 
 ## Rules for any app that reads or writes this

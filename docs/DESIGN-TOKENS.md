@@ -31,6 +31,15 @@ Hero numerals (the dose figure, insight totals: 1.5 to 2rem) are deliberately ou
 
 A "redesign" is mostly this: new colours, a rounder or tighter radius scale, a different type scale. Structure changes (which screens exist) are separate and live in `index.html` and `app.js`.
 
+## Touch and mouse layouts (2.104.0)
+
+`js/boot-head.js` sets `html[data-input="touch"|"mouse"]` before the first paint: mouse for a precise, hovering pointer on a
+device with no touchscreen (a PC or Mac), touch for everything else (iPhone, iPad, touchscreen laptops). Settings > General >
+Layout can force either on one device. Everything the mouse layout changes lives in the MOUSE LAYOUT block at the end of
+`style.css`, scoped to `html[data-input="mouse"]`: it remaps `--rem` (14px), the spacing scale, `--field-h` (38px) and
+`--tap` (34px), floors `--fs-xs`/`--fs-2xs`, and adds hover states. Touch never reads any of it, so a change there can't
+move the iPhone or iPad. Field text uses `--fs-input` (at least 16px on touch so iOS never zooms; `--rem` with a mouse).
+
 ## Guard rails
 
 `tests/unit/tokens.test.js` also checks that every `var(--x)` used by the app is defined, and that `style.css` has no raw radius above a hairline or raw text size below 1.2rem. New CSS should use the tokens.

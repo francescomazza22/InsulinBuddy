@@ -2,6 +2,17 @@
 // summary can never drift. Bump CHANGELOG[0].version here (and CACHE_VERSION in sw.js) on every release.
 export const CHANGELOG = [
   {
+    version: "2.104.0",
+    summary: "A layout made for a mouse on your computer; iPhone and iPad stay as they are.",
+    changes: [
+      "On a computer with a mouse (Chrome on Windows, say) text is a notch smaller and buttons, fields and chips are tighter, so more fits on screen",
+      "Point at a meal in the log to see Use again, Edit and Delete on it; click a meal's grams in the Calculator to change them, Enter to finish",
+      "Things you can click light up when you point at them; Escape closes any sheet; ← and → move between days in Glucose > Day",
+      "iPhone and iPad (anything with a touchscreen) keep the touch layout, even with a keyboard and trackpad attached",
+      "Settings > General > Layout: Automatic, Touch or Mouse, saved on that device only"
+    ]
+  },
+  {
     version: "2.103.1",
     summary: "Saving a food from Missing figures now shows what it did; 0 is kept.",
     changes: [

@@ -287,6 +287,8 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
  * One headless Chrome. Options: width/height/mobile/dark/tz, `inject` (JS run
  * before the app boots -- seed localStorage, install the fake Supabase, ...),
  * `path` (page to open), `profile` (reuse a user-data-dir to keep storage).
+ * `input` (2.104.0): "touch" or "mouse". Default: touch when `mobile` (phone, iPad), mouse otherwise (a PC), or IB_INPUT
+ * for a whole run. Touch reports a touchscreen (navigator.maxTouchPoints 5) so the app picks its touch layout, as an iPad does.
  */
 // Ask Chrome to shut itself down properly via its browser-level DevTools endpoint, then wait for the
 // process to really exit (capped, so a hung Chrome can't hang a test run). This is the orderly shutdown
@@ -305,7 +307,7 @@ async function shutDownGracefully(port, proc, maxMs) {
   });
 }
 
-export async function openDevice(app, { width = 390, height = 900, mobile = true, dark = false, tz = null, inject = "", path: pagePath = "index.html", profile = null, wait = 1200 } = {}) {
+export async function openDevice(app, { width = 390, height = 900, mobile = true, dark = false, tz = null, inject = "", path: pagePath = "index.html", profile = null, wait = 1200, input = process.env.IB_INPUT || (mobile ? "touch" : "mouse") } = {}) {
   const port = debugPort++;
   const userDir = profile || `/tmp/ib-chrome-${Date.now()}-${port}`;
   const proc = spawn(findChrome(), ["--headless=new", "--no-sandbox", "--disable-gpu", `--remote-debugging-port=${port}`, `--user-data-dir=${userDir}`, `--window-size=${width},${height}`, "--host-resolver-rules=MAP cdn.jsdelivr.net 127.0.0.1"], { stdio: "ignore" });
@@ -334,7 +336,10 @@ export async function openDevice(app, { width = 390, height = 900, mobile = true
     addEventListener("unhandledrejection", e => window.__errs.push("rejection: " + ((e.reason && e.reason.message) || e.reason)));
     addEventListener("securitypolicyviolation", e => window.__errs.push("CSP: " + e.violatedDirective + " " + e.blockedURI));
   `;
-  await send("Page.addScriptToEvaluateOnNewDocument", { source: base + inject });
+  // Headless Chrome reports no pointer at all ("pointer: none"); a PC with a mouse reports a precise pointer that can hover.
+  const mouseLike = `(() => { const mm = window.matchMedia.bind(window); window.matchMedia = q => /^\\((any-)?(pointer: fine|hover: hover)\\)$/.test(String(q).trim()) ? { matches: true, media: q, onchange: null, addEventListener() {}, removeEventListener() {}, addListener() {}, removeListener() {}, dispatchEvent() { return false; } } : mm(q); })();\n`;
+  const touchScreen = input === "touch" ? `try { Object.defineProperty(Navigator.prototype, "maxTouchPoints", { get: () => 5, configurable: true }); } catch (e) {}\n` : mouseLike;
+  await send("Page.addScriptToEvaluateOnNewDocument", { source: touchScreen + base + inject });
 
   const dev = {
     port, cdp: { send }, errors, profile: userDir,
