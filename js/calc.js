@@ -73,8 +73,23 @@ export function absorptionMinutesForEntry(entry, carbAbsorptionMinutes) {
   return m[band];
 }
 
+// A merged meal (2.105.0, js/merge-meals.js) sits at the time of its first part, but its insulin and carbs went in at the
+// times of the meals it was made from. For active insulin and carbs those times are what count (counting a later dose as
+// given earlier would show LESS insulin on board than there really is), so it is read as its parts, as long as its dose
+// and carbs are still exactly theirs. Once edited, the merged meal is taken as it now stands, like any edited meal.
+export function activeParts(entry) {
+  const src = entry && Array.isArray(entry.mergedFrom) ? entry.mergedFrom.filter(s => s && Number.isFinite(s.ts)) : null;
+  if (!src || src.length < 2) return [entry];
+  const dose = e => (Number(e.mealDose) || 0) + (Number(e.correctionDose) || 0);
+  const sumDose = src.reduce((s, e) => s + dose(e), 0), sumCarbs = src.reduce((s, e) => s + (Number(e.totalCarbs) || 0), 0);
+  if (Math.abs(sumDose - dose(entry)) > 0.011 || Math.abs(sumCarbs - (Number(entry.totalCarbs) || 0)) > 0.15) return [entry];
+  return src;
+}
+
 // Stacked IOB/COB at a point in time (`atTime`, ms) across the whole history.
-export function activeAt(history, settings, atTime) {
+export function activeAt(historyIn, settings, atTime) {
+  const history = [];
+  for (const e of historyIn || []) for (const part of activeParts(e)) history.push(part);
   const now = atTime != null ? atTime : Date.now();
   const dia = settings.insulinModel.diaMinutes;
   const peak = settings.insulinModel.peakMinutes;

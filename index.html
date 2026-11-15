@@ -1036,6 +1036,11 @@
 
   </main>
 
+  <div class="merge-bar" id="merge-bar" role="toolbar" aria-label="Merge meals" hidden>
+    <button type="button" class="merge-bar__cancel" id="merge-cancel">Cancel</button>
+    <span class="merge-bar__count" id="merge-count" aria-live="polite">Pick the meals to merge</span>
+    <button type="button" class="merge-bar__go" id="merge-go" disabled>Merge</button>
+  </div>
   <div class="undo-toast" id="undo-toast" role="status" aria-live="polite" hidden>
     <span id="undo-toast-message"></span>
     <button id="undo-toast-btn" type="button">Undo</button>

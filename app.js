@@ -16,6 +16,7 @@ import { fillMissingFoodDetails, stillBlank, applyPublishedGi } from "./js/food-
 import { fieldSvg } from "./js/doodle-field.js";
 import { abstractSvg } from "./js/abstract-field.js";
 import { recordRatioChange, ratioTimeline, ratioChanges } from "./js/ratio-history.js";
+import { mergeMeals, mergeBlockReason, mergeSources } from "./js/merge-meals.js";
 import { dailyCarbsSummary, overBar } from "./js/daily-carbs.js";
 import { modeChipLabel, glucoseSuggestion, logButtonLabel, doseBreakdownText } from "./js/calc-labels.js";
 import { solveSwap, carbsForGrams, canAdjust, setGrams } from "./js/swap.js";
@@ -393,7 +394,9 @@ import { weekdayOf, mealTypesForDay, MEAL_KINDS, extraFromFood, extrasForDay, se
     storage: store, client: nsClient, diag,
     getConfig: () => nsCfg(),
     onEntryPatch: (entryId, patch) => {
-      const entry = state.history.find(h => h.id === entryId);
+      // 2.105.0: a meal merged into another is kept inside it (mergedFrom); a send or delete still in flight for it lands there
+      let entry = state.history.find(h => h.id === entryId);
+      if (!entry) for (const h of state.history) { const src = Array.isArray(h.mergedFrom) && h.mergedFrom.find(x => x && x.id === entryId); if (src) { entry = src; break; } }
       if (!entry) return;
       Object.assign(entry, patch);
       saveState();
@@ -567,6 +570,7 @@ import { weekdayOf, mealTypesForDay, MEAL_KINDS, extraFromFood, extrasForDay, se
     }
   }
   let slotUsageCache = null;   // the Calculator food order's counts per time slot (see slotUsageFor)
+  let mergeSel = null;   // 2.105.0: the ids of the meals picked to merge in Insights > Meals, while picking (null otherwise). Up here: renderHistory can run during start-up
   async function saveState() {
     slotUsageCache = null;   // history or ranges may have changed: the food order recounts on its next draw
     if (!stateFp) { stateFp = makeFingerprint(state); diag.log("warn", "state", "saveState ran before the change baseline existed"); }
@@ -618,6 +622,7 @@ import { weekdayOf, mealTypesForDay, MEAL_KINDS, extraFromFood, extrasForDay, se
     });
     el("cc-sticky-log-bar").hidden = name !== "calculator";
     document.documentElement.setAttribute("data-view", name);   // lets the CSS lift the undo bar clear of the Log bar on the calculator
+    if (name !== "history" && mergeSel) endMergeSelect();   // picking meals to merge ends when you leave Insights
     if (name === "calculator") renderActivePanel();
     if (name === "history") { historyLimit = PAGE_SIZE; renderHistory(); }
     if (name === "settings") renderSettings();
@@ -5904,7 +5909,7 @@ import { weekdayOf, mealTypesForDay, MEAL_KINDS, extraFromFood, extrasForDay, se
   // Swipe a row left to reveal Use again (meals) / Edit / Delete. The rules (direction, rubber band, flick or distance) live in js/swipe.js.
   historyGroups.addEventListener("touchstart", e => {
     const wrap = hsRowOf(e);
-    if (!wrap || e.touches.length !== 1 || e.target.closest(".hs-actions")) { hs = null; return; }
+    if (mergeSel || !wrap || e.touches.length !== 1 || e.target.closest(".hs-actions")) { hs = null; return; }
     hsCloseOthers(wrap);
     const t = e.touches[0];
     hs = { wrap, row: wrap.querySelector(".history-entry"), x: t.clientX, y: t.clientY, base: wrap.classList.contains("is-open") ? -hsW(wrap) : 0, w: hsW(wrap), pos: 0, mode: null, x0: 0, samples: [] };
@@ -5951,6 +5956,7 @@ import { weekdayOf, mealTypesForDay, MEAL_KINDS, extraFromFood, extrasForDay, se
     histCountPill.textContent = `${mealCount} meal${mealCount === 1 ? "" : "s"}`;
     historyEmpty.hidden = state.history.length > 0;
     historyGroups.innerHTML = "";
+    historyGroups.classList.toggle("is-selecting", !!mergeSel);
     if (state.history.length === 0) {
       historyMore.hidden = true; historyNoMatch.hidden = true;
       if (!opts.skipTrends) renderTrends(trendsRange);
@@ -5974,11 +5980,14 @@ import { weekdayOf, mealTypesForDay, MEAL_KINDS, extraFromFood, extrasForDay, se
       const header = document.createElement("p");
       header.className = "history-group__date";
       header.textContent = formatDateHeader(group.ts);
+      if (!mergeSel && group.entries.filter(x => !isNonMealEntry(x)).length >= 2) {
+        header.insertAdjacentHTML("beforeend", `<button type="button" class="history-group__select" data-merge-start aria-label="Select meals to merge">Select</button>`);
+      }
       groupEl.appendChild(header);
 
       group.entries.forEach(entry => {
-        if (isBasalEntry(entry)) { groupEl.appendChild(wrapSwipe(buildBasalRow(entry), entry.id)); return; }
-        if (isActivityEntry(entry)) { groupEl.appendChild(wrapSwipe(buildActivityRow(entry), entry.id)); return; }
+        if (isBasalEntry(entry)) { const r = buildBasalRow(entry); if (mergeSel) r.classList.add("is-unselectable"); groupEl.appendChild(wrapSwipe(r, entry.id)); return; }
+        if (isActivityEntry(entry)) { const r = buildActivityRow(entry); if (mergeSel) r.classList.add("is-unselectable"); groupEl.appendChild(wrapSwipe(r, entry.id)); return; }
         const meal = MEAL_TYPES[entry.mealType] || MEAL_TYPES.snack;
         const row = document.createElement("div");
         row.className = "history-entry history-entry--meal";
@@ -5990,7 +5999,7 @@ import { weekdayOf, mealTypesForDay, MEAL_KINDS, extraFromFood, extrasForDay, se
         const DOWN = `<svg viewBox="0 0 24 24" fill="none"><path d="M12 19V5M12 19l-5-5M12 19l5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
         const dosePillHtml = `<span class="dose-badge dose-badge--${badge.kind}"><span class="dose-pill${badge.kind === "low" ? " dose-pill--warn" : badge.kind === "correction" ? " dose-pill--corr" : ""}">${badge.kind === "low" ? DOWN : badge.kind === "correction" ? PULSE : DROP}${escapeHtml(badge.main)}</span>${badge.sub ? `<span class="dose-badge__sub">${escapeHtml(badge.sub)}</span>` : ""}</span>`;
         row.innerHTML = `
-          <div class="history-entry__icon" style="background:${meal.color}">${meal.icon}</div>
+          <div class="history-entry__icon" style="background:${meal.color}">${meal.icon}${mergeSel ? `<span class="merge-tick" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M6 12.5l4 4 8-9" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span>` : ""}</div>
           <div class="history-entry__main">
             <p class="history-entry__title"><span class="history-entry__name">${meal.label}</span> <span class="muted">${formatTime(entry.ts)}${ratioWasApplied(entry) ? `${entry.periodName ? ` · ${escapeHtml(entry.periodName)}` : ""} · ${ratioText(round1(entry.ratioValue))}` : ""}</span>${nsBadgeHtml(entry)}</p>
             <p class="history-entry__foods"><span class="history-entry__food-names">${entry.items.length ? entry.items.map(i => escapeHtml(i.name)).join(", ") : (entry.carbsUnknown ? "Eating out — carbs not logged" : "No food — correction only")}</span>${entry.glycemicLoad ? `<span class="gl-indicator gl-indicator--${entry.glycemicLoad.value >= 70 ? "high" : entry.glycemicLoad.value >= 56 ? "medium" : "low"} gl-indicator--compact">GI ${entry.glycemicLoad.value}${entry.glycemicLoad.partial ? "*" : ""}</span>` : ""}</p>
@@ -6015,6 +6024,7 @@ import { weekdayOf, mealTypesForDay, MEAL_KINDS, extraFromFood, extrasForDay, se
             ${entry.carbsUnknown ? `<span class="stat-line"><span class="stat-grams">Carbs not logged</span>${Number(entry.knownKcal) > 0 ? `<span class="stat-kcal">${kcalText(entry.knownKcal)} kcal</span>` : ""}</span>` : `<span class="stat-line"><span class="stat-grams">${entry.totalCarbs}g carbs</span><span class="stat-kcal">${entry.totalKcal || 0} kcal</span></span>`}
           </div>
         `;
+        if (mergeSel) { row.classList.add("is-selectable"); row.classList.toggle("is-selected", mergeSel.has(entry.id)); row.setAttribute("aria-pressed", String(mergeSel.has(entry.id))); }
         groupEl.appendChild(wrapSwipe(row, entry.id, { useAgain: true }));
       });
       historyGroups.appendChild(groupEl);
@@ -6038,6 +6048,7 @@ import { weekdayOf, mealTypesForDay, MEAL_KINDS, extraFromFood, extrasForDay, se
     if (!btn) return;
     if (!restoringPlace) rememberPlace();   // the sub-tab we are leaving keeps its own position for reopening
     historySeg = btn.dataset.seg;
+    if (historySeg !== "log") endMergeSelect();
     historySegmented.querySelectorAll(".segmented__btn").forEach(b => b.classList.toggle("is-active", b === btn));
     if (!restoringPlace) toTop();   // 2.72.2: a sub-tab opens at the top too
     historyLogPanel.hidden = historySeg !== "log";
@@ -7209,6 +7220,18 @@ import { weekdayOf, mealTypesForDay, MEAL_KINDS, extraFromFood, extrasForDay, se
   }, { passive: true });
 
   historyGroups.addEventListener("click", e => {
+    if (mergeSel) {   // picking meals to merge: a tap picks or drops a meal and does nothing else
+      const row = e.target.closest(".history-entry--meal");
+      if (row) {
+        const id = row.dataset.id;
+        if (mergeSel.has(id)) mergeSel.delete(id); else mergeSel.add(id);
+        row.classList.toggle("is-selected", mergeSel.has(id));
+        row.setAttribute("aria-pressed", String(mergeSel.has(id)));
+        updateMergeBar();
+      }
+      return;
+    }
+    if (e.target.closest("[data-merge-start]")) { startMergeSelect(); return; }
     const badgeBtn = e.target.closest("[data-nsbadge]");
     if (badgeBtn) {
       const entry = state.history.find(h => h.id === badgeBtn.dataset.nsbadge);
@@ -7220,14 +7243,14 @@ import { weekdayOf, mealTypesForDay, MEAL_KINDS, extraFromFood, extrasForDay, se
       const idx = state.history.findIndex(h => h.id === delBtn.dataset.del);
       const [removed] = state.history.splice(idx, 1);
       saveState();
-      queueNsDelete(removed);
+      mergeSources(removed).forEach(queueNsDelete);   // a merged meal: Nightscout holds the meals it was made from
       renderHistory();
       renderActivePanel();
       renderRecentMeals();
       showUndoToast(isBasalEntry(removed) ? "Basal dose deleted" : isActivityEntry(removed) ? "Activity deleted" : "Meal deleted", () => {
         state.history.splice(idx, 0, removed);
         saveState();
-        undoNsDelete(removed);
+        mergeSources(removed).forEach(undoNsDelete);
         renderHistory();
         renderActivePanel();
         renderRecentMeals();
@@ -7263,6 +7286,63 @@ import { weekdayOf, mealTypesForDay, MEAL_KINDS, extraFromFood, extrasForDay, se
       const entry = state.history.find(h => h.id === row.dataset.id);
       if (entry) fillActivityGlucose(row, entry);
     }
+  });
+
+  // ---- Merging meals (2.105.0): "Select" on a day, pick meals, Merge. The logic is in js/merge-meals.js ----
+  function startMergeSelect() {
+    mergeSel = new Set();
+    hsCloseOthers(null);
+    renderHistory({ skipTrends: true });
+    updateMergeBar();
+  }
+  function endMergeSelect() {
+    if (!mergeSel) return;
+    mergeSel = null;
+    updateMergeBar();
+    renderHistory({ skipTrends: true });
+  }
+  function updateMergeBar() {
+    const bar = el("merge-bar");
+    if (!bar) return;
+    bar.hidden = !mergeSel;
+    if (!mergeSel) return;
+    const n = mergeSel.size;
+    el("merge-count").textContent = n === 0 ? "Pick the meals to merge" : `${n} meal${n === 1 ? "" : "s"} picked`;
+    el("merge-go").disabled = n < 2;
+  }
+  bind("merge-cancel", "click", () => endMergeSelect());
+  bind("merge-go", "click", async () => {
+    if (!mergeSel) return;
+    const picked = state.history.filter(h => mergeSel.has(h.id)).sort((a, b) => a.ts - b.ts);
+    const why = mergeBlockReason(picked);
+    if (why) { await dialogs.alert(why, { title: "Can't merge these" }); return; }
+    const merged = mergeMeals(picked, { id: makeId("h") });
+    const first = picked[0], last = picked[picked.length - 1];
+    const sameDay = dateKey(first.ts) === dateKey(last.ts);
+    const when = t => sameDay ? formatTime(t) : `${formatDateHeader(t)} ${formatTime(t)}`;
+    const units = Math.round(((merged.mealDose || 0) + (merged.correctionDose || 0)) * 100) / 100;
+    const label = (MEAL_TYPES[merged.mealType] || MEAL_TYPES.snack).label;
+    const msg = `${picked.length} meals (${when(first.ts)} to ${when(last.ts)}) become one ${label.toLowerCase()} at ${when(merged.ts)}: ${merged.totalCarbs} g carbs and ${merged.noInsulin ? "no insulin" : `${units} u`}.\n\n` +
+      `The insulin is the doses you took, added up; nothing is recalculated. Active insulin still counts each dose from when you took it.` +
+      (nightscoutConfigured() ? `\n\nNightscout keeps its separate entries at their real times.` : "");
+    if (!(await dialogs.confirm(msg, { title: `Merge ${picked.length} meals?`, confirmText: "Merge" }))) return;
+    if (!mergeSel) return;   // cancelled while the question was open
+    const ids = new Set(picked.map(p => p.id));
+    for (let i = state.history.length - 1; i >= 0; i--) if (ids.has(state.history[i].id)) state.history.splice(i, 1);
+    state.history.push(merged);
+    state.history.sort((a, b) => b.ts - a.ts);
+    mergeSel = null;
+    saveState();
+    updateMergeBar();
+    renderHistory(); renderActivePanel(); renderRecentMeals();
+    showUndoToast(`${picked.length} meals merged`, () => {
+      const i = state.history.findIndex(h => h.id === merged.id);
+      if (i >= 0) state.history.splice(i, 1);
+      state.history.push(...picked);
+      state.history.sort((a, b) => b.ts - a.ts);
+      saveState();
+      renderHistory(); renderActivePanel(); renderRecentMeals();
+    });
   });
 
   // Recently logged meals: one-tap re-add for the repeats that make up most real usage

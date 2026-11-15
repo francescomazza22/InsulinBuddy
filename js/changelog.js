@@ -2,6 +2,17 @@
 // summary can never drift. Bump CHANGELOG[0].version here (and CACHE_VERSION in sw.js) on every release.
 export const CHANGELOG = [
   {
+    version: "2.105.0",
+    summary: "Merge meals: pick several logged meals and turn them into one.",
+    changes: [
+      "Insights > Meals: tap Select next to a day, pick the meals, then Merge",
+      "The merged meal sits at the time of the first one, with all the foods (the same food added up into one row) and the insulin you took added up; nothing is recalculated",
+      "Active insulin and carbs still count each dose from when you actually took it",
+      "Nightscout keeps its separate entries at their real times; deleting the merged meal removes them, and Undo brings everything back",
+      "Basal doses, activities and eating-out meals can't be merged; treated lows only with other treated lows"
+    ]
+  },
+  {
     version: "2.104.1",
     summary: "Basal dose: − and + keep the keyboard up.",
     changes: [
