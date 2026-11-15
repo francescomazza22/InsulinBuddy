@@ -2,6 +2,13 @@
 // summary can never drift. Bump CHANGELOG[0].version here (and CACHE_VERSION in sw.js) on every release.
 export const CHANGELOG = [
   {
+    version: "2.104.1",
+    summary: "Basal dose: − and + keep the keyboard up.",
+    changes: [
+      "Log basal insulin: the first tap on − or + no longer puts the keyboard away and drops the sheet to the bottom of the screen; the cursor stays in the dose"
+    ]
+  },
+  {
     version: "2.104.0",
     summary: "A layout made for a mouse on your computer; iPhone and iPad stay as they are.",
     changes: [

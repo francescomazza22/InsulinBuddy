@@ -2383,8 +2383,20 @@ import { weekdayOf, mealTypesForDay, MEAL_KINDS, extraFromFood, extrasForDay, se
       } finally { busy = false; saveBtn.disabled = false; }
     };
 
+    // − / + must not take the focus off the dose box (2.104.1): on iPhone the first tap put the keyboard away and
+    // the sheet dropped to the bottom of the screen. Holding the focus on press keeps the keyboard where it is;
+    // if the browser moves it anyway, the click puts it straight back (only when it was there to begin with).
+    let stepHadFocus = false;
+    ["pointerdown", "mousedown"].forEach(t => backdrop.addEventListener(t, e => {
+      if (!e.target.closest("[data-step]")) return;
+      if (t === "pointerdown") stepHadFocus = document.activeElement === unitsInput;
+      e.preventDefault();
+    }));
     backdrop.addEventListener("click", e => {
       if (e.target === backdrop || e.target.closest("#basal-close") || e.target.closest("#basal-cancel")) return close();
+      if (e.target.closest("[data-step]") && stepHadFocus && document.activeElement !== unitsInput) {
+        try { unitsInput.focus({ preventScroll: true }); } catch (err) { unitsInput.focus(); }
+      }
       const slotBtn = e.target.closest("[data-slot]");
       if (slotBtn) { slot = slotBtn.dataset.slot; slotChosenByHand = true; return refreshSlot(); }
       const stepBtn = e.target.closest("[data-step]");
