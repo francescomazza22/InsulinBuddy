@@ -2,6 +2,13 @@
 // summary can never drift. Bump CHANGELOG[0].version here (and CACHE_VERSION in sw.js) on every release.
 export const CHANGELOG = [
   {
+    version: "2.105.5",
+    summary: "− and + stay beside the dose number.",
+    changes: [
+      "− and + could drop onto their own line under the number and stay there (a moment when the screen was narrower, such as coming back to the app, decided it for good). They now go back beside the number by themselves as soon as there is room"
+    ]
+  },
+  {
     version: "2.105.4",
     summary: "The Adjust button is gone: − and + beside the dose do it.",
     changes: [

@@ -3828,6 +3828,18 @@ import { weekdayOf, mealTypesForDay, MEAL_KINDS, extraFromFood, extrasForDay, se
     row.classList.toggle("is-adjust-below", need > row.clientWidth);
   }
   window.addEventListener("resize", () => { try { fitDoseAdjust(); } catch (e) { /* before start-up */ } });
+  // 2.105.5: the choice was made only on a redraw or a window resize, so a moment when the card was narrower (coming back from
+  // the background, fonts still loading) left − / + stuck under the number (his 16 Nov 10:51 screenshot). Any change in the size
+  // of the row, the number or the chips now checks again; once settled it does nothing.
+  try {
+    let fitQueued = false;
+    const refit = () => { if (fitQueued) return; fitQueued = true; requestAnimationFrame(() => { fitQueued = false; try { fitDoseAdjust(); } catch (e) { /* not ready */ } }); };
+    const ro = new ResizeObserver(refit);
+    const vr = document.querySelector(".dose-card__value-row");
+    if (vr) { ro.observe(vr); [".dose-card__value", ".dose-card__pills"].forEach(sel => { const n = vr.querySelector(sel); if (n) ro.observe(n); }); }
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(refit, () => {});
+    document.addEventListener("visibilitychange", () => { if (!document.hidden) refit(); });
+  } catch (e) { /* no ResizeObserver: the resize and redraw checks above still run */ }
   function adjustStep() { return Math.min(0.5, Number(state.settings.rounding) > 0 ? Number(state.settings.rounding) : 0.5); }
   bind("cc-extra-toggle", "click", () => {
     setExtraMode(!draft.extraOn);

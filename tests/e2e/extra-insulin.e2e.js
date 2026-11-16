@@ -84,6 +84,13 @@ t.check("with a dose, − and + sit beside the number", await vis("#cc-dose-minu
 const geo = await dev.eval(`(() => { const r = id => document.getElementById(id).getBoundingClientRect(); const v = document.querySelector(".dose-card__value").getBoundingClientRect(), p = document.querySelector(".dose-card__pills").getBoundingClientRect(), m = r("cc-dose-minus"), q = r("cc-dose-plus"); const overlap = (a, b) => a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom; return { between: m.left >= v.right - 1 && q.right <= p.left + 1 && Math.abs((m.top + m.bottom) / 2 - (v.top + v.bottom) / 2) < 40, below: m.top >= v.bottom - 2, clear: !overlap(m, v) && !overlap(q, v) && !overlap(m, p) && !overlap(q, p), w: Math.round(m.width) }; })()`);
 t.check("they sit between the number and the chips (or under the number when there's no room), never on top of either, 40px", (geo.between || geo.below) && geo.clear && geo.w >= 40, JSON.stringify(geo));
 if (W >= 390) t.check("at phone width and up they are on the number's row", geo.between, JSON.stringify(geo));
+// 2.105.5 (his 10:51 screenshot): a narrow moment used to leave − / + stuck under the number for good
+const belowNow = () => dev.eval(`document.querySelector(".dose-card__value-row").classList.contains("is-adjust-below")`);
+await dev.eval(`document.querySelector(".dose-card").style.width = "250px"`); await sleep(100);
+await dev.click("#cc-dose-plus"); await dev.click("#cc-dose-minus"); await sleep(150);
+const wasBelow = await belowNow();
+await dev.eval(`document.querySelector(".dose-card").style.width = ""`); await sleep(400);
+if (W >= 390) t.check("after a narrow moment, − / + go back beside the number by themselves", wasBelow && !(await belowNow()), JSON.stringify({ wasBelow, now: await belowNow() }));
 await dev.click("#cc-dose-plus"); await sleep(150);
 t.check("+ adds 0.5 u", Math.abs((await dose()) - (b2 + 0.5)) < 1e-9, `${b2} -> ${await dose()}`);
 t.check("the mode row stays closed (the card doesn't jump)", !(await vis("#cc-mode-controls")) && !(await vis("#cc-extra-row")));
