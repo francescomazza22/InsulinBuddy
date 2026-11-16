@@ -18,7 +18,7 @@ import { abstractSvg } from "./js/abstract-field.js";
 import { recordRatioChange, ratioTimeline, ratioChanges } from "./js/ratio-history.js";
 import { mergeMeals, mergeBlockReason, mergeSources } from "./js/merge-meals.js";
 import { dailyCarbsSummary, overBar } from "./js/daily-carbs.js";
-import { modeChipLabel, glucoseSuggestion, logButtonLabel, doseBreakdownText } from "./js/calc-labels.js";
+import { modeChipLabel, glucoseSuggestion, logButtonLabel, doseBreakdownText, lowSwitchOffApplies } from "./js/calc-labels.js";
 import { solveSwap, carbsForGrams, canAdjust, setGrams } from "./js/swap.js";
 import { glucoseAxisTicks, percentile, dailyPatternBuckets, daysSpanned, estimatedA1c, extendedGlucoseStats, dailyStats, glucoseSummaryStats, timeInRangeBreakdown, glucoseGuideRows, TIME_IN_RANGE_BANDS, preferLiveReadings, preferLiveEntries } from "./js/glucose-stats.js";
 import { randomBytes, toB64, fromB64, deriveKey, encryptString, decryptString, isEncryptedPayload, exportKeyRaw, importKeyRaw } from "./js/crypto.js";
@@ -758,6 +758,11 @@ import { weekdayOf, mealTypesForDay, MEAL_KINDS, extraFromFood, extrasForDay, se
   const clearAllBtn = el("cc-clear-all-btn");
 
   let selectedPickId = null; // id of highlighted item in the pick list (format "food:ID" or "recipe:ID")
+  // 2.105.2: when the glucose in the Correction box was typed (or, if fetched, when that reading was taken). A glucose more
+  // than GLUCOSE_MAX_AGE_MS old is cleared (expireOldGlucose): the draft is kept across closing the app, and an old reading
+  // brought back hours later was still being used for the correction.
+  let glucoseEnteredAt = 0;
+  const GLUCOSE_MAX_AGE_MS = 30 * 60000;
   let modeOpen = false, modeWasOn = false;   // 2.81.0: whether the Correction / Low / Eating out row under the mode chip is open
 
 
@@ -3494,10 +3499,20 @@ import { weekdayOf, mealTypesForDay, MEAL_KINDS, extraFromFood, extrasForDay, se
   // stays off for that low; the next reading of 70 or more ends the low, so the next one switches it on again. It doesn't
   // override a mode already chosen or a dose changed with − / +. The draft is saved, so a reload keeps it.
   const LOW_AUTO_OFF_KEY = "insulinBuddy.lowAutoOff";
-  let lowAutoOff = (() => { try { return store.getItem(LOW_AUTO_OFF_KEY) === "1"; } catch (e) { return false; } })();
+  // 2.105.2: the time it was switched off (an older "1" has no time and is forgotten at the next check). See lowSwitchOffApplies.
+  let lowAutoOffAt = (() => { try { return Number(store.getItem(LOW_AUTO_OFF_KEY)) || 0; } catch (e) { return 0; } })();
   function setLowAutoOff(v) {
-    lowAutoOff = !!v;
-    try { if (v) store.setItem(LOW_AUTO_OFF_KEY, "1"); else store.removeItem(LOW_AUTO_OFF_KEY); } catch (e) { /* storage unavailable: kept for this session */ }
+    lowAutoOffAt = v ? Date.now() : 0;
+    try { if (v) store.setItem(LOW_AUTO_OFF_KEY, String(lowAutoOffAt)); else store.removeItem(LOW_AUTO_OFF_KEY); } catch (e) { /* storage unavailable: kept for this session */ }
+  }
+  // Still the low it was switched off in? Forgotten once a reading of 70+ came after it (even one heard about later) or 3 h on.
+  function lowSwitchedOffNow() {
+    if (!lowAutoOffAt) return false;
+    let entries = [];
+    try { entries = glucoseStore.entries; } catch (e) { /* not set up yet */ }
+    if (lowSwitchOffApplies(lowAutoOffAt, entries)) return true;
+    setLowAutoOff(false);
+    return false;
   }
   function lowNow() {
     try {
@@ -3509,7 +3524,7 @@ import { weekdayOf, mealTypesForDay, MEAL_KINDS, extraFromFood, extrasForDay, se
   function lowTurnedOffByHand() { if (lowNow()) setLowAutoOff(true); }
   function autoLowOn() {
     if (autoLowOff()) return true;
-    if (lowAutoOff || draft.noInsulinOn || draft.correctionOn || draft.eatingOutOn || draft.extraOn || !lowNow()) return false;
+    if (draft.noInsulinOn || lowSwitchedOffNow() || draft.correctionOn || draft.eatingOutOn || draft.extraOn || !lowNow()) return false;
     draft.noInsulinOn = true;
     draft.lowAuto = true;
     renderQuickUsual();
@@ -3856,7 +3871,27 @@ import { weekdayOf, mealTypesForDay, MEAL_KINDS, extraFromFood, extrasForDay, se
     const v = parseKcalInput(el("cc-eating-out-kcal").value);
     return Number.isFinite(v) && v > 0 && v <= 10000 ? Math.round(v) : null;
   }
-  glucoseInput.addEventListener("input", () => { recompute(); saveDraftLocal(); });
+  glucoseInput.addEventListener("input", e => {
+    if (!glucoseInput.value.trim()) glucoseEnteredAt = 0;
+    else if (e.isTrusted || !glucoseEnteredAt) glucoseEnteredAt = Date.now();   // typed; a fetched reading sets its own time (applyFetchedGlucoseEntries)
+    recompute(); saveDraftLocal();
+  });
+  // A glucose in the box older than 30 minutes (or of unknown age: a draft saved before 2.105.2) is cleared, with a note.
+  function expireOldGlucose(now = Date.now()) {
+    if (!glucoseInput.value.trim()) return false;
+    if (glucoseEnteredAt && now - glucoseEnteredAt <= GLUCOSE_MAX_AGE_MS && glucoseEnteredAt <= now + 60000) return false;
+    const when = glucoseEnteredAt ? new Date(glucoseEnteredAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : null;
+    glucoseInput.value = "";
+    glucoseEnteredAt = 0;
+    const statusEl = el("cc-fetch-glucose-status");
+    if (statusEl) {
+      statusEl.className = "correction-row__fetch-status correction-row__fetch-status--error";
+      statusEl.textContent = `The glucose ${when ? `from ${when} ` : "typed earlier "}was cleared: it was more than 30 minutes old. Fetch or type the current one.`;
+      statusEl.hidden = false;
+    }
+    recompute(); saveDraftLocal();
+    return true;
+  }
   glucoseUnitLabel.addEventListener("click", () => {
     const newUnit = draft.glucoseUnit === "mmol" ? "mgdl" : "mmol";
     const current = parseDecimalInput(glucoseInput.value);
@@ -3930,6 +3965,7 @@ import { weekdayOf, mealTypesForDay, MEAL_KINDS, extraFromFood, extrasForDay, se
         extraValue: el("cc-extra-dose").value || "",
         glucose: glucoseInput.value || "",
         glucoseUnit: draft.glucoseUnit,
+        glucoseAt: glucoseEnteredAt || null,
         manualRatioId: draft.manualRatioId
       }));
     } catch (e) { /* storage unavailable — non-fatal, draft just won't survive a reload */ }
@@ -3958,7 +3994,7 @@ import { weekdayOf, mealTypesForDay, MEAL_KINDS, extraFromFood, extrasForDay, se
     draft.items = saved.items || [];
     draft.manualRatioId = saved.manualRatioId || null;
     draft.glucoseUnit = saved.glucoseUnit || state.settings.units;
-    if (saved.glucose) glucoseInput.value = saved.glucose;
+    if (saved.glucose) { glucoseInput.value = saved.glucose; glucoseEnteredAt = Number(saved.glucoseAt) || 0; }
     if (saved.correctionOn) {
       draft.correctionOn = true;
       correctionToggle.classList.add("is-active");
@@ -3993,7 +4029,7 @@ import { weekdayOf, mealTypesForDay, MEAL_KINDS, extraFromFood, extrasForDay, se
       if (saved.extraValue) el("cc-extra-dose").value = saved.extraValue;
     }
     renderMealItems();
-    recompute();
+    if (!expireOldGlucose()) recompute();
     refreshFoodOrderForSlot();   // a range picked by hand before the app closed orders the list again
   }
 
@@ -4012,7 +4048,7 @@ import { weekdayOf, mealTypesForDay, MEAL_KINDS, extraFromFood, extrasForDay, se
   function resetDraft() {
     draft = { items: [], correctionOn: false, correctionManual: false, noInsulinOn: false, eatingOutOn: false, glucose: "", glucoseUnit: null, manualRatioId: null };
     searchInput.value = ""; searchClearBtn.hidden = true; gramsInput.value = ""; gramsInput.disabled = false;
-    glucoseInput.value = "";
+    glucoseInput.value = ""; glucoseEnteredAt = 0;
     correctionToggle.classList.remove("is-active");
     correctionRow.hidden = true;
     el("cc-no-insulin-toggle").classList.remove("is-active");
@@ -5054,6 +5090,7 @@ import { weekdayOf, mealTypesForDay, MEAL_KINDS, extraFromFood, extrasForDay, se
     const ageText = ageMin <= 0 ? "just now" : ageMin === 1 ? "1 minute ago" : `${ageMin} minutes ago`;
     const converted = round1(convertGlucose(latest.sgv, "mgdl", draft.glucoseUnit || state.settings.units));
     glucoseInput.value = converted;
+    glucoseEnteredAt = Number(latest.date) || Date.now();   // the reading's own time: a 25-minute-old reading has 5 minutes left
     glucoseInput.dispatchEvent(new Event("input", { bubbles: true }));
     if (ageMin > 15) {
       statusEl.textContent = `Loaded, but this reading is from ${ageText} — that's fairly stale. Worth double-checking before dosing.`;
@@ -7385,7 +7422,7 @@ import { weekdayOf, mealTypesForDay, MEAL_KINDS, extraFromFood, extrasForDay, se
       correctionOn: false, correctionManual: false, noInsulinOn: false, eatingOutOn: false, glucose: "", glucoseUnit: null, manualRatioId: null
     };
     searchInput.value = ""; searchClearBtn.hidden = true; gramsInput.value = ""; gramsInput.disabled = false;
-    glucoseInput.value = ""; correctionToggle.classList.remove("is-active"); correctionRow.hidden = true;
+    glucoseInput.value = ""; glucoseEnteredAt = 0; correctionToggle.classList.remove("is-active"); correctionRow.hidden = true;
     // These two weren't being reset here before (a pre-existing gap, not new): switching to a
     // past meal while Treating a Low was active left its pill looking on even though the fresh
     // draft had already turned it off underneath.
@@ -9775,6 +9812,7 @@ import { weekdayOf, mealTypesForDay, MEAL_KINDS, extraFromFood, extrasForDay, se
     let tick = 0;
     const everyThirtySeconds = () => {
       if (document.hidden) return;   // nothing is showing, so nothing needs redrawing or fetching; coming back runs it straight away (below)
+      expireOldGlucose();
       if (!draft.manualRatioId) recompute();
       refreshFoodOrderForSlot();   // a new time range has begun: its usual foods move to the top
       if (!el("view-settings").hidden && !panelRatios.hidden) renderTimeline();
@@ -9788,6 +9826,7 @@ import { weekdayOf, mealTypesForDay, MEAL_KINDS, extraFromFood, extrasForDay, se
     setInterval(everyThirtySeconds, 30000);
     document.addEventListener("visibilitychange", () => {
       if (document.hidden) return;
+      expireOldGlucose();   // 2.105.2: the app left open in the background for hours kept the old glucose too
       if (!draft.manualRatioId) recompute();   // the time of day may have moved into another ratio while the app was away
       if (!el("view-calculator").hidden) renderActivePanel();
       renderSyncChip();

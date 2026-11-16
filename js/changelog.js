@@ -2,6 +2,15 @@
 // summary can never drift. Bump CHANGELOG[0].version here (and CACHE_VERSION in sw.js) on every release.
 export const CHANGELOG = [
   {
+    version: "2.105.2",
+    summary: "Treating a low switches on again at a new low; an old glucose no longer drives a correction.",
+    changes: [
+      "The glucose in the Correction box is cleared once it is more than 30 minutes old (it was kept with the rest of an unlogged meal, so reopening the app hours later still worked out a correction from it). A note says so; fetch or type the current one",
+      "Merging 4 or more meals: active insulin could be counted from the merged meal's time instead of each dose's own time (carb rounding across many meals). Fixed",
+      "If you switched Treating a low off during a low and the low ended while the app was closed, the next low (say the next morning) was taken for the same one and it stayed off. Now any reading of 70 mg/dL or more after you switched it off ends that low, including readings the app only fetches later, and a switch-off lasts at most 3 hours"
+    ]
+  },
+  {
     version: "2.105.1",
     summary: "Treating a low: a calmer Calculator.",
     changes: [

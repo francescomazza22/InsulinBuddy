@@ -188,4 +188,42 @@ t.check("turned on by hand at 78 mg/dL: still on after reopening", c.lowOn, JSON
 t.check("no JS errors", (await dev.eval("window.__errs.length")) === 0, JSON.stringify(await dev.eval("window.__errs")));
 dev.close(); await app.close();
 
+// 2.105.2, his 16 Nov 05:31 screenshot: 66 mg/dL, "Treating a low is off". He had switched it off by hand at a low the
+// night before; the low then ended while the app was closed, so it never saw the reading of 70+ that forgets the switch-off,
+// and the new low in the morning was treated as the same one. A reading of 70+ in the stored history now ends it too, and
+// so does time (3 h).
+t.section("A NEW LOW AFTER THE APP WAS CLOSED (HIS 16 NOV CASE)");
+({ app, dev, be } = await boot(62));
+await dev.click("#cc-mode-btn"); await sleep(200);
+await dev.click("#cc-no-insulin-toggle"); await sleep(300);
+c = await chip(dev);
+t.check("switched off by hand during the low", !c.lowOn, JSON.stringify(c));
+await reopen(dev);
+c = await chip(dev);
+t.check("same low, reopened: stays off (his choice is kept)", !c.lowOn, JSON.stringify(c));
+// Overnight, app closed: the switch-off was 2 h ago; since then glucose came back up, then dropped again. The app opens at the
+// new low and fetches what it missed. (Its stored readings are cleared so the fetch brings the whole night.)
+const H = 3600000, now = Date.now();
+const night = (list, live) => dev.eval(`(() => { localStorage.setItem("insulinBuddy.lowAutoOff", String(Date.now() - 2 * ${H})); localStorage.removeItem("insulinBuddy.glucoseRecent2"); localStorage.setItem("insulinBuddy.liveGlucose", JSON.stringify({ mgdl: ${live}, direction: "Flat", at: Date.now() - 20000 })); })()`).then(() => { be.ns.entries = list; });
+await night([{ sgv: 60, date: now - 20000 }, { sgv: 64, date: now - 0.5 * H }, { sgv: 61, date: now - 1.5 * H }].map(e => ({ ...e, direction: "Flat", type: "sgv" })), 60);
+await reopen(dev); await sleep(1500);
+c = await chip(dev);
+t.check("still low all night since the switch-off: stays off", !c.lowOn, JSON.stringify(c));
+await night([{ sgv: 66, date: now - 20000 }, { sgv: 72, date: now - 0.5 * H }, { sgv: 110, date: now - 1.5 * H }].map(e => ({ ...e, direction: "Flat", type: "sgv" })), 66);
+await reopen(dev); await sleep(1500);
+c = await chip(dev);
+t.check("back in range overnight, low again now: Treating a low is ON by itself again", c.lowOn && c.amber && /Treating a low is on/.test(c.hint), JSON.stringify(c));
+// a switch-off saved by an older version ("1", no time): forgotten at the next low
+await dev.click("#cc-clear-all-btn").catch(() => {}); await sleep(200);
+await dev.click("#cc-mode-btn"); await sleep(200);
+if ((await chip(dev)).lowOn) await dev.click("#cc-no-insulin-toggle");
+await sleep(200);
+await dev.eval(`localStorage.setItem("insulinBuddy.lowAutoOff", "1")`);
+be.ns.entries = [{ sgv: 66, date: Date.now() - 20000, direction: "Flat", type: "sgv" }];
+await reopen(dev); await sleep(1000);
+c = await chip(dev);
+t.check("an old switch-off with no time is forgotten", c.lowOn, JSON.stringify(c));
+t.check("no JS errors", (await dev.eval("window.__errs.length")) === 0, JSON.stringify(await dev.eval("window.__errs")));
+dev.close(); await app.close();
+
 process.exit(t.summary() ? 0 : 1);

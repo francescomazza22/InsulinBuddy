@@ -82,19 +82,26 @@ export function activeParts(entry) {
   if (!src || src.length < 2) return [entry];
   const dose = e => (Number(e.mealDose) || 0) + (Number(e.correctionDose) || 0);
   const sumDose = src.reduce((s, e) => s + dose(e), 0), sumCarbs = src.reduce((s, e) => s + (Number(e.totalCarbs) || 0), 0);
-  if (Math.abs(sumDose - dose(entry)) > 0.011 || Math.abs(sumCarbs - (Number(entry.totalCarbs) || 0)) > 0.15) return [entry];
+  // Each original's total was rounded to 0.1 g and the merged one is too, so they can differ by up to 0.05 g per meal (2.105.2:
+  // a fixed 0.15 g let a merge of 4+ meals fall back to the merged time, showing too little active insulin).
+  if (Math.abs(sumDose - dose(entry)) > 0.011 || Math.abs(sumCarbs - (Number(entry.totalCarbs) || 0)) > 0.051 * (src.length + 1)) return [entry];
   return src;
 }
 
 // Stacked IOB/COB at a point in time (`atTime`, ms) across the whole history.
 export function activeAt(historyIn, settings, atTime) {
-  const history = [];
-  for (const e of historyIn || []) for (const part of activeParts(e)) history.push(part);
   const now = atTime != null ? atTime : Date.now();
   const dia = settings.insulinModel.diaMinutes;
   const peak = settings.insulinModel.peakMinutes;
   const carbAbs = settings.carbAbsorptionMinutes;
   const maxAbsorption = Math.max(carbAbs.high, carbAbs.medium, carbAbs.low, carbAbs.unknown);
+  // Only what can still be active, in time order (2.105.2): the totals then don't depend on how the log is ordered, so a
+  // merged meal read as its parts gives exactly the same figures as the separate meals did (a sum in another order could
+  // tip a rounding at .5).
+  const reach = Math.max(dia, maxAbsorption) * 60000;
+  const history = [];
+  for (const e of historyIn || []) for (const part of activeParts(e)) if (part && part.ts <= now && now - part.ts < reach) history.push(part);
+  history.sort((a, b) => (b.ts - a.ts) || String(a.id).localeCompare(String(b.id)));
 
   let iob = 0, cob = 0, iobClearAt = 0, cobClearAt = 0;
   for (const entry of history) {

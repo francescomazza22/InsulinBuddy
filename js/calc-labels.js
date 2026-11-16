@@ -67,3 +67,14 @@ export function glucoseSuggestion({ mgdl, at, now = Date.now(), staleMs = 15 * 6
   if (mgdl > high) return "high";
   return null;
 }
+
+// 2.105.2: Treating a low switched off by hand stays off for THAT low only. The switch-off (stored as the time it happened) is
+// forgotten once any reading of 70 mg/dL or more comes after it, including readings the app only hears about later (it was
+// closed while glucose came back up), or after LOW_OFF_MAX_MS. Before, only a live reading of 70+ seen with the app open
+// cleared it, so the next morning's new low was taken for the same one and Treating a low stayed off.
+export const LOW_OFF_MAX_MS = 3 * 3600000;
+export function lowSwitchOffApplies(offAt, entries, now = Date.now()) {
+  const at = Number(offAt);
+  if (!Number.isFinite(at) || at <= 0 || now - at > LOW_OFF_MAX_MS || at > now + 60000) return false;
+  return !(entries || []).some(e => e && Number.isFinite(e.date) && e.date > at && typeof e.sgv === "number" && e.sgv >= 70);
+}
