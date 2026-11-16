@@ -24,43 +24,35 @@ async function addFood(idx, grams) {
   await dev.click("#cc-add-btn"); await sleep(200);
 }
 
-t.section("CALCULATOR: Extra sits with the other modes and starts off");
+t.section("CALCULATOR: no Adjust button (2.105.4); − / + beside the dose set the extra");
 await addFood(0, 100);
 const base = await dose();
 t.check("a meal gives a calculated dose first", base > 0, String(base));
 await dev.click("#cc-mode-btn"); await sleep(200);
-t.check("the mode row has an Extra button", await vis("#cc-extra-toggle"));
-t.check("the extra row is closed until Extra is tapped", !(await vis("#cc-extra-row")));
-await dev.click("#cc-extra-toggle"); await sleep(200);
-t.check("tapping Extra opens the extra row and focuses its box", (await vis("#cc-extra-row")) && (await dev.eval(`document.activeElement.id`)) === "cc-extra-dose");
-t.check("nothing typed yet: the dose is unchanged", (await dose()) === base);
+t.check("the mode row has no Adjust button and never shows the Adjust row", !(await vis("#cc-extra-toggle")) && !(await vis("#cc-extra-row")));
+const fits = await dev.eval(`(() => { const bs = [...document.querySelectorAll("#cc-mode-controls .pill-btn")].filter(b => !b.hidden); const tops = new Set(bs.map(b => Math.round(b.getBoundingClientRect().top))); return { n: bs.length, rows: tops.size, overflow: bs.some(b => b.scrollWidth > b.clientWidth + 1), lines: bs.map(b => Math.round(b.getBoundingClientRect().height)) }; })()`);
+t.check("Correction, Treating a Low and Eating Out sit on one row, words not cut", fits.n === 3 && fits.rows === 1 && !fits.overflow, JSON.stringify(fits));
+if (SHOTS) { await dev.eval(`scrollTo(0, 0)`); await dev.shot(`${SHOTS}/mode-row-${W}${dark ? "-dark" : ""}.png`); }
+await dev.click("#cc-mode-btn"); await sleep(200);
+t.check("nothing changed yet: the dose is unchanged", (await dose()) === base);
 
 t.section("CALCULATOR: the extra is added on top");
-await typeExtra("1");
-t.check("1 u extra adds exactly 1 u", Math.abs((await dose()) - (base + 1)) < 1e-9, `${base} -> ${await dose()}`);
+await dev.click("#cc-dose-plus"); await dev.click("#cc-dose-plus"); await sleep(150);
+t.check("+ twice adds exactly 1 u", Math.abs((await dose()) - (base + 1)) < 1e-9, `${base} -> ${await dose()}`);
 t.check("the line under the dose shows it apart", (await txt("#cc-dose-breakdown")) === `Meal ${base} u + 1 u extra`, await txt("#cc-dose-breakdown"));
 t.check("the mode chip is lit (its words stay Meal)", (await txt("#cc-mode-label")) === "Meal" && await dev.eval(`document.getElementById("cc-mode-btn").classList.contains("is-on")`));
 t.check("the Log button says the total", (await txt("#cc-log-btn")).startsWith(`Log ${(base + 1).toFixed(1)} u`), await txt("#cc-log-btn"));
-await dev.click('#cc-extra-row [data-extra-step="1"]'); await sleep(100);
-t.check("+ steps up by the rounding step (0.5 u)", (await dev.eval(`document.getElementById("cc-extra-dose").value`)) === "1.5" && Math.abs((await dose()) - (base + 1.5)) < 1e-9);
-for (let i = 0; i < 4; i++) await dev.click('#cc-extra-row [data-extra-step="-1"]');
-await sleep(100);
-t.check("− goes below nothing and takes insulin off (−0.5)", (await dev.eval(`document.getElementById("cc-extra-dose").value`)) === "-0.5" && Math.abs((await dose()) - (base - 0.5)) < 1e-9, `${await dev.eval(`document.getElementById("cc-extra-dose").value`)} ${await dose()}`);
-await typeExtra("0,5");
-t.check("a decimal comma reads as 0.5", Math.abs((await dose()) - (base + 0.5)) < 1e-9, String(await dose()));
-await typeExtra("abc");
-t.check("junk is flagged, and adds nothing", (await vis("#cc-extra-error")) && (await dose()) === base);
-await typeExtra("1");
+t.check("the Adjust row still never shows", !(await vis("#cc-extra-row")));
 if (SHOTS) await dev.shot(`${SHOTS}/extra-insulin-card-${W}${dark ? "-dark" : ""}.png`);
 
 t.section("CALCULATOR: survives the app closing, then logs with the extra marked");
 await dev.go("index.html", 1800);
 await dev.tab("calculator"); await sleep(400);
-t.check("after a reload the extra is still on and still 1 u", (await dev.eval(`document.getElementById("cc-extra-dose").value`)) === "1" && Math.abs((await dose()) - (base + 1)) < 1e-9 && await dev.eval(`document.getElementById("cc-mode-btn").classList.contains("is-on")`));
+t.check("after a reload the extra is still on and still 1 u", (await dev.eval(`document.getElementById("cc-extra-dose").value`)) === "1" && Math.abs((await dose()) - (base + 1)) < 1e-9 && await dev.eval(`document.getElementById("cc-mode-btn").classList.contains("is-on")`) && !(await vis("#cc-extra-row")));
 await dev.click("#cc-log-btn"); await sleep(500);
 let st = await localState(dev); let e = st.history[0];
 t.check("saved: mealDose includes the extra, extraDose says how much", Math.abs(e.mealDose - (base + 1)) < 1e-9 && e.extraDose === 1 && e.correctionDose === 0, JSON.stringify({ m: e.mealDose, c: e.correctionDose, x: e.extraDose }));
-t.check("the calculator is clear for the next meal: Extra off and empty", !(await vis("#cc-extra-row")) && (await dev.eval(`document.getElementById("cc-extra-dose").value`)) === "" && !(await dev.eval(`document.getElementById("cc-extra-toggle").classList.contains("is-active")`)));
+t.check("the calculator is clear for the next meal: nothing adjusted", (await dev.eval(`document.getElementById("cc-extra-dose").value`)) === "" && !(await dev.eval(`document.getElementById("cc-mode-btn").classList.contains("is-on")`)));
 
 t.section("LOG: the badge shows the extra; Edit meal keeps and changes it");
 await dev.tab("history"); await sleep(500);
@@ -114,14 +106,16 @@ t.check("after logging, − / + are gone and nothing is adjusted", !(await vis("
 t.section("CALCULATOR: not with Treating a low or Eating out");
 await dev.tab("calculator"); await sleep(300);
 await addFood(1, 100);
+await dev.click("#cc-dose-plus"); await sleep(150);
 await dev.click("#cc-mode-btn"); await sleep(150);
-await dev.click("#cc-extra-toggle"); await typeExtra("1"); await sleep(100);
 await dev.click("#cc-no-insulin-toggle"); await sleep(150);
-t.check("Treating a low switches Adjust off, no insulin and no − / +", !(await vis("#cc-extra-row")) && (await dose()) === 0 && !(await vis("#cc-dose-adjust")));
-await dev.click("#cc-extra-toggle"); await sleep(150);
-t.check("Extra switches Treating a low off again", !(await dev.eval(`document.getElementById("cc-no-insulin-toggle").classList.contains("is-active")`)) && await vis("#cc-extra-row"));
+t.check("Treating a low drops the extra: no insulin and no − / +", (await dose()) === 0 && !(await vis("#cc-dose-adjust")) && (await dev.eval(`document.getElementById("cc-extra-dose").value`)) === "");
+await dev.click("#cc-mode-btn"); await sleep(150);
+await dev.click("#cc-no-insulin-toggle"); await sleep(150);
+await dev.click("#cc-dose-plus"); await sleep(150);
+await dev.click("#cc-mode-btn"); await sleep(150);
 await dev.click("#cc-eating-out-toggle"); await sleep(150);
-t.check("Eating out switches Extra off", !(await vis("#cc-extra-row")) && !(await dev.eval(`document.getElementById("cc-extra-toggle").classList.contains("is-active")`)));
+t.check("Eating out drops the extra too", (await dev.eval(`document.getElementById("cc-extra-dose").value`)) === "" && !(await vis("#cc-dose-adjust")));
 
 const ok = t.summary();
 dev.close(); await app.close(); process.exit(ok ? 0 : 1);

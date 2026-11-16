@@ -3476,7 +3476,7 @@ import { weekdayOf, mealTypesForDay, MEAL_KINDS, extraFromFood, extrasForDay, se
     chip.setAttribute("aria-expanded", modeOpen ? "true" : "false");
     chip.setAttribute("aria-label", suggest === "low" ? "Glucose is low. Turn on Treating a low" : suggest === "high" ? "Glucose is high. Turn on Correction and fill in the glucose" : `${label}. ${modeOpen ? "Hide" : "Show"} Correction, Treating a low, Eating out and Adjust`);
     el("cc-mode-controls").hidden = !modeOpen;
-    el("cc-extra-row").hidden = !(draft.extraOn && modeOpen);
+    el("cc-extra-row").hidden = true;   // 2.105.4: the Adjust row is never shown; − / + beside the dose set the extra (Francesco: "the plus and minus is in the top")
   }
   let chipSuggestion = null;
   // The live reading lives further down (liveGlucose, declared with let); before it exists there is simply nothing to offer.
@@ -3856,7 +3856,7 @@ import { weekdayOf, mealTypesForDay, MEAL_KINDS, extraFromFood, extrasForDay, se
     recompute();
     const applied = draft._computed ? draft._computed.extraDose : 0;
     if (next < 0 && applied !== next) { el("cc-extra-dose").value = applied !== 0 ? String(applied) : ""; recompute(); }
-    if (cleanExtraUnits(el("cc-extra-dose").value) === 0 && !(draft.extraOn && modeOpen)) { setExtraMode(false); recompute(); }
+    if (cleanExtraUnits(el("cc-extra-dose").value) === 0) { setExtraMode(false); recompute(); }
     saveDraftLocal();
   });
   bind("cc-eating-out-dose", "input", () => { recompute(); saveDraftLocal(); });

@@ -2239,8 +2239,9 @@ button.dx-step__btn:disabled { opacity: 0.35; cursor: default; }
 }
 .extra-row__step:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
 html[data-theme="dark"] .dose-card .extra-row__step { background: rgba(0,0,0,0.32); }
-/* Four mode buttons now share the row: two by two on a phone, one row when there is room, never squashed words. */
-.dose-card__controls { display: grid; grid-template-columns: repeat(auto-fit, minmax(118px, 1fr)); }
+/* Three mode buttons (2.105.4: Adjust went; − / + beside the dose do it) share one row. */
+.dose-card__controls { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.dose-card__controls > [hidden] { display: none; }
 
 /* Recipe sheet: one quiet line says whether the latest change is saved. */
 /* It sits in the sticky button bar, so it stays in view however far down the sheet you are. */
@@ -2523,3 +2524,7 @@ html[data-input="mouse"] .merge-bar button { min-height: 34px; }
 .correction-row__links .correction-mode-link { display: inline; margin-left: auto; }
 /* With the mode row folded, the Correction box sits straight under the dose breakdown: one gap, not two (7px, not 12px) */
 .dose-card__breakdown:not([hidden]) ~ .dose-card__controls[hidden] ~ #cc-correction-row { margin-top: 0; }
+/* 2.105.4: three across on a phone leaves no room for the icons ("Treating a Low" lost its arrow at 375px): words only there.
+   A larger iPhone text size wraps a label onto two lines rather than cutting it. */
+@media (max-width: 459px) { .dose-card__controls .pill-btn svg { display: none; } }
+.dose-card__controls .pill-btn { white-space: normal; text-align: center; line-height: 1.15; }
