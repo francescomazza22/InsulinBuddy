@@ -187,11 +187,14 @@
               <input type="number" id="cc-glucose" inputmode="decimal" min="0" step="0.1" placeholder="0">
               <button type="button" id="cc-glucose-unit" class="correction-row__unit-toggle">mg/dL</button>
             </div>
-            <button type="button" id="cc-fetch-glucose" class="correction-row__fetch-btn" hidden>Fetch from Nightscout</button>
+            <!-- 2.105.3: the two links share one line -->
+            <div class="correction-row__links">
+              <button type="button" id="cc-fetch-glucose" class="correction-row__fetch-btn" hidden>Fetch from Nightscout</button>
+              <button type="button" id="cc-correction-manual-link" class="correction-mode-link">Enter dose manually</button>
+            </div>
             <p class="correction-row__fetch-status" id="cc-fetch-glucose-status" hidden></p>
             <p class="correction-row__iob-note" id="cc-iob-adjust-note" hidden></p>
             <p class="correction-row__iob-note" id="cc-correction-working" hidden></p>
-            <button type="button" id="cc-correction-manual-link" class="correction-mode-link">Enter dose manually</button>
           </div>
           <div id="cc-correction-manual-wrap" hidden>
             <label for="cc-correction-manual-input">Correction dose</label>

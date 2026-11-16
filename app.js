@@ -3454,10 +3454,11 @@ import { weekdayOf, mealTypesForDay, MEAL_KINDS, extraFromFood, extrasForDay, se
     // A dose changed with the − / + buttons lights the chip but doesn't open the row (2.85.0): that would push the card down on every tap.
     const opener = !!(draft.correctionOn || draft.noInsulinOn || draft.eatingOutOn);   // !!: classList.toggle(x, undefined) flips instead of clearing
     const on = opener || !!draft.extraOn;
-    // 2.105.1: Treating a low that switched itself on at a low doesn't open the row: the amber chip and the note under it say
-    // it is on, and the four buttons pushed the food search almost off the screen. Tap the chip to see them.
-    const autoLowOnly = draft.noInsulinOn && draft.lowAuto && !draft.correctionOn && !draft.eatingOutOn;
-    if (opener && !modeWasOn && !autoLowOnly) modeOpen = true;
+    // 2.105.3: the row works like a menu. When Correction, Treating a low or Eating out comes on (picked in the row, from the
+    // chip's "+ Correction", by itself at a low, or with a restored meal) the row folds away: the chip says what is on, and
+    // the four buttons pushed the food search off the screen (2.105.1 did this for Treating a low on its own). Tap the chip
+    // to see them again.
+    if (opener && !modeWasOn) modeOpen = false;
     modeWasOn = opener;
     const chip = el("cc-mode-btn");
     if (!chip) return;
@@ -3607,7 +3608,7 @@ import { weekdayOf, mealTypesForDay, MEAL_KINDS, extraFromFood, extrasForDay, se
         const inUnit = convertGlucose(bgNow, draft.glucoseUnit, state.settings.units);
         const uLabel = unitLabel(state.settings.units);
         workingEl.textContent = rawCorrectionPart > 0
-          ? `(${round1(inUnit)} \u2212 ${state.settings.target} ${uLabel} target) \u00f7 ${state.settings.isf} ${uLabel} per unit = ${round1(rawCorrectionPart)}u, rounded to ${roundDose(correctionPart)}u`
+          ? `(${round1(inUnit)} \u2212 ${state.settings.target} ${uLabel} target) \u00f7 ${state.settings.isf} ${uLabel} per unit = ${round1(rawCorrectionPart)}u${round1(rawCorrectionPart) === roundDose(correctionPart) ? "" : `, rounded to ${roundDose(correctionPart)}u`}`
           : rawCorrectionPart < 0
             ? `Low: (${round1(inUnit)} \u2212 ${state.settings.target} ${uLabel} target) \u00f7 ${state.settings.isf} ${uLabel} per unit = ${round1(rawCorrectionPart)}u, so ${Math.abs(plan.correctionDose)}u is taken off the meal dose${plan.reductionLimited ? " (all of it: a dose can't go below zero)" : ""}`
             : inUnit < state.settings.target

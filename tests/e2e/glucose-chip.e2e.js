@@ -91,7 +91,8 @@ t.check("the chip offers '+ Correction' (an outline, not a lit mode); nothing is
 if (SHOTS) { await dev.eval(`scrollTo(0, 0)`); await sleep(200); await dev.shot(`${SHOTS}/chip-high-${W}${dark ? "-dark" : ""}.png`); }
 await dev.click("#cc-mode-btn"); await sleep(900);
 c = await chip(dev);
-t.check("one tap: Correction is on, its row open", c.corrOn && c.open && c.label === "Correction", JSON.stringify(c));
+t.check("one tap: Correction is on; 2.105.3: the four-button row stays folded (the chip says Correction)", c.corrOn && !c.open && c.label === "Correction" && !(await dev.eval(`document.getElementById("cc-correction-row").hidden`)), JSON.stringify(c));
+if (SHOTS) { await dev.eval(`scrollTo(0, 0)`); await sleep(200); await dev.shot(`${SHOTS}/chip-correction-${W}${dark ? "-dark" : ""}.png`); }
 t.check("…the glucose box is filled from Nightscout (250) and a correction dose shows", c.glucose === "250" && Number(c.dose) > 0, JSON.stringify(c));
 t.check("nothing was sent to Nightscout (only reads)", be.ns.treatments.length === 0 && be.log.filter(l => l.kind === "ns" && l.action !== "read").length === 0, JSON.stringify(be.log.filter(l => l.kind === "ns").map(l => l.action)));
 // Food added with Correction already on: the chip says what is on and no longer offers anything.
@@ -108,8 +109,9 @@ t.section("A MODE ALREADY CHOSEN IS LEFT ALONE");
 ({ app, dev, be } = await boot(250));
 await dev.eval(`document.getElementById("cc-mode-btn").classList.contains("is-suggest-high")`);
 // Open the menu by hand is not possible while it offers; turn on Eating out from the row after the offer is taken and dropped.
-await dev.click("#cc-mode-btn"); await sleep(600);           // Correction on
-await dev.click("#cc-correction-toggle"); await sleep(200);  // and off again: the row stays open
+await dev.click("#cc-mode-btn"); await sleep(600);           // Correction on (the row stays folded)
+await dev.click("#cc-mode-btn"); await sleep(200);           // open the row by hand
+await dev.click("#cc-correction-toggle"); await sleep(200);  // and Correction off again: the row stays open
 c = await chip(dev);
 t.check("with the row open by hand, the chip is the plain menu again (Meal, chevron)", c.label === "Meal" && !c.high && c.open, JSON.stringify(c));
 await dev.click("#cc-eating-out-toggle"); await sleep(200);

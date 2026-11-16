@@ -2517,3 +2517,9 @@ html[data-input="mouse"] .merge-bar button { min-height: 34px; }
 
 /* 2.105.1: at a low with Treating a low on, the low note says "carbs only, no insulin", so the second line saying the same goes */
 #cc-low-hint.is-low-on:not([hidden]) ~ #cc-no-insulin-note { display: none; }
+
+/* 2.105.3: "Fetch from Nightscout" and "Enter dose manually" share one line (the manual link goes right when both show) */
+.correction-row__links { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: var(--space-2xs) var(--space-m); }
+.correction-row__links .correction-mode-link { display: inline; margin-left: auto; }
+/* With the mode row folded, the Correction box sits straight under the dose breakdown: one gap, not two (7px, not 12px) */
+.dose-card__breakdown:not([hidden]) ~ .dose-card__controls[hidden] ~ #cc-correction-row { margin-top: 0; }

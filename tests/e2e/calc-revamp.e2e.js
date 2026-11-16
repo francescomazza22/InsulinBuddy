@@ -64,8 +64,11 @@ await dev.click("#cc-mode-btn"); await sleep(200);
 t.check("tapping the chip opens Correction / Treating a low / Eating out", (await dev.eval(vis("#cc-mode-controls"))) && (await dev.eval(`document.getElementById("cc-mode-btn").getAttribute("aria-expanded")`)) === "true");
 await dev.click("#cc-correction-toggle"); await sleep(200);
 t.check("Correction on: chip says 'Meal + correction' and is lit", (await txt("#cc-mode-label")) === "Meal + correction" && (await dev.eval(`document.getElementById("cc-mode-btn").classList.contains("is-on")`)));
+// 2.105.3: the row works like a menu: picking a mode folds it away (his 16 Nov screenshot: the open row made the card too tall)
+t.check("picking Correction folds the row; the glucose box shows and the chip keeps its words", !(await dev.eval(vis("#cc-mode-controls"))) && (await dev.eval(vis("#cc-glucose"))) && (await txt("#cc-mode-label")) === "Meal + correction" && (await dev.eval(`document.getElementById("cc-mode-btn").getAttribute("aria-expanded")`)) === "false");
 await dev.click("#cc-mode-btn"); await sleep(200);
-t.check("closing the row keeps the glucose box and the chip's words", !(await dev.eval(vis("#cc-mode-controls"))) && (await dev.eval(vis("#cc-glucose"))) && (await txt("#cc-mode-label")) === "Meal + correction");
+t.check("tapping the chip shows the row again, with Correction lit", (await dev.eval(vis("#cc-mode-controls"))) && (await dev.eval(`document.getElementById("cc-correction-toggle").classList.contains("is-active")`)));
+await dev.click("#cc-mode-btn"); await sleep(200);
 await dev.click("#cc-clear-all-btn"); await sleep(300);
 t.check("Clear All: row closed, chip back to Meal, card empty again", !(await dev.eval(vis("#cc-mode-controls"))) && (await txt("#cc-mode-label")) === "Meal" && (await txt("#cc-log-btn")) === "Add food to log a meal");
 await dev.click("#cc-mode-btn"); await sleep(150);
