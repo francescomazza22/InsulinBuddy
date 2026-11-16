@@ -3449,7 +3449,10 @@ import { weekdayOf, mealTypesForDay, MEAL_KINDS, extraFromFood, extrasForDay, se
     // A dose changed with the − / + buttons lights the chip but doesn't open the row (2.85.0): that would push the card down on every tap.
     const opener = !!(draft.correctionOn || draft.noInsulinOn || draft.eatingOutOn);   // !!: classList.toggle(x, undefined) flips instead of clearing
     const on = opener || !!draft.extraOn;
-    if (opener && !modeWasOn) modeOpen = true;
+    // 2.105.1: Treating a low that switched itself on at a low doesn't open the row: the amber chip and the note under it say
+    // it is on, and the four buttons pushed the food search almost off the screen. Tap the chip to see them.
+    const autoLowOnly = draft.noInsulinOn && draft.lowAuto && !draft.correctionOn && !draft.eatingOutOn;
+    if (opener && !modeWasOn && !autoLowOnly) modeOpen = true;
     modeWasOn = opener;
     const chip = el("cc-mode-btn");
     if (!chip) return;
@@ -4322,7 +4325,7 @@ import { weekdayOf, mealTypesForDay, MEAL_KINDS, extraFromFood, extrasForDay, se
     if (!note) return;
     const u = lowTreatmentUsual(state.history);
     if (!u.n || u.medianCarbs == null) { note.hidden = true; return; }
-    note.textContent = `Your usual: about ${round1(u.medianCarbs)} g (the middle of your last ${u.n} low treatment${u.n === 1 ? "" : "s"}, ${round1(u.minCarbs)}–${round1(u.maxCarbs)} g). Follow your own care plan.`;
+    note.textContent = `Your usual: about ${round1(u.medianCarbs)} g (${u.n === 1 ? "your last low" : `${round1(u.minCarbs)}–${round1(u.maxCarbs)} g over your last ${u.n}`}). Follow your own care plan.`;
     note.hidden = false;
   }
   function renderLowHint() {
@@ -4333,9 +4336,11 @@ import { weekdayOf, mealTypesForDay, MEAL_KINDS, extraFromFood, extrasForDay, se
     const u = lowTreatmentUsual(state.history);
     const usual = u.n ? ` You usually treat with about ${round1(u.medianCarbs)} g of fast carbs.` : "";
     // 2.99.1: say plainly whether insulin is being worked out, since the mode switches on by itself at a low.
+    // 2.105.1: when it is on, this one line replaces "Logging carbs only…", and the usual amount sits under Quick add.
     hint.innerHTML = `<b>Low (${fmtGluShort(liveGlucose.mgdl)} ${gluUnitShort()}).</b> ` + (draft.noInsulinOn
-      ? `Treating a low is on: carbs only, no insulin.${usual}`
+      ? `Treating a low is on: carbs only, no insulin.`
       : `Treating a low is off, so the dose above includes insulin.${usual}`);
+    hint.classList.toggle("is-low-on", !!draft.noInsulinOn);
     hint.hidden = false;
   }
 

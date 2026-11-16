@@ -2514,3 +2514,6 @@ html:not([data-view="history"]) .merge-bar { display: none; }
 .merge-bar__go:disabled { opacity: 0.4; cursor: default; }
 @media (min-width: 700px) { .merge-bar { bottom: 28px; left: calc(50% + var(--rail-w) / 2); } }
 html[data-input="mouse"] .merge-bar button { min-height: 34px; }
+
+/* 2.105.1: at a low with Treating a low on, the low note says "carbs only, no insulin", so the second line saying the same goes */
+#cc-low-hint.is-low-on:not([hidden]) ~ #cc-no-insulin-note { display: none; }

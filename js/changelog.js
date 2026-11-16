@@ -2,6 +2,14 @@
 // summary can never drift. Bump CHANGELOG[0].version here (and CACHE_VERSION in sw.js) on every release.
 export const CHANGELOG = [
   {
+    version: "2.105.1",
+    summary: "Treating a low: a calmer Calculator.",
+    changes: [
+      "When Treating a low switches on by itself at a low, the Correction / Treating a low / Eating out / Adjust buttons stay folded away (tap the amber chip to see them)",
+      "One line says it is carbs only, no insulin, instead of two; your usual amount shows once, under Quick add, in fewer words"
+    ]
+  },
+  {
     version: "2.105.0",
     summary: "Merge meals: pick several logged meals and turn them into one.",
     changes: [

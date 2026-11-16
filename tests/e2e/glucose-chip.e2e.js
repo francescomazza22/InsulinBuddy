@@ -44,8 +44,13 @@ const addFood = async (dev, name, grams) => {
 t.section(`LOW (64 mg/dL): HIS 9 NOV CASE (${W}px${dark ? ", dark" : ""})`);
 let { app, dev, be } = await boot(64);
 let c = await chip(dev);
-t.check("Treating a low is ON by itself: chip amber, row open, quick add ready", c.lowOn && c.on && c.amber && c.label === "Treating a low" && c.open && (await dev.eval(`!document.getElementById("quick-carb-row").hidden`)), JSON.stringify(c));
+t.check("Treating a low is ON by itself: chip amber, quick add ready; 2.105.1: the four-button row stays closed", c.lowOn && c.on && c.amber && c.label === "Treating a low" && !c.open && (await dev.eval(`!document.getElementById("quick-carb-row").hidden`)), JSON.stringify(c));
 t.check("the note says so: carbs only, no insulin", /Treating a low is on: carbs only, no insulin/.test(c.hint), c.hint);
+// 2.105.1 (his 15 Nov screenshot, "a bit cluttered"): one line says it, not three
+const vis = id => dev.eval(`(() => { const e = document.getElementById(${JSON.stringify(id)}); return !!e && !e.hidden && getComputedStyle(e).display !== "none"; })()`);
+t.check("the second 'Logging carbs only' line is gone while the low note shows", !(await vis("cc-no-insulin-note")), "");
+t.check("the low note doesn't repeat the usual amount (it is under Quick add)", !/usually treat/i.test(c.hint), c.hint);
+t.check("tapping the chip still opens the row, with Treating a low lit", await (async () => { await dev.click("#cc-mode-btn"); await sleep(150); const o = await chip(dev); await dev.click("#cc-mode-btn"); await sleep(150); return o.open && o.lowOn; })());
 await addFood(dev, "Banana", 250);
 c = await chip(dev);
 t.check("250 g banana: no insulin (0.0 u), logs as a treated low", c.dose === "0.0" && c.log === "Log treated low · 57.5g carbs", JSON.stringify(c));

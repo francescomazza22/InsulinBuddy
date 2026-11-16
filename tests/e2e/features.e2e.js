@@ -38,7 +38,7 @@ t.check("the usual-amount note is not visible until Treating a Low is on", await
 await dev.eval(`document.getElementById("cc-clear-all-btn").click()`); await sleep(300);
 await dev.eval(`document.getElementById("cc-no-insulin-toggle").click()`); await sleep(300);
 const usual = await dev.eval(`document.getElementById("quick-carb-usual").hidden ? "" : document.getElementById("quick-carb-usual").textContent`);
-t.check("shows the middle of the last 4 treatments (17.5 g, range 15-30)", /17\.5 g/.test(usual) && /4 low treatments/.test(usual) && /15–30/.test(usual), usual);
+t.check("shows the middle of the last 4 treatments (17.5 g, range 15-30)", /17\.5 g/.test(usual) && /last 4\b/.test(usual) && /15–30/.test(usual), usual);
 await dev.eval(`document.getElementById("cc-no-insulin-toggle").click()`); await sleep(200);
 
 t.section("AFTER-MEAL CHECK: reminder card");
