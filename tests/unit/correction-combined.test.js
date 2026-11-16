@@ -111,7 +111,8 @@ test("the schema accepts a negative correction part but still refuses a negative
 
 import { buildTrendBuckets, summarizeTrends } from "../../js/calc.js";
 test("trends and report totals: a reduction counts against meal insulin, never as a negative correction", () => {
-  const now = Date.now();
+  // Midday today, so the two meals (1 h and 2 h earlier) never fall into yesterday's bar when the tests run just after midnight.
+  const now = new Date().setHours(12, 0, 0, 0);
   const h = [
     { id: "a", ts: now - 3600000, mealType: "lunch", totalCarbs: 100, mealDose: 12, correctionDose: -1, noInsulin: false },
     { id: "b", ts: now - 7200000, mealType: "dinner", totalCarbs: 50, mealDose: 5, correctionDose: 2, noInsulin: false }
